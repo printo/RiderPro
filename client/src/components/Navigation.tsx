@@ -35,26 +35,6 @@ export default function Navigation() {
         </div>
       </nav>
 
-      {/* Tab Navigation */}
-      <div className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8" role="tablist">
-            <Link href="/shipments" data-testid="link-shipments">
-              <button 
-                className={`border-b-2 py-3 px-1 text-sm font-medium flex items-center gap-2 transition-colors ${
-                  isActive("/shipments")
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid="button-shipments-tab"
-              >
-                <List className="h-4 w-4" />
-                Shipments
-              </button>
-            </Link>
-          </div>
-        </div>
-      </div>
     </>
   );
 }
