@@ -11,21 +11,21 @@ export default function Filters({ filters, onFiltersChange }: FiltersProps) {
   const updateFilter = (key: keyof ShipmentFilters, value: string) => {
     onFiltersChange({
       ...filters,
-      [key]: value || undefined,
+      [key]: value === "all" ? undefined : value,
     });
   };
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <Select 
-        value={filters.status || ""} 
+        value={filters.status || "all"} 
         onValueChange={(value) => updateFilter("status", value)}
       >
         <SelectTrigger data-testid="select-filter-status">
           <SelectValue placeholder="All Status" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Status</SelectItem>
+          <SelectItem value="all">All Status</SelectItem>
           <SelectItem value="Assigned">Assigned</SelectItem>
           <SelectItem value="In Transit">In Transit</SelectItem>
           <SelectItem value="Delivered">Delivered</SelectItem>
@@ -36,28 +36,28 @@ export default function Filters({ filters, onFiltersChange }: FiltersProps) {
       </Select>
 
       <Select 
-        value={filters.type || ""} 
+        value={filters.type || "all"} 
         onValueChange={(value) => updateFilter("type", value as "delivery" | "pickup")}
       >
         <SelectTrigger data-testid="select-filter-type">
           <SelectValue placeholder="All Types" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Types</SelectItem>
+          <SelectItem value="all">All Types</SelectItem>
           <SelectItem value="delivery">Delivery</SelectItem>
           <SelectItem value="pickup">Pickup</SelectItem>
         </SelectContent>
       </Select>
 
       <Select 
-        value={filters.routeName || ""} 
+        value={filters.routeName || "all"} 
         onValueChange={(value) => updateFilter("routeName", value)}
       >
         <SelectTrigger data-testid="select-filter-route">
           <SelectValue placeholder="All Routes" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">All Routes</SelectItem>
+          <SelectItem value="all">All Routes</SelectItem>
           <SelectItem value="Route A">Route A</SelectItem>
           <SelectItem value="Route B">Route B</SelectItem>
           <SelectItem value="Route C">Route C</SelectItem>
