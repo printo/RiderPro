@@ -63,7 +63,7 @@ export default function FloatingActionMenu() {
           <div className="space-y-6 pb-6">
             {/* Profile Section */}
             <div className="space-y-4">
-              <div className="flex items-center space-x-4">
+              <div className="grid grid-cols-3 gap-3 items-center">
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
                   <User className="text-primary h-6 w-6" />
                 </div>
@@ -71,16 +71,15 @@ export default function FloatingActionMenu() {
                   <h3 className="font-semibold text-foreground">John Rider</h3>
                   <p className="text-sm text-muted-foreground">Delivery Executive</p>
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="flex items-center space-x-2 text-muted-foreground">
-                  <Phone className="h-4 w-4" />
-                  <span>+91-9876543210</span>
-                </div>
-                <div className="flex items-center space-x-2 text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  <span>john@riderpro.com</span>
+                <div className="text-sm space-y-1">
+                  <div className="flex items-center space-x-1 text-muted-foreground">
+                    <Phone className="h-3 w-3" />
+                    <span>+91-9876543210</span>
+                  </div>
+                  <div className="flex items-center space-x-1 text-muted-foreground">
+                    <Mail className="h-3 w-3" />
+                    <span>john@riderpro.com</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -90,7 +89,7 @@ export default function FloatingActionMenu() {
             {/* Navigation Menu */}
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-muted-foreground mb-3">Navigation</h4>
-              <div className="grid gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {menuItems.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -98,14 +97,14 @@ export default function FloatingActionMenu() {
                       key={item.href}
                       variant={isActive(item.href) ? "default" : "ghost"}
                       className={cn(
-                        "justify-start h-12 text-left",
+                        "justify-center h-12 text-center flex-col",
                         isActive(item.href) && "bg-primary text-primary-foreground"
                       )}
                       onClick={() => handleNavigation(item.href)}
                       data-testid={item.testId}
                     >
-                      <Icon className="h-5 w-5 mr-3" />
-                      {item.label}
+                      <Icon className="h-4 w-4 mb-1" />
+                      <span className="text-xs">{item.label}</span>
                     </Button>
                   );
                 })}
@@ -117,23 +116,23 @@ export default function FloatingActionMenu() {
             {/* Action Buttons */}
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-muted-foreground mb-3">Actions</h4>
-              <div className="grid gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant="ghost"
-                  className="justify-start h-12 text-left"
+                  className="justify-center h-12 text-center flex-col"
                   data-testid="button-settings"
                 >
-                  <Settings className="h-5 w-5 mr-3" />
-                  Settings
+                  <Settings className="h-4 w-4 mb-1" />
+                  <span className="text-xs">Settings</span>
                 </Button>
                 
                 <Button
                   variant="ghost"
-                  className="justify-start h-12 text-left text-red-600 hover:text-red-600 hover:bg-red-50"
+                  className="justify-center h-12 text-center flex-col text-red-600 hover:text-red-600 hover:bg-red-50"
                   data-testid="button-logout"
                 >
-                  <LogOut className="h-5 w-5 mr-3" />
-                  Logout
+                  <LogOut className="h-4 w-4 mb-1" />
+                  <span className="text-xs">Logout</span>
                 </Button>
               </div>
             </div>

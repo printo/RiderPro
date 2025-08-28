@@ -158,11 +158,8 @@ export default function ShipmentDetailModal({ shipment, isOpen, onClose }: Shipm
       <SheetContent side="bottom" className="h-[90vh] overflow-y-auto" data-testid="modal-shipment-detail">
         <SheetHeader>
           <SheetTitle className="flex items-center justify-between text-left">
-            <div className="flex items-center gap-2">
-              Shipment Details
-              <Badge variant="outline" className="text-xs font-mono">
-                #{shipment.id.slice(-8)}
-              </Badge>
+            <div>
+              Shipment details for #{shipment.id.slice(-8)}
             </div>
             <Button 
               variant="ghost" 
@@ -173,51 +170,15 @@ export default function ShipmentDetailModal({ shipment, isOpen, onClose }: Shipm
               <X className="h-4 w-4" />
             </Button>
           </SheetTitle>
-          <SheetDescription>
-            View and manage shipment details, update status, and collect acknowledgments
-          </SheetDescription>
         </SheetHeader>
 
         <div className="space-y-6">
-          {/* Customer Information */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground border-b border-border pb-2">
-              Customer Information
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Name</label>
-                <p className="text-foreground" data-testid="text-customer-name">
-                  {shipment.customerName}
-                </p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Mobile</label>
-                <p className="text-foreground" data-testid="text-customer-mobile">
-                  {shipment.customerMobile}
-                </p>
-              </div>
-              <div className="sm:col-span-2">
-                <label className="text-sm font-medium text-muted-foreground">Address</label>
-                <p className="text-foreground" data-testid="text-customer-address">
-                  {shipment.address}
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Shipment Details */}
           <div className="space-y-4">
             <h3 className="font-semibold text-foreground border-b border-border pb-2">
               Shipment Details
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Shipment ID</label>
-                <p className="text-foreground" data-testid="text-shipment-id">
-                  #{shipment.id.slice(-8)}
-                </p>
-              </div>
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Type</label>
                 <div className="flex items-center gap-2">
@@ -244,16 +205,45 @@ export default function ShipmentDetailModal({ shipment, isOpen, onClose }: Shipm
                 </p>
               </div>
               <div>
+                <label className="text-sm font-medium text-muted-foreground">Current Status</label>
+                <Badge className={cn("mt-1", getStatusClass(shipment.status))} data-testid="text-current-status">
+                  {shipment.status}
+                </Badge>
+              </div>
+              <div className="sm:col-span-2">
                 <label className="text-sm font-medium text-muted-foreground">Delivery Time</label>
                 <p className="text-foreground" data-testid="text-delivery-time">
                   {formatTime(shipment.deliveryTime)}
                 </p>
               </div>
+            </div>
+          </div>
+
+          {/* Customer Information */}
+          <div className="space-y-4">
+            <h3 className="font-semibold text-foreground border-b border-border pb-2">
+              Customer Information
+            </h3>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Name</label>
+                  <p className="text-foreground" data-testid="text-customer-name">
+                    {shipment.customerName}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Mobile</label>
+                  <p className="text-foreground" data-testid="text-customer-mobile">
+                    {shipment.customerMobile}
+                  </p>
+                </div>
+              </div>
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Current Status</label>
-                <Badge className={cn("mt-1", getStatusClass(shipment.status))} data-testid="text-current-status">
-                  {shipment.status}
-                </Badge>
+                <label className="text-sm font-medium text-muted-foreground">Address</label>
+                <p className="text-foreground" data-testid="text-customer-address">
+                  {shipment.address}
+                </p>
               </div>
             </div>
           </div>

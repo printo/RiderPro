@@ -17,14 +17,12 @@ export default function Navigation() {
       <nav className="bg-card border-b border-border sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-4">
+            <Link href="/" data-testid="link-home" className="flex items-center space-x-4 cursor-pointer hover:opacity-80 transition-opacity">
               <div className="bg-primary rounded-lg p-2">
                 <Truck className="text-primary-foreground h-6 w-6" />
               </div>
-              <Link href="/" data-testid="link-home">
-                <h1 className="text-xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors">RiderPro</h1>
-              </Link>
-            </div>
+              <h1 className="text-xl font-bold text-foreground hover:text-primary transition-colors">RiderPro</h1>
+            </Link>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-muted-foreground hidden sm:inline">John Rider</span>
               <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
