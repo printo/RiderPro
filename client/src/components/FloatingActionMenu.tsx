@@ -11,13 +11,17 @@ import {
   LogOut, 
   Settings,
   Phone,
-  Mail
+  Mail,
+  Sun,
+  Moon
 } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 
 export default function FloatingActionMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [location, setLocation] = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
   const menuItems = [
     {
@@ -120,15 +124,16 @@ export default function FloatingActionMenu() {
                 <Button
                   variant="ghost"
                   className="justify-center h-12 text-center flex-col"
-                  data-testid="button-settings"
+                  onClick={toggleTheme}
+                  data-testid="button-theme-toggle"
                 >
-                  <Settings className="h-4 w-4 mb-1" />
-                  <span className="text-xs">Settings</span>
+                  {theme === 'light' ? <Moon className="h-4 w-4 mb-1" /> : <Sun className="h-4 w-4 mb-1" />}
+                  <span className="text-xs">{theme === 'light' ? 'Dark' : 'Light'}</span>
                 </Button>
                 
                 <Button
                   variant="ghost"
-                  className="justify-center h-12 text-center flex-col text-red-600 hover:text-red-600 hover:bg-red-50"
+                  className="justify-center h-12 text-center flex-col text-red-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                   data-testid="button-logout"
                 >
                   <LogOut className="h-4 w-4 mb-1" />

@@ -25,7 +25,7 @@ export default function Filters({ filters, onFiltersChange }: FiltersProps) {
     });
   };
 
-  const hasActiveFilters = filters.status || filters.type || filters.routeName || filters.date;
+  const hasActiveFilters = filters.status || filters.type || filters.routeName;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
@@ -47,7 +47,7 @@ export default function Filters({ filters, onFiltersChange }: FiltersProps) {
       </CollapsibleTrigger>
       
       <CollapsibleContent className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 border rounded-lg bg-card">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 border rounded-lg bg-card">
           <Select 
             value={filters.status || "all"} 
             onValueChange={(value) => updateFilter("status", value)}
@@ -94,14 +94,6 @@ export default function Filters({ filters, onFiltersChange }: FiltersProps) {
               <SelectItem value="Route C">Route C</SelectItem>
             </SelectContent>
           </Select>
-
-          <Input
-            type="date" 
-            value={filters.date || ""}
-            onChange={(e) => updateFilter("date", e.target.value)}
-            placeholder="Select date"
-            data-testid="input-filter-date"
-          />
         </div>
       </CollapsibleContent>
     </Collapsible>

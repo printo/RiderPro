@@ -155,148 +155,152 @@ export default function ShipmentDetailModal({ shipment, isOpen, onClose }: Shipm
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="bottom" className="h-[90vh] overflow-y-auto" data-testid="modal-shipment-detail">
-        <SheetHeader>
-          <SheetTitle className="flex items-center justify-between text-left">
-            <div>
-              Shipment details for #{shipment.id.slice(-8)}
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={onClose}
-              data-testid="button-close-modal"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+      <SheetContent side="bottom" className="h-[90vh] overflow-hidden flex flex-col" data-testid="modal-shipment-detail">
+        <SheetHeader className="flex-shrink-0">
+          <SheetTitle className="text-left">
+            Shipment details for #{shipment.id.slice(-8)}
           </SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-6">
-          {/* Shipment Details */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground border-b border-border pb-2">
-              Shipment Details
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Type</label>
-                <div className="flex items-center gap-2">
-                  {shipment.type === "delivery" ? (
-                    <Truck className="text-blue-600 h-4 w-4" />
-                  ) : (
-                    <Package className="text-orange-600 h-4 w-4" />
-                  )}
-                  <p className="text-foreground capitalize" data-testid="text-shipment-type">
-                    {shipment.type}
+        <div className="flex-1 overflow-y-auto px-1">
+          <div className="space-y-6 pb-32">
+            {/* Shipment Details */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-muted-foreground">Type</label>
+                  <div className="flex items-center gap-2">
+                    {shipment.type === "delivery" ? (
+                      <Truck className="text-blue-600 dark:text-blue-400 h-4 w-4" />
+                    ) : (
+                      <Package className="text-orange-600 dark:text-orange-400 h-4 w-4" />
+                    )}
+                    <p className="text-foreground capitalize" data-testid="text-shipment-type">
+                      {shipment.type}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-muted-foreground">Route</label>
+                  <p className="text-foreground" data-testid="text-shipment-route">
+                    {shipment.routeName}
                   </p>
                 </div>
               </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Route</label>
-                <p className="text-foreground" data-testid="text-shipment-route">
-                  {shipment.routeName}
-                </p>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-muted-foreground">Cost</label>
+                  <p className="text-foreground font-medium" data-testid="text-shipment-cost">
+                    ₹{shipment.cost}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-muted-foreground">Current Status</label>
+                  <Badge 
+                    className={cn(
+                      "text-xs",
+                      shipment.status === 'Delivered' ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
+                      shipment.status === 'Picked Up' ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
+                      shipment.status === 'In Transit' ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" :
+                      shipment.status === 'Assigned' ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                      shipment.status === 'Cancelled' ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" :
+                      shipment.status === 'Returned' ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" :
+                      "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                    )} 
+                    data-testid="text-current-status"
+                  >
+                    {shipment.status}
+                  </Badge>
+                </div>
               </div>
+              
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Cost</label>
-                <p className="text-foreground" data-testid="text-shipment-cost">
-                  ₹{shipment.cost}
-                </p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Current Status</label>
-                <Badge className={cn("mt-1", getStatusClass(shipment.status))} data-testid="text-current-status">
-                  {shipment.status}
-                </Badge>
-              </div>
-              <div className="sm:col-span-2">
                 <label className="text-sm font-medium text-muted-foreground">Delivery Time</label>
                 <p className="text-foreground" data-testid="text-delivery-time">
                   {formatTime(shipment.deliveryTime)}
                 </p>
               </div>
             </div>
-          </div>
 
-          {/* Customer Information */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-foreground border-b border-border pb-2">
-              Customer Information
-            </h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Name</label>
-                  <p className="text-foreground" data-testid="text-customer-name">
-                    {shipment.customerName}
-                  </p>
+            {/* Customer Information */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-foreground border-b border-border pb-2">
+                Customer Information
+              </h3>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Name</label>
+                    <p className="text-foreground" data-testid="text-customer-name">
+                      {shipment.customerName}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Mobile</label>
+                    <p className="text-foreground" data-testid="text-customer-mobile">
+                      {shipment.customerMobile}
+                    </p>
+                  </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Mobile</label>
-                  <p className="text-foreground" data-testid="text-customer-mobile">
-                    {shipment.customerMobile}
+                  <label className="text-sm font-medium text-muted-foreground">Address</label>
+                  <p className="text-foreground" data-testid="text-customer-address">
+                    {shipment.address}
                   </p>
                 </div>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-muted-foreground">Address</label>
-                <p className="text-foreground" data-testid="text-customer-address">
-                  {shipment.address}
-                </p>
               </div>
             </div>
-          </div>
 
-          {!showAcknowledgment && (
-            <>
-              <Separator />
-              {/* Status Update Actions */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-foreground border-b border-border pb-2">
-                  Update Status
-                </h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    onClick={() => handleStatusUpdate("Delivered")}
-                    disabled={updateStatusMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    data-testid="button-delivered"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Delivered
-                  </Button>
-                  <Button
-                    onClick={() => handleStatusUpdate("Picked Up")}
-                    disabled={updateStatusMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                    data-testid="button-picked-up"
-                  >
-                    <Package className="h-4 w-4 mr-2" />
-                    Picked Up
-                  </Button>
-                  <Button
-                    onClick={() => handleStatusUpdate("Returned")}
-                    disabled={updateStatusMutation.isPending}
-                    className="bg-orange-600 hover:bg-orange-700 text-white"
-                    data-testid="button-returned"
-                  >
-                    <Undo className="h-4 w-4 mr-2" />
-                    Returned
-                  </Button>
-                  <Button
-                    onClick={() => handleStatusUpdate("Cancelled")}
-                    disabled={updateStatusMutation.isPending}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                    data-testid="button-cancelled"
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Cancelled
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
+          </div>
+        </div>
+
+        {/* Fixed Footer Status Update */}
+        {!showAcknowledgment && (
+          <div className="absolute bottom-0 left-0 right-0 bg-background border-t border-border p-4 space-y-3">
+            <h3 className="font-semibold text-foreground text-center">
+              Update Status
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={() => handleStatusUpdate("Delivered")}
+                disabled={updateStatusMutation.isPending}
+                className="bg-green-600 hover:bg-green-700 text-white h-12"
+                data-testid="button-delivered"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Delivered
+              </Button>
+              <Button
+                onClick={() => handleStatusUpdate("Picked Up")}
+                disabled={updateStatusMutation.isPending}
+                className="bg-green-600 hover:bg-green-700 text-white h-12"
+                data-testid="button-picked-up"
+              >
+                <Package className="h-4 w-4 mr-2" />
+                Picked Up
+              </Button>
+              <Button
+                onClick={() => handleStatusUpdate("Returned")}
+                disabled={updateStatusMutation.isPending}
+                className="bg-orange-600 hover:bg-orange-700 text-white h-12"
+                data-testid="button-returned"
+              >
+                <Undo className="h-4 w-4 mr-2" />
+                Returned
+              </Button>
+              <Button
+                onClick={() => handleStatusUpdate("Cancelled")}
+                disabled={updateStatusMutation.isPending}
+                className="bg-red-600 hover:bg-red-700 text-white h-12"
+                data-testid="button-cancelled"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Cancelled
+              </Button>
+            </div>
+          </div>
+        )}
 
           {showAcknowledgment && (
             <>
@@ -369,7 +373,6 @@ export default function ShipmentDetailModal({ shipment, isOpen, onClose }: Shipm
               </div>
             </>
           )}
-        </div>
       </SheetContent>
       
       {/* Remarks Modal for Cancelled/Returned */}
