@@ -1,6 +1,7 @@
 import { useDashboard } from "@/hooks/useDashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import SyncStatusPanel from "@/components/SyncStatusPanel";
 import { Package, CheckCircle, Clock, HourglassIcon } from "lucide-react";
 
 export default function Dashboard() {
@@ -129,37 +130,44 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Status Distribution Chart */}
-        <Card data-testid="card-status-chart">
-          <CardContent className="pt-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Status Distribution</h3>
-            <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">
-              <img 
-                src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&h=400" 
-                alt="Dashboard pie chart showing shipment status distribution" 
-                className="rounded-lg w-full h-full object-cover"
-                data-testid="img-status-chart"
-              />
-            </div>
-          </CardContent>
-        </Card>
+      {/* Charts and Sync Status Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Sync Status Panel */}
+        <div className="lg:col-span-1">
+          <SyncStatusPanel />
+        </div>
+        {/* Charts Section */}
+        <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Status Distribution Chart */}
+          <Card data-testid="card-status-chart">
+            <CardContent className="pt-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Status Distribution</h3>
+              <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">
+                <img 
+                  src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&h=400" 
+                  alt="Dashboard pie chart showing shipment status distribution" 
+                  className="rounded-lg w-full h-full object-cover"
+                  data-testid="img-status-chart"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Route Performance Chart */}
-        <Card data-testid="card-route-chart">
-          <CardContent className="pt-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Route Performance</h3>
-            <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">
-              <img 
-                src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&h=400" 
-                alt="Dashboard bar chart displaying route performance metrics" 
-                className="rounded-lg w-full h-full object-cover"
-                data-testid="img-route-chart"
-              />
-            </div>
-          </CardContent>
-        </Card>
+          {/* Route Performance Chart */}
+          <Card data-testid="card-route-chart">
+            <CardContent className="pt-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Route Performance</h3>
+              <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">
+                <img 
+                  src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&h=400" 
+                  alt="Dashboard bar chart displaying route performance metrics" 
+                  className="rounded-lg w-full h-full object-cover"
+                  data-testid="img-route-chart"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Route Summary */}
@@ -189,9 +197,15 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Pending:</span>
-                    <span className="text-yellow-600 font-medium" data-testid={`text-route-pending-${routeName}`}>
-                      {routeData.pending}
+                    <span className="text-muted-foreground">Delivery Pending:</span>
+                    <span className="text-blue-600 font-medium" data-testid={`text-route-delivery-pending-${routeName}`}>
+                      {routeData.deliveryPending}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Pickup Pending:</span>
+                    <span className="text-orange-600 font-medium" data-testid={`text-route-pickup-pending-${routeName}`}>
+                      {routeData.pickupPending}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">

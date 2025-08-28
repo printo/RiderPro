@@ -42,13 +42,14 @@ export default function ShipmentCard({ shipment, selected, onSelect, onViewDetai
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow" data-testid={`card-shipment-${shipment.id}`}>
+    <Card className="hover:shadow-md transition-shadow cursor-pointer" data-testid={`card-shipment-${shipment.id}`} onClick={onViewDetails}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-3 flex-1">
             <Checkbox
               checked={selected}
               onCheckedChange={(checked) => onSelect(!!checked)}
+              onClick={(e) => e.stopPropagation()}
               className="mt-1"
               data-testid={`checkbox-select-${shipment.id}`}
             />
@@ -111,15 +112,9 @@ export default function ShipmentCard({ shipment, selected, onSelect, onViewDetai
               </div>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={onViewDetails}
-            className="text-primary hover:text-primary/80 p-2"
-            data-testid={`button-view-details-${shipment.id}`}
-          >
+          <div className="text-primary p-2">
             <ChevronRight className="h-5 w-5" />
-          </Button>
+          </div>
         </div>
       </CardContent>
     </Card>

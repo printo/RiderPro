@@ -12,8 +12,14 @@ if (!fs.existsSync(dbDir)) {
 const liveDbPath = path.join(dbDir, 'sqlite.db');
 const replicaDbPath = path.join(dbDir, 'replica_sqlite.db');
 
+// In development, use replica DB for operations, in production use live DB
+const isDevelopment = process.env.NODE_ENV === 'development';
 export const liveDb = new Database(liveDbPath);
 export const replicaDb = new Database(replicaDbPath);
+
+// For dev mode, swap the usage so npm run dev uses replica
+export const primaryDb = isDevelopment ? replicaDb : liveDb;
+export const secondaryDb = isDevelopment ? liveDb : replicaDb;
 
 // Initialize tables
 const initTables = (db: Database.Database) => {
@@ -47,6 +53,20 @@ const initTables = (db: Database.Database) => {
     )
   `);
 
+  // Sync status tracking table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sync_status (
+      id TEXT PRIMARY KEY,
+      shipmentId TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('pending', 'success', 'failed')),
+      attempts INTEGER DEFAULT 0,
+      lastAttempt TEXT,
+      error TEXT,
+      createdAt TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (shipmentId) REFERENCES shipments (id)
+    )
+  `);
+
   // Create indexes for better performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(status);
@@ -54,6 +74,8 @@ const initTables = (db: Database.Database) => {
     CREATE INDEX IF NOT EXISTS idx_shipments_route ON shipments(routeName);
     CREATE INDEX IF NOT EXISTS idx_shipments_date ON shipments(deliveryTime);
     CREATE INDEX IF NOT EXISTS idx_acknowledgments_shipment ON acknowledgments(shipmentId);
+    CREATE INDEX IF NOT EXISTS idx_sync_status_shipment ON sync_status(shipmentId);
+    CREATE INDEX IF NOT EXISTS idx_sync_status_status ON sync_status(status);
   `);
 };
 

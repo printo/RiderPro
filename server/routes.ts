@@ -178,6 +178,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Sync status endpoints
+  app.get('/api/sync/stats', async (req, res) => {
+    try {
+      // Mock sync stats for now - would be implemented with actual sync tracking
+      const stats = {
+        totalPending: 2,
+        totalSent: 5,
+        totalFailed: 1,
+        lastSyncTime: new Date().toISOString(),
+      };
+      res.json(stats);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/sync/trigger', async (req, res) => {
+    try {
+      // Get all shipments that need syncing
+      const shipments = await storage.getShipments();
+      const result = await externalSync.batchSyncShipments(shipments);
+      
+      res.json({ 
+        processed: shipments.length,
+        success: result.success,
+        failed: result.failed 
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Error logging endpoint
+  app.post('/api/errors', async (req, res) => {
+    try {
+      // Log error (in production, would save to monitoring service)
+      console.error('Frontend Error:', req.body);
+      res.status(200).json({ logged: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Initialize scheduler (runs the cron jobs)
   await import('./services/scheduler.js');
 

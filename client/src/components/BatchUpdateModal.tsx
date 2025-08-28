@@ -27,6 +27,9 @@ export default function BatchUpdateModal({
 
   const batchUpdateMutation = useMutation({
     mutationFn: async () => {
+      if (!selectedStatus) {
+        throw new Error("Status is required");
+      }
       const updates = selectedIds.map(id => ({ id, status: selectedStatus }));
       const response = await apiRequest("PATCH", "/api/shipments/batch", { updates });
       return response.json();

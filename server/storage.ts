@@ -22,8 +22,10 @@ export class SqliteStorage implements IStorage {
   private replicaQueries: ShipmentQueries;
 
   constructor() {
-    this.liveQueries = new ShipmentQueries(false);
-    this.replicaQueries = new ShipmentQueries(true);
+    // In development mode, primary operations use replica DB
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    this.liveQueries = new ShipmentQueries(isDevelopment);
+    this.replicaQueries = new ShipmentQueries(!isDevelopment);
   }
 
   async getShipments(filters?: ShipmentFilters): Promise<Shipment[]> {

@@ -58,6 +58,8 @@ export const dashboardMetricsSchema = z.object({
     delivered: z.number(),
     pending: z.number(),
     cancelled: z.number(),
+    pickupPending: z.number(),
+    deliveryPending: z.number(),
   })),
 });
 
