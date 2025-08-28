@@ -1,10 +1,16 @@
 import { useState } from "react";
 import { Shipment } from "@shared/schema";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetHeader, 
+  SheetTitle,
+  SheetDescription 
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle, Package, Undo, XCircle, Truck, Save, X } from "lucide-react";
+import { CheckCircle, Package, Undo, XCircle, Truck, Save, X, MapPin, Phone, Calendar, DollarSign } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -148,11 +154,16 @@ export default function ShipmentDetailModal({ shipment, isOpen, onClose }: Shipm
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="modal-shipment-detail">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            Shipment Details
+    <Sheet open={isOpen} onOpenChange={onClose}>
+      <SheetContent side="bottom" className="h-[90vh] overflow-y-auto" data-testid="modal-shipment-detail">
+        <SheetHeader>
+          <SheetTitle className="flex items-center justify-between text-left">
+            <div className="flex items-center gap-2">
+              Shipment Details
+              <Badge variant="outline" className="text-xs font-mono">
+                #{shipment.id.slice(-8)}
+              </Badge>
+            </div>
             <Button 
               variant="ghost" 
               size="sm" 
@@ -161,8 +172,11 @@ export default function ShipmentDetailModal({ shipment, isOpen, onClose }: Shipm
             >
               <X className="h-4 w-4" />
             </Button>
-          </DialogTitle>
-        </DialogHeader>
+          </SheetTitle>
+          <SheetDescription>
+            View and manage shipment details, update status, and collect acknowledgments
+          </SheetDescription>
+        </SheetHeader>
 
         <div className="space-y-6">
           {/* Customer Information */}
@@ -366,7 +380,7 @@ export default function ShipmentDetailModal({ shipment, isOpen, onClose }: Shipm
             </>
           )}
         </div>
-      </DialogContent>
+      </SheetContent>
       
       {/* Remarks Modal for Cancelled/Returned */}
       {remarksStatus && (
@@ -380,6 +394,6 @@ export default function ShipmentDetailModal({ shipment, isOpen, onClose }: Shipm
           status={remarksStatus}
         />
       )}
-    </Dialog>
+    </Sheet>
   );
 }

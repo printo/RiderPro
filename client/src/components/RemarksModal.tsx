@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -85,6 +86,9 @@ export default function RemarksModal({
             <MessageCircle className="h-5 w-5 text-orange-600" />
             {status} Shipment - Add Remarks
           </DialogTitle>
+          <DialogDescription>
+            Please provide a reason for marking this shipment as {status.toLowerCase()}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

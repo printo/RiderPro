@@ -21,7 +21,7 @@ export default function Navigation() {
               <div className="bg-primary rounded-lg p-2">
                 <Truck className="text-primary-foreground h-6 w-6" />
               </div>
-              <Link href="/">
+              <Link href="/" data-testid="link-home">
                 <h1 className="text-xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors">RiderPro</h1>
               </Link>
             </div>
