@@ -210,6 +210,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Remarks endpoint for cancelled/returned shipments
+  app.post('/api/shipments/:id/remarks', async (req, res) => {
+    try {
+      const shipmentId = req.params.id;
+      const { remarks, status } = req.body;
+      
+      if (!remarks || !status) {
+        return res.status(400).json({ message: 'Remarks and status are required' });
+      }
+      
+      // Verify shipment exists
+      const shipment = await storage.getShipment(shipmentId);
+      if (!shipment) {
+        return res.status(404).json({ message: 'Shipment not found' });
+      }
+      
+      // For now, just store remarks in a simple way
+      // In production, this would be a proper table
+      console.log(`Remarks for shipment ${shipmentId} (${status}):`, remarks);
+      
+      res.status(201).json({ 
+        shipmentId, 
+        remarks, 
+        status,
+        savedAt: new Date().toISOString()
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
   // Error logging endpoint
   app.post('/api/errors', async (req, res) => {
     try {

@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import SignatureCanvas from "./SignatureCanvas";
+import RemarksModal from "./RemarksModal";
 import { cn } from "@/lib/utils";
 
 interface ShipmentDetailModalProps {
@@ -19,6 +20,8 @@ interface ShipmentDetailModalProps {
 
 export default function ShipmentDetailModal({ shipment, isOpen, onClose }: ShipmentDetailModalProps) {
   const [showAcknowledgment, setShowAcknowledgment] = useState(false);
+  const [showRemarksModal, setShowRemarksModal] = useState(false);
+  const [remarksStatus, setRemarksStatus] = useState<"Cancelled" | "Returned" | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string>("");
   const [signatureData, setSignatureData] = useState<string>("");
@@ -78,10 +81,14 @@ export default function ShipmentDetailModal({ shipment, isOpen, onClose }: Shipm
   });
 
   const handleStatusUpdate = async (status: string) => {
-    updateStatusMutation.mutate({ status });
     if (status === "Delivered" || status === "Picked Up") {
       setShowAcknowledgment(true);
+      updateStatusMutation.mutate({ status });
+    } else if (status === "Cancelled" || status === "Returned") {
+      setRemarksStatus(status as "Cancelled" | "Returned");
+      setShowRemarksModal(true);
     } else {
+      updateStatusMutation.mutate({ status });
       onClose();
     }
   };
@@ -360,6 +367,19 @@ export default function ShipmentDetailModal({ shipment, isOpen, onClose }: Shipm
           )}
         </div>
       </DialogContent>
+      
+      {/* Remarks Modal for Cancelled/Returned */}
+      {remarksStatus && (
+        <RemarksModal
+          isOpen={showRemarksModal}
+          onClose={() => {
+            setShowRemarksModal(false);
+            setRemarksStatus(null);
+          }}
+          shipmentId={shipment.id}
+          status={remarksStatus}
+        />
+      )}
     </Dialog>
   );
 }

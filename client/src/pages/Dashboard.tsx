@@ -142,13 +142,23 @@ export default function Dashboard() {
           <Card data-testid="card-status-chart">
             <CardContent className="pt-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Status Distribution</h3>
-              <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">
-                <img 
-                  src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&h=400" 
-                  alt="Dashboard pie chart showing shipment status distribution" 
-                  className="rounded-lg w-full h-full object-cover"
-                  data-testid="img-status-chart"
-                />
+              <div className="h-64 space-y-2">
+                {Object.entries(metrics.statusBreakdown).map(([status, count]) => (
+                  <div key={status} className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                    <span className="text-sm font-medium">{status}</span>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-16 h-2 rounded-full bg-gradient-to-r ${
+                        status === 'Delivered' ? 'from-green-400 to-green-600' :
+                        status === 'Picked Up' ? 'from-green-400 to-green-600' :
+                        status === 'In Transit' ? 'from-blue-400 to-blue-600' :
+                        status === 'Assigned' ? 'from-yellow-400 to-yellow-600' :
+                        status === 'Cancelled' ? 'from-red-400 to-red-600' :
+                        'from-gray-400 to-gray-600'
+                      }`} />
+                      <span className="text-sm font-bold min-w-[2rem] text-right">{count}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -157,13 +167,27 @@ export default function Dashboard() {
           <Card data-testid="card-route-chart">
             <CardContent className="pt-6">
               <h3 className="text-lg font-semibold text-foreground mb-4">Route Performance</h3>
-              <div className="h-64 flex items-center justify-center bg-muted/30 rounded-lg">
-                <img 
-                  src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&h=400" 
-                  alt="Dashboard bar chart displaying route performance metrics" 
-                  className="rounded-lg w-full h-full object-cover"
-                  data-testid="img-route-chart"
-                />
+              <div className="h-64 space-y-3">
+                {Object.entries(metrics.routeBreakdown).map(([route, data]) => (
+                  <div key={route} className="space-y-1">
+                    <div className="flex justify-between text-sm font-medium">
+                      <span>{route}</span>
+                      <span>{data.total} total</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full"
+                        style={{ 
+                          width: `${data.total > 0 ? ((data.delivered + data.pickedUp) / data.total) * 100 : 0}%` 
+                        }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{data.delivered + data.pickedUp} completed</span>
+                      <span>{data.pending} pending</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -194,6 +218,12 @@ export default function Dashboard() {
                     <span className="text-muted-foreground">Delivered:</span>
                     <span className="text-green-600 font-medium" data-testid={`text-route-delivered-${routeName}`}>
                       {routeData.delivered}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Picked Up:</span>
+                    <span className="text-green-600 font-medium" data-testid={`text-route-picked-up-${routeName}`}>
+                      {routeData.pickedUp || 0}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">

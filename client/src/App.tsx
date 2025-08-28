@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Navigation from "@/components/Navigation";
+import FloatingActionMenu from "@/components/FloatingActionMenu";
 import Dashboard from "@/pages/Dashboard";
 import Shipments from "@/pages/Shipments";
 import NotFound from "@/pages/not-found";
@@ -19,6 +20,7 @@ function Router() {
         <Route path="/shipments" component={Shipments} />
         <Route component={NotFound} />
       </Switch>
+      <FloatingActionMenu />
     </div>
   );
 }

@@ -56,6 +56,7 @@ export const dashboardMetricsSchema = z.object({
   routeBreakdown: z.record(z.object({
     total: z.number(),
     delivered: z.number(),
+    pickedUp: z.number(),
     pending: z.number(),
     cancelled: z.number(),
     pickupPending: z.number(),

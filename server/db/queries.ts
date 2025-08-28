@@ -164,7 +164,8 @@ export class ShipmentQueries {
       SELECT 
         routeName,
         COUNT(*) as total,
-        SUM(CASE WHEN status IN ('Delivered', 'Picked Up') THEN 1 ELSE 0 END) as delivered,
+        SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END) as delivered,
+        SUM(CASE WHEN status = 'Picked Up' THEN 1 ELSE 0 END) as pickedUp,
         SUM(CASE WHEN status = 'Assigned' THEN 1 ELSE 0 END) as pending,
         SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
         SUM(CASE WHEN status = 'Assigned' AND type = 'pickup' THEN 1 ELSE 0 END) as pickupPending,
@@ -199,6 +200,7 @@ export class ShipmentQueries {
       routeBreakdown[stat.routeName] = {
         total: stat.total,
         delivered: stat.delivered,
+        pickedUp: stat.pickedUp,
         pending: stat.pending,
         cancelled: stat.cancelled,
         pickupPending: stat.pickupPending,
