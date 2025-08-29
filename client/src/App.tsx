@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -9,9 +10,14 @@ import Navigation from "@/components/Navigation";
 import FloatingActionMenu from "@/components/FloatingActionMenu";
 import Dashboard from "@/pages/Dashboard";
 import Shipments from "@/pages/Shipments";
+import Login from "@/pages/Login";
 import NotFound from "@/pages/not-found";
 
-function Router() {
+function Router({ isLoggedIn, onLogin }: { isLoggedIn: boolean; onLogin: () => void }) {
+  if (!isLoggedIn) {
+    return <Login onLogin={onLogin} />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -27,13 +33,15 @@ function Router() {
 }
 
 function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   return (
     <ThemeProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
             <Toaster />
-            <Router />
+            <Router isLoggedIn={isLoggedIn} onLogin={() => setIsLoggedIn(true)} />
           </TooltipProvider>
         </QueryClientProvider>
       </ErrorBoundary>
