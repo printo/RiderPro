@@ -25,9 +25,9 @@ export default function Navigation() {
             </Link>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-muted-foreground hidden sm:inline">John Rider</span>
-              <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
+              {/* <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
                 <User className="text-muted-foreground h-4 w-4" />
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
