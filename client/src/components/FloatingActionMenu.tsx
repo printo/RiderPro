@@ -108,7 +108,7 @@ export default function FloatingActionMenu() {
                       key={item.href}
                       variant="ghost"
                       className={cn(
-                        "justify-center h-16 text-center flex-col rounded-xl transition-all duration-200 hover:scale-105",
+                        "justify-center h-16 text-center flex-row rounded-xl transition-all duration-200 hover:scale-105",
                         "border-2 border-transparent hover:border-primary/20",
                         active 
                           ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-md border-primary/30" 
@@ -144,7 +144,7 @@ export default function FloatingActionMenu() {
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant="ghost"
-                  className="justify-center h-16 text-center flex-col rounded-xl transition-all duration-200 hover:scale-105 border-2 border-transparent hover:border-primary/20 hover:bg-primary/5"
+                  className="justify-center h-16 text-center flex-row rounded-xl transition-all duration-200 hover:scale-105 border-2 border-transparent hover:border-primary/20 hover:bg-primary/5"
                   onClick={toggleTheme}
                   data-testid="button-theme-toggle"
                 >
@@ -161,7 +161,7 @@ export default function FloatingActionMenu() {
                 
                 <Button
                   variant="ghost"
-                  className="justify-center h-16 text-center flex-col rounded-xl transition-all duration-200 hover:scale-105 border-2 border-transparent hover:border-red-200 group"
+                  className="justify-center h-16 text-center flex-row rounded-xl transition-all duration-200 hover:scale-105 border-2 border-transparent hover:border-red-200 group"
                   data-testid="button-logout"
                 >
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-1">
