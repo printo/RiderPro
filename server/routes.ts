@@ -76,6 +76,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/shipments/:id', async (req, res) => {
     try {
       const updates = updateShipmentSchema.parse(req.body);
+      
+      // Get current shipment to check type
+      const currentShipment = await storage.getShipment(req.params.id);
+      if (!currentShipment) {
+        return res.status(404).json({ message: 'Shipment not found' });
+      }
+
+      // Validate status update based on shipment type
+      if (updates.status === "Delivered" && currentShipment.type !== "delivery") {
+        return res.status(400).json({ message: 'Cannot mark a pickup shipment as Delivered' });
+      }
+      if (updates.status === "Picked Up" && currentShipment.type !== "pickup") {
+        return res.status(400).json({ message: 'Cannot mark a delivery shipment as Picked Up' });
+      }
+
       const shipment = await storage.updateShipment(req.params.id, updates);
       
       if (!shipment) {
@@ -97,6 +112,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/shipments/batch', async (req, res) => {
     try {
       const batchData = batchUpdateSchema.parse(req.body);
+      
+      // Validate each update in the batch
+      for (const update of batchData.updates) {
+        const shipment = await storage.getShipment(update.id);
+        if (!shipment) {
+          return res.status(400).json({ message: `Shipment ${update.id} not found` });
+        }
+
+        // Validate status update based on shipment type
+        if (update.status === "Delivered" && shipment.type !== "delivery") {
+          return res.status(400).json({ message: `Cannot mark pickup shipment ${update.id} as Delivered` });
+        }
+        if (update.status === "Picked Up" && shipment.type !== "pickup") {
+          return res.status(400).json({ message: `Cannot mark delivery shipment ${update.id} as Picked Up` });
+        }
+      }
+
       const updatedCount = await storage.batchUpdateShipments(batchData);
       
       // Get updated shipments for external sync
@@ -151,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           signatureUrl = getFileUrl(files.signature[0].filename, 'signature');
         } else if (signatureData) {
           try {
-            const filename = saveBase64File(signatureData, 'signature');
+            const filename = await saveBase64File(signatureData, 'signature');
             signatureUrl = getFileUrl(filename, 'signature');
           } catch (error) {
             console.error('Failed to save signature data:', error);

@@ -300,24 +300,6 @@ function ShipmentDetailModal({ shipment, isOpen, onClose }: ShipmentDetailModalP
               </h3>
               <div className="grid grid-cols-2 gap-3">
                 <Button
-                  onClick={() => handleStatusUpdate("Picked Up")}
-                  disabled={updateStatusMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700 text-white h-12"
-                  data-testid="button-picked-up"
-                >
-                  <Package className="h-4 w-4 mr-2" />
-                  Picked Up
-                </Button>
-                <Button
-                  onClick={() => handleStatusUpdate("Delivered")}
-                  disabled={updateStatusMutation.isPending}
-                  className="bg-green-600 hover:bg-green-700 text-white h-12"
-                  data-testid="button-delivered"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Delivered
-                </Button>
-                <Button
                   onClick={() => handleStatusUpdate("Returned")}
                   disabled={updateStatusMutation.isPending}
                   className="bg-orange-600 hover:bg-orange-700 text-white h-12"
@@ -335,12 +317,33 @@ function ShipmentDetailModal({ shipment, isOpen, onClose }: ShipmentDetailModalP
                   <XCircle className="h-4 w-4 mr-2" />
                   Cancelled
                 </Button>
+                {shipment.type === "pickup" ? (
+                  <Button
+                    onClick={() => handleStatusUpdate("Picked Up")}
+                    disabled={updateStatusMutation.isPending}
+                    className="col-span-2 bg-green-600 hover:bg-green-700 text-white h-12"
+                    data-testid="button-picked-up"
+                  >
+                    <Package className="h-4 w-4 mr-2" />
+                    Picked Up
+                  </Button>
+                ) : shipment.type === "delivery" ? (
+                  <Button
+                    onClick={() => handleStatusUpdate("Delivered")}
+                    disabled={updateStatusMutation.isPending}
+                    className="col-span-2 bg-green-600 hover:bg-green-700 text-white h-12"
+                    data-testid="button-delivered"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Delivered
+                  </Button>
+                ) : null}                
               </div>
             </div>
           </>
         )}
       </SheetContent>
-      
+
       {/* Remarks Modal for Cancelled/Returned */}
       {remarksStatus && (
         <RemarksModal

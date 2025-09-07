@@ -62,6 +62,9 @@ app.use((req, res, next) => {
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen(port, '0.0.0.0', () => {
-  log(`serving on port ${port}`);
-});
+    console.log('\n=== RiderPro Application ===');
+    console.log('📡 Backend API is running on port', port);
+    console.log(`🌐 Application is available at http://localhost:${port}`);
+    console.log('===============================\n');
+  });
 })();

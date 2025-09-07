@@ -16,7 +16,11 @@ export function log(message: string, source = "express") {
     hour12: true,
   });
 
-  console.log(`${formattedTime} [${source}] ${message}`);
+  if (source === 'scheduler') {
+    console.log(`⚙️  ${formattedTime} Database scheduler initialized`);
+  } else {
+    console.log(`${formattedTime} [${source}] ${message}`);
+  }
 }
 
 export async function setupVite(app: Express, server: Server) {
