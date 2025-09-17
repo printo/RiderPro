@@ -24,7 +24,7 @@ class ExternalSyncService {
   }
 
   async syncShipmentUpdate(
-    shipment: Shipment, 
+    shipment: Shipment,
     acknowledgment?: Acknowledgment | null
   ): Promise<boolean> {
     const payload: ExternalSyncPayload = {
@@ -35,9 +35,9 @@ class ExternalSyncService {
 
     if (acknowledgment) {
       payload.acknowledgement = {
-        signatureUrl: acknowledgment.signatureUrl,
-        photoUrl: acknowledgment.photoUrl,
-        capturedAt: acknowledgment.capturedAt,
+        signatureUrl: acknowledgment.signature,
+        photoUrl: acknowledgment.photo,
+        capturedAt: acknowledgment.timestamp,
       };
     }
 
@@ -47,7 +47,7 @@ class ExternalSyncService {
   private async sendWithRetry(payload: ExternalSyncPayload, attempt = 1): Promise<boolean> {
     try {
       log(`Syncing shipment ${payload.shipmentId} (attempt ${attempt})`, 'external-sync');
-      
+
       const response = await axios.post(this.externalApiUrl, payload, {
         timeout: 10000, // 10 second timeout
         headers: {
@@ -64,7 +64,7 @@ class ExternalSyncService {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     } catch (error: any) {
       log(`Sync failed for shipment ${payload.shipmentId} (attempt ${attempt}): ${error.message}`, 'external-sync');
-      
+
       if (attempt < this.maxRetries) {
         // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));

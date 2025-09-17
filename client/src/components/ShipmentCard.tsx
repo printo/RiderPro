@@ -59,23 +59,23 @@ export default function ShipmentCard({ shipment, selected, onSelect, onViewDetai
                   "p-2 rounded-lg",
                   shipment.type === "delivery" ? "bg-blue-100" : "bg-orange-100"
                 )}>
-                  {getTypeIcon(shipment.type)}
+                  {getTypeIcon(shipment.type || "")}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-foreground" data-testid={`text-customer-name-${shipment.id}`}>
                       {shipment.customerName}
                     </h3>
-                    <span 
+                    <span
                       className={cn(
                         "px-2 py-1 text-xs font-medium rounded-full",
                         shipment.status === 'Delivered' ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
-                        shipment.status === 'Picked Up' ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
-                        shipment.status === 'In Transit' ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" :
-                        shipment.status === 'Assigned' ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                        shipment.status === 'Cancelled' ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" :
-                        shipment.status === 'Returned' ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" :
-                        "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                          shipment.status === 'Picked Up' ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
+                            shipment.status === 'In Transit' ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" :
+                              shipment.status === 'Assigned' ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                                shipment.status === 'Cancelled' ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" :
+                                  shipment.status === 'Returned' ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" :
+                                    "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
                       )}
                       data-testid={`text-status-${shipment.id}`}
                     >
@@ -87,12 +87,12 @@ export default function ShipmentCard({ shipment, selected, onSelect, onViewDetai
                   </p>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center text-muted-foreground">
                   <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span 
-                    className="truncate" 
+                  <span
+                    className="truncate"
                     title={shipment.address}
                     data-testid={`text-address-${shipment.id}`}
                   >
@@ -114,7 +114,7 @@ export default function ShipmentCard({ shipment, selected, onSelect, onViewDetai
                 <div className="flex items-center text-muted-foreground">
                   <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
                   <span data-testid={`text-delivery-time-${shipment.id}`}>
-                    {formatTime(shipment.deliveryTime)}
+                    {formatTime(shipment.deliveryTime || "")}
                   </span>
                 </div>
               </div>

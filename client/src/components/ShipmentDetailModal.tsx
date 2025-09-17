@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { Shipment } from "@shared/schema";
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetHeader, 
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,9 @@ import { cn } from "@/lib/utils";
 
 type ShipmentWithAcknowledgment = Shipment & {
   acknowledgment?: {
-    photoUrl?: string;
-    signatureUrl?: string;
+    photo?: string;
+    signature?: string;
+    timestamp?: string;
   };
 };
 
@@ -140,12 +141,12 @@ function ShipmentDetailModal({ shipment, isOpen, onClose }: ShipmentDetailModalP
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent 
-        side="bottom" 
+      <SheetContent
+        side="bottom"
         className={cn(
           "overflow-hidden flex flex-col p-0",
           showAcknowledgment ? "h-[100dvh] max-h-none" : "h-[90vh]"
-        )} 
+        )}
         data-testid="modal-shipment-detail"
       >
         {showAcknowledgment ? (
@@ -187,7 +188,7 @@ function ShipmentDetailModal({ shipment, isOpen, onClose }: ShipmentDetailModalP
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-sm font-medium text-muted-foreground">Cost</label>
@@ -203,12 +204,12 @@ function ShipmentDetailModal({ shipment, isOpen, onClose }: ShipmentDetailModalP
                         className={cn(
                           "inline-block text-xs",
                           shipment.status === 'Delivered' ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
-                          shipment.status === 'Picked Up' ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
-                          shipment.status === 'In Transit' ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" :
-                          shipment.status === 'Assigned' ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                          shipment.status === 'Cancelled' ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" :
-                          shipment.status === 'Returned' ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" :
-                          "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                            shipment.status === 'Picked Up' ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
+                              shipment.status === 'In Transit' ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" :
+                                shipment.status === 'Assigned' ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                                  shipment.status === 'Cancelled' ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" :
+                                    shipment.status === 'Returned' ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" :
+                                      "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
                         )}
                         data-testid="text-current-status"
                       >
@@ -216,11 +217,11 @@ function ShipmentDetailModal({ shipment, isOpen, onClose }: ShipmentDetailModalP
                       </Badge>
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Delivery Time</label>
                     <p className="text-foreground" data-testid="text-delivery-time">
-                      {formatTime(shipment.deliveryTime)}
+                      {formatTime(shipment.deliveryTime || "")}
                     </p>
                   </div>
                 </div>
@@ -255,32 +256,32 @@ function ShipmentDetailModal({ shipment, isOpen, onClose }: ShipmentDetailModalP
                 </div>
 
                 {/* Acknowledgment Details - only show if available */}
-                {(shipment.acknowledgment?.photoUrl || shipment.acknowledgment?.signatureUrl) && (
+                {(shipment.acknowledgment?.photo || shipment.acknowledgment?.signature) && (
                   <div className="space-y-4">
                     <h3 className="font-semibold text-foreground border-b border-border pb-2">
                       Acknowledgment Details
                     </h3>
                     <div className="space-y-4">
-                      {shipment.acknowledgment.photoUrl && (
+                      {shipment.acknowledgment.photo && (
                         <div className="space-y-2">
                           <label className="text-sm font-medium text-muted-foreground">Delivery Photo</label>
                           <div className="rounded-lg overflow-hidden border border-border">
-                            <img 
-                              src={shipment.acknowledgment.photoUrl} 
-                              alt="Delivery confirmation" 
+                            <img
+                              src={shipment.acknowledgment.photo}
+                              alt="Delivery confirmation"
                               className="w-full h-48 object-cover"
                               data-testid="img-delivery-photo"
                             />
                           </div>
                         </div>
                       )}
-                      {shipment.acknowledgment.signatureUrl && (
+                      {shipment.acknowledgment.signature && (
                         <div className="space-y-2">
                           <label className="text-sm font-medium text-muted-foreground">Customer Signature</label>
                           <div className="rounded-lg overflow-hidden border border-border bg-white p-4">
-                            <img 
-                              src={shipment.acknowledgment.signatureUrl} 
-                              alt="Customer signature" 
+                            <img
+                              src={shipment.acknowledgment.signature}
+                              alt="Customer signature"
                               className="w-full h-24 object-contain"
                               data-testid="img-customer-signature"
                             />
@@ -337,7 +338,7 @@ function ShipmentDetailModal({ shipment, isOpen, onClose }: ShipmentDetailModalP
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Delivered
                   </Button>
-                ) : null}                
+                ) : null}
               </div>
             </div>
           </>
