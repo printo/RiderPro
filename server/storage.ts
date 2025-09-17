@@ -8,11 +8,11 @@ export interface IStorage {
   createShipment(shipment: InsertShipment): Promise<Shipment>;
   updateShipment(id: string, updates: UpdateShipment): Promise<Shipment | undefined>;
   batchUpdateShipments(updates: BatchUpdate): Promise<number>;
-  
+
   // Acknowledgment operations
   createAcknowledgment(acknowledgment: InsertAcknowledgment): Promise<Acknowledgment>;
   getAcknowledgmentByShipmentId(shipmentId: string): Promise<Acknowledgment | undefined>;
-  
+
   // Dashboard operations
   getDashboardMetrics(): Promise<DashboardMetrics>;
 }
@@ -26,6 +26,20 @@ export class SqliteStorage implements IStorage {
     const isDevelopment = process.env.NODE_ENV === 'development';
     this.liveQueries = new ShipmentQueries(isDevelopment);
     this.replicaQueries = new ShipmentQueries(!isDevelopment);
+  }
+
+  // Expose database for validation services
+  getDatabase() {
+    return this.liveQueries.getDatabase();
+  }
+
+  // Direct database access methods for compatibility
+  prepare(sql: string) {
+    return this.liveQueries.getDatabase().prepare(sql);
+  }
+
+  exec(sql: string) {
+    return this.liveQueries.getDatabase().exec(sql);
   }
 
   async getShipments(filters?: ShipmentFilters): Promise<Shipment[]> {

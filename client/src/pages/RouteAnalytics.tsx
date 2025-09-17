@@ -1,0 +1,415 @@
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DatePickerWithRange } from '@/components/ui/date-range-picker';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  BarChart3,
+  TrendingUp,
+  MapPin,
+  Fuel,
+  Clock,
+  Users,
+  Download,
+  Filter,
+  Calendar,
+  RefreshCw,
+  Settings
+} from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { DateRange } from 'react-day-picker';
+import { addDays, format, subDays } from 'date-fns';
+
+// Import chart components
+import PerformanceMetricsChart from '@/components/analytics/PerformanceMetricsChart';
+import FuelAnalyticsChart from '@/components/analytics/FuelAnalyticsChart';
+import EmployeePerformanceTable from '@/components/analytics/EmployeePerformanceTable';
+import RouteComparisonChart from '@/components/analytics/RouteComparisonChart';
+import ExportDialog from '@/components/ExportDialog';
+import FuelSettingsModal, { FuelSettings } from '@/components/FuelSettingsModal';
+import { routeAPI } from '@/api/routes';
+
+interface AnalyticsFilters {
+  dateRange: DateRange | undefined;
+  employeeId?: string;
+  viewType: 'daily' | 'weekly' | 'monthly';
+}
+
+export default function RouteAnalytics() {
+  const [filters, setFilters] = useState<AnalyticsFilters>({
+    dateRange: {
+      from: subDays(new Date(), 30),
+      to: new Date()
+    },
+    viewType: 'daily'
+  });
+
+  const [activeTab, setActiveTab] = useState('overview');
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showFuelSettings, setShowFuelSettings] = useState(false);
+
+  // Fuel settings state
+  const [fuelSettings, setFuelSettings] = useState<FuelSettings>({
+    defaultVehicleType: 'standard-van',
+    fuelPrice: 1.5,
+    currency: 'USD',
+    vehicleTypes: [
+      {
+        id: 'standard-van',
+        name: 'Standard Van',
+        fuelEfficiency: 15.0,
+        description: 'Standard delivery van'
+      }
+    ],
+    dataRetentionDays: 90
+  });
+
+  // Fetch analytics data
+  const { data: analyticsData, isLoading, error, refetch } = useQuery({
+    queryKey: ['route-analytics', filters],
+    queryFn: async () => {
+      const params = {
+        startDate: filters.dateRange?.from ? format(filters.dateRange.from, 'yyyy-MM-dd') : undefined,
+        endDate: filters.dateRange?.to ? format(filters.dateRange.to, 'yyyy-MM-dd') : undefined,
+        employeeId: filters.employeeId
+      };
+
+      return await routeAPI.getAnalytics(params);
+    },
+    enabled: !!filters.dateRange?.from && !!filters.dateRange?.to
+  });
+
+  // Fetch employee list for filter dropdown
+  const { data: employees } = useQuery({
+    queryKey: ['employees'],
+    queryFn: async () => {
+      // This would typically come from an employees API
+      // For now, we'll extract unique employee IDs from analytics data
+      if (analyticsData) {
+        const uniqueEmployees = Array.from(new Set(analyticsData.map(item => item.employeeId)));
+        return uniqueEmployees.map(id => ({ id, name: `Employee ${id}` }));
+      }
+      return [];
+    },
+    enabled: !!analyticsData
+  });
+
+  // Calculate summary metrics
+  const summaryMetrics = useMemo(() => {
+    if (!analyticsData || analyticsData.length === 0) {
+      return {
+        totalDistance: 0,
+        totalTime: 0,
+        totalFuelCost: 0,
+        totalShipments: 0,
+        averageSpeed: 0,
+        averageEfficiency: 0
+      };
+    }
+
+    const totals = analyticsData.reduce((acc, item) => ({
+      totalDistance: acc.totalDistance + (item.totalDistance || 0),
+      totalTime: acc.totalTime + (item.totalTime || 0),
+      totalFuelCost: acc.totalFuelCost + (item.fuelCost || 0),
+      totalShipments: acc.totalShipments + (item.shipmentsCompleted || 0),
+      totalFuelConsumed: acc.totalFuelConsumed + (item.fuelConsumed || 0)
+    }), {
+      totalDistance: 0,
+      totalTime: 0,
+      totalFuelCost: 0,
+      totalShipments: 0,
+      totalFuelConsumed: 0
+    });
+
+    return {
+      ...totals,
+      averageSpeed: totals.totalTime > 0 ? (totals.totalDistance / (totals.totalTime / 3600)) : 0,
+      averageEfficiency: totals.totalShipments > 0 ? (totals.totalDistance / totals.totalShipments) : 0
+    };
+  }, [analyticsData]);
+
+  const handleDateRangeChange = (dateRange: DateRange | undefined) => {
+    setFilters(prev => ({ ...prev, dateRange }));
+  };
+
+  const handleEmployeeChange = (employeeId: string) => {
+    setFilters(prev => ({
+      ...prev,
+      employeeId: employeeId === 'all' ? undefined : employeeId
+    }));
+  };
+
+  const handleViewTypeChange = (viewType: 'daily' | 'weekly' | 'monthly') => {
+    setFilters(prev => ({ ...prev, viewType }));
+  };
+
+  const handleExport = async () => {
+    setShowExportDialog(true);
+  };
+
+  const handleFuelSettingsSave = async (newSettings: FuelSettings) => {
+    try {
+      setFuelSettings(newSettings);
+      // Save to localStorage or API
+      localStorage.setItem('fuelSettings', JSON.stringify(newSettings));
+      console.log('Fuel settings saved:', newSettings);
+    } catch (error) {
+      console.error('Failed to save fuel settings:', error);
+      throw error;
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+              <BarChart3 className="h-8 w-8 text-blue-600" />
+              Route Analytics
+            </h1>
+            <p className="text-gray-600 mt-1">
+              Comprehensive insights into route performance and fuel efficiency
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowFuelSettings(true)}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => refetch()}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+
+            <Button onClick={handleExport}>
+              <Download className="h-4 w-4 mr-2" />
+              Export Data
+            </Button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Filters
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label>Date Range</Label>
+                <DatePickerWithRange
+                  date={filters.dateRange}
+                  onDateChange={handleDateRangeChange}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Employee</Label>
+                <Select
+                  value={filters.employeeId || 'all'}
+                  onValueChange={handleEmployeeChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Employees" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Employees</SelectItem>
+                    {employees?.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>View Type</Label>
+                <Select
+                  value={filters.viewType}
+                  onValueChange={handleViewTypeChange}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <div className="flex items-center gap-2 pt-2">
+                  <Badge variant={isLoading ? "secondary" : "default"}>
+                    {isLoading ? 'Loading...' : `${analyticsData?.length || 0} Records`}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Distance</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {summaryMetrics.totalDistance.toFixed(1)} km
+                  </p>
+                </div>
+                <MapPin className="h-8 w-8 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Total Time</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {Math.round(summaryMetrics.totalTime / 3600)} hrs
+                  </p>
+                </div>
+                <Clock className="h-8 w-8 text-green-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Fuel Cost</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    ${summaryMetrics.totalFuelCost.toFixed(2)}
+                  </p>
+                </div>
+                <Fuel className="h-8 w-8 text-orange-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Shipments</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {summaryMetrics.totalShipments}
+                  </p>
+                </div>
+                <Users className="h-8 w-8 text-purple-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Analytics Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="performance">Performance</TabsTrigger>
+            <TabsTrigger value="fuel">Fuel Analytics</TabsTrigger>
+            <TabsTrigger value="employees">Employees</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PerformanceMetricsChart
+                data={analyticsData || []}
+                viewType={filters.viewType}
+              />
+              <FuelAnalyticsChart
+                data={analyticsData || []}
+                viewType={filters.viewType}
+              />
+            </div>
+            <RouteComparisonChart
+              data={analyticsData || []}
+              viewType={filters.viewType}
+            />
+          </TabsContent>
+
+          <TabsContent value="performance" className="space-y-6">
+            <PerformanceMetricsChart
+              data={analyticsData || []}
+              viewType={filters.viewType}
+              detailed={true}
+            />
+          </TabsContent>
+
+          <TabsContent value="fuel" className="space-y-6">
+            <FuelAnalyticsChart
+              data={analyticsData || []}
+              viewType={filters.viewType}
+              detailed={true}
+            />
+          </TabsContent>
+
+          <TabsContent value="employees" className="space-y-6">
+            <EmployeePerformanceTable
+              data={analyticsData || []}
+              dateRange={filters.dateRange}
+            />
+          </TabsContent>
+        </Tabs>
+
+        {/* Error State */}
+        {error && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3 text-red-800">
+                <div className="w-2 h-2 bg-red-600 rounded-full"></div>
+                <p>Failed to load analytics data. Please try again.</p>
+                <Button variant="outline" size="sm" onClick={() => refetch()}>
+                  Retry
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Export Dialog */}
+        <ExportDialog
+          isOpen={showExportDialog}
+          onClose={() => setShowExportDialog(false)}
+          data={analyticsData || []}
+          availableEmployees={employees || []}
+        />
+
+        {/* Fuel Settings Modal */}
+        <FuelSettingsModal
+          isOpen={showFuelSettings}
+          onClose={() => setShowFuelSettings(false)}
+          onSave={handleFuelSettingsSave}
+          currentSettings={fuelSettings}
+        />
+      </div>
+    </div>
+  );
+}

@@ -2,7 +2,17 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import express from "express";
 import { storage } from "./storage.js";
-import { insertShipmentSchema, updateShipmentSchema, batchUpdateSchema, insertAcknowledgmentSchema, shipmentFiltersSchema } from "@shared/schema";
+import {
+  insertShipmentSchema,
+  updateShipmentSchema,
+  batchUpdateSchema,
+  insertAcknowledgmentSchema,
+  shipmentFiltersSchema,
+  startRouteSessionSchema,
+  stopRouteSessionSchema,
+  gpsCoordinateSchema,
+  routeFiltersSchema
+} from "@shared/schema";
 import { upload, getFileUrl, saveBase64File } from "./utils/fileUpload.js";
 import { externalSync } from "./services/externalSync.js";
 import path from 'path';
@@ -48,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Also get acknowledgment if exists
       const acknowledgment = await storage.getAcknowledgmentByShipmentId(shipment.id);
-      
+
       res.json({ shipment, acknowledgment });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -60,7 +70,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const shipmentData = insertShipmentSchema.parse(req.body);
       const shipment = await storage.createShipment(shipmentData);
-      
+
       // Sync to external API
       externalSync.syncShipmentUpdate(shipment).catch(err => {
         console.error('External sync failed for new shipment:', err);
@@ -76,7 +86,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/shipments/:id', async (req, res) => {
     try {
       const updates = updateShipmentSchema.parse(req.body);
-      
+
       // Get current shipment to check type
       const currentShipment = await storage.getShipment(req.params.id);
       if (!currentShipment) {
@@ -92,7 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const shipment = await storage.updateShipment(req.params.id, updates);
-      
+
       if (!shipment) {
         return res.status(404).json({ message: 'Shipment not found' });
       }
@@ -112,7 +122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/shipments/batch', async (req, res) => {
     try {
       const batchData = batchUpdateSchema.parse(req.body);
-      
+
       // Validate each update in the batch
       for (const update of batchData.updates) {
         const shipment = await storage.getShipment(update.id);
@@ -130,17 +140,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedCount = await storage.batchUpdateShipments(batchData);
-      
+
       // Get updated shipments for external sync
       const updatedShipments = await Promise.all(
-        batchData.updates.map(async (update) => {
+        batchData.updates.map(async (update: any) => {
           const shipment = await storage.getShipment(update.id);
           return shipment;
         })
       );
 
       const validShipments = updatedShipments.filter(Boolean) as any[];
-      
+
       // Batch sync to external API
       externalSync.batchSyncShipments(validShipments).catch(err => {
         console.error('External batch sync failed:', err);
@@ -153,7 +163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upload acknowledgment with photo and signature
-  app.post('/api/shipments/:id/acknowledgement', 
+  app.post('/api/shipments/:id/acknowledgement',
     upload.fields([
       { name: 'photo', maxCount: 1 },
       { name: 'signature', maxCount: 1 }
@@ -193,9 +203,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create acknowledgment record
         const acknowledgment = await storage.createAcknowledgment({
           shipmentId,
-          signatureUrl,
-          photoUrl,
-          capturedAt: new Date().toISOString(),
+          signature: signatureUrl,
+          photo: photoUrl,
+          timestamp: new Date().toISOString(),
+          recipientName: req.body.recipientName || 'Unknown',
         });
 
         // Sync to external API with acknowledgment
@@ -231,11 +242,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all shipments that need syncing
       const shipments = await storage.getShipments();
       const result = await externalSync.batchSyncShipments(shipments);
-      
-      res.json({ 
+
+      res.json({
         processed: shipments.length,
         success: result.success,
-        failed: result.failed 
+        failed: result.failed
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -247,29 +258,227 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const shipmentId = req.params.id;
       const { remarks, status } = req.body;
-      
+
       if (!remarks || !status) {
         return res.status(400).json({ message: 'Remarks and status are required' });
       }
-      
+
       // Verify shipment exists
       const shipment = await storage.getShipment(shipmentId);
       if (!shipment) {
         return res.status(404).json({ message: 'Shipment not found' });
       }
-      
+
       // For now, just store remarks in a simple way
       // In production, this would be a proper table
       console.log(`Remarks for shipment ${shipmentId} (${status}):`, remarks);
-      
-      res.status(201).json({ 
-        shipmentId, 
-        remarks, 
+
+      res.status(201).json({
+        shipmentId,
+        remarks,
         status,
         savedAt: new Date().toISOString()
       });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Route Tracking Endpoints
+
+  // Start a new route session
+  app.post('/api/routes/start', async (req, res) => {
+    try {
+      const { employeeId, startLatitude, startLongitude, shipmentId } = req.body;
+
+      if (!employeeId || !startLatitude || !startLongitude) {
+        return res.status(400).json({
+          success: false,
+          message: 'employeeId, startLatitude, and startLongitude are required'
+        });
+      }
+
+      const sessionId = 'session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+      const session = {
+        id: sessionId,
+        employeeId,
+        shipmentId: shipmentId || null,
+        status: 'active',
+        startTime: new Date().toISOString(),
+        startLatitude,
+        startLongitude,
+        endTime: null,
+        endLatitude: null,
+        endLongitude: null
+      };
+
+      // Store session (in production, this would use proper database storage)
+      console.log('Route session started:', session);
+
+      res.status(201).json({
+        success: true,
+        session,
+        message: 'Route session started successfully'
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  });
+
+  // Stop a route session
+  app.post('/api/routes/stop', async (req, res) => {
+    try {
+      const { sessionId, endLatitude, endLongitude } = req.body;
+
+      if (!sessionId || !endLatitude || !endLongitude) {
+        return res.status(400).json({
+          success: false,
+          message: 'sessionId, endLatitude, and endLongitude are required'
+        });
+      }
+
+      const session = {
+        id: sessionId,
+        status: 'completed',
+        endTime: new Date().toISOString(),
+        endLatitude,
+        endLongitude
+      };
+
+      // Update session (in production, this would use proper database storage)
+      console.log('Route session stopped:', session);
+
+      res.json({
+        success: true,
+        session,
+        message: 'Route session stopped successfully'
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  });
+
+  // Submit GPS coordinates
+  app.post('/api/routes/coordinates', async (req, res) => {
+    try {
+      const { sessionId, latitude, longitude, accuracy, speed, timestamp } = req.body;
+
+      if (!sessionId || !latitude || !longitude) {
+        return res.status(400).json({
+          success: false,
+          message: 'sessionId, latitude, and longitude are required'
+        });
+      }
+
+      const coordinate = {
+        id: 'coord-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+        sessionId,
+        latitude,
+        longitude,
+        accuracy: accuracy || null,
+        speed: speed || null,
+        timestamp: timestamp || new Date().toISOString()
+      };
+
+      // Store coordinate (in production, this would use proper database storage)
+      console.log('GPS coordinate recorded:', coordinate);
+
+      res.status(201).json({
+        success: true,
+        record: coordinate,
+        message: 'GPS coordinate recorded successfully'
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  });
+
+  // Get session data
+  app.get('/api/routes/session/:sessionId', async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+
+      // Mock session data (in production, this would query the database)
+      const session = {
+        id: sessionId,
+        employeeId: 'mock-employee',
+        status: 'active',
+        startTime: new Date().toISOString(),
+        coordinates: []
+      };
+
+      res.json({
+        success: true,
+        session,
+        message: 'Session data retrieved successfully'
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message
+      });
+    }
+  });
+
+  // Batch submit GPS coordinates (for offline sync)
+  app.post('/api/routes/coordinates/batch', async (req, res) => {
+    try {
+      const { coordinates } = req.body;
+
+      if (!Array.isArray(coordinates)) {
+        return res.status(400).json({
+          success: false,
+          message: 'coordinates must be an array'
+        });
+      }
+
+      const results = [];
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const coord of coordinates) {
+        try {
+          const coordinate = {
+            id: 'coord-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+            ...coord,
+            timestamp: coord.timestamp || new Date().toISOString()
+          };
+
+          // Store coordinate (in production, this would use proper database storage)
+          console.log('Batch GPS coordinate recorded:', coordinate);
+
+          results.push({ success: true, record: coordinate });
+          successCount++;
+        } catch (error: any) {
+          results.push({ success: false, error: error.message, coordinate: coord });
+          errorCount++;
+        }
+      }
+
+      res.json({
+        success: true,
+        results,
+        summary: {
+          total: coordinates.length,
+          successful: successCount,
+          failed: errorCount
+        },
+        message: `Batch coordinate submission completed: ${successCount} successful, ${errorCount} failed`
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message
+      });
     }
   });
 

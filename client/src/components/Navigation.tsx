@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { Truck, BarChart3, List, User } from "lucide-react";
+import { Truck } from "lucide-react";
+import authService from "@/services/AuthService";
 
 export default function Navigation() {
   const [location] = useLocation();
@@ -23,11 +24,17 @@ export default function Navigation() {
               </div>
               <h1 className="text-xl font-bold text-foreground hover:text-primary transition-colors">RiderPro</h1>
             </Link>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-muted-foreground hidden sm:inline">John Rider</span>
-              {/* <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                <User className="text-muted-foreground h-4 w-4" />
-              </div> */}
+            <div className="flex items-center gap-6">
+              <Link href="/dashboard" className={isActive("/dashboard") ? "text-primary" : "text-foreground hover:text-primary"}>Dashboard</Link>
+              <Link href="/shipments" className={isActive("/shipments") ? "text-primary" : "text-foreground hover:text-primary"}>Shipments</Link>
+              {(() => { const role = authService.getUser()?.role; return (role === 'admin' || role === 'isops'); })() && (
+                <Link href="/admin" className={isActive("/admin") ? "text-primary" : "text-foreground hover:text-primary"}>Admin</Link>
+              )}
+              {authService.getUser()?.role && (
+                <span className="text-xs px-2 py-1 rounded-full bg-muted text-foreground capitalize">
+                  {String(authService.getUser()?.role)}
+                </span>
+              )}
             </div>
           </div>
         </div>

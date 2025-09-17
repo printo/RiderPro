@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -11,7 +11,9 @@ import FloatingActionMenu from "@/components/FloatingActionMenu";
 import Dashboard from "@/pages/Dashboard";
 import Shipments from "@/pages/Shipments";
 import Login from "@/pages/Login";
+import authService from "@/services/AuthService";
 import NotFound from "@/pages/not-found";
+import AdminPage from "@/pages/Admin";
 
 function Router({ isLoggedIn, onLogin }: { isLoggedIn: boolean; onLogin: () => void }) {
   if (!isLoggedIn) {
@@ -25,6 +27,16 @@ function Router({ isLoggedIn, onLogin }: { isLoggedIn: boolean; onLogin: () => v
         <Route path="/" component={Dashboard} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/shipments" component={Shipments} />
+        <Route path="/admin">
+          {(params) => {
+            const role = authService.getUser()?.role;
+            if (role === 'admin' || role === 'isops') {
+              return <AdminPage />;
+            }
+            window.location.href = '/dashboard';
+            return null;
+          }}
+        </Route>
         <Route component={NotFound} />
       </Switch>
       <FloatingActionMenu />
@@ -33,7 +45,12 @@ function Router({ isLoggedIn, onLogin }: { isLoggedIn: boolean; onLogin: () => v
 }
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(authService.isAuthenticated());
+
+  useEffect(() => {
+    const unsubscribe = authService.subscribe((s) => setIsLoggedIn(s.isAuthenticated));
+    return unsubscribe;
+  }, []);
 
   return (
     <ThemeProvider>

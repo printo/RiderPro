@@ -4,6 +4,10 @@
 
 RiderPro is a comprehensive shipment management system designed for logistics and delivery operations. The application provides a real-time dashboard for tracking shipments, managing deliveries and pickups, and handling acknowledgments with digital signatures and photos. Built as a full-stack application with real-time updates and mobile-responsive design, it serves both operational staff and field workers managing shipment lifecycles.
 
+## Documentation
+
+See `docs/README.md` for detailed product and technical documentation (auth, roles, and feature guides).
+
 ## Technology Stack
 
 ### Frontend
@@ -143,9 +147,67 @@ CREATE TABLE sync_status (
 - Production: `https://your-domain.com/api`
 
 ### Authentication
-Currently uses basic session-based authentication. Ready for expansion with role-based access control.
+Uses Django-issued token authentication (no JWT required):
+- Login proxied via `/api/auth/login` to `https://pia.printo.in/api/v1/auth/`
+- Stores `access_token`, `refresh_token`, user with literal role (`admin`, `isops`, `isdelivery`)
+- Sends `Authorization: Bearer <access-token>` and cookies
+- Auto-refresh via `/api/auth/refresh` on 401
 
-### Endpoints
+### Authentication Endpoints
+
+#### Login
+**POST** `/api/auth/login`
+
+**Request Body:**
+```json
+{
+  "email": "user@company.com",
+  "password": "userpassword"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "...",
+    "refreshToken": "...",
+    "user": {
+      "id": "employee123",
+      "username": "user@company.com",
+      "email": "user@company.com",
+      "role": "isops",
+      "employeeId": "employee123",
+      "fullName": "User Name",
+      "permissions": ["view_all_routes"]
+    }
+  }
+}
+```
+
+#### Get Current User
+**GET** `/api/auth/me`
+
+**Headers:**
+```
+Authorization: Bearer <access-token>
+```
+
+#### Logout
+**POST** `/api/auth/logout`
+
+**Headers:**
+```
+Authorization: Bearer <access-token>
+```
+
+### Data Endpoints
+
+All data endpoints require authentication. Include the access token in the Authorization header:
+```
+Authorization: Bearer <access-token>
+```
 
 #### 1. Dashboard Metrics
 **GET** `/api/dashboard`
@@ -362,9 +424,17 @@ Query Parameters:
 ```bash
 # Database Configuration
 NODE_ENV=development|production
-DATABASE_URL=optional_postgres_url
+DATABASE_PATH=./data/riderpro.db
 
-# External API Integration
+# Authentication Configuration
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+JWT_EXPIRES_IN=24h
+
+# External Authentication API
+EXTERNAL_AUTH_API_URL=https://your-auth-api.com/authenticate
+EXTERNAL_AUTH_API_KEY=your-api-key-here
+
+# External API Integration (Data Sync)
 EXTERNAL_API_URL=https://api.external-service.com
 EXTERNAL_API_KEY=your_api_key
 
@@ -378,6 +448,50 @@ SYNC_RETRY_DELAY=1000  # milliseconds
 ```
 
 ## External API Integration
+
+### Authentication API Integration
+
+The system integrates with your existing authentication API for user login. Your external API should accept POST requests with the following format:
+
+**Authentication Endpoint:** `EXTERNAL_AUTH_API_URL` (configured in environment)
+
+**Request Format:**
+```json
+{
+  "username": "user@company.com",
+  "password": "userpassword"
+}
+```
+
+**Expected Response Format:**
+```json
+{
+  "success": true,
+  "user": {
+    "id": "employee123",
+    "username": "user@company.com",
+    "email": "user@company.com",
+    "role": "employee", // or "manager", "admin", "driver", "viewer"
+    "employeeId": "employee123"
+  }
+}
+```
+
+**Error Response Format:**
+```json
+{
+  "success": false,
+  "message": "Invalid credentials"
+}
+```
+
+**Supported Roles:**
+- `admin`: Full system access including user management and system configuration
+- `manager`: Access to all routes, analytics, data export, and live tracking
+- `driver`: Access to own routes only
+- `viewer`: Read-only access to analytics
+
+### Data Sync Integration
 
 ### Outgoing Sync Format
 
@@ -449,14 +563,39 @@ To receive new shipments from external systems, send POST requests to `/api/ship
    npm install
    ```
 
-3. **Start development server**
+3. **Configure environment variables**
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edit `.env` and configure:
+   ```bash
+   # Required: External authentication API
+   EXTERNAL_AUTH_API_URL=https://your-auth-api.com/authenticate
+   EXTERNAL_AUTH_API_KEY=your-api-key-here
+   
+   # Required: JWT secret for session management
+   JWT_SECRET=your-super-secret-jwt-key-change-in-production
+   
+   # Optional: Other configuration options
+   DATABASE_PATH=./data/riderpro.db
+   PORT=3001
+   ```
+
+4. **Initialize database**
+   ```bash
+   npm run migrate
+   ```
+
+5. **Start development server**
    ```bash
    npm run dev
    ```
 
-4. **Access the application**
-   - Frontend: http://localhost:5000
-   - Backend API: http://localhost:5000/api
+6. **Access the application**
+   - Frontend: http://localhost:3001
+   - Backend API: http://localhost:3001/api
+   - Login with credentials from your external authentication system
 
 ### Development Scripts
 
@@ -552,33 +691,51 @@ npm run db:migrate
 5. Set up reverse proxy (nginx/Apache) if needed
 
 ### Security Considerations
-- Implement proper authentication and authorization
+
+#### Authentication Security
+- **JWT Tokens**: Use strong, unique JWT secrets (32+ characters minimum)
+- **External API Security**: Ensure your external authentication API uses HTTPS and proper authentication
+- **Session Management**: JWT tokens expire after configured time (default 24h)
+- **Rate Limiting**: Login attempts are rate-limited (5 attempts per 15 minutes per IP)
+- **Role-Based Access**: Endpoints are protected based on user roles and permissions
+
+#### General Security
 - Use HTTPS in production
 - Sanitize file uploads and validate file types
 - Implement rate limiting for API endpoints
 - Set up proper CORS policies
 - Use environment variables for sensitive configuration
+- Secure database file permissions (SQLite)
+- Regular security audits of dependencies
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Database Connection Errors**
+1. **Authentication Issues**
+   - Verify `EXTERNAL_AUTH_API_URL` is accessible and returns expected format
+   - Check `EXTERNAL_AUTH_API_KEY` is valid and has proper permissions
+   - Ensure `JWT_SECRET` is set and sufficiently complex
+   - Verify external API returns user data in the expected format
+   - Check network connectivity to external authentication API
+
+2. **Database Connection Errors**
    - Verify database file permissions
    - Check disk space availability
    - Ensure proper SQLite version
+   - Run `npm run migrate` to initialize database
 
-2. **File Upload Issues**
+3. **File Upload Issues**
    - Verify upload directory permissions
    - Check file size limits
    - Validate file type restrictions
 
-3. **External Sync Failures**
+4. **External Sync Failures**
    - Check network connectivity
    - Verify API credentials
    - Review sync error logs
 
-4. **Performance Issues**
+5. **Performance Issues**
    - Monitor database query performance
    - Check memory usage during file uploads
    - Review network latency for API calls
@@ -599,8 +756,19 @@ npm run db:migrate
 
 3. **API Testing**
    ```bash
-   curl -X GET http://localhost:5000/api/dashboard
-   curl -X POST http://localhost:5000/api/shipments -H "Content-Type: application/json" -d '{...}'
+   # Test authentication
+   curl -X POST http://localhost:3001/api/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"test@company.com","password":"password"}'
+   
+   # Test authenticated endpoints (replace TOKEN with actual JWT)
+   curl -X GET http://localhost:3001/api/dashboard \
+     -H "Authorization: Bearer TOKEN"
+   
+   curl -X POST http://localhost:3001/api/shipments \
+     -H "Authorization: Bearer TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{...}'
    ```
 
 ## Contributing

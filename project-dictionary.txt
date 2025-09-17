@@ -1,0 +1,125 @@
+# Project-specific dictionary for RiderPro Route Tracking System
+# Add any additional project-specific terms here
+
+# Business domain terms
+riderpro
+shipmenttracking
+routetracking
+livetracking
+fuelanalytics
+employeeperformance
+
+# Component names
+exportdialog
+fuelsettingsmodal
+livetrackingmap
+riderstatus
+riderstatuspanel
+routesessioncontrols
+routesummary
+shipmentcard
+shipmentcardwithtracking
+shipmentdetailmodal
+shipmentdetailmodalwithtracking
+gpstrackingindicator
+remarksmodal
+signaturecanvas
+statusdistributionchart
+syncstatuspanel
+routeperformancechart
+acknowledgmentcapture
+performancemetricschart
+fuelanalyticschart
+routecomparisonschart
+employeeperformancetable
+
+# Service and utility names
+dataexporter
+dataretentionservice
+distancecalculator
+fuelcalculator
+routeanalyzer
+routesession
+gpstracker
+gpserrorhandler
+routedataaggregator
+
+# Hook names
+userouteapi
+userouteanalytics
+useroutesession
+usegpstracking
+uselivetracking
+useshipmenttracking
+
+# API and data terms
+routeapi
+routesapi
+routequeries
+routetrackingqueries
+websocketserver
+livetrackingwebsocket
+
+# Configuration and settings
+fuelsettings
+vehicletype
+vehicletypes
+retentionpolicy
+exportoptions
+exportresult
+analyticsoptions
+analyticsfilters
+
+# Status and state values
+isstopping
+issyncing
+isstarting
+isloading
+isexporting
+istracking
+
+# Technical abbreviations specific to the project
+gpscoord
+gpscoords
+routecoord
+routecoords
+sessionid
+sessionids
+employeeid
+employeeids
+shipmentid
+shipmentids
+trackingid
+trackingids
+
+# Additional project-specific terms found by cspell
+totaldistancekm
+totaltimehours
+fuelconsumedl
+fuelcost
+shipmentscompleted
+averagespeedkmh
+efficiencykmshipment
+workingdays
+avgdistanceday
+avgshipmentsday
+performancescore
+activeemployees
+geofence
+geofencing
+geofenced
+elipssis
+embla
+nums
+cmdk
+isstopping
+issyncing
+segoe
+wouter
+neondatabase
+replit
+acknowledment
+subsampling
+incase
+lifecycles
+firewalled

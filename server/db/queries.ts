@@ -9,6 +9,10 @@ export class ShipmentQueries {
     this.db = useReplica ? replicaDb : liveDb;
   }
 
+  getDatabase() {
+    return this.db;
+  }
+
   getAllShipments(filters: ShipmentFilters = {}): Shipment[] {
     let query = `
       SELECT * FROM shipments 
@@ -48,7 +52,7 @@ export class ShipmentQueries {
   createShipment(shipment: InsertShipment): Shipment {
     const id = randomUUID();
     const now = new Date().toISOString();
-    
+
     const stmt = this.db.prepare(`
       INSERT INTO shipments (
         id, type, customerName, customerMobile, address, 
@@ -88,7 +92,7 @@ export class ShipmentQueries {
 
   updateShipment(id: string, updates: UpdateShipment): Shipment | null {
     const now = new Date().toISOString();
-    
+
     const stmt = this.db.prepare(`
       UPDATE shipments 
       SET status = ?, updatedAt = ?
@@ -96,7 +100,7 @@ export class ShipmentQueries {
     `);
 
     const result = stmt.run(updates.status, now, id);
-    
+
     if (result.changes === 0) {
       return null;
     }
@@ -114,9 +118,9 @@ export class ShipmentQueries {
     return this.getShipmentById(id);
   }
 
-  batchUpdateShipments(updates: { id: string; status: string }[]): number {
+  batchUpdateShipments(updates: UpdateShipment[]): number {
     let totalUpdated = 0;
-    
+
     this.db.transaction(() => {
       const stmt = this.db.prepare(`
         UPDATE shipments 
@@ -133,11 +137,13 @@ export class ShipmentQueries {
       const now = new Date().toISOString();
 
       for (const update of updates) {
-        const result = stmt.run(update.status, now, update.id);
-        if (result.changes > 0) {
-          totalUpdated++;
-          // Also update replica
-          replicaStmt.run(update.status, now, update.id);
+        if (update.status) { // Only update if status is provided
+          const result = stmt.run(update.status, now, update.id);
+          if (result.changes > 0) {
+            totalUpdated++;
+            // Also update replica
+            replicaStmt.run(update.status, now, update.id);
+          }
         }
       }
     })();
@@ -147,7 +153,7 @@ export class ShipmentQueries {
 
   getDashboardMetrics(): DashboardMetrics {
     const totalShipments = this.db.prepare('SELECT COUNT(*) as count FROM shipments').get().count;
-    
+
     const statusStats = this.db.prepare(`
       SELECT status, COUNT(*) as count 
       FROM shipments 
@@ -221,19 +227,19 @@ export class ShipmentQueries {
 
   createAcknowledgment(acknowledgment: InsertAcknowledgment): Acknowledgment {
     const id = randomUUID();
-    
+
     const stmt = this.db.prepare(`
       INSERT INTO acknowledgments (
-        id, shipmentId, signatureUrl, photoUrl, capturedAt
+        id, shipmentId, signature, photo, timestamp
       ) VALUES (?, ?, ?, ?, ?)
     `);
 
     stmt.run(
-      id, 
-      acknowledgment.shipmentId, 
-      acknowledgment.signatureUrl || null,
-      acknowledgment.photoUrl || null,
-      acknowledgment.capturedAt
+      id,
+      acknowledgment.shipmentId,
+      acknowledgment.signature || null,
+      acknowledgment.photo || null,
+      acknowledgment.timestamp
     );
 
     return this.db.prepare('SELECT * FROM acknowledgments WHERE id = ?').get(id);
@@ -253,7 +259,7 @@ export class ShipmentQueries {
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
     const cutoffIso = cutoffDate.toISOString();
 
-    this.db.prepare('DELETE FROM acknowledgments WHERE capturedAt < ?').run(cutoffIso);
+    this.db.prepare('DELETE FROM acknowledgments WHERE timestamp < ?').run(cutoffIso);
     this.db.prepare('DELETE FROM shipments WHERE createdAt < ?').run(cutoffIso);
   }
 }
