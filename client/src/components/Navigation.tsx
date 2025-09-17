@@ -24,12 +24,7 @@ export default function Navigation() {
               </div>
               <h1 className="text-xl font-bold text-foreground hover:text-primary transition-colors">RiderPro</h1>
             </Link>
-            <div className="flex items-center gap-6">
-              <Link href="/dashboard" className={isActive("/dashboard") ? "text-primary" : "text-foreground hover:text-primary"}>Dashboard</Link>
-              <Link href="/shipments" className={isActive("/shipments") ? "text-primary" : "text-foreground hover:text-primary"}>Shipments</Link>
-              {(() => { const role = authService.getUser()?.role; return (role === 'admin' || role === 'isops'); })() && (
-                <Link href="/admin" className={isActive("/admin") ? "text-primary" : "text-foreground hover:text-primary"}>Admin</Link>
-              )}
+            <div className="flex items-center gap-4">
               {authService.getUser()?.role && (
                 <span className="text-xs px-2 py-1 rounded-full bg-muted text-foreground capitalize">
                   {String(authService.getUser()?.role)}

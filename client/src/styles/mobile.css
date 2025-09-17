@@ -832,7 +832,7 @@
     position: fixed;
     top: 0;
     left: 0;
-    width: 280px;
+    width: 280px; /* Fixed width for desktop */
     height: 100vh;
     background: white;
     z-index: 1002;
@@ -1071,6 +1071,17 @@
 /* Desktop/Tablet Navigation */
 @media (min-width: 769px) {
   .desktop-navigation {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 240px; /* Fixed width for desktop */
+    background: var(--background);
+    border-right: 1px solid var(--border);
+    z-index: 40;
+    padding: 1rem 0;
+    overflow-y: auto;
+    transition: transform 0.3s ease, width 0.3s ease;
     background: white;
     border-bottom: 1px solid #e2e8f0;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);

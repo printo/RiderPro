@@ -11,6 +11,7 @@ import RouteSessionControls from "@/components/RouteSessionControls";
 import Filters from "@/components/Filters";
 import { Shipment, ShipmentFilters } from "@shared/schema";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
+import { authService } from "@/services/AuthService";
 
 // Mock employee ID - in a real app, this would come from authentication
 const CURRENT_EMPLOYEE_ID = "emp123";
@@ -83,16 +84,68 @@ export default function ShipmentsWithTracking() {
   }
 
   if (error) {
+    console.error('Shipments error:', error);
+    
+    // Check for common error cases
+    let errorMessage = 'Failed to load shipments';
+    let showRetry = true;
+    
+    if (error instanceof Error) {
+      if (error.message.includes('401')) {
+        errorMessage = 'Your session has expired. Please log in again.';
+        showRetry = false;
+      } else if (error.message.includes('NetworkError')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message.includes('500')) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+    }
+    
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="text-center py-12">
-          <p className="text-destructive mb-4" data-testid="text-shipments-error">
-            Failed to load shipments. Please try again.
-          </p>
-          <Button onClick={handleRefresh} data-testid="button-retry">
-            <RotateCcw className="h-4 w-4 mr-2" />
-            Retry
-          </Button>
+        <div className="bg-red-50 border-l-4 border-red-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">{errorMessage}</h3>
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-2 text-sm text-red-700">
+                  <p>Error details:</p>
+                  <pre className="mt-2 p-2 bg-red-100 rounded overflow-auto text-xs">
+                    {error instanceof Error ? error.message : JSON.stringify(error, null, 2)}
+                  </pre>
+                </div>
+              )}
+              <div className="mt-4 flex gap-2">
+                {showRetry && (
+                  <Button
+                    onClick={handleRefresh}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                    data-testid="button-retry"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Retry
+                  </Button>
+                )}
+                {!showRetry && (
+                  <Button
+                    onClick={() => {
+                      authService.logout().finally(() => {
+                        window.location.href = '/login';
+                      });
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Go to Login
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

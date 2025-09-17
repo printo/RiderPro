@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
+import authService from '../services/AuthService';
+import { UserRole } from '../types/Auth';
 import '../styles/mobile.css';
 
 interface NavigationItem {
@@ -43,11 +45,11 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
       icon: '🗺️',
       badge: activeRiders
     },
-    {
-      path: '/analytics',
-      label: 'Analytics',
-      icon: '📊'
-    },
+    ...(authService.getUser()?.role === UserRole.ADMIN ? [{
+      path: '/admin',
+      label: 'Admin',
+      icon: '⚙️'
+    }] : []),
     {
       path: '/route-visualization',
       label: 'Routes',
@@ -87,6 +89,26 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
     return () => clearInterval(interval);
   }, []);
+
+  const handleLogout = async () => {
+    console.log('Logout button clicked');
+    try {
+      const success = await authService.logout();
+      if (success) {
+        console.log('Redirecting to login page...');
+        // Use window.location to ensure a full page reload
+        window.location.href = '/login';
+      } else {
+        console.warn('Logout completed but server response was not successful');
+        // Still redirect to login page even if server logout failed
+        window.location.href = '/login';
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // In case of any error, still try to redirect to login page
+      window.location.href = '/login';
+    }
+  };
 
   const handleMenuToggle = () => {
     setIsMenuOpen(!isMenuOpen);

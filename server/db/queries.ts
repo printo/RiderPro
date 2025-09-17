@@ -152,77 +152,101 @@ export class ShipmentQueries {
   }
 
   getDashboardMetrics(): DashboardMetrics {
-    const totalShipments = this.db.prepare('SELECT COUNT(*) as count FROM shipments').get().count;
-
-    const statusStats = this.db.prepare(`
-      SELECT status, COUNT(*) as count 
-      FROM shipments 
-      GROUP BY status
-    `).all();
-
-    const typeStats = this.db.prepare(`
-      SELECT type, COUNT(*) as count 
-      FROM shipments 
-      GROUP BY type
-    `).all();
-
-    const routeStats = this.db.prepare(`
-      SELECT 
-        routeName,
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END) as delivered,
-        SUM(CASE WHEN status = 'Picked Up' THEN 1 ELSE 0 END) as pickedUp,
-        SUM(CASE WHEN status = 'Assigned' THEN 1 ELSE 0 END) as pending,
-        SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
-        SUM(CASE WHEN status = 'Assigned' AND type = 'pickup' THEN 1 ELSE 0 END) as pickupPending,
-        SUM(CASE WHEN status = 'Assigned' AND type = 'delivery' THEN 1 ELSE 0 END) as deliveryPending
-      FROM shipments 
-      GROUP BY routeName
-    `).all();
-
-    const statusBreakdown: Record<string, number> = {};
-    let completed = 0;
-    let inProgress = 0;
-    let pending = 0;
-
-    statusStats.forEach((stat: any) => {
-      statusBreakdown[stat.status] = stat.count;
-      if (stat.status === 'Delivered' || stat.status === 'Picked Up') {
-        completed += stat.count;
-      } else if (stat.status === 'In Transit') {
-        inProgress += stat.count;
-      } else if (stat.status === 'Assigned') {
-        pending += stat.count;
-      }
-    });
-
-    const typeBreakdown: Record<string, number> = {};
-    typeStats.forEach((stat: any) => {
-      typeBreakdown[stat.type] = stat.count;
-    });
-
-    const routeBreakdown: Record<string, any> = {};
-    routeStats.forEach((stat: any) => {
-      routeBreakdown[stat.routeName] = {
-        total: stat.total,
-        delivered: stat.delivered,
-        pickedUp: stat.pickedUp,
-        pending: stat.pending,
-        cancelled: stat.cancelled,
-        pickupPending: stat.pickupPending,
-        deliveryPending: stat.deliveryPending,
-      };
-    });
-
-    return {
-      totalShipments,
-      completed,
-      inProgress,
-      pending,
-      statusBreakdown,
-      typeBreakdown,
-      routeBreakdown,
+    // Initialize default values for when there's no data
+    const defaultMetrics: DashboardMetrics = {
+      totalShipments: 0,
+      completed: 0,
+      inProgress: 0,
+      pending: 0,
+      statusBreakdown: {},
+      typeBreakdown: {},
+      routeBreakdown: {}
     };
+
+    try {
+      const totalShipmentsResult = this.db.prepare('SELECT COUNT(*) as count FROM shipments').get();
+      const totalShipments = totalShipmentsResult ? totalShipmentsResult.count : 0;
+
+      // If there are no shipments, return default metrics
+      if (totalShipments === 0) {
+        return defaultMetrics;
+      }
+
+      const statusStats = this.db.prepare(`
+        SELECT status, COUNT(*) as count 
+        FROM shipments 
+        GROUP BY status
+      `).all();
+
+      const typeStats = this.db.prepare(`
+        SELECT type, COUNT(*) as count 
+        FROM shipments 
+        GROUP BY type
+      `).all();
+
+      const routeStats = this.db.prepare(`
+        SELECT 
+          routeName,
+          COUNT(*) as total,
+          SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END) as delivered,
+          SUM(CASE WHEN status = 'Picked Up' THEN 1 ELSE 0 END) as pickedUp,
+          SUM(CASE WHEN status = 'Assigned' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
+          SUM(CASE WHEN status = 'Assigned' AND type = 'pickup' THEN 1 ELSE 0 END) as pickupPending,
+          SUM(CASE WHEN status = 'Assigned' AND type = 'delivery' THEN 1 ELSE 0 END) as deliveryPending
+        FROM shipments 
+        GROUP BY routeName
+      `).all();
+
+      const statusBreakdown: Record<string, number> = {};
+      let completed = 0;
+      let inProgress = 0;
+      let pending = 0;
+
+      statusStats.forEach((stat: any) => {
+        statusBreakdown[stat.status] = stat.count;
+        if (stat.status === 'Delivered' || stat.status === 'Picked Up') {
+          completed += stat.count;
+        } else if (stat.status === 'In Transit') {
+          inProgress += stat.count;
+        } else if (stat.status === 'Assigned') {
+          pending += stat.count;
+        }
+      });
+
+      const typeBreakdown: Record<string, number> = {};
+      typeStats.forEach((stat: any) => {
+        typeBreakdown[stat.type] = stat.count;
+      });
+
+      const routeBreakdown: Record<string, any> = {};
+      routeStats.forEach((stat: any) => {
+        if (stat.routeName) { // Only add if routeName is not null/undefined
+          routeBreakdown[stat.routeName] = {
+            total: stat.total || 0,
+            delivered: stat.delivered || 0,
+            pickedUp: stat.pickedUp || 0,
+            pending: stat.pending || 0,
+            cancelled: stat.cancelled || 0,
+            pickupPending: stat.pickupPending || 0,
+            deliveryPending: stat.deliveryPending || 0,
+          };
+        }
+      });
+
+      return {
+        totalShipments,
+        completed,
+        inProgress,
+        pending,
+        statusBreakdown,
+        typeBreakdown,
+        routeBreakdown,
+      };
+    } catch (error) {
+      console.error('Error fetching dashboard metrics:', error);
+      return defaultMetrics;
+    }
   }
 
   createAcknowledgment(acknowledgment: InsertAcknowledgment): Acknowledgment {

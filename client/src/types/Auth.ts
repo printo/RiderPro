@@ -4,6 +4,25 @@ export enum UserRole {
   MANAGER = 'manager',
   DRIVER = 'driver',
   VIEWER = 'viewer',
+  SUPER_ADMIN = 'super_admin',
+  OPS_TEAM = 'ops_team'
+}
+
+// User interface matching the API response
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  role: UserRole;
+  employeeId?: string;
+  fullName?: string;
+  isActive: boolean;
+  lastLogin?: string;
+  isOpsTeam: boolean;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Permissions for different actions
@@ -18,18 +37,6 @@ export enum Permission {
   CONFIGURE_SYSTEM = 'configure_system',
 }
 
-export interface User {
-  id: string;
-  username: string;
-  email: string;
-  role: UserRole;
-  employeeId?: string;
-  fullName?: string;
-  isActive: boolean;
-  lastLogin?: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export interface AuthState {
   user: User | null;
