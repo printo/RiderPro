@@ -6,7 +6,11 @@ interface User {
   email: string;
   role: UserRole;
   employeeId?: string;
+  fullName?: string;
+  isActive?: boolean;
   lastLogin?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface DjangoLoginResponse {
@@ -226,7 +230,7 @@ class AuthService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.state.token}`,
+          Authorization: `Bearer ${this.state.accessToken}`,
         },
         body: JSON.stringify({ currentPassword, newPassword }),
       });

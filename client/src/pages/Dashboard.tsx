@@ -166,13 +166,13 @@ export default function Dashboard() {
         </div>
 
         <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <StatusDistributionChart statusBreakdown={metrics.statusBreakdown} />
-          <RoutePerformanceChart routeBreakdown={metrics.routeBreakdown} />
+          <StatusDistributionChart statusBreakdown={metrics.statusBreakdown ?? {}} />
+          <RoutePerformanceChart routeBreakdown={metrics.routeBreakdown ?? {}} />
         </div>
       </div>
 
       {/* Route Summary */}
-      <RouteSummary routeBreakdown={metrics.routeBreakdown} />
+      <RouteSummary routeBreakdown={metrics.routeBreakdown ?? {}} />
     </div>
   );
 }

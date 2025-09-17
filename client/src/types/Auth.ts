@@ -24,6 +24,7 @@ export interface User {
   email: string;
   role: UserRole;
   employeeId?: string;
+  fullName?: string;
   isActive: boolean;
   lastLogin?: string;
   createdAt: string;
