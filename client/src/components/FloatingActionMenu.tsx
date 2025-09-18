@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import authService from "@/services/AuthService";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -163,6 +164,10 @@ export default function FloatingActionMenu() {
                   variant="ghost"
                   className="justify-center h-16 text-center flex-row rounded-xl transition-all duration-200 hover:scale-105 border-2 border-transparent hover:border-red-200 group"
                   data-testid="button-logout"
+                  onClick={async () => {
+                    await authService.logout();
+                    window.location.href = '/login';
+                  }}
                 >
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-1">
                     <LogOut className="h-4 w-4 text-red-600" />

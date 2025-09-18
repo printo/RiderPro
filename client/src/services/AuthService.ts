@@ -171,12 +171,15 @@ class AuthService {
       }
 
       // Create user object with all the properties
+      // NOTE: We're using the login employeeId as both the username and employeeId
+      // This assumes that the login ID matches the employee's ID in the system
+      // If this is not the case, the backend should provide the correct employeeId in the response
       const user: User = {
         id: user_id?.toString() || employeeId,
         username: employeeId,
         email: `${employeeId}@company.com`,
         role,
-        employeeId: employeeId,
+        employeeId: employeeId, // Using login ID as employeeId
         isActive: true,
         fullName: full_name || `Employee ${employeeId}`,
         lastLogin: new Date().toISOString(),

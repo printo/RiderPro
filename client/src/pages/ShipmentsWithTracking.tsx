@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { useShipments } from "@/hooks/useShipments";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { shipmentsApi } from "@/api/shipments";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,9 +14,6 @@ import { Shipment, ShipmentFilters } from "@shared/schema";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { authService } from "@/services/AuthService";
 
-// Mock employee ID - in a real app, this would come from authentication
-const CURRENT_EMPLOYEE_ID = "emp123";
-
 export default function ShipmentsWithTracking() {
   const [filters, setFilters] = useState<ShipmentFilters>({});
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
@@ -23,43 +21,237 @@ export default function ShipmentsWithTracking() {
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showRouteControls, setShowRouteControls] = useState(true);
 
-  const { data: shipments, isLoading, error, refetch } = useShipments(filters);
-  const { hasActiveSession, activeSession } = useRouteTracking(CURRENT_EMPLOYEE_ID);
+  const currentUser = authService.getUser();
+  const employeeId = currentUser?.employeeId || currentUser?.username || "";
+
+  // Memoize effective filters so query key is stable
+  const effectiveFilters = useMemo(() => {
+    return {
+      ...filters,
+      ...(currentUser?.role !== "admin" &&
+      currentUser?.role !== "super_admin" &&
+      employeeId
+        ? { employeeId }
+        : {}),
+    } as ShipmentFilters;
+  }, [filters, currentUser?.role, employeeId]);
+
+  // Lazy loading
+  const [shouldLoadShipments, setShouldLoadShipments] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      setShouldLoadShipments(true);
+      return;
+    }
+    if (!("IntersectionObserver" in window)) {
+      setShouldLoadShipments(true);
+      return;
+    }
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setShouldLoadShipments(true);
+            obs.disconnect();
+            break;
+          }
+        }
+      },
+      { root: null, rootMargin: "300px", threshold: 0.05 }
+    );
+
+    if (sentinelRef.current) {
+      obs.observe(sentinelRef.current);
+    } else {
+      const t = setTimeout(() => setShouldLoadShipments(true), 1000);
+      return () => clearTimeout(t);
+    }
+
+    return () => obs.disconnect();
+  }, []);
+
+  // ✅ Fixed useQuery API (v4 style)
+  const {
+    data: shipments = [],
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery<Shipment[], Error>({
+    queryKey: ["shipments", effectiveFilters],
+    queryFn: () => shipmentsApi.getShipments(effectiveFilters),
+    enabled: shouldLoadShipments,
+    refetchInterval: 30000,
+    staleTime: 1000 * 60 * 5,
+    retry: 1,
+  });
+
+  const { hasActiveSession, activeSession } = useRouteTracking(employeeId);
 
   const handleShipmentSelect = (shipmentId: string, selected: boolean) => {
-    setSelectedShipmentIds(prev =>
-      selected
-        ? [...prev, shipmentId]
-        : prev.filter(id => id !== shipmentId)
+    setSelectedShipmentIds((prev) =>
+      selected ? [...prev, shipmentId] : prev.filter((id) => id !== shipmentId)
     );
   };
 
   const handleSelectAll = (selected: boolean) => {
-    if (selected && shipments) {
-      setSelectedShipmentIds(shipments.map(s => s.id));
+    if (selected) {
+      setSelectedShipmentIds(shipments.map((s: Shipment) => s.id));
     } else {
       setSelectedShipmentIds([]);
     }
   };
 
   const handleBatchUpdate = () => {
-    if (selectedShipmentIds.length === 0) {
-      return;
-    }
+    if (selectedShipmentIds.length === 0) return;
     setShowBatchModal(true);
   };
 
   const handleRefresh = () => {
-    refetch();
+    if (!shouldLoadShipments) {
+      setShouldLoadShipments(true);
+    } else {
+      refetch();
+    }
   };
 
   const toggleRouteControls = () => {
     setShowRouteControls(!showRouteControls);
   };
 
-  if (isLoading) {
+  // Debounce and auto-refetch when filters change
+  useEffect(() => {
+    if (!shouldLoadShipments) return;
+    const handler = setTimeout(() => {
+      refetch();
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [effectiveFilters, refetch, shouldLoadShipments]);
+
+  // Error banner
+  const renderErrorBanner = () => {
+    if (!error) return null;
+
+    console.error("Shipments error:", error);
+
+    let errorMessage = "Failed to load shipments. Please try again.";
+    let showRetry = true;
+
+    if (error instanceof Error) {
+      if (error.message.includes("401")) {
+        errorMessage = "Your session has expired. Please log in again.";
+        showRetry = false;
+      } else if (error.message.includes("NetworkError")) {
+        errorMessage = "Network error. Please check your internet connection.";
+      } else if (error.message.includes("500")) {
+        errorMessage = "Server error. Please try again later.";
+      }
+    }
+
+    return (
+      <Card className="mt-6">
+        <CardContent className="p-4">
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg
+                  className="h-5 w-5 text-red-400"
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">{errorMessage}</h3>
+                {process.env.NODE_ENV === "development" && (
+                  <div className="mt-2 text-sm text-red-700">
+                    <details>
+                      <summary className="cursor-pointer text-sm">
+                        Show error details
+                      </summary>
+                      <pre className="mt-2 p-2 bg-red-100 rounded overflow-auto text-xs">
+                        {error instanceof Error ? error.message : JSON.stringify(error, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
+                )}
+                <div className="mt-2 flex gap-2">
+                  {showRetry ? (
+                    <Button
+                      onClick={handleRefresh}
+                      variant="destructive"
+                      size="sm"
+                      className="mt-2"
+                      data-testid="button-retry"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Retry Loading Shipments
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        authService.logout().finally(() => {
+                          window.location.href = "/login";
+                        });
+                      }}
+                      variant="destructive"
+                      size="sm"
+                      className="mt-2"
+                    >
+                      Go to Login
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // Initial loading skeleton
+  if (isLoading && shouldLoadShipments && !isFetching) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <Card className="mb-6" data-testid="card-filters">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+              <h2 className="text-xl font-semibold text-foreground" data-testid="text-shipments-title">
+                Shipments with GPS Tracking
+              </h2>
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={handleBatchUpdate}
+                  disabled={selectedShipmentIds.length === 0}
+                  className="bg-primary text-primary-foreground"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Batch Update ({selectedShipmentIds.length})
+                </Button>
+                <Button variant="outline" onClick={toggleRouteControls}>
+                  <MapPin className="h-4 w-4 mr-2" />
+                  {showRouteControls ? "Hide" : "Show"} Tracking
+                </Button>
+                <Button variant="secondary" onClick={handleRefresh}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+            <Filters filters={filters} onFiltersChange={setFilters} />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardContent className="p-4">
             <Skeleton className="h-20 w-full mb-4" />
@@ -70,6 +262,7 @@ export default function ShipmentsWithTracking() {
             </div>
           </CardContent>
         </Card>
+
         <div className="space-y-4 mt-6">
           {[...Array(5)].map((_, i) => (
             <Card key={i}>
@@ -78,74 +271,6 @@ export default function ShipmentsWithTracking() {
               </CardContent>
             </Card>
           ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    console.error('Shipments error:', error);
-    
-    // Check for common error cases
-    let errorMessage = 'Failed to load shipments';
-    let showRetry = true;
-    
-    if (error instanceof Error) {
-      if (error.message.includes('401')) {
-        errorMessage = 'Your session has expired. Please log in again.';
-        showRetry = false;
-      } else if (error.message.includes('NetworkError')) {
-        errorMessage = 'Network error. Please check your internet connection.';
-      } else if (error.message.includes('500')) {
-        errorMessage = 'Server error. Please try again later.';
-      }
-    }
-    
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">{errorMessage}</h3>
-              {process.env.NODE_ENV === 'development' && (
-                <div className="mt-2 text-sm text-red-700">
-                  <p>Error details:</p>
-                  <pre className="mt-2 p-2 bg-red-100 rounded overflow-auto text-xs">
-                    {error instanceof Error ? error.message : JSON.stringify(error, null, 2)}
-                  </pre>
-                </div>
-              )}
-              <div className="mt-4 flex gap-2">
-                {showRetry && (
-                  <Button
-                    onClick={handleRefresh}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                    data-testid="button-retry"
-                  >
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Retry
-                  </Button>
-                )}
-                {!showRetry && (
-                  <Button
-                    onClick={() => {
-                      authService.logout().finally(() => {
-                        window.location.href = '/login';
-                      });
-                    }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    Go to Login
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     );
@@ -161,16 +286,11 @@ export default function ShipmentsWithTracking() {
               <div className="flex flex-col lg:flex-row gap-4">
                 <div className="flex-1">
                   <RouteSessionControls
-                    employeeId={CURRENT_EMPLOYEE_ID}
-                    onSessionStart={() => {
-                      console.log('Route session started');
-                    }}
-                    onSessionStop={() => {
-                      console.log('Route session stopped');
-                    }}
+                    employeeId={employeeId}
+                    onSessionStart={() => console.log("Route session started")}
+                    onSessionStop={() => console.log("Route session stopped")}
                   />
                 </div>
-
                 {hasActiveSession && (
                   <div className="lg:w-80">
                     <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
@@ -199,7 +319,7 @@ export default function ShipmentsWithTracking() {
         </div>
       )}
 
-      {/* Filters and Actions */}
+      {/* Filters */}
       <Card className="mb-6" data-testid="card-filters">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
@@ -211,46 +331,64 @@ export default function ShipmentsWithTracking() {
                 onClick={handleBatchUpdate}
                 disabled={selectedShipmentIds.length === 0}
                 className="bg-primary text-primary-foreground"
-                data-testid="button-batch-update"
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Batch Update ({selectedShipmentIds.length})
               </Button>
-              <Button
-                variant="outline"
-                onClick={toggleRouteControls}
-                data-testid="button-toggle-tracking"
-              >
+              <Button variant="outline" onClick={toggleRouteControls}>
                 <MapPin className="h-4 w-4 mr-2" />
-                {showRouteControls ? 'Hide' : 'Show'} Tracking
+                {showRouteControls ? "Hide" : "Show"} Tracking
               </Button>
-              <Button
-                variant="secondary"
-                onClick={handleRefresh}
-                data-testid="button-refresh"
-              >
+              <Button variant="secondary" onClick={handleRefresh}>
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Refresh
+                {isFetching && (
+                  <span className="ml-2 w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+                )}
               </Button>
             </div>
           </div>
-
           <Filters filters={filters} onFiltersChange={setFilters} />
         </CardContent>
       </Card>
 
-      {/* Shipments List */}
-      {!shipments || shipments.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground" data-testid="text-no-shipments">
-            {filters.status || filters.type || filters.routeName || filters.date
-              ? "No shipments match the current filters"
-              : "No shipments available"}
-          </p>
-        </div>
+      {/* Sentinel */}
+      <div ref={sentinelRef} />
+
+      {/* Shipments Section */}
+      {!shouldLoadShipments ? (
+        <Card className="mt-6">
+          <CardContent className="py-8 text-center">
+            <p className="text-muted-foreground mb-4">
+              Shipments will load when this section scrolls into view. You can also load them now.
+            </p>
+            <div className="flex justify-center gap-2">
+              <Button onClick={() => setShouldLoadShipments(true)}>Load Shipments</Button>
+              <Button variant="outline" onClick={() => setShouldLoadShipments(true)}>
+                Load & Keep Filters
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : error ? (
+        renderErrorBanner()
+      ) : shipments.length === 0 ? (
+        <Card className="mt-6">
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground" data-testid="text-no-shipments">
+              {filters.status || filters.type || filters.routeName || filters.date || (filters as any).employeeId
+                ? "No shipments match the current filters. Try adjusting your filters."
+                : "No shipments available at the moment. Please check back later."}
+            </p>
+            <Button variant="outline" className="mt-4" onClick={handleRefresh}>
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-4">
-          {/* Select All Control */}
+          {/* Select All */}
           <div className="flex items-center gap-2 px-2">
             <input
               type="checkbox"
@@ -267,17 +405,23 @@ export default function ShipmentsWithTracking() {
                 • GPS tracking active - locations will be recorded automatically
               </span>
             )}
+            {isFetching && (
+              <span className="text-xs text-blue-500 ml-auto">
+                Loading...
+                <span className="ml-1 w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block"></span>
+              </span>
+            )}
           </div>
 
           {/* Shipment Cards */}
-          {shipments.map((shipment) => (
+          {shipments.map((shipment: Shipment) => (
             <ShipmentCardWithTracking
               key={shipment.id}
               shipment={shipment}
               selected={selectedShipmentIds.includes(shipment.id)}
               onSelect={(selected) => handleShipmentSelect(shipment.id, selected)}
               onViewDetails={() => setSelectedShipment(shipment)}
-              employeeId={CURRENT_EMPLOYEE_ID}
+              employeeId={employeeId}
               showTrackingControls={showRouteControls}
             />
           ))}

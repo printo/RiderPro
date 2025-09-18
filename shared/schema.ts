@@ -126,6 +126,7 @@ export interface ShipmentFilters {
     end: string;
   };
   search?: string;
+  employeeId?: string;
 }
 
 // Route schemas

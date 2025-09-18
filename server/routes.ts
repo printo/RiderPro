@@ -11,7 +11,8 @@ import {
   startRouteSessionSchema,
   stopRouteSessionSchema,
   gpsCoordinateSchema,
-  routeFiltersSchema
+  routeFiltersSchema,
+  ShipmentFilters
 } from "@shared/schema";
 import { upload, getFileUrl, saveBase64File } from "./utils/fileUpload.js";
 import { externalSync } from "./services/externalSync.js";
@@ -40,13 +41,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get shipments with optional filters
   app.get('/api/shipments', async (req, res) => {
     try {
-      const filters = shipmentFiltersSchema.parse(req.query);
+      // Get the authorization header
+      const authHeader = req.headers.authorization;
+      if (!authHeader) {
+        return res.status(401).json({ message: 'Authorization header is required' });
+      }
+
+      // Extract the token
+      const token = authHeader.split(' ')[1];
+      if (!token) {
+        return res.status(401).json({ message: 'No token provided' });
+      }
+
+      // In a real app, you would verify the JWT token here and get the user
+      // For now, we'll use a mock function to simulate getting the user from the token
+      const user = await getUserFromToken(token);
+      if (!user || !user.employeeId) {
+        return res.status(401).json({ message: 'Invalid or expired token' });
+      }
+
+      // Convert query parameters to filters
+      const filters: ShipmentFilters = {};
+      
+      // Safely copy valid filter fields from query
+      const validFilters = ['status', 'priority', 'type', 'routeName', 'date', 'search', 'employeeId'];
+      
+      // Handle string filters
+      for (const [key, value] of Object.entries(req.query)) {
+        if (validFilters.includes(key) && typeof value === 'string') {
+          // Type assertion to handle the string properties
+          (filters as any)[key] = value;
+        }
+      }
+      
+      // Handle date range if present
+      if (req.query.dateRange) {
+        try {
+          const dateRange = typeof req.query.dateRange === 'string' 
+            ? JSON.parse(req.query.dateRange) 
+            : req.query.dateRange;
+            
+          if (dateRange && typeof dateRange === 'object' && 'start' in dateRange && 'end' in dateRange) {
+            filters.dateRange = {
+              start: String(dateRange.start),
+              end: String(dateRange.end)
+            };
+          }
+        } catch (e) {
+          console.warn('Invalid dateRange format:', req.query.dateRange);
+        }
+      }
+      
+      // If the user is not an admin, filter by their employee ID
+      if (user.role !== 'admin' && user.role !== 'super_admin') {
+        filters.employeeId = user.employeeId;
+      }
+      
       const shipments = await storage.getShipments(filters);
       res.json(shipments);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      console.error('Error fetching shipments:', error);
+      res.status(500).json({ message: error.message || 'Failed to fetch shipments' });
     }
   });
+  
+  // Mock function to get user from token - replace with your actual JWT verification
+  async function getUserFromToken(token: string): Promise<{ employeeId: string; role: string } | null> {
+    try {
+      // In a real app, you would verify the JWT token here
+      // This is just a mock implementation
+      const authHeader = `Bearer ${token}`;
+      const response = await fetch('https://pia.printo.in/api/v1/auth/me/', {
+        headers: { 'Authorization': authHeader }
+      });
+      
+      if (!response.ok) {
+        console.error('Failed to verify token:', await response.text());
+        return null;
+      }
+      
+      const userData = await response.json();
+      return {
+        employeeId: userData.employee_id || userData.username,
+        role: userData.is_superuser ? 'admin' : 'user'
+      };
+    } catch (error) {
+      console.error('Error verifying token:', error);
+      return null;
+    }
+  }
 
   // Get single shipment
   app.get('/api/shipments/:id', async (req, res) => {

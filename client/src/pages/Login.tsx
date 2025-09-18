@@ -1,5 +1,6 @@
 // client/src/pages/Login.tsx
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ export default function Login({ onLogin }: LoginProps) {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [, setLocation] = useLocation();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +33,8 @@ export default function Login({ onLogin }: LoginProps) {
       if (result.success) {
         console.log('Login successful!');
         onLogin();
+        // Navigate to dashboard after successful login
+        setLocation('/dashboard');
       } else {
         console.error('Login failed:', result.message);
         setError(result.message || "Invalid credentials");
