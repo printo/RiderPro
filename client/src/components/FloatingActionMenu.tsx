@@ -5,16 +5,16 @@ import type { User } from "@/types/Auth";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Menu, 
-  BarChart3, 
-  List, 
-  User as UserIcon, 
-  LogOut, 
-  Phone,
-  Mail,
+import {
+  Menu,
+  BarChart3,
+  List,
+  Settings,
+  Route,
+  Map,
   Sun,
   Moon,
+  LogOut,
   X
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -52,8 +52,30 @@ export default function FloatingActionMenu() {
       icon: List,
       label: "Shipments",
       testId: "menu-shipments"
+    },
+    {
+      href: "/route-analytics",
+      icon: BarChart3,
+      label: "Route Analytics",
+      testId: "menu-route-analytics"
+    },
+    {
+      href: "/route-visualization",
+      icon: Map,
+      label: "Route Visualization",
+      testId: "menu-route-visualization"
     }
   ];
+
+  // Admin menu items - only show for admin users (not ops team)
+  const adminMenuItems = user?.isAdmin || user?.isSuperAdmin ? [
+    {
+      href: "/admin",
+      icon: Settings,
+      label: "Admin",
+      testId: "menu-admin"
+    }
+  ] : [];
 
   const handleNavigation = (href: string) => {
     setLocation(href);
@@ -84,11 +106,11 @@ export default function FloatingActionMenu() {
             {isOpen ? <X className="h-6 w-6 text-white" /> : <Menu className="h-6 w-6 text-white" />}
           </Button>
         </SheetTrigger>
-        
-        <SheetContent 
+
+        <SheetContent
           side="bottom"
           className={cn(
-            "h-[50%] w-full max-w-sm border border-border/50 bg-background shadow-2xl p-0 rounded-t-2xl ml-auto mr-4",
+            "h-[60%] w-full max-w-sm border border-border/50 bg-background shadow-2xl p-0 rounded-t-2xl ml-auto mr-4",
             "ring-1 ring-border/20"
           )}
         >
@@ -128,7 +150,7 @@ export default function FloatingActionMenu() {
                   Navigation
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
-                  {menuItems.map((item) => {
+                  {[...menuItems, ...adminMenuItems].map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.href);
                     return (
@@ -138,8 +160,8 @@ export default function FloatingActionMenu() {
                         className={cn(
                           "h-14 flex items-center justify-start gap-3 rounded-xl transition-all duration-200 hover:scale-[1.02] hover:shadow-lg",
                           "border border-transparent p-3 group",
-                          active 
-                            ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-md border-blue-500/20" 
+                          active
+                            ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-md border-blue-500/20"
                             : "hover:bg-gradient-to-br hover:from-primary/5 hover:to-primary/10 hover:border-primary/20"
                         )}
                         onClick={() => handleNavigation(item.href)}
@@ -147,8 +169,8 @@ export default function FloatingActionMenu() {
                       >
                         <div className={cn(
                           "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0",
-                          active 
-                            ? "bg-white/20 shadow-sm" 
+                          active
+                            ? "bg-white/20 shadow-sm"
                             : "bg-gradient-to-br from-primary/10 to-primary/20 group-hover:from-primary/20 group-hover:to-primary/30 group-hover:shadow-sm"
                         )}>
                           <Icon className={cn(
@@ -181,8 +203,8 @@ export default function FloatingActionMenu() {
                     data-testid="button-theme-toggle"
                   >
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/20 group-hover:from-primary/20 group-hover:to-primary/30 group-hover:shadow-sm transition-all duration-200 flex-shrink-0">
-                      {theme === 'light' ? 
-                        <Moon className="h-4 w-4 text-primary group-hover:text-primary/80 transition-colors duration-200" /> : 
+                      {theme === 'light' ?
+                        <Moon className="h-4 w-4 text-primary group-hover:text-primary/80 transition-colors duration-200" /> :
                         <Sun className="h-4 w-4 text-primary group-hover:text-primary/80 transition-colors duration-200" />
                       }
                     </div>
@@ -190,7 +212,7 @@ export default function FloatingActionMenu() {
                       {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
                     </span>
                   </Button>
-                  
+
                   <Button
                     variant="ghost"
                     className="h-14 flex items-center justify-start gap-3 rounded-xl transition-all duration-200 hover:scale-[1.02] hover:shadow-lg border border-transparent hover:border-red-200 group p-3 hover:bg-gradient-to-br hover:from-red-50 hover:to-red-100"

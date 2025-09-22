@@ -2,39 +2,59 @@
 
 ## Overview
 
-RiderPro is a comprehensive shipment management system designed for logistics and delivery operations. The application provides a real-time dashboard for tracking shipments, managing deliveries and pickups, and handling acknowledgments with digital signatures and photos. Built as a full-stack application with real-time updates and mobile-responsive design, it serves both operational staff and field workers managing shipment lifecycles.
+RiderPro is a comprehensive shipment management system designed for logistics
+and delivery operations. The application provides a real-time dashboard for
+tracking shipments, managing deliveries and pickups, and handling
+acknowledgments with digital signatures and photos. Built as a full-stack
+application with real-time updates and mobile-responsive design, it serves both
+operational staff and field workers managing shipment lifecycles.
 
 ## Documentation
 
-See `docs/README.md` for detailed product and technical documentation (auth, roles, and feature guides).
+See `docs/README.md` for detailed product and technical documentation (auth,
+roles, and feature guides).
 
 ## Technology Stack
 
 ### Frontend
+
 - **Framework**: React 18 with TypeScript
 - **Build Tool**: Vite for fast development and optimized production builds
 - **UI Components**: Shadcn/ui component library built on Radix UI primitives
-- **Styling**: Tailwind CSS with custom design system and CSS variables for theming
-- **State Management**: TanStack Query (React Query) for server state management with automatic caching and real-time updates
+- **Styling**: Tailwind CSS with custom design system and CSS variables for
+  theming
+- **State Management**: TanStack Query (React Query) for server state management
+  with automatic caching and real-time updates
 - **Routing**: Wouter for lightweight client-side routing
-- **Form Handling**: React Hook Form with Zod validation for type-safe form management
-- **Error Handling**: React Error Boundaries with graceful fallback UI and error logging
+- **Form Handling**: React Hook Form with Zod validation for type-safe form
+  management
+- **Error Handling**: React Error Boundaries with graceful fallback UI and error
+  logging
 
 ### Backend
+
 - **Runtime**: Node.js with Express.js framework
 - **Language**: TypeScript with ES modules
-- **Database**: SQLite with Better SQLite3 for local storage, dual database setup (live + replica)
-- **ORM**: Drizzle ORM with PostgreSQL dialect configuration (ready for migration)
+- **Database**: SQLite with Better SQLite3 for local storage, dual database
+  setup (live + replica)
+- **ORM**: Drizzle ORM with PostgreSQL dialect configuration (ready for
+  migration)
 - **File Handling**: Multer for multipart file uploads (signatures and photos)
 - **Scheduling**: Node-cron for automated database maintenance tasks
-- **External Sync**: Axios with retry logic and exponential backoff for API integrations
+- **External Sync**: Axios with retry logic and exponential backoff for API
+  integrations
 - **API Design**: RESTful API with structured error handling and request logging
 
 ### Data Storage
-- **Primary Database**: SQLite with two instances - live database for active operations and replica database for data persistence
-- **File Storage**: Local file system with organized directory structure for uploaded signatures and photos
-- **Database Schema**: Normalized schema with shipments, acknowledgments, and sync_status tables
-- **Data Lifecycle**: Automated daily reset of live database while maintaining historical data in replica
+
+- **Primary Database**: SQLite with two instances - live database for active
+  operations and replica database for data persistence
+- **File Storage**: Local file system with organized directory structure for
+  uploaded signatures and photos
+- **Database Schema**: Normalized schema with shipments, acknowledgments, and
+  sync_status tables
+- **Data Lifecycle**: Automated daily reset of live database while maintaining
+  historical data in replica
 
 ## Project Structure
 
@@ -97,6 +117,7 @@ See `docs/README.md` for detailed product and technical documentation (auth, rol
 ## Database Schema
 
 ### Shipments Table
+
 ```sql
 CREATE TABLE shipments (
   id TEXT PRIMARY KEY,
@@ -115,6 +136,7 @@ CREATE TABLE shipments (
 ```
 
 ### Acknowledgments Table
+
 ```sql
 CREATE TABLE acknowledgments (
   id TEXT PRIMARY KEY,
@@ -127,6 +149,7 @@ CREATE TABLE acknowledgments (
 ```
 
 ### Sync Status Table
+
 ```sql
 CREATE TABLE sync_status (
   id TEXT PRIMARY KEY,
@@ -143,22 +166,42 @@ CREATE TABLE sync_status (
 ## API Documentation
 
 ### Base URL
+
 - Development: `http://localhost:5000/api`
 - Production: `https://your-domain.com/api`
 
+### Application Pages
+
+**Public Pages (All Users):**
+
+- Dashboard: `http://localhost:5000/`
+- Shipments: `http://localhost:5000/shipments`
+- Route Analytics: `http://localhost:5000/route-analytics`
+- Route Visualization: `http://localhost:5000/route-visualization`
+
+**Admin Pages (Admin Users Only):**
+
+- Admin Dashboard: `http://localhost:5000/admin`
+
 ### Authentication
-Uses Django-issued token authentication (no JWT required):
-- Login proxied via `/api/auth/login` to `https://pia.printo.in/api/v1/auth/`
-- Stores `access_token`, `refresh_token`, user with literal role (`admin`, `isops`, `isdelivery`)
-- Sends `Authorization: Bearer <access-token>` and cookies
+
+Uses Printo API token authentication:
+
+- Login via `/api/auth/login` proxied to `https://pia.printo.in/api/v1/auth/`
+- Stores `access_token`, `refresh_token`, user with role-based permissions
+- Sends `Authorization: Bearer <access-token>` for API requests
 - Auto-refresh via `/api/auth/refresh` on 401
+- **Super Admin Override:** `kanna.p@printo.in` and employee ID `12180` get
+  super admin access regardless of API role
 
 ### Authentication Endpoints
 
 #### Login
+
 **POST** `/api/auth/login`
 
 **Request Body:**
+
 ```json
 {
   "email": "user@company.com",
@@ -167,6 +210,7 @@ Uses Django-issued token authentication (no JWT required):
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -187,32 +231,40 @@ Uses Django-issued token authentication (no JWT required):
 ```
 
 #### Get Current User
+
 **GET** `/api/auth/me`
 
 **Headers:**
+
 ```
 Authorization: Bearer <access-token>
 ```
 
 #### Logout
+
 **POST** `/api/auth/logout`
 
 **Headers:**
+
 ```
 Authorization: Bearer <access-token>
 ```
 
 ### Data Endpoints
 
-All data endpoints require authentication. Include the access token in the Authorization header:
+All data endpoints require authentication. Include the access token in the
+Authorization header:
+
 ```
 Authorization: Bearer <access-token>
 ```
 
 #### 1. Dashboard Metrics
+
 **GET** `/api/dashboard`
 
 **Response:**
+
 ```json
 {
   "totalShipments": 150,
@@ -250,12 +302,14 @@ Authorization: Bearer <access-token>
 **GET** `/api/shipments`
 
 Query Parameters:
+
 - `status`: Filter by status (optional)
 - `type`: Filter by type ('delivery' or 'pickup') (optional)
 - `routeName`: Filter by route (optional)
 - `date`: Filter by delivery date (optional)
 
 **Response:**
+
 ```json
 [
   {
@@ -278,6 +332,7 @@ Query Parameters:
 **POST** `/api/shipments`
 
 **Request Body:**
+
 ```json
 {
   "id": "optional-custom-id",
@@ -300,6 +355,7 @@ Query Parameters:
 **PATCH** `/api/shipments/:id`
 
 **Request Body:**
+
 ```json
 {
   "status": "Delivered"
@@ -311,6 +367,7 @@ Query Parameters:
 **PATCH** `/api/shipments/batch`
 
 **Request Body:**
+
 ```json
 {
   "updates": [
@@ -319,7 +376,7 @@ Query Parameters:
       "status": "Delivered"
     },
     {
-      "id": "shipment-id-2", 
+      "id": "shipment-id-2",
       "status": "In Transit"
     }
   ]
@@ -327,6 +384,7 @@ Query Parameters:
 ```
 
 **Response:**
+
 ```json
 {
   "updatedCount": 2,
@@ -341,11 +399,14 @@ Query Parameters:
 **Content-Type:** `multipart/form-data`
 
 **Form Fields:**
+
 - `photo`: Image file (optional)
 - `signature`: Signature image file (optional)
-- `signatureData`: Base64 signature data (optional, alternative to signature file)
+- `signatureData`: Base64 signature data (optional, alternative to signature
+  file)
 
 **Response:**
+
 ```json
 {
   "id": "acknowledgment-id",
@@ -361,6 +422,7 @@ Query Parameters:
 **POST** `/api/shipments/:id/remarks`
 
 **Request Body:**
+
 ```json
 {
   "remarks": "Customer requested cancellation due to address change",
@@ -369,6 +431,7 @@ Query Parameters:
 ```
 
 **Response:**
+
 ```json
 {
   "shipmentId": "shipment-id",
@@ -383,6 +446,7 @@ Query Parameters:
 **GET** `/api/sync/stats`
 
 **Response:**
+
 ```json
 {
   "totalPending": 5,
@@ -395,6 +459,7 @@ Query Parameters:
 **POST** `/api/sync/trigger`
 
 **Response:**
+
 ```json
 {
   "processed": 5,
@@ -408,13 +473,15 @@ Query Parameters:
 ### Development vs Production
 
 **Development Mode (npm run dev):**
+
 - Uses replica database for primary operations
 - Live database serves as backup/secondary
 - Detailed logging enabled
 - Hot reloading for frontend and backend
 
 **Production Mode:**
-- Uses live database for primary operations  
+
+- Uses live database for primary operations
 - Replica database serves as backup/historical data
 - Optimized logging
 - Compiled assets served efficiently
@@ -451,11 +518,13 @@ SYNC_RETRY_DELAY=1000  # milliseconds
 
 ### Authentication API Integration
 
-The system integrates with your existing authentication API for user login. Your external API should accept POST requests with the following format:
+The system integrates with your existing authentication API for user login. Your
+external API should accept POST requests with the following format:
 
 **Authentication Endpoint:** `EXTERNAL_AUTH_API_URL` (configured in environment)
 
 **Request Format:**
+
 ```json
 {
   "username": "user@company.com",
@@ -464,6 +533,7 @@ The system integrates with your existing authentication API for user login. Your
 ```
 
 **Expected Response Format:**
+
 ```json
 {
   "success": true,
@@ -478,6 +548,7 @@ The system integrates with your existing authentication API for user login. Your
 ```
 
 **Error Response Format:**
+
 ```json
 {
   "success": false,
@@ -486,6 +557,7 @@ The system integrates with your existing authentication API for user login. Your
 ```
 
 **Supported Roles:**
+
 - `admin`: Full system access including user management and system configuration
 - `manager`: Access to all routes, analytics, data export, and live tracking
 - `driver`: Access to own routes only
@@ -495,7 +567,8 @@ The system integrates with your existing authentication API for user login. Your
 
 ### Outgoing Sync Format
 
-The system automatically syncs shipment updates to external APIs with the following payload structure:
+The system automatically syncs shipment updates to external APIs with the
+following payload structure:
 
 ```json
 {
@@ -527,13 +600,14 @@ The system automatically syncs shipment updates to external APIs with the follow
 
 ### Incoming Webhook Format
 
-To receive new shipments from external systems, send POST requests to `/api/shipments`:
+To receive new shipments from external systems, send POST requests to
+`/api/shipments`:
 
 ```json
 {
   "id": "external-system-id",
   "type": "delivery",
-  "customerName": "John Doe", 
+  "customerName": "John Doe",
   "customerMobile": "+91-9876543210",
   "address": "123 Main Street, City, State",
   "cost": 500.00,
@@ -546,7 +620,8 @@ To receive new shipments from external systems, send POST requests to `/api/ship
 ## Development Setup
 
 ### Prerequisites
-- Node.js 18+ 
+
+- Node.js 18+
 - npm or yarn
 - Git
 
@@ -567,16 +642,16 @@ To receive new shipments from external systems, send POST requests to `/api/ship
    ```bash
    cp .env.example .env
    ```
-   
+
    Edit `.env` and configure:
    ```bash
    # Required: External authentication API
    EXTERNAL_AUTH_API_URL=https://your-auth-api.com/authenticate
    EXTERNAL_AUTH_API_KEY=your-api-key-here
-   
+
    # Required: JWT secret for session management
    JWT_SECRET=your-super-secret-jwt-key-change-in-production
-   
+
    # Optional: Other configuration options
    DATABASE_PATH=./data/riderpro.db
    PORT=3001
@@ -593,9 +668,12 @@ To receive new shipments from external systems, send POST requests to `/api/ship
    ```
 
 6. **Access the application**
-   - Frontend: http://localhost:3001
-   - Backend API: http://localhost:3001/api
-   - Login with credentials from your external authentication system
+   - Frontend: http://localhost:5000
+   - Backend API: http://localhost:5000/api
+   - Admin Dashboard: http://localhost:5000/admin (Admin users only)
+   - Route Analytics: http://localhost:5000/route-analytics (All users)
+   - Route Visualization: http://localhost:5000/route-visualization (All users)
+   - Login with credentials from your Printo authentication system
 
 ### Development Scripts
 
@@ -622,42 +700,49 @@ npm install <package-name>
 ## Key Features
 
 ### 1. Real-time Dashboard
+
 - Live shipment metrics and status breakdown
 - Route performance analytics with visual progress bars
 - External sync status monitoring with manual trigger option
 - Auto-refreshing data every 30 seconds
 
 ### 2. Shipment Management
+
 - Complete CRUD operations for shipments
 - Advanced filtering by status, type, route, and date
 - Batch operations for bulk status updates
 - Mobile-optimized card-based interface
 
 ### 3. Status Workflow Management
+
 - **Delivered/Picked Up**: Requires photo + digital signature
 - **Cancelled/Returned**: Requires mandatory remarks collection
 - **In Transit/Assigned**: Simple status updates
 - Real-time status change notifications
 
 ### 4. Digital Acknowledgments
+
 - Canvas-based digital signature capture
 - Camera integration for delivery photos
 - Secure file storage with organized directory structure
 - Base64 and file upload support for signatures
 
 ### 5. Mobile-First Design
+
 - Responsive design optimized for mobile devices
 - Touch-friendly interface elements
 - Floating action menu for easy navigation
 - Swipe-friendly card interactions
 
 ### 6. External API Synchronization
+
 - Automatic sync with retry logic and exponential backoff
 - Manual sync trigger for pending shipments
 - Comprehensive error handling and status tracking
 - Configurable sync endpoints and authentication
 
 ### 7. Error Handling & Monitoring
+
 - React Error Boundaries with graceful fallback UI
 - Comprehensive error logging to external services
 - Toast notifications for user feedback
@@ -666,6 +751,7 @@ npm install <package-name>
 ## Production Deployment
 
 ### Build Process
+
 ```bash
 # Build optimized production assets
 npm run build
@@ -675,6 +761,7 @@ npm run preview
 ```
 
 ### Database Migration
+
 ```bash
 # Generate migration files
 npm run db:generate
@@ -684,6 +771,7 @@ npm run db:migrate
 ```
 
 ### Environment Setup
+
 1. Set `NODE_ENV=production`
 2. Configure production database URL
 3. Set up external API credentials
@@ -693,13 +781,18 @@ npm run db:migrate
 ### Security Considerations
 
 #### Authentication Security
+
 - **JWT Tokens**: Use strong, unique JWT secrets (32+ characters minimum)
-- **External API Security**: Ensure your external authentication API uses HTTPS and proper authentication
+- **External API Security**: Ensure your external authentication API uses HTTPS
+  and proper authentication
 - **Session Management**: JWT tokens expire after configured time (default 24h)
-- **Rate Limiting**: Login attempts are rate-limited (5 attempts per 15 minutes per IP)
-- **Role-Based Access**: Endpoints are protected based on user roles and permissions
+- **Rate Limiting**: Login attempts are rate-limited (5 attempts per 15 minutes
+  per IP)
+- **Role-Based Access**: Endpoints are protected based on user roles and
+  permissions
 
 #### General Security
+
 - Use HTTPS in production
 - Sanitize file uploads and validate file types
 - Implement rate limiting for API endpoints
@@ -760,11 +853,11 @@ npm run db:migrate
    curl -X POST http://localhost:3001/api/auth/login \
      -H "Content-Type: application/json" \
      -d '{"username":"test@company.com","password":"password"}'
-   
+
    # Test authenticated endpoints (replace TOKEN with actual JWT)
    curl -X GET http://localhost:3001/api/dashboard \
      -H "Authorization: Bearer TOKEN"
-   
+
    curl -X POST http://localhost:3001/api/shipments \
      -H "Authorization: Bearer TOKEN" \
      -H "Content-Type: application/json" \
@@ -774,18 +867,21 @@ npm run db:migrate
 ## Contributing
 
 ### Code Style
+
 - Use TypeScript for all new code
 - Follow ESLint configuration
 - Use Prettier for code formatting
 - Write descriptive commit messages
 
 ### Testing Guidelines
+
 - Add data-testid attributes for UI components
 - Test API endpoints with various input scenarios
 - Verify error handling paths
 - Test mobile responsiveness
 
 ### Pull Request Process
+
 1. Create feature branch from main
 2. Implement changes with proper testing
 3. Update documentation if needed
@@ -794,17 +890,18 @@ npm run db:migrate
 
 ## License
 
-This project is proprietary software developed for logistics operations. All rights reserved.
+This project is proprietary software developed for logistics operations. All
+rights reserved.
 
 ## Support
 
 For technical support or questions:
+
 - Create an issue in the project repository
 - Contact the development team
 - Review the troubleshooting section above
 
 ---
 
-**Last Updated**: August 28, 2025
-**Version**: 1.0.0
-**Maintainer**: Development Team
+**Last Updated**: August 28, 2025 **Version**: 1.0.0 **Maintainer**: Development
+Team

@@ -237,7 +237,7 @@ export default function RouteVisualizationPage() {
   const networkOptimizations = mobileOptimization.optimizeForNetwork();
 
   return (
-    <div className={`container mx-auto p-6 space-y-6 ${isMobile ? 'mobile-layout' : ''}`}>
+    <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 ${isMobile ? 'mobile-layout' : ''}`}>
       {/* Header */}
       <div className={`${isMobile ? 'flex flex-col space-y-4' : 'flex items-center justify-between'}`}>
         <div>

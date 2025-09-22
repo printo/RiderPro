@@ -36,7 +36,7 @@ export default function ShipmentsWithTracking() {
       hasAccessToken: !!authService.getState().accessToken,
       hasRefreshToken: !!authService.getState().refreshToken
     });
-    
+
     return () => {
       console.log('ShipmentsWithTracking unmounted');
     };
@@ -50,8 +50,8 @@ export default function ShipmentsWithTracking() {
     return {
       ...filters,
       ...(currentUser?.role !== "admin" &&
-      currentUser?.role !== "super_admin" &&
-      employeeId
+        currentUser?.role !== "super_admin" &&
+        employeeId
         ? { employeeId }
         : {}),
     } as ShipmentFilters;
@@ -139,27 +139,27 @@ export default function ShipmentsWithTracking() {
   // Type guard to check if the data is a paginated response
   const isPaginatedResponse = (data: unknown): data is PaginatedResponse<Shipment> => {
     return Boolean(
-      data && 
-      typeof data === 'object' && 
-      'data' in data && 
-      Array.isArray((data as PaginatedResponse<Shipment>).data) && 
+      data &&
+      typeof data === 'object' &&
+      'data' in data &&
+      Array.isArray((data as PaginatedResponse<Shipment>).data) &&
       'total' in data
     );
   };
 
   // Extract data from paginated response with proper type safety
-  const paginatedData = isPaginatedResponse(shipmentsData) 
-    ? shipmentsData 
+  const paginatedData = isPaginatedResponse(shipmentsData)
+    ? shipmentsData
     : defaultPaginatedResponse;
 
-  const { 
-    data: shipments = [], 
-    total = 0, 
-    page = 1, 
-    limit: pageSize = 20, 
-    totalPages = 1, 
-    hasNextPage = false, 
-    hasPreviousPage = false 
+  const {
+    data: shipments = [],
+    total = 0,
+    page = 1,
+    limit: pageSize = 20,
+    totalPages = 1,
+    hasNextPage = false,
+    hasPreviousPage = false
   } = paginatedData;
 
   const { hasActiveSession, activeSession } = useRouteTracking(employeeId);
@@ -213,13 +213,13 @@ export default function ShipmentsWithTracking() {
 
   // Debounce filter changes to prevent excessive API calls
   const debouncedFilters = useDebounce(effectiveFilters, 500);
-  
+
   // Update query params when debounced filters change
   useEffect(() => {
     if (!shouldLoadShipments) return;
     refetch();
   }, [debouncedFilters, refetch, shouldLoadShipments]);
-  
+
   // Handle filter changes
   const handleFilterChange = useCallback((newFilters: Partial<ShipmentFilters>) => {
     setFilters(prev => ({
@@ -395,9 +395,9 @@ export default function ShipmentsWithTracking() {
       <AlertTitle>Error</AlertTitle>
       <AlertDescription className="flex flex-col space-y-2">
         <span>Failed to load shipments. {error?.message || 'Please try again.'}</span>
-        <Button 
-          variant="outline" 
-          size="sm" 
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => refetch()}
           className="w-fit mt-2"
         >
@@ -421,14 +421,14 @@ export default function ShipmentsWithTracking() {
     <div className="container mx-auto p-4">
       {/* Filter Section - Always show first */}
       {renderFilterSection()}
-      
+
       {/* Shipments List Section - Lazy loaded */}
       <div className="space-y-4">
         {error ? (
           renderErrorState()
         ) : (
           <Suspense fallback={renderLoadingState()}>
-            <ShipmentsList 
+            <ShipmentsList
               filters={effectiveFilters}
               onShipmentSelect={setSelectedShipment}
               selectedShipmentIds={selectedShipmentIds}
@@ -440,31 +440,13 @@ export default function ShipmentsWithTracking() {
           </Suspense>
         )}
       </div>
-        {/* Route Tracking Controls */}
-        {showRouteControls && (
-          <div className="mb-6">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex flex-col lg:flex-row gap-4">
-                  <div className="flex-1">
-                    <RouteSessionControls
-                      employeeId={employeeId}
-                      onSessionStart={() => console.log("Route session started")}
-                      onSessionStop={() => console.log("Route session stopped")}
-                    />
-                  </div>
-                  {hasActiveSession && (
-                    <div className="lg:w-80">
-                      <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Navigation className="h-4 w-4 text-blue-600" />
-                            <span className="text-sm font-medium text-blue-800 dark:text-blue-400">
-                              Active Route Session
-                            </span>
-                          </div>
-                          <p className="text-xs text-blue-600 dark:text-blue-400">
-                            GPS tracking is active. Shipment pickup/delivery locations will be automatically recorded.
+
+      {/* Route Tracking Controls */}
+      {showRouteControls && (
+        <div className="mb-6">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col lg:flex-row gap-4">
                 <div className="flex-1">
                   <RouteSessionControls
                     employeeId={employeeId}
@@ -631,7 +613,6 @@ export default function ShipmentsWithTracking() {
           }}
         />
       )}
-      </div>
     </div>
   );
 }

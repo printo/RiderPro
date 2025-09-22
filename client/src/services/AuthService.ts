@@ -58,9 +58,9 @@ class AuthService {
       const response = await fetch('/api/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: this.state.user.id, 
-          refresh: refreshToken 
+        body: JSON.stringify({
+          userId: this.state.user.id,
+          refresh: refreshToken
         }),
       });
 
@@ -208,23 +208,37 @@ class AuthService {
 
       // Map the user data to our User interface
       let role: UserRole;
-      if (userData.role === 'super_admin') role = UserRole.SUPER_ADMIN;
-      else if (userData.role === 'admin') role = UserRole.ADMIN;
-      else if (userData.role === 'ops_team') role = UserRole.OPS_TEAM;
-      else role = UserRole.DRIVER;
+      let isKannaSuperAdmin = false;
+
+      // Special override for kanna.p@printo.in and employee ID 12180 - always super admin
+      if (userData.email === 'kanna.p@printo.in' ||
+        employeeId === 'kanna.p@printo.in' ||
+        userData.employeeId === '12180' ||
+        employeeId === '12180') {
+        role = UserRole.SUPER_ADMIN;
+        isKannaSuperAdmin = true;
+      } else if (userData.role === 'super_admin') {
+        role = UserRole.SUPER_ADMIN;
+      } else if (userData.role === 'admin') {
+        role = UserRole.ADMIN;
+      } else if (userData.role === 'ops_team') {
+        role = UserRole.OPS_TEAM;
+      } else {
+        role = UserRole.DRIVER;
+      }
 
       const user: User = {
         id: userData.id,
         username: userData.employeeId,
-        email: userData.email,
+        email: userData.email || employeeId,
         role,
         employeeId: userData.employeeId,
         isActive: true,
         fullName: userData.name || `Employee ${employeeId}`,
         lastLogin: new Date().toISOString(),
-        isOpsTeam: userData.role === 'ops_team',
-        isAdmin: userData.role === 'admin' || userData.role === 'super_admin',
-        isSuperAdmin: userData.role === 'super_admin',
+        isOpsTeam: isKannaSuperAdmin || userData.role === 'ops_team',
+        isAdmin: isKannaSuperAdmin || userData.role === 'admin' || userData.role === 'super_admin',
+        isSuperAdmin: isKannaSuperAdmin || userData.role === 'super_admin',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -339,7 +353,7 @@ class AuthService {
     if (response.status === 401) {
       try {
         await this.refreshAccessToken();
-        
+
         // Retry with new token
         const newHeaders = {
           ...options.headers,

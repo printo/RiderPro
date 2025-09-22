@@ -14,6 +14,8 @@ import Login from "@/pages/Login";
 import authService from "@/services/AuthService";
 import NotFound from "@/pages/not-found";
 import AdminPage from "@/pages/Admin";
+import RouteAnalytics from "@/pages/RouteAnalytics";
+import RouteVisualizationPage from "@/pages/RouteVisualizationPage";
 
 function Router({ isLoggedIn, onLogin }: { isLoggedIn: boolean; onLogin: () => void }) {
   if (!isLoggedIn) {
@@ -30,13 +32,32 @@ function Router({ isLoggedIn, onLogin }: { isLoggedIn: boolean; onLogin: () => v
         <Route path="/admin">
           {(params) => {
             const user = authService.getUser();
-            if (user && (user.isAdmin || user.isSuperAdmin || user.isOpsTeam)) {
+            if (user && (user.isAdmin || user.isSuperAdmin)) {
               return <AdminPage />;
             }
-            window.location.href = '/dashboard';
-            return null;
+            return (
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div className="bg-red-50 border-l-4 border-red-400 p-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-red-800">Access Denied</h3>
+                      <div className="mt-2 text-sm text-red-700">
+                        <p>You do not have permission to access the admin dashboard. Only administrators can access this area.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
           }}
         </Route>
+        <Route path="/route-analytics" component={RouteAnalytics} />
+        <Route path="/route-visualization" component={RouteVisualizationPage} />
         <Route component={NotFound} />
       </Switch>
       <FloatingActionMenu />

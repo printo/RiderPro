@@ -128,11 +128,11 @@ export interface ShipmentFilters {
   };
   search?: string;
   employeeId?: string;
-  
+
   // Pagination
   page?: number | string;
   limit?: number | string;
-  
+
   // Sorting
   sortField?: string;
   sortOrder?: 'ASC' | 'DESC';
@@ -280,7 +280,38 @@ export interface RouteFilters {
 // Schema validation types (for routes.ts)
 // These are placeholder schemas - in a real app you'd use Zod or similar for validation
 export const insertShipmentSchema = {
-  validate: (data: any): data is InsertShipment => true
+  parse: (data: any): InsertShipment => {
+    // Basic validation for required fields
+    const requiredFields = [
+      'trackingNumber', 'status', 'priority', 'pickupAddress',
+      'deliveryAddress', 'recipientName', 'recipientPhone', 'weight', 'dimensions'
+    ];
+
+    const missingFields = requiredFields.filter(field => !data[field]);
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+    }
+
+    // Type validation
+    if (typeof data.weight !== 'number' || data.weight <= 0) {
+      throw new Error('Weight must be a positive number');
+    }
+
+    if (typeof data.trackingNumber !== 'string' || data.trackingNumber.trim() === '') {
+      throw new Error('Tracking number must be a non-empty string');
+    }
+
+    // Return validated data
+    return data as InsertShipment;
+  },
+  validate: (data: any): data is InsertShipment => {
+    try {
+      insertShipmentSchema.parse(data);
+      return true;
+    } catch {
+      return false;
+    }
+  }
 } as any;
 
 export const updateShipmentSchema = {

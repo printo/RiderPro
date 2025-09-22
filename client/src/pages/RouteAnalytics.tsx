@@ -18,7 +18,7 @@ import {
   Filter,
   Calendar,
   RefreshCw,
-  Settings
+
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { DateRange } from 'react-day-picker';
@@ -30,7 +30,7 @@ import FuelAnalyticsChart from '@/components/analytics/FuelAnalyticsChart';
 import EmployeePerformanceTable from '@/components/analytics/EmployeePerformanceTable';
 import RouteComparisonChart from '@/components/analytics/RouteComparisonChart';
 import ExportDialog from '@/components/ExportDialog';
-import FuelSettingsModal, { FuelSettings } from '@/components/FuelSettingsModal';
+
 import { routeAPI } from '@/api/routes';
 
 interface AnalyticsFilters {
@@ -50,23 +50,7 @@ export default function RouteAnalytics() {
 
   const [activeTab, setActiveTab] = useState('overview');
   const [showExportDialog, setShowExportDialog] = useState(false);
-  const [showFuelSettings, setShowFuelSettings] = useState(false);
 
-  // Fuel settings state
-  const [fuelSettings, setFuelSettings] = useState<FuelSettings>({
-    defaultVehicleType: 'standard-van',
-    fuelPrice: 1.5,
-    currency: 'USD',
-    vehicleTypes: [
-      {
-        id: 'standard-van',
-        name: 'Standard Van',
-        fuelEfficiency: 15.0,
-        description: 'Standard delivery van'
-      }
-    ],
-    dataRetentionDays: 90
-  });
 
   // Fetch analytics data
   const { data: analyticsData, isLoading, error, refetch } = useQuery({
@@ -151,21 +135,11 @@ export default function RouteAnalytics() {
     setShowExportDialog(true);
   };
 
-  const handleFuelSettingsSave = async (newSettings: FuelSettings) => {
-    try {
-      setFuelSettings(newSettings);
-      // Save to localStorage or API
-      localStorage.setItem('fuelSettings', JSON.stringify(newSettings));
-      console.log('Fuel settings saved:', newSettings);
-    } catch (error) {
-      console.error('Failed to save fuel settings:', error);
-      throw error;
-    }
-  };
+
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -179,13 +153,7 @@ export default function RouteAnalytics() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setShowFuelSettings(true)}
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Settings
-            </Button>
+
 
             <Button
               variant="outline"
@@ -402,13 +370,7 @@ export default function RouteAnalytics() {
           availableEmployees={employees || []}
         />
 
-        {/* Fuel Settings Modal */}
-        <FuelSettingsModal
-          isOpen={showFuelSettings}
-          onClose={() => setShowFuelSettings(false)}
-          onSave={handleFuelSettingsSave}
-          currentSettings={fuelSettings}
-        />
+
       </div>
     </div>
   );
