@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import authService from "@/services/AuthService";
+import type { User } from "@/types/Auth";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -8,7 +9,7 @@ import {
   Menu, 
   BarChart3, 
   List, 
-  User, 
+  User as UserIcon, 
   LogOut, 
   Phone,
   Mail,
@@ -23,6 +24,21 @@ export default function FloatingActionMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const [user, setUser] = useState<User | null>(null);
+
+  // Subscribe to auth state changes
+  useEffect(() => {
+    // Initial state
+    const state = authService.getState();
+    setUser(state.user);
+
+    // Subscribe to future changes
+    const unsubscribe = authService.subscribe((newState) => {
+      setUser(newState.user);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const menuItems = [
     {
@@ -81,18 +97,22 @@ export default function FloatingActionMenu() {
 
             {/* Profile Section */}
             <div className="space-y-3">
-              <div className="flex items-center space-x-3 p-3 rounded-xl bg-gradient-to-r from-primary/5 to-secondary/5 border border-primary/10">
+              <div className="flex items-center space-x-3 p-4 border-b">
                 <div className="relative">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-md">
-                    <User className="text-white h-6 w-6" />
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-bold">
+                    {user?.fullName?.charAt(0) || 'U'}
                   </div>
                   <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full border-2 border-background flex items-center justify-center">
                     <div className="w-1.5 h-1.5 bg-white rounded-full" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-base text-foreground truncate">John Rider</h3>
-                  <p className="text-sm text-primary font-medium">Delivery Executive</p>
+                  <h3 className="font-semibold text-base text-foreground truncate">
+                    {user?.fullName || 'User'}
+                  </h3>
+                  <p className="text-sm text-primary font-medium capitalize">
+                    {user?.role?.replace('_', ' ') || 'User'}
+                  </p>
                 </div>
               </div>
             </div>
