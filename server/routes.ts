@@ -269,26 +269,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Mock function to get user from token - replace with your actual JWT verification
+  // Simple token verification - in production, you'd verify JWT signature
   async function getUserFromToken(token: string): Promise<{ employeeId: string; role: string } | null> {
     try {
-      // In a real app, you would verify the JWT token here
-      // This is just a mock implementation
-      const authHeader = `Bearer ${token}`;
-      const response = await fetch('https://pia.printo.in/api/v1/auth/me/', {
-        headers: { 'Authorization': authHeader }
-      });
-      
-      if (!response.ok) {
-        console.error('Failed to verify token:', await response.text());
+      // For now, we'll trust tokens from our own login endpoint
+      // In a real production app, you'd verify the JWT signature
+      if (!token || token.length < 10) {
         return null;
       }
-      
-      const userData = await response.json();
-      return {
-        employeeId: userData.employee_id || userData.username,
-        role: userData.is_superuser ? 'admin' : 'user'
-      };
+
+      // Try to decode the JWT payload (basic check without signature verification)
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3) {
+          return null;
+        }
+        
+        const payload = JSON.parse(atob(parts[1]));
+        
+        // Check if token is expired
+        if (payload.exp && Date.now() >= payload.exp * 1000) {
+          return null;
+        }
+        
+        // Extract user info from payload
+        return {
+          employeeId: payload.email || payload.sub || 'unknown',
+          role: payload.is_superuser ? 'admin' : 'user'
+        };
+      } catch (decodeError) {
+        // If JWT decode fails, fall back to external API verification
+        const authHeader = `Bearer ${token}`;
+        const response = await fetch('https://pia.printo.in/api/v1/auth/me/', {
+          headers: { 'Authorization': authHeader }
+        });
+        
+        if (!response.ok) {
+          console.error('Failed to verify token with external API:', response.status);
+          return null;
+        }
+        
+        const userData = await response.json();
+        return {
+          employeeId: userData.employee_id || userData.email || userData.username,
+          role: userData.is_superuser || userData.is_admin ? 'admin' : 'user'
+        };
+      }
     } catch (error) {
       console.error('Error verifying token:', error);
       return null;

@@ -232,7 +232,9 @@ class AuthService {
       const permissions = this.getPermissionsForRole(role);
 
       localStorage.setItem('access_token', accessToken);
-      localStorage.setItem('refresh_token', refreshToken || '');
+      if (refreshToken) {
+        localStorage.setItem('refresh_token', refreshToken);
+      }
       localStorage.setItem('auth_user', JSON.stringify(user));
 
       this.setAuthState({
