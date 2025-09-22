@@ -47,7 +47,7 @@ class AuthService {
    */
   public async refreshAccessToken(): Promise<boolean> {
     const refreshToken = this.state.refreshToken || localStorage.getItem('refresh_token');
-    if (!refreshToken) {
+    if (!refreshToken || !this.state.user) {
       console.log('No refresh token available');
       return false;
     }
@@ -55,10 +55,13 @@ class AuthService {
     try {
       console.log('Attempting to refresh token...');
 
-      const response = await fetch(`${this.API_BASE}/auth/refresh-token`, {
+      const response = await fetch('/api/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify({ 
+          userId: this.state.user.id, 
+          refresh: refreshToken 
+        }),
       });
 
       if (!response.ok) {
@@ -67,22 +70,20 @@ class AuthService {
         return false;
       }
 
-      const data = await response.json();
-      if (!data.accessToken) {
+      const result = await response.json();
+      if (!result.success || !result.data.accessToken) {
         console.error('No access token in refresh response');
+        await this.logout();
         return false;
       }
 
       // Persist tokens
-      localStorage.setItem('access_token', data.accessToken);
-      if (data.refreshToken) {
-        localStorage.setItem('refresh_token', data.refreshToken);
-      }
+      localStorage.setItem('access_token', result.data.accessToken);
 
       // Update state
       this.setAuthState({
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken || refreshToken,
+        accessToken: result.data.accessToken,
+        refreshToken,
         isAuthenticated: true,
         isLoading: false,
       });
@@ -91,6 +92,7 @@ class AuthService {
       return true;
     } catch (error) {
       console.error('Token refresh error:', error);
+      await this.logout();
       return false;
     }
   }
@@ -131,7 +133,12 @@ class AuthService {
     if (!this.state.accessToken) return false;
 
     try {
-      const response = await this.authenticatedFetch('/auth/me/');
+      // Try to make a simple authenticated request to verify token
+      const response = await fetch('/api/dashboard', {
+        headers: {
+          'Authorization': `Bearer ${this.state.accessToken}`,
+        },
+      });
       return response.ok;
     } catch (error) {
       console.error('Token verification failed:', error);
@@ -169,15 +176,11 @@ class AuthService {
     try {
       console.log('Attempting login for employee ID:', employeeId);
 
-      const response = await fetch(`${this.API_BASE}/auth/`, {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': 'http://localhost:5000',
         },
-        mode: 'cors',
-        credentials: 'include',
         body: JSON.stringify({ email: employeeId, password }),
       });
 
@@ -185,52 +188,57 @@ class AuthService {
         let errorMessage = 'Authentication failed';
         try {
           const errorData = await response.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
+          errorMessage = errorData.message || errorMessage;
         } catch {
           errorMessage = `Authentication failed (${response.status})`;
         }
         return { success: false, message: errorMessage };
       }
 
-      const data = await response.json();
-      const { access, refresh, full_name, is_ops_team = false, is_admin = false, is_super_admin = false, user_id } = data;
+      const result = await response.json();
+      if (!result.success) {
+        return { success: false, message: result.message || 'Login failed' };
+      }
 
-      if (!access) {
+      const { accessToken, refreshToken, user: userData } = result.data;
+
+      if (!accessToken) {
         return { success: false, message: 'No access token received' };
       }
 
+      // Map the user data to our User interface
       let role: UserRole;
-      if (is_super_admin) role = UserRole.SUPER_ADMIN;
-      else if (is_admin) role = UserRole.ADMIN;
-      else if (is_ops_team) role = UserRole.OPS_TEAM;
+      if (userData.role === 'super_admin') role = UserRole.SUPER_ADMIN;
+      else if (userData.role === 'admin') role = UserRole.ADMIN;
+      else if (userData.role === 'ops_team') role = UserRole.OPS_TEAM;
       else role = UserRole.DRIVER;
 
       const user: User = {
-        id: user_id?.toString() || employeeId,
-        username: employeeId,
-        email: `${employeeId}@company.com`,
+        id: userData.id,
+        username: userData.employeeId,
+        email: userData.email,
         role,
-        employeeId: employeeId,
+        employeeId: userData.employeeId,
         isActive: true,
-        fullName: full_name || `Employee ${employeeId}`,
+        fullName: userData.name || `Employee ${employeeId}`,
         lastLogin: new Date().toISOString(),
-        isOpsTeam: is_ops_team,
-        isAdmin: is_admin,
-        isSuperAdmin: is_super_admin,
+        isOpsTeam: userData.role === 'ops_team',
+        isAdmin: userData.role === 'admin' || userData.role === 'super_admin',
+        isSuperAdmin: userData.role === 'super_admin',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
       const permissions = this.getPermissionsForRole(role);
 
-      localStorage.setItem('access_token', access);
-      localStorage.setItem('refresh_token', refresh || '');
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('refresh_token', refreshToken || '');
       localStorage.setItem('auth_user', JSON.stringify(user));
 
       this.setAuthState({
         user,
-        accessToken: access,
-        refreshToken: refresh || null,
+        accessToken,
+        refreshToken: refreshToken || null,
         permissions,
         isAuthenticated: true,
         isLoading: false,
@@ -246,18 +254,7 @@ class AuthService {
   public async logout(): Promise<boolean> {
     console.log('Initiating logout...');
     try {
-      if (this.state.accessToken) {
-        const response = await fetch(`${this.API_BASE}/auth/logout/`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.state.accessToken}`,
-          },
-          credentials: 'include',
-        });
-
-        if (!response.ok) throw new Error(`Logout failed with status: ${response.status}`);
-      }
+      // Just clear local data - backend doesn't need a logout endpoint for JWT tokens
       this.clearAuthData();
       return true;
     } catch (error) {
