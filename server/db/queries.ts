@@ -13,36 +13,78 @@ export class ShipmentQueries {
     return this.db;
   }
 
-  getAllShipments(filters: ShipmentFilters = {}): Shipment[] {
-    let query = `
+  getAllShipments(filters: ShipmentFilters = {}): { data: Shipment[]; total: number } {
+    // Base query for counting total records
+    let countQuery = `
+      SELECT COUNT(*) as total FROM shipments 
+      WHERE 1=1
+    `;
+    
+    // Base query for fetching data
+    let dataQuery = `
       SELECT * FROM shipments 
       WHERE 1=1
     `;
+    
     const params: any[] = [];
 
+    // Apply filters
     if (filters.status) {
-      query += ` AND status = ?`;
+      const condition = ` AND status = ?`;
+      countQuery += condition;
+      dataQuery += condition;
       params.push(filters.status);
     }
 
     if (filters.type) {
-      query += ` AND type = ?`;
+      const condition = ` AND type = ?`;
+      countQuery += condition;
+      dataQuery += condition;
       params.push(filters.type);
     }
 
     if (filters.routeName) {
-      query += ` AND routeName = ?`;
+      const condition = ` AND routeName = ?`;
+      countQuery += condition;
+      dataQuery += condition;
       params.push(filters.routeName);
     }
 
     if (filters.date) {
-      query += ` AND DATE(deliveryTime) = ?`;
+      const condition = ` AND DATE(deliveryTime) = ?`;
+      countQuery += condition;
+      dataQuery += condition;
       params.push(filters.date);
     }
 
-    query += ` ORDER BY createdAt DESC`;
+    if (filters.employeeId) {
+      const condition = ` AND employeeId = ?`;
+      countQuery += condition;
+      dataQuery += condition;
+      params.push(filters.employeeId);
+    }
 
-    return this.db.prepare(query).all(...params);
+    // Apply sorting (default to newest first)
+    const sortField = filters.sortField || 'createdAt';
+    const sortOrder = filters.sortOrder || 'DESC';
+    dataQuery += ` ORDER BY ${sortField} ${sortOrder}`;
+
+    // Apply pagination
+    const page = Math.max(1, parseInt(filters.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(filters.limit as string) || 20));
+    const offset = (page - 1) * limit;
+    
+    dataQuery += ` LIMIT ? OFFSET ?`;
+    const dataParams = [...params, limit, offset];
+    
+    // Get total count
+    const totalResult = this.db.prepare(countQuery).get(...params);
+    const total = totalResult?.total || 0;
+    
+    // Get paginated data
+    const data = this.db.prepare(dataQuery).all(...dataParams);
+    
+    return { data, total };
   }
 
   getShipmentById(id: string): Shipment | null {

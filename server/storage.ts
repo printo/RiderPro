@@ -1,9 +1,14 @@
 import { ShipmentQueries } from './db/queries.js';
 import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters } from '@shared/schema';
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+}
+
 export interface IStorage {
   // Shipment operations
-  getShipments(filters?: ShipmentFilters): Promise<Shipment[]>;
+  getShipments(filters?: ShipmentFilters): Promise<PaginatedResponse<Shipment>>;
   getShipment(id: string): Promise<Shipment | undefined>;
   createShipment(shipment: InsertShipment): Promise<Shipment>;
   updateShipment(id: string, updates: UpdateShipment): Promise<Shipment | undefined>;
@@ -42,7 +47,7 @@ export class SqliteStorage implements IStorage {
     return this.liveQueries.getDatabase().exec(sql);
   }
 
-  async getShipments(filters?: ShipmentFilters): Promise<Shipment[]> {
+  async getShipments(filters?: ShipmentFilters): Promise<PaginatedResponse<Shipment>> {
     return this.liveQueries.getAllShipments(filters);
   }
 

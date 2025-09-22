@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { shipmentsApi } from "@/api/shipments";
+import { shipmentsApi, type PaginatedResponse } from "@/api/shipments";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Edit, RotateCcw, Navigation, MapPin } from "lucide-react";
+import { Edit, RotateCcw, Navigation, MapPin, AlertCircle } from "lucide-react";
 import ShipmentCardWithTracking from "@/components/ShipmentCardWithTracking";
 import ShipmentDetailModal from "@/components/ShipmentDetailModal";
 import BatchUpdateModal from "@/components/BatchUpdateModal";
@@ -12,7 +12,12 @@ import RouteSessionControls from "@/components/RouteSessionControls";
 import Filters from "@/components/Filters";
 import { Shipment, ShipmentFilters } from "@shared/schema";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
+// Lazy load the shipments list component
+const ShipmentsList = lazy(() => import("@/components/ShipmentsList"));
 import { authService } from "@/services/AuthService";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function ShipmentsWithTracking() {
   const [filters, setFilters] = useState<ShipmentFilters>({});
@@ -20,6 +25,22 @@ export default function ShipmentsWithTracking() {
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showRouteControls, setShowRouteControls] = useState(true);
+
+  // Debug: Log component mount and auth state
+  useEffect(() => {
+    console.log('ShipmentsWithTracking mounted');
+    const user = authService.getUser();
+    console.log('Current auth state:', {
+      isAuthenticated: authService.isAuthenticated(),
+      user,
+      hasAccessToken: !!authService.getState().accessToken,
+      hasRefreshToken: !!authService.getState().refreshToken
+    });
+    
+    return () => {
+      console.log('ShipmentsWithTracking unmounted');
+    };
+  }, []);
 
   const currentUser = authService.getUser();
   const employeeId = currentUser?.employeeId || currentUser?.username || "";
@@ -73,21 +94,73 @@ export default function ShipmentsWithTracking() {
     return () => obs.disconnect();
   }, []);
 
-  // ✅ Fixed useQuery API (v4 style)
+  // State for pagination
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+  });
+
+  // Combine filters with pagination
+  const queryParams = useMemo(() => ({
+    ...effectiveFilters,
+    page: pagination.page,
+    limit: pagination.limit,
+  }), [effectiveFilters, pagination.page, pagination.limit]);
+
+  // Default paginated response
+  const defaultPaginatedResponse: PaginatedResponse<Shipment> = {
+    data: [],
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  };
+
+  // Use the useQuery hook with the new paginated response type
   const {
-    data: shipments = [],
+    data: shipmentsData = defaultPaginatedResponse,
     isLoading,
     error,
     refetch,
     isFetching,
-  } = useQuery<Shipment[], Error>({
-    queryKey: ["shipments", effectiveFilters],
-    queryFn: () => shipmentsApi.getShipments(effectiveFilters),
+  } = useQuery<PaginatedResponse<Shipment>, Error>({
+    queryKey: ["shipments", queryParams],
+    queryFn: () => shipmentsApi.getShipments(queryParams),
     enabled: shouldLoadShipments,
     refetchInterval: 30000,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
+    // Use placeholderData to prevent undefined data
+    placeholderData: defaultPaginatedResponse
   });
+
+  // Type guard to check if the data is a paginated response
+  const isPaginatedResponse = (data: unknown): data is PaginatedResponse<Shipment> => {
+    return Boolean(
+      data && 
+      typeof data === 'object' && 
+      'data' in data && 
+      Array.isArray((data as PaginatedResponse<Shipment>).data) && 
+      'total' in data
+    );
+  };
+
+  // Extract data from paginated response with proper type safety
+  const paginatedData = isPaginatedResponse(shipmentsData) 
+    ? shipmentsData 
+    : defaultPaginatedResponse;
+
+  const { 
+    data: shipments = [], 
+    total = 0, 
+    page = 1, 
+    limit: pageSize = 20, 
+    totalPages = 1, 
+    hasNextPage = false, 
+    hasPreviousPage = false 
+  } = paginatedData;
 
   const { hasActiveSession, activeSession } = useRouteTracking(employeeId);
 
@@ -103,6 +176,22 @@ export default function ShipmentsWithTracking() {
     } else {
       setSelectedShipmentIds([]);
     }
+  };
+
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    setPagination(prev => ({
+      ...prev,
+      page: newPage,
+    }));
+  };
+
+  // Handle page size change
+  const handlePageSizeChange = (newSize: number) => {
+    setPagination(prev => ({
+      page: 1, // Reset to first page when changing page size
+      limit: newSize,
+    }));
   };
 
   const handleBatchUpdate = () => {
@@ -122,14 +211,24 @@ export default function ShipmentsWithTracking() {
     setShowRouteControls(!showRouteControls);
   };
 
-  // Debounce and auto-refetch when filters change
+  // Debounce filter changes to prevent excessive API calls
+  const debouncedFilters = useDebounce(effectiveFilters, 500);
+  
+  // Update query params when debounced filters change
   useEffect(() => {
     if (!shouldLoadShipments) return;
-    const handler = setTimeout(() => {
-      refetch();
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [effectiveFilters, refetch, shouldLoadShipments]);
+    refetch();
+  }, [debouncedFilters, refetch, shouldLoadShipments]);
+  
+  // Handle filter changes
+  const handleFilterChange = useCallback((newFilters: Partial<ShipmentFilters>) => {
+    setFilters(prev => ({
+      ...prev,
+      ...newFilters,
+      // Reset to first page when filters change
+      page: 1
+    }));
+  }, []);
 
   // Error banner
   const renderErrorBanner = () => {
@@ -276,14 +375,96 @@ export default function ShipmentsWithTracking() {
     );
   }
 
+  // Render filter section
+  const renderFilterSection = () => (
+    <Card className="shadow-sm mb-6">
+      <CardContent className="p-4">
+        <Filters
+          filters={filters}
+          onFiltersChange={handleFilterChange}
+          onClear={() => setFilters({})}
+        />
+      </CardContent>
+    </Card>
+  );
+
+  // Render error state
+  const renderErrorState = () => (
+    <Alert variant="destructive" className="mb-6">
+      <AlertCircle className="h-4 w-4" />
+      <AlertTitle>Error</AlertTitle>
+      <AlertDescription className="flex flex-col space-y-2">
+        <span>Failed to load shipments. {error?.message || 'Please try again.'}</span>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => refetch()}
+          className="w-fit mt-2"
+        >
+          <RotateCcw className="mr-2 h-4 w-4" />
+          Retry
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+
+  // Render loading state
+  const renderLoadingState = () => (
+    <div className="space-y-4">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className="h-24 w-full" />
+      ))}
+    </div>
+  );
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Route Tracking Controls */}
-      {showRouteControls && (
-        <div className="mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex flex-col lg:flex-row gap-4">
+    <div className="container mx-auto p-4">
+      {/* Filter Section - Always show first */}
+      {renderFilterSection()}
+      
+      {/* Shipments List Section - Lazy loaded */}
+      <div className="space-y-4">
+        {error ? (
+          renderErrorState()
+        ) : (
+          <Suspense fallback={renderLoadingState()}>
+            <ShipmentsList 
+              filters={effectiveFilters}
+              onShipmentSelect={setSelectedShipment}
+              selectedShipmentIds={selectedShipmentIds}
+              onSelectShipment={handleShipmentSelect}
+              onSelectAll={handleSelectAll}
+              onRefresh={refetch}
+              isLoading={isLoading || isFetching}
+            />
+          </Suspense>
+        )}
+      </div>
+        {/* Route Tracking Controls */}
+        {showRouteControls && (
+          <div className="mb-6">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex flex-col lg:flex-row gap-4">
+                  <div className="flex-1">
+                    <RouteSessionControls
+                      employeeId={employeeId}
+                      onSessionStart={() => console.log("Route session started")}
+                      onSessionStop={() => console.log("Route session stopped")}
+                    />
+                  </div>
+                  {hasActiveSession && (
+                    <div className="lg:w-80">
+                      <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Navigation className="h-4 w-4 text-blue-600" />
+                            <span className="text-sm font-medium text-blue-800 dark:text-blue-400">
+                              Active Route Session
+                            </span>
+                          </div>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">
+                            GPS tracking is active. Shipment pickup/delivery locations will be automatically recorded.
                 <div className="flex-1">
                   <RouteSessionControls
                     employeeId={employeeId}
@@ -450,6 +631,7 @@ export default function ShipmentsWithTracking() {
           }}
         />
       )}
+      </div>
     </div>
   );
 }

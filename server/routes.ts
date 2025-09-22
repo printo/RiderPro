@@ -38,7 +38,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get shipments with optional filters
+  // Get shipments with optional filters, pagination, and sorting
   app.get('/api/shipments', async (req, res) => {
     try {
       // Get the authorization header
@@ -69,7 +69,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle string filters
       for (const [key, value] of Object.entries(req.query)) {
         if (validFilters.includes(key) && typeof value === 'string') {
-          // Type assertion to handle the string properties
           (filters as any)[key] = value;
         }
       }
@@ -92,12 +91,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Handle pagination with type safety
+      if (req.query.page) {
+        const page = Array.isArray(req.query.page) ? req.query.page[0] : req.query.page;
+        filters.page = typeof page === 'string' ? parseInt(page, 10) : 1;
+      }
+      
+      if (req.query.limit) {
+        const limit = Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit;
+        filters.limit = typeof limit === 'string' ? parseInt(limit, 10) : 20;
+      }
+      
+      // Handle sorting with type safety
+      if (req.query.sortField) {
+        const sortField = Array.isArray(req.query.sortField) ? req.query.sortField[0] : req.query.sortField;
+        if (typeof sortField === 'string') {
+          filters.sortField = sortField;
+        }
+      }
+      
+      if (req.query.sortOrder) {
+        const sortOrder = Array.isArray(req.query.sortOrder) ? req.query.sortOrder[0] : req.query.sortOrder;
+        if (typeof sortOrder === 'string' && (sortOrder.toUpperCase() === 'ASC' || sortOrder.toUpperCase() === 'DESC')) {
+          filters.sortOrder = sortOrder.toUpperCase() as 'ASC' | 'DESC';
+        }
+      }
+      
       // If the user is not an admin, filter by their employee ID
       if (user.role !== 'admin' && user.role !== 'super_admin') {
         filters.employeeId = user.employeeId;
       }
       
-      const shipments = await storage.getShipments(filters);
+      // Set cache control headers (5 minutes)
+      res.set('Cache-Control', 'public, max-age=300');
+      
+      // Get shipments with pagination
+      const { data: shipments, total } = await storage.getShipments(filters);
+      
+      // Add pagination headers
+      const page = Math.max(1, parseInt(filters.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(filters.limit as string) || 20));
+      const totalPages = Math.ceil(total / limit);
+      
+      res.set({
+        'X-Total-Count': total,
+        'X-Total-Pages': totalPages,
+        'X-Current-Page': page,
+        'X-Per-Page': limit,
+        'X-Has-Next-Page': page < totalPages,
+        'X-Has-Previous-Page': page > 1
+      });
+      
       res.json(shipments);
     } catch (error: any) {
       console.error('Error fetching shipments:', error);
@@ -323,7 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/sync/trigger', async (req, res) => {
     try {
       // Get all shipments that need syncing
-      const shipments = await storage.getShipments();
+      const { data: shipments } = await storage.getShipments({});
       const result = await externalSync.batchSyncShipments(shipments);
 
       res.json({

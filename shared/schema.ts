@@ -116,6 +116,7 @@ export interface DashboardMetrics {
 }
 
 export interface ShipmentFilters {
+  // Filtering
   status?: string;
   priority?: string;
   type?: string;
@@ -127,6 +128,14 @@ export interface ShipmentFilters {
   };
   search?: string;
   employeeId?: string;
+  
+  // Pagination
+  page?: number | string;
+  limit?: number | string;
+  
+  // Sorting
+  sortField?: string;
+  sortOrder?: 'ASC' | 'DESC';
 }
 
 // Route schemas
