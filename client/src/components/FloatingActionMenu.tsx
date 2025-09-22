@@ -89,39 +89,45 @@ export default function FloatingActionMenu() {
           side="bottom"
           className={cn(
             "h-[50%] w-full max-w-sm border border-border/50 bg-background shadow-2xl p-0 rounded-t-2xl ml-auto mr-4",
-            "ring-1 ring-border/20" // subtle inner shadow for depth
+            "ring-1 ring-border/20"
           )}
         >
-          <div className="space-y-4 p-4 h-full flex flex-col">
+          {/* Handle bar for visual indication */}
+          <div className="flex justify-center py-3">
+            <div className="w-8 h-1 bg-muted-foreground/30 rounded-full" />
+          </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto">
-              {/* Profile Section */}
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3 p-4 border-b">
-                  <div className="relative">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-bold">
-                      {user?.fullName?.charAt(0) || 'U'}
-                    </div>
-                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 rounded-full border-2 border-background flex items-center justify-center">
-                      <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-base text-foreground truncate">
-                      {user?.fullName || 'User'}
-                    </h3>
-                    <p className="text-sm text-primary font-medium capitalize">
-                      {user?.role?.replace('_', ' ') || 'User'}
-                    </p>
-                  </div>
+          <div className="px-4 pb-4 h-[calc(100%-28px)] flex flex-col">
+            {/* Profile Section */}
+            <div className="flex items-center space-x-4 pb-6">
+              <div className="relative">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground text-xl font-bold shadow-md">
+                  {user?.fullName?.charAt(0) || 'U'}
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-background flex items-center justify-center shadow-sm">
+                  <div className="w-2 h-2 bg-white rounded-full" />
                 </div>
               </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-lg text-foreground truncate mb-1">
+                  {user?.fullName || 'User'}
+                </h3>
+                <p className="text-sm text-primary font-medium capitalize">
+                  {user?.role?.replace('_', ' ') || 'User'}
+                </p>
+              </div>
+            </div>
 
+            <Separator className="mb-6" />
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto space-y-6">
               {/* Navigation Menu */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Navigation</h4>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-4">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Navigation
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
                   {menuItems.map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.href);
@@ -130,70 +136,74 @@ export default function FloatingActionMenu() {
                         key={item.href}
                         variant="ghost"
                         className={cn(
-                          "justify-center h-16 text-center flex-row rounded-xl transition-all duration-200 hover:scale-105",
-                          "border-2 border-transparent hover:border-primary/20",
+                          "h-14 flex items-center justify-start gap-3 rounded-xl transition-all duration-200 hover:scale-[1.02] hover:shadow-lg",
+                          "border border-transparent p-3 group",
                           active 
-                            ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-md border-primary/30" 
-                            : "hover:bg-primary/5"
+                            ? "bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-md border-blue-500/20" 
+                            : "hover:bg-gradient-to-br hover:from-primary/5 hover:to-primary/10 hover:border-primary/20"
                         )}
                         onClick={() => handleNavigation(item.href)}
                         data-testid={item.testId}
                       >
                         <div className={cn(
-                          "w-8 h-8 rounded-lg flex items-center justify-center mb-1 transition-colors",
-                          active ? "bg-white/20" : "bg-primary/10"
+                          "w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 flex-shrink-0",
+                          active 
+                            ? "bg-white/20 shadow-sm" 
+                            : "bg-gradient-to-br from-primary/10 to-primary/20 group-hover:from-primary/20 group-hover:to-primary/30 group-hover:shadow-sm"
                         )}>
                           <Icon className={cn(
-                            "h-4 w-4",
-                            active ? "text-white" : "text-primary"
+                            "h-4 w-4 transition-colors duration-200",
+                            active ? "text-white" : "text-primary group-hover:text-primary/80"
                           )} />
                         </div>
                         <span className={cn(
-                          "text-xs font-medium",
-                          active ? "text-white" : "text-foreground"
-                        )}>{item.label}</span>
+                          "text-sm font-medium leading-tight transition-colors duration-200 flex-1",
+                          active ? "text-white" : "text-foreground group-hover:text-foreground/80"
+                        )}>
+                          {item.label}
+                        </span>
                       </Button>
                     );
                   })}
                 </div>
               </div>
 
-              <Separator className="my-4" />
-
               {/* Action Buttons */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">Quick Actions</h4>
-                <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-4">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Quick Actions
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
                   <Button
                     variant="ghost"
-                    className="justify-center h-16 text-center flex-row rounded-xl transition-all duration-200 hover:scale-105 border-2 border-transparent hover:border-primary/20 hover:bg-primary/5"
+                    className="h-14 flex items-center justify-start gap-3 rounded-xl transition-all duration-200 hover:scale-[1.02] hover:shadow-lg border border-transparent p-3 group hover:bg-gradient-to-br hover:from-primary/5 hover:to-primary/10 hover:border-primary/20"
                     onClick={toggleTheme}
                     data-testid="button-theme-toggle"
                   >
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-1 bg-primary/10">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/20 group-hover:from-primary/20 group-hover:to-primary/30 group-hover:shadow-sm transition-all duration-200 flex-shrink-0">
                       {theme === 'light' ? 
-                        <Moon className="h-4 w-4 text-primary" /> : 
-                        <Sun className="h-4 w-4 text-primary" />
+                        <Moon className="h-4 w-4 text-primary group-hover:text-primary/80 transition-colors duration-200" /> : 
+                        <Sun className="h-4 w-4 text-primary group-hover:text-primary/80 transition-colors duration-200" />
                       }
                     </div>
-                    <span className="text-xs font-medium text-foreground">
+                    <span className="text-sm font-medium text-foreground group-hover:text-foreground/80 leading-tight transition-colors duration-200 flex-1">
                       {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
                     </span>
                   </Button>
                   
                   <Button
                     variant="ghost"
-                    className="justify-center h-16 text-center flex-row rounded-xl transition-all duration-200 hover:scale-105 border-2 border-transparent hover:border-red-200 group"
+                    className="h-14 flex items-center justify-start gap-3 rounded-xl transition-all duration-200 hover:scale-[1.02] hover:shadow-lg border border-transparent hover:border-red-200 group p-3 hover:bg-gradient-to-br hover:from-red-50 hover:to-red-100"
                     data-testid="button-logout"
                     onClick={async () => {
                       await authService.logout();
                       window.location.href = '/login';
                     }}
                   >
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center mb-1">
-                      <LogOut className="h-4 w-4 text-red-600" />
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100 group-hover:from-red-100 group-hover:to-red-200 group-hover:shadow-sm transition-all duration-200 flex-shrink-0">
+                      <LogOut className="h-4 w-4 text-red-600 group-hover:text-red-700 transition-colors duration-200" />
                     </div>
-                    <span className="text-xs font-medium text-red-600 group-hover:text-red-700">
+                    <span className="text-sm font-medium text-red-600 group-hover:text-red-700 leading-tight transition-colors duration-200 flex-1">
                       Logout
                     </span>
                   </Button>
