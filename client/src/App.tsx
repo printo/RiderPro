@@ -29,8 +29,8 @@ function Router({ isLoggedIn, onLogin }: { isLoggedIn: boolean; onLogin: () => v
         <Route path="/shipments" component={Shipments} />
         <Route path="/admin">
           {(params) => {
-            const role = authService.getUser()?.role;
-            if (role === 'admin' || role === 'isops') {
+            const user = authService.getUser();
+            if (user && (user.isAdmin || user.isSuperAdmin || user.isOpsTeam)) {
               return <AdminPage />;
             }
             window.location.href = '/dashboard';
