@@ -19,6 +19,127 @@ import { externalSync } from "./services/externalSync.js";
 import path from 'path';
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth endpoints
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email and password are required'
+        });
+      }
+
+      // Call external auth API
+      const response = await fetch('https://pia.printo.in/api/v1/auth/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+
+      const data = await response.json();
+      const { access, refresh, full_name, is_ops_team = false, is_admin = false, is_super_admin = false, user_id } = data;
+
+      if (!access) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication failed'
+        });
+      }
+
+      // Determine role
+      let role = 'user';
+      if (is_super_admin) role = 'super_admin';
+      else if (is_admin) role = 'admin';
+      else if (is_ops_team) role = 'ops_team';
+
+      const user = {
+        id: user_id?.toString() || email,
+        email,
+        name: full_name || `Employee ${email}`,
+        role,
+        employeeId: email,
+      };
+
+      res.json({
+        success: true,
+        data: {
+          accessToken: access,
+          refreshToken: refresh || null,
+          user
+        }
+      });
+    } catch (error: any) {
+      console.error('Login error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  });
+
+  app.post('/api/auth/refresh', async (req, res) => {
+    try {
+      const { userId, refresh } = req.body;
+      
+      if (!refresh) {
+        return res.status(400).json({
+          success: false,
+          message: 'Refresh token is required'
+        });
+      }
+
+      // Call external refresh API
+      const response = await fetch('https://pia.printo.in/api/v1/auth/refresh-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refreshToken: refresh }),
+      });
+
+      if (!response.ok) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid refresh token'
+        });
+      }
+
+      const data = await response.json();
+      
+      if (!data.accessToken) {
+        return res.status(401).json({
+          success: false,
+          message: 'Failed to refresh token'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          accessToken: data.accessToken
+        }
+      });
+    } catch (error: any) {
+      console.error('Token refresh error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error'
+      });
+    }
+  });
+
   // Serve uploaded files
   app.use('/uploads', (req, res, next) => {
     // Add CORS headers for file access
@@ -53,8 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'No token provided' });
       }
 
-      // In a real app, you would verify the JWT token here and get the user
-      // For now, we'll use a mock function to simulate getting the user from the token
+      // Verify the token with external API
       const user = await getUserFromToken(token);
       if (!user || !user.employeeId) {
         return res.status(401).json({ message: 'Invalid or expired token' });

@@ -319,6 +319,48 @@ class AuthService {
     }
   }
 
+  // New method that works with local API endpoints (like /api/shipments)
+  public async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+    if (!this.state.accessToken) {
+      throw new Error('No access token available');
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+      'Authorization': `Bearer ${this.state.accessToken}`,
+    };
+
+    let response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    // If we get a 401, try to refresh the token and retry
+    if (response.status === 401) {
+      try {
+        await this.refreshAccessToken();
+        
+        // Retry with new token
+        const newHeaders = {
+          ...options.headers,
+          'Authorization': `Bearer ${this.state.accessToken}`,
+        };
+
+        response = await fetch(url, {
+          ...options,
+          headers: newHeaders,
+        });
+      } catch (refreshError) {
+        console.error('Failed to refresh token:', refreshError);
+        await this.logout();
+        throw refreshError;
+      }
+    }
+
+    return response;
+  }
+
   // --- Getters ---
   public getState(): AuthState {
     return { ...this.state };
