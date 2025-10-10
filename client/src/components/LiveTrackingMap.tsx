@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { withChartErrorBoundary } from '@/components/ErrorBoundary';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for default markers in React Leaflet
@@ -92,7 +93,7 @@ function MapUpdater({ riders, selectedRider }: { riders: RiderLocation[], select
   return null;
 }
 
-export default function LiveTrackingMap({
+function LiveTrackingMap({
   riders,
   selectedRider,
   onRiderSelect,
@@ -237,4 +238,7 @@ export default function LiveTrackingMap({
       </div>
     </div>
   );
-}
+} expo
+rt default withChartErrorBoundary(LiveTrackingMap, {
+  componentName: 'LiveTrackingMap'
+});

@@ -12,6 +12,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Battery,
   BatteryLow,
@@ -35,7 +36,7 @@ interface BatteryPerformanceMonitorProps {
   expanded?: boolean;
 }
 
-export default function BatteryPerformanceMonitor({
+function BatteryPerformanceMonitor({
   batteryOptimization,
   performanceMonitoring,
   onOptimizationChange,
@@ -350,4 +351,8 @@ export default function BatteryPerformanceMonitor({
       </Collapsible>
     </Card>
   );
-}
+} e
+xport default withComponentErrorBoundary(BatteryPerformanceMonitor, {
+  componentVariant: 'card',
+  componentName: 'BatteryPerformanceMonitor'
+});

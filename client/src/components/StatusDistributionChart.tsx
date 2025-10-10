@@ -1,10 +1,11 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { withChartErrorBoundary } from "@/components/ErrorBoundary";
 
 interface StatusDistributionChartProps {
   statusBreakdown: Record<string, number>;
 }
 
-export default function StatusDistributionChart({ statusBreakdown }: StatusDistributionChartProps) {
+function StatusDistributionChart({ statusBreakdown }: StatusDistributionChartProps) {
   return (
     <Card data-testid="card-status-chart">
       <CardContent className="pt-6">
@@ -15,14 +16,13 @@ export default function StatusDistributionChart({ statusBreakdown }: StatusDistr
               <span className="text-sm font-medium">{status}</span>
               <div className="flex items-center gap-2">
                 <div
-                  className={`w-16 h-2 rounded-full bg-gradient-to-r ${
-                    status === "Delivered" ? "from-green-400 to-green-600" :
+                  className={`w-16 h-2 rounded-full bg-gradient-to-r ${status === "Delivered" ? "from-green-400 to-green-600" :
                     status === "Picked Up" ? "from-green-400 to-green-600" :
-                    status === "In Transit" ? "from-blue-400 to-blue-600" :
-                    status === "Assigned" ? "from-yellow-400 to-yellow-600" :
-                    status === "Cancelled" ? "from-red-400 to-red-600" :
-                    "from-gray-400 to-gray-600"
-                  }`}
+                      status === "In Transit" ? "from-blue-400 to-blue-600" :
+                        status === "Assigned" ? "from-yellow-400 to-yellow-600" :
+                          status === "Cancelled" ? "from-red-400 to-red-600" :
+                            "from-gray-400 to-gray-600"
+                    }`}
                 />
                 <span className="text-sm font-bold min-w-[2rem] text-right">{count}</span>
               </div>
@@ -33,3 +33,6 @@ export default function StatusDistributionChart({ statusBreakdown }: StatusDistr
     </Card>
   );
 }
+export default withChartErrorBoundary(StatusDistributionChart, {
+  componentName: 'StatusDistributionChart'
+});

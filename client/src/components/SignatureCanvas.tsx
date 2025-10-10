@@ -1,11 +1,12 @@
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 
 interface SignatureCanvasProps {
   onSignatureChange: (signature: string) => void;
 }
 
-export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
+function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
@@ -84,7 +85,7 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
   const stopDrawing = () => {
     if (!isDrawing) return;
     setIsDrawing(false);
-    
+
     // Convert to base64 and notify parent
     const canvas = canvasRef.current;
     if (canvas && hasSignature) {
@@ -122,8 +123,8 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
       />
       <div className="flex justify-between items-center mt-2">
         <p className="text-sm text-muted-foreground">Draw customer signature above</p>
-        <Button 
-          type="button" 
+        <Button
+          type="button"
           variant="ghost"
           size="sm"
           onClick={clearSignature}
@@ -136,3 +137,7 @@ export default function SignatureCanvas({ onSignatureChange }: SignatureCanvasPr
     </div>
   );
 }
+export default withComponentErrorBoundary(SignatureCanvas, {
+  componentVariant: 'card',
+  componentName: 'SignatureCanvas'
+});

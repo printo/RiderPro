@@ -7,8 +7,9 @@ import StatusDistributionChart from "@/components/StatusDistributionChart";
 import RoutePerformanceChart from "@/components/RoutePerformanceChart";
 import RouteSummary from "@/components/RouteSummary";
 import { Package, CheckCircle, Clock, HourglassIcon } from "lucide-react";
+import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
-export default function Dashboard() {
+function Dashboard() {
   const { data: metrics, isLoading, error } = useDashboard();
 
   if (isLoading) {
@@ -33,11 +34,11 @@ export default function Dashboard() {
 
   if (error) {
     console.error('Dashboard error:', error);
-    
+
     // Check for common error cases
     let errorMessage = 'Failed to load dashboard metrics';
     let showRetry = true;
-    
+
     if (error instanceof Error) {
       if (error.message.includes('401')) {
         errorMessage = 'Session expired. Please log in again.';
@@ -46,7 +47,7 @@ export default function Dashboard() {
         errorMessage = 'Network error. Please check your connection.';
       }
     }
-    
+
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-red-50 border-l-4 border-red-400 p-4">
@@ -231,3 +232,4 @@ export default function Dashboard() {
     </div>
   );
 }
+export default withPageErrorBoundary(Dashboard, 'Dashboard');

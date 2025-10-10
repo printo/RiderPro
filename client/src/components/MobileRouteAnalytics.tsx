@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RouteAnalytics } from '../types/RouteAnalytics';
+import { withChartErrorBoundary } from '@/components/ErrorBoundary';
 import '../styles/mobile.css';
 
 interface MobileRouteAnalyticsProps {
@@ -431,4 +432,6 @@ export const MobileRouteAnalytics: React.FC<MobileRouteAnalyticsProps> = ({
   );
 };
 
-export default MobileRouteAnalytics;
+export default withChartErrorBoundary(MobileRouteAnalytics, {
+  componentName: 'MobileRouteAnalytics'
+});

@@ -9,6 +9,7 @@ import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import { Alert, AlertDescription } from './ui/alert';
 import { DatePickerWithRange } from './ui/date-range-picker';
+import { withModalErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Download,
   FileText,
@@ -45,7 +46,7 @@ interface ExportState {
   error: string | null;
 }
 
-export default function ExportDialog({
+function ExportDialog({
   isOpen,
   onClose,
   data,
@@ -422,4 +423,6 @@ export default function ExportDialog({
       </DialogContent>
     </Dialog>
   );
-}
+} export default withModalErrorBoundary(ExportDialog, {
+  componentName: 'ExportDialog'
+});

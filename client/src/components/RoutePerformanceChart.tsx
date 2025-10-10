@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { withChartErrorBoundary } from "@/components/ErrorBoundary";
 
 interface RouteData {
   total: number;
@@ -11,7 +12,7 @@ interface RoutePerformanceChartProps {
   routeBreakdown: Record<string, RouteData>;
 }
 
-export default function RoutePerformanceChart({ routeBreakdown }: RoutePerformanceChartProps) {
+function RoutePerformanceChart({ routeBreakdown }: RoutePerformanceChartProps) {
   return (
     <Card data-testid="card-route-chart">
       <CardContent className="pt-6">
@@ -42,3 +43,6 @@ export default function RoutePerformanceChart({ routeBreakdown }: RoutePerforman
     </Card>
   );
 }
+export default withChartErrorBoundary(RoutePerformanceChart, {
+  componentName: 'RoutePerformanceChart'
+});

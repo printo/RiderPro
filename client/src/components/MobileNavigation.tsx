@@ -3,6 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
 import authService from '../services/AuthService';
 import { UserRole } from '../types/Auth';
+import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import '../styles/mobile.css';
 
 interface NavigationItem {
@@ -303,4 +304,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   );
 };
 
-export default MobileNavigation;
+export default withComponentErrorBoundary(MobileNavigation, {
+  componentVariant: 'inline',
+  componentName: 'MobileNavigation'
+});

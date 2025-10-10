@@ -6,12 +6,13 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Package, Eye, EyeOff, Loader2 } from "lucide-react";
 import authService from "@/services/AuthService";
+import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
 interface LoginProps {
   onLogin: () => void;
 }
 
-export default function Login({ onLogin }: LoginProps) {
+function Login({ onLogin }: LoginProps) {
   const [employeeId, setEmployeeId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,7 +22,7 @@ export default function Login({ onLogin }: LoginProps) {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Reset error and show loading
     setError("");
     setIsLoading(true);
@@ -29,7 +30,7 @@ export default function Login({ onLogin }: LoginProps) {
     try {
       console.log('Attempting login...');
       const result = await authService.login(employeeId, password);
-      
+
       if (result.success) {
         console.log('Login successful!');
         onLogin();
@@ -103,16 +104,16 @@ export default function Login({ onLogin }: LoginProps) {
                 </button>
               </div>
             </div>
-            
+
             {error && (
               <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
                 {error}
               </div>
             )}
-            
-            <Button 
-              type="submit" 
-              className="w-full" 
+
+            <Button
+              type="submit"
+              className="w-full"
               disabled={isLoading || !employeeId || !password}
             >
               {isLoading ? (
@@ -129,4 +130,4 @@ export default function Login({ onLogin }: LoginProps) {
       </Card>
     </div>
   );
-}
+} export default withPageErrorBoundary(Login, 'Login');

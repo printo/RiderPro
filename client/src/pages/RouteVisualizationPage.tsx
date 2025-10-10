@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Route,
   BarChart3,
@@ -63,7 +64,7 @@ interface RouteData {
   }>;
 }
 
-export default function RouteVisualizationPage() {
+function RouteVisualizationPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [routeSessions, setRouteSessions] = useState<RouteSession[]>([]);
   const [routeData, setRouteData] = useState<RouteData[]>([]);
@@ -416,4 +417,4 @@ export default function RouteVisualizationPage() {
       )}
     </div>
   );
-}
+} export default withPageErrorBoundary(RouteVisualizationPage, 'Route Visualization');

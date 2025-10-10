@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { useGPSTracking } from "@/hooks/useGPSTracking";
 import { useToast } from "@/hooks/use-toast";
+import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 
 interface ShipmentCardWithTrackingProps {
   shipment: Shipment;
@@ -22,7 +23,7 @@ interface ShipmentCardWithTrackingProps {
   showTrackingControls?: boolean;
 }
 
-export default function ShipmentCardWithTracking({
+function ShipmentCardWithTracking({
   shipment,
   selected,
   onSelect,
@@ -288,4 +289,8 @@ export default function ShipmentCardWithTracking({
       </CardContent>
     </Card>
   );
-}
+} export
+  default withComponentErrorBoundary(ShipmentCardWithTracking, {
+    componentVariant: 'card',
+    componentName: 'ShipmentCardWithTracking'
+  });

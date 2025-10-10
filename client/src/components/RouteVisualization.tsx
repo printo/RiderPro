@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { withChartErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Play,
   Pause,
@@ -63,7 +64,7 @@ interface RouteVisualizationProps {
   className?: string;
 }
 
-export default function RouteVisualization({
+function RouteVisualization({
   sessionId,
   sessions = [],
   onSessionSelect,
@@ -615,4 +616,7 @@ export default function RouteVisualization({
       )}
     </div>
   );
-}
+} export
+  default withChartErrorBoundary(RouteVisualization, {
+    componentName: 'RouteVisualization'
+  });

@@ -13,13 +13,14 @@ import Filters from "@/components/Filters";
 import { Shipment, ShipmentFilters } from "@shared/schema";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
 // Lazy load the shipments list component
 const ShipmentsList = lazy(() => import("@/components/ShipmentsList"));
 import { authService } from "@/services/AuthService";
 import { useDebounce } from "@/hooks/useDebounce";
 
-export default function ShipmentsWithTracking() {
+function ShipmentsWithTracking() {
   const [filters, setFilters] = useState<ShipmentFilters>({});
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
@@ -616,3 +617,4 @@ export default function ShipmentsWithTracking() {
     </div>
   );
 }
+export default withPageErrorBoundary(ShipmentsWithTracking, 'Shipments with Tracking');

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import {
   MapPin,
   Users,
@@ -17,7 +18,7 @@ import LiveTrackingMap, { RiderLocation } from '@/components/LiveTrackingMap';
 import RiderStatusPanel from '@/components/RiderStatusPanel';
 import { useLiveTracking } from '@/hooks/useLiveTracking';
 
-export default function LiveTrackingDashboard() {
+function LiveTrackingDashboard() {
   const [selectedRider, setSelectedRider] = useState<string | undefined>();
   const [showRoutes, setShowRoutes] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -206,4 +207,5 @@ export default function LiveTrackingDashboard() {
       </div>
     </div>
   );
-}
+} export
+  default withPageErrorBoundary(LiveTrackingDashboard, 'Live Tracking Dashboard');

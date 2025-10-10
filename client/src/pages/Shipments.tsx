@@ -9,8 +9,9 @@ import ShipmentDetailModal from "@/components/ShipmentDetailModal";
 import BatchUpdateModal from "@/components/BatchUpdateModal";
 import Filters from "@/components/Filters";
 import { Shipment, ShipmentFilters } from "@shared/schema";
+import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
-export default function Shipments() {
+function Shipments() {
   const [filters, setFilters] = useState<ShipmentFilters>({});
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
@@ -19,8 +20,8 @@ export default function Shipments() {
   const { data: shipments, isLoading, error, refetch } = useShipments(filters);
 
   const handleShipmentSelect = (shipmentId: string, selected: boolean) => {
-    setSelectedShipmentIds(prev => 
-      selected 
+    setSelectedShipmentIds(prev =>
+      selected
         ? [...prev, shipmentId]
         : prev.filter(id => id !== shipmentId)
     );
@@ -97,7 +98,7 @@ export default function Shipments() {
               Shipments
             </h2>
             <div className="flex items-center gap-2">
-              <Button 
+              <Button
                 onClick={handleBatchUpdate}
                 disabled={selectedShipmentIds.length === 0}
                 className="bg-primary text-primary-foreground"
@@ -106,7 +107,7 @@ export default function Shipments() {
                 <Edit className="h-4 w-4 mr-2" />
                 Batch Update ({selectedShipmentIds.length})
               </Button>
-              <Button 
+              <Button
                 variant="secondary"
                 onClick={handleRefresh}
                 data-testid="button-refresh"
@@ -125,8 +126,8 @@ export default function Shipments() {
       {!shipments || shipments.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground" data-testid="text-no-shipments">
-            {filters.status || filters.type || filters.routeName || filters.date 
-              ? "No shipments match the current filters" 
+            {filters.status || filters.type || filters.routeName || filters.date
+              ? "No shipments match the current filters"
               : "No shipments available"}
           </p>
         </div>
@@ -146,7 +147,7 @@ export default function Shipments() {
 
       {/* Modals */}
       {selectedShipment && (
-        <ShipmentDetailModal 
+        <ShipmentDetailModal
           shipment={selectedShipment}
           isOpen={true}
           onClose={() => setSelectedShipment(null)}
@@ -169,3 +170,4 @@ export default function Shipments() {
     </div>
   );
 }
+export default withPageErrorBoundary(Shipments, 'Shipments');

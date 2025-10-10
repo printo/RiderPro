@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { withChartErrorBoundary } from '@/components/ErrorBoundary';
 import {
   TrendingUp,
   TrendingDown,
@@ -55,7 +56,7 @@ interface RouteComparisonProps {
   onOptimizationSuggestion?: (suggestion: string) => void;
 }
 
-export default function RouteComparison({
+function RouteComparison({
   sessions,
   onSessionSelect,
   onOptimizationSuggestion
@@ -312,8 +313,8 @@ export default function RouteComparison({
               <div
                 key={session.id}
                 className={`p-3 border rounded-md cursor-pointer transition-colors ${selectedSessions.includes(session.id)
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-gray-300'
                   }`}
                 onClick={() => handleSessionToggle(session.id)}
               >
@@ -381,8 +382,8 @@ export default function RouteComparison({
                           </div>
                           {index > 0 && Math.abs(comparison.percentage) > 1 && (
                             <div className={`text-xs ${comparison.trend === 'better' ? 'text-green-600' :
-                                comparison.trend === 'worse' ? 'text-red-600' :
-                                  'text-gray-500'
+                              comparison.trend === 'worse' ? 'text-red-600' :
+                                'text-gray-500'
                               }`}>
                               {comparison.percentage > 0 ? '+' : ''}{comparison.percentage.toFixed(1)}%
                             </div>
@@ -450,4 +451,6 @@ export default function RouteComparison({
       )}
     </div>
   );
-}
+} export default withChartErrorBoundary(RouteComparison, {
+  componentName: 'RouteComparison'
+});

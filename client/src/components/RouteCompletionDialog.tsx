@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { withModalErrorBoundary } from '@/components/ErrorBoundary';
 import {
   MapPin,
   Clock,
@@ -35,7 +36,7 @@ interface RouteCompletionDialogProps {
   autoConfirmSeconds?: number;
 }
 
-export default function RouteCompletionDialog({
+function RouteCompletionDialog({
   isOpen,
   onClose,
   onConfirm,
@@ -242,4 +243,7 @@ export default function RouteCompletionDialog({
       </DialogContent>
     </Dialog>
   );
-}
+} export
+  default withModalErrorBoundary(RouteCompletionDialog, {
+    componentName: 'RouteCompletionDialog'
+  });

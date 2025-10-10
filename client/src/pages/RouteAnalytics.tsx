@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import {
   BarChart3,
   TrendingUp,
@@ -39,7 +40,7 @@ interface AnalyticsFilters {
   viewType: 'daily' | 'weekly' | 'monthly';
 }
 
-export default function RouteAnalytics() {
+function RouteAnalytics() {
   const [filters, setFilters] = useState<AnalyticsFilters>({
     dateRange: {
       from: subDays(new Date(), 30),
@@ -374,4 +375,4 @@ export default function RouteAnalytics() {
       </div>
     </div>
   );
-}
+} export default withPageErrorBoundary(RouteAnalytics, 'Route Analytics');

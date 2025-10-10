@@ -4,6 +4,7 @@ import { shipmentsApi, type PaginatedResponse } from '@/api/shipments';
 import { Shipment } from '@shared/schema';
 import { Skeleton } from '@/components/ui/skeleton';
 import ShipmentCardWithTracking from './ShipmentCardWithTracking';
+import { withComponentErrorBoundary, ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface ShipmentsListProps {
   filters: any;
@@ -102,13 +103,14 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
 
       <div className="grid gap-4">
         {shipments.map((shipment) => (
-          <ShipmentCardWithTracking
-            key={shipment.id}
-            shipment={shipment}
-            isSelected={selectedShipmentIds.includes(shipment.id)}
-            onSelect={(selected) => onSelectShipment(shipment.id, selected)}
-            onClick={() => onShipmentSelect(shipment)}
-          />
+          <ErrorBoundary key={shipment.id} variant="listItem" componentName="ShipmentCard">
+            <ShipmentCardWithTracking
+              shipment={shipment}
+              isSelected={selectedShipmentIds.includes(shipment.id)}
+              onSelect={(selected) => onSelectShipment(shipment.id, selected)}
+              onClick={() => onShipmentSelect(shipment)}
+            />
+          </ErrorBoundary>
         ))}
       </div>
 
@@ -122,11 +124,10 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
                 onClick={() => {
                   // Handle page change
                 }}
-                className={`px-3 py-1 rounded ${
-                  page === pageNum
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 hover:bg-gray-300'
-                }`}
+                className={`px-3 py-1 rounded ${page === pageNum
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-200 hover:bg-gray-300'
+                  }`}
               >
                 {pageNum}
               </button>
@@ -138,4 +139,7 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
   );
 };
 
-export default ShipmentsList;
+export default withComponentErrorBoundary(ShipmentsList, {
+  componentVariant: 'card',
+  componentName: 'ShipmentsList'
+});

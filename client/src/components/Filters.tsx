@@ -3,19 +3,20 @@ import { ShipmentFilters } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { 
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronUp, Filter } from "lucide-react";
+import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 
 interface FiltersProps {
   filters: ShipmentFilters;
   onFiltersChange: (filters: ShipmentFilters) => void;
 }
 
-export default function Filters({ filters, onFiltersChange }: FiltersProps) {
+function Filters({ filters, onFiltersChange, onClear }: FiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const updateFilter = (key: keyof ShipmentFilters, value: string) => {
@@ -30,8 +31,8 @@ export default function Filters({ filters, onFiltersChange }: FiltersProps) {
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
       <CollapsibleTrigger asChild>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="w-full justify-between h-10"
           data-testid="button-toggle-filters"
         >
@@ -45,11 +46,11 @@ export default function Filters({ filters, onFiltersChange }: FiltersProps) {
           {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </Button>
       </CollapsibleTrigger>
-      
+
       <CollapsibleContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 border rounded-lg bg-card">
-          <Select 
-            value={filters.status || "all"} 
+          <Select
+            value={filters.status || "all"}
             onValueChange={(value) => updateFilter("status", value)}
           >
             <SelectTrigger data-testid="select-filter-status">
@@ -66,8 +67,8 @@ export default function Filters({ filters, onFiltersChange }: FiltersProps) {
             </SelectContent>
           </Select>
 
-          <Select 
-            value={filters.type || "all"} 
+          <Select
+            value={filters.type || "all"}
             onValueChange={(value) => updateFilter("type", value as "delivery" | "pickup")}
           >
             <SelectTrigger data-testid="select-filter-type">
@@ -80,8 +81,8 @@ export default function Filters({ filters, onFiltersChange }: FiltersProps) {
             </SelectContent>
           </Select>
 
-          <Select 
-            value={filters.routeName || "all"} 
+          <Select
+            value={filters.routeName || "all"}
             onValueChange={(value) => updateFilter("routeName", value)}
           >
             <SelectTrigger data-testid="select-filter-route">
@@ -99,3 +100,7 @@ export default function Filters({ filters, onFiltersChange }: FiltersProps) {
     </Collapsible>
   );
 }
+export default withComponentErrorBoundary(Filters, {
+  componentVariant: 'inline',
+  componentName: 'Filters'
+});

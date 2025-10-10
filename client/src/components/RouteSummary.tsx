@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 
 interface RouteData {
   total: number;
@@ -13,7 +14,7 @@ interface RouteSummaryProps {
   routeBreakdown: Record<string, RouteData>;
 }
 
-export default function RouteSummary({ routeBreakdown }: RouteSummaryProps) {
+function RouteSummary({ routeBreakdown }: RouteSummaryProps) {
   return (
     <Card data-testid="card-route-summary">
       <CardContent className="pt-6">
@@ -93,3 +94,7 @@ export default function RouteSummary({ routeBreakdown }: RouteSummaryProps) {
     </Card>
   );
 }
+export default withComponentErrorBoundary(RouteSummary, {
+  componentVariant: 'card',
+  componentName: 'RouteSummary'
+});

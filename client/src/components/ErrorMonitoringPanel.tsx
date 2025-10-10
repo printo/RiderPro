@@ -9,6 +9,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import {
   AlertTriangle,
   CheckCircle,
@@ -30,7 +31,7 @@ interface ErrorMonitoringPanelProps {
   onErrorResolve?: (errorId: string) => void;
 }
 
-export default function ErrorMonitoringPanel({
+function ErrorMonitoringPanel({
   errorHandler,
   gpsErrorRecovery,
   expanded = false,
@@ -402,4 +403,8 @@ export default function ErrorMonitoringPanel({
       </Collapsible>
     </Card>
   );
-}
+}export d
+efault withComponentErrorBoundary(ErrorMonitoringPanel, {
+  componentVariant: 'card',
+  componentName: 'ErrorMonitoringPanel'
+});

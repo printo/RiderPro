@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { MessageCircle, Save } from "lucide-react";
+import { withModalErrorBoundary } from "@/components/ErrorBoundary";
 
 interface RemarksModalProps {
   isOpen: boolean;
@@ -21,11 +22,11 @@ interface RemarksModalProps {
   status: "Cancelled" | "Returned";
 }
 
-export default function RemarksModal({ 
-  isOpen, 
-  onClose, 
-  shipmentId, 
-  status 
+function RemarksModal({
+  isOpen,
+  onClose,
+  shipmentId,
+  status
 }: RemarksModalProps) {
   const [remarks, setRemarks] = useState("");
   const { toast } = useToast();
@@ -36,18 +37,18 @@ export default function RemarksModal({
       if (!remarks.trim()) {
         throw new Error("Remarks are required");
       }
-      
+
       // First update the shipment status
-      const statusResponse = await apiRequest("PATCH", `/api/shipments/${shipmentId}`, { 
-        status: status 
+      const statusResponse = await apiRequest("PATCH", `/api/shipments/${shipmentId}`, {
+        status: status
       });
-      
+
       // Then save the remarks
       const remarksResponse = await apiRequest("POST", `/api/shipments/${shipmentId}/remarks`, {
         remarks: remarks.trim(),
         status: status
       });
-      
+
       return { status: statusResponse, remarks: remarksResponse };
     },
     onSuccess: () => {
@@ -119,11 +120,10 @@ export default function RemarksModal({
             <Button
               onClick={handleSubmit}
               disabled={submitRemarksMutation.isPending || !remarks.trim()}
-              className={`flex-1 ${
-                status === "Cancelled" 
-                  ? "bg-red-600 hover:bg-red-700" 
-                  : "bg-orange-600 hover:bg-orange-700"
-              } text-white`}
+              className={`flex-1 ${status === "Cancelled"
+                ? "bg-red-600 hover:bg-red-700"
+                : "bg-orange-600 hover:bg-orange-700"
+                } text-white`}
               data-testid="button-save-remarks"
             >
               <Save className="h-4 w-4 mr-2" />
@@ -134,4 +134,6 @@ export default function RemarksModal({
       </DialogContent>
     </Dialog>
   );
-}
+} export default withModalErrorBoundary(RemarksModal, {
+  componentName: 'RemarksModal'
+});

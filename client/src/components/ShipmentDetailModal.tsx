@@ -13,6 +13,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import RemarksModal from "./RemarksModal";
+import { withModalErrorBoundary } from "@/components/ErrorBoundary";
 import AcknowledgmentCapture from "./AcknowledgmentCapture";
 import { cn } from "@/lib/utils";
 
@@ -361,4 +362,6 @@ function ShipmentDetailModal({ shipment, isOpen, onClose }: ShipmentDetailModalP
   );
 }
 
-export default ShipmentDetailModal;
+export default withModalErrorBoundary(ShipmentDetailModal, {
+  componentName: 'ShipmentDetailModal'
+});

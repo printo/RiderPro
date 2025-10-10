@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Wifi,
   WifiOff,
@@ -29,7 +30,7 @@ interface SyncStatusIndicatorProps {
   onSyncError?: (error: string) => void;
 }
 
-export default function SyncStatusIndicator({
+function SyncStatusIndicator({
   showDetails = false,
   compact = false,
   onSyncComplete,
@@ -362,4 +363,8 @@ function SyncStatusDetails({
       </CardContent>
     </>
   );
-}
+} expor
+t default withComponentErrorBoundary(SyncStatusIndicator, {
+  componentVariant: 'inline',
+  componentName: 'SyncStatusIndicator'
+});

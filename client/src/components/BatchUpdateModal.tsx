@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { withModalErrorBoundary } from "@/components/ErrorBoundary";
 
 interface BatchUpdateModalProps {
   selectedCount: number;
@@ -14,12 +15,12 @@ interface BatchUpdateModalProps {
   onSuccess: () => void;
 }
 
-export default function BatchUpdateModal({ 
-  selectedCount, 
-  selectedIds, 
-  isOpen, 
-  onClose, 
-  onSuccess 
+function BatchUpdateModal({
+  selectedCount,
+  selectedIds,
+  isOpen,
+  onClose,
+  onSuccess
 }: BatchUpdateModalProps) {
   const [selectedStatus, setSelectedStatus] = useState<string>("");
   const { toast } = useToast();
@@ -70,7 +71,7 @@ export default function BatchUpdateModal({
         <DialogHeader>
           <DialogTitle>Batch Update</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div>
             <label className="text-sm font-medium text-foreground mb-2 block">
@@ -88,14 +89,14 @@ export default function BatchUpdateModal({
               </SelectContent>
             </Select>
           </div>
-          
+
           <div className="text-sm text-muted-foreground">
             <span data-testid="text-selected-count">{selectedCount}</span> shipments selected for update
           </div>
-          
+
           <div className="flex gap-3">
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               className="flex-1"
               onClick={onClose}
               disabled={batchUpdateMutation.isPending}
@@ -103,7 +104,7 @@ export default function BatchUpdateModal({
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               className="flex-1 bg-primary text-primary-foreground"
               onClick={handleConfirm}
               disabled={batchUpdateMutation.isPending}
@@ -117,3 +118,6 @@ export default function BatchUpdateModal({
     </Dialog>
   );
 }
+export default withModalErrorBoundary(BatchUpdateModal, {
+  componentName: 'BatchUpdateModal'
+});

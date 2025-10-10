@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Navigation, AlertCircle, Loader2, MapPin, Clock } from 'lucide-react';
 import { useRouteTracking } from '@/hooks/useRouteAPI';
 import { cn } from '@/lib/utils';
+import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 
 interface GPSTrackingIndicatorProps {
   employeeId: string;
@@ -12,7 +13,7 @@ interface GPSTrackingIndicatorProps {
   className?: string;
 }
 
-export default function GPSTrackingIndicator({
+function GPSTrackingIndicator({
   employeeId,
   variant = 'badge',
   showDetails = false,
@@ -180,4 +181,8 @@ export function GPSTrackingCard({ employeeId, showDetails = true, className }: {
       className={className}
     />
   );
-}
+} e
+xport default withComponentErrorBoundary(GPSTrackingIndicator, {
+  componentVariant: 'inline',
+  componentName: 'GPSTrackingIndicator'
+});

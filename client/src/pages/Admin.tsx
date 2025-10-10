@@ -7,8 +7,9 @@ import { useState } from "react";
 import FuelSettingsModal, { FuelSettings } from "@/components/FuelSettingsModal";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
-export default function AdminPage() {
+function AdminPage() {
   const user = authService.getUser();
   const [, setLocation] = useLocation();
   const [showFuelSettings, setShowFuelSettings] = useState(false);
@@ -491,4 +492,5 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
   );
 }
 
+export default withPageErrorBoundary(AdminPage, 'Admin Dashboard');
 

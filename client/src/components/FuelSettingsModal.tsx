@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { withModalErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Fuel,
   Settings,
@@ -74,7 +75,7 @@ const DEFAULT_VEHICLE_TYPES: VehicleType[] = [
   }
 ];
 
-export default function FuelSettingsModal({
+function FuelSettingsModal({
   isOpen,
   onClose,
   onSave,
@@ -466,4 +467,6 @@ export default function FuelSettingsModal({
       </DialogContent>
     </Dialog>
   );
-}
+} export default withModalErrorBoundary(FuelSettingsModal, {
+  componentName: 'FuelSettingsModal'
+});

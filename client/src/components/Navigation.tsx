@@ -1,8 +1,9 @@
 import { Link, useLocation } from "wouter";
 import { Truck } from "lucide-react";
 import authService from "@/services/AuthService";
+import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 
-export default function Navigation() {
+function Navigation() {
   const [location] = useLocation();
 
   const isActive = (path: string) => {
@@ -38,3 +39,7 @@ export default function Navigation() {
     </>
   );
 }
+export default withComponentErrorBoundary(Navigation, {
+  componentVariant: 'inline',
+  componentName: 'Navigation'
+});

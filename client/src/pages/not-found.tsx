@@ -1,7 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
+import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
-export default function NotFound() {
+function NotFound() {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
       <Card className="w-full max-w-md mx-4">
@@ -19,3 +20,4 @@ export default function NotFound() {
     </div>
   );
 }
+export default withPageErrorBoundary(NotFound, '404 Not Found');

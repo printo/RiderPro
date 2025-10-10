@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Truck, Package, MapPin, Phone, Route, Clock, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 
 interface ShipmentCardProps {
   shipment: Shipment;
@@ -12,7 +13,7 @@ interface ShipmentCardProps {
   onViewDetails: () => void;
 }
 
-export default function ShipmentCard({ shipment, selected, onSelect, onViewDetails }: ShipmentCardProps) {
+function ShipmentCard({ shipment, selected, onSelect, onViewDetails }: ShipmentCardProps) {
   const getStatusClass = (status: string) => {
     const statusLower = status.toLowerCase().replace(" ", "-");
     return `status-${statusLower}`;
@@ -128,3 +129,7 @@ export default function ShipmentCard({ shipment, selected, onSelect, onViewDetai
     </Card>
   );
 }
+export default withComponentErrorBoundary(ShipmentCard, {
+  componentVariant: 'card',
+  componentName: 'ShipmentCard'
+});

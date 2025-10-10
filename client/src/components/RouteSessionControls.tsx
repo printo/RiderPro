@@ -6,10 +6,10 @@ import { useRouteSession } from '@/hooks/useRouteSession';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 import RouteCompletionDialog from './RouteCompletionDialog';
 import SmartCompletionSettings from './SmartCompletionSettings';
-import SyncStatusIndicator from './SyncStatusIndicator';
-import OfflineSyncStatus from './OfflineSyncStatus';
+import UnifiedSyncStatus from './unified/UnifiedSyncStatus';
 import BatteryPerformanceMonitor from './BatteryPerformanceMonitor';
 import ErrorMonitoringPanel from './ErrorMonitoringPanel';
+import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target, Settings } from 'lucide-react';
 
 interface RouteSessionControlsProps {
@@ -20,7 +20,7 @@ interface RouteSessionControlsProps {
   onSessionResume?: () => void;
 }
 
-export default function RouteSessionControls({
+function RouteSessionControls({
   employeeId,
   onSessionStart,
   onSessionStop,
@@ -382,4 +382,8 @@ export default function RouteSessionControls({
       )}
     </>
   );
-}
+} expor
+t default withComponentErrorBoundary(RouteSessionControls, {
+  componentVariant: 'card',
+  componentName: 'RouteSessionControls'
+});

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RefreshCw, Send, CheckCircle, XCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 
 interface SyncStats {
   totalPending: number;
@@ -13,7 +14,7 @@ interface SyncStats {
   lastSyncTime?: string;
 }
 
-export default function SyncStatusPanel() {
+function SyncStatusPanel() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -96,7 +97,7 @@ export default function SyncStatusPanel() {
               {syncStats?.totalSent || 0}
             </div>
           </div>
-          
+
           <div>
             <div className="flex items-center justify-center mb-1">
               <Clock className="h-4 w-4 text-yellow-600 mr-1" />
@@ -106,7 +107,7 @@ export default function SyncStatusPanel() {
               {syncStats?.totalPending || 0}
             </div>
           </div>
-          
+
           <div>
             <div className="flex items-center justify-center mb-1">
               <XCircle className="h-4 w-4 text-red-600 mr-1" />
@@ -142,7 +143,7 @@ export default function SyncStatusPanel() {
 
         {/* Status Badge */}
         <div className="flex justify-center">
-          <Badge 
+          <Badge
             variant={(syncStats?.totalFailed || 0) > 0 ? "destructive" : "default"}
             data-testid="badge-sync-status"
           >
@@ -152,4 +153,7 @@ export default function SyncStatusPanel() {
       </CardContent>
     </Card>
   );
-}
+} export default withComponentErrorBoundary(SyncStatusPanel, {
+  componentVariant: 'card',
+  componentName: 'SyncStatusPanel'
+});

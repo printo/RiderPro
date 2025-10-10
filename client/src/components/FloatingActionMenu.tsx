@@ -5,6 +5,7 @@ import type { User } from "@/types/Auth";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 import {
   Menu,
   BarChart3,
@@ -20,7 +21,7 @@ import {
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 
-export default function FloatingActionMenu() {
+function FloatingActionMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const { theme, toggleTheme } = useTheme();
@@ -237,4 +238,8 @@ export default function FloatingActionMenu() {
       </Sheet>
     </div>
   );
-}
+} export
+  default withComponentErrorBoundary(FloatingActionMenu, {
+    componentVariant: 'minimal',
+    componentName: 'FloatingActionMenu'
+  });
