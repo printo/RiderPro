@@ -19,6 +19,14 @@ export const apiRequest = async (
   url: string,
   data?: any
 ): Promise<Response> => {
+  console.log('🌐 apiRequest called:', {
+    method: method.toUpperCase(),
+    url,
+    hasData: !!data,
+    skipAuth: url.includes('/auth/'),
+    timestamp: new Date().toISOString()
+  });
+
   const config: ApiRequestConfig = {
     url,
     method: method.toUpperCase() as ApiRequestConfig['method'],
@@ -26,7 +34,26 @@ export const apiRequest = async (
     skipAuth: url.includes('/auth/'), // Skip auth for auth endpoints
   };
 
-  return apiClient.request(config);
+  try {
+    const response = await apiClient.request(config);
+
+    console.log('✅ apiRequest response:', {
+      method: method.toUpperCase(),
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+
+    return response;
+  } catch (error) {
+    console.error('❌ apiRequest error:', {
+      method: method.toUpperCase(),
+      url,
+      error: error instanceof Error ? error.message : error
+    });
+    throw error;
+  }
 };
 
 export default queryClient;

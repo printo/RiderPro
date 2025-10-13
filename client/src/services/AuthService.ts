@@ -11,6 +11,13 @@ interface AuthState {
   isLoading: boolean;
 }
 
+// Store instance in window to survive HMR in development
+declare global {
+  interface Window {
+    __authServiceInstance?: AuthService;
+  }
+}
+
 class AuthService {
   private static instance: AuthService;
   private state: AuthState = {
@@ -32,12 +39,35 @@ class AuthService {
   private readonly INITIAL_RETRY_DELAY = 1000; // 1 second
 
   private constructor() {
+    // Add global reference for debugging and HMR persistence
+    if (typeof window !== 'undefined') {
+      (window as any).__authServiceInstance = this;
+
+      // Add localStorage monitoring to catch what's clearing our data
+      this.setupStorageMonitoring();
+
+      // Try to restore state from sessionStorage (survives HMR)
+      this.restoreFromHMRBackup();
+    }
+
     this.initializeAuth();
   }
 
   public static getInstance(): AuthService {
+    // Check window first to survive HMR in development
+    if (typeof window !== 'undefined' && window.__authServiceInstance) {
+      console.log('🔄 Reusing existing AuthService instance from HMR');
+      AuthService.instance = window.__authServiceInstance;
+      return AuthService.instance;
+    }
+
     if (!AuthService.instance) {
+      console.log('🆕 Creating new AuthService instance');
       AuthService.instance = new AuthService();
+      // Store in window to survive HMR
+      if (typeof window !== 'undefined') {
+        window.__authServiceInstance = AuthService.instance;
+      }
     }
     return AuthService.instance;
   }
@@ -60,6 +90,9 @@ class AuthService {
 
     // Synchronize with localStorage if authentication state changed
     this.synchronizeStorageWithState(previousState, updatedState);
+
+    // Backup state for HMR persistence
+    this.backupForHMR();
 
     // Notify all listeners
     this.notifyListeners();
@@ -217,11 +250,14 @@ class AuthService {
       try {
         console.log(`Attempting token refresh (attempt ${attempt + 1}/${this.MAX_REFRESH_RETRIES + 1})...`);
 
-        const response: Response = await fetch('/api/auth/refresh', {
+        // Use external API for token refresh
+        const response: Response = await fetch('https://pia.printo.in/api/v1/auth/refresh/', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${refreshToken}`
+          },
           body: JSON.stringify({
-            userId: this.state.user.id,
             refresh: refreshToken
           }),
         });
@@ -243,14 +279,20 @@ class AuthService {
         }
 
         const result: any = await response.json();
-        if (!result.success || !result.data?.accessToken) {
-          console.error('Invalid refresh response format:', result);
+        console.log('🔄 Token refresh response:', {
+          hasAccess: !!result.access,
+          hasRefresh: !!result.refresh
+        });
+
+        // Handle external API response format
+        if (!result.access) {
+          console.error('❌ Invalid refresh response format:', result);
           throw new Error('No access token in refresh response');
         }
 
         // Success - update tokens and state
-        const newAccessToken: string = result.data.accessToken;
-        const newRefreshToken: string = result.data.refreshToken || refreshToken; // Use new refresh token if provided
+        const newAccessToken: string = result.access;
+        const newRefreshToken: string = result.refresh || refreshToken; // Use new refresh token if provided
 
         // Persist tokens
         localStorage.setItem('access_token', newAccessToken);
@@ -301,13 +343,57 @@ class AuthService {
   }
 
   private initializeAuth() {
+    console.log('🚀 AuthService.initializeAuth called');
+    console.log('📊 Current auth state before init:', {
+      isAuthenticated: this.state.isAuthenticated,
+      hasUser: !!this.state.user,
+      hasAccessToken: !!this.state.accessToken,
+      isLoading: this.state.isLoading
+    });
+
+    // If we're already authenticated and not loading, don't reinitialize
+    if (this.state.isAuthenticated && this.state.user && this.state.accessToken && !this.state.isLoading) {
+      console.log('✅ Already authenticated, skipping initialization');
+      return;
+    }
+
+    // First, let's check what's directly in localStorage
+    console.log('🔍 Direct localStorage check before TokenStorage.retrieve:');
+    const directCheck = {
+      accessToken: localStorage.getItem('access_token'),
+      refreshToken: localStorage.getItem('refresh_token'),
+      authUser: localStorage.getItem('auth_user'),
+      authData: localStorage.getItem('auth_data')
+    };
+    console.log('📦 Direct localStorage contents:', {
+      hasAccessToken: !!directCheck.accessToken,
+      accessTokenLength: directCheck.accessToken?.length,
+      hasRefreshToken: !!directCheck.refreshToken,
+      refreshTokenLength: directCheck.refreshToken?.length,
+      hasAuthUser: !!directCheck.authUser,
+      authUserLength: directCheck.authUser?.length,
+      hasAuthData: !!directCheck.authData,
+      authDataLength: directCheck.authData?.length
+    });
+
     try {
       // Try to retrieve auth data using enhanced storage with error recovery
+      console.log('🔄 Calling TokenStorage.retrieve...');
       const authData = TokenStorage.retrieve();
+
+      console.log('📦 Retrieved auth data from storage:', {
+        hasAuthData: !!authData,
+        hasUser: !!(authData?.user),
+        hasAccessToken: !!(authData?.accessToken),
+        hasRefreshToken: !!(authData?.refreshToken),
+        username: authData?.user?.username,
+        role: authData?.user?.role
+      });
 
       if (authData && authData.user) {
         const permissions = this.getPermissionsForRole(authData.user.role);
 
+        console.log('✅ Setting authenticated state from storage');
         this.setAuthState({
           user: authData.user,
           accessToken: authData.accessToken,
@@ -319,29 +405,30 @@ class AuthService {
 
         // Verify token validity
         this.verifyToken().catch(() => {
-          console.log('Stored token is invalid, clearing auth data');
+          console.log('❌ Stored token is invalid, clearing auth data');
           this.clearAuthData();
         });
 
         // Log storage health for monitoring
         const storageInfo = TokenStorage.getStorageInfo();
         if (storageInfo.isUsingMemoryFallback) {
-          console.warn('Auth initialized from memory fallback - session will not persist across page reloads');
+          console.warn('⚠️ Auth initialized from memory fallback - session will not persist across page reloads');
         }
 
       } else {
         // No valid auth data found
+        console.log('❌ No valid auth data found in storage');
         this.setAuthState({ isLoading: false }, 'initialization-no-stored-auth');
 
         // Check if there were storage issues
         const storageHealth = TokenStorage.getStorageHealth();
         if (!storageHealth.healthy) {
-          console.warn('Storage health issues detected during initialization:', storageHealth.errors);
+          console.warn('⚠️ Storage health issues detected during initialization:', storageHealth.errors);
         }
       }
 
     } catch (error) {
-      console.error('Failed to initialize auth from storage:', error);
+      console.error('❌ Failed to initialize auth from storage:', error);
 
       // Fallback to legacy initialization method
       this.initializeAuthLegacy();
@@ -446,56 +533,132 @@ class AuthService {
 
   public async login(employeeId: string, password: string): Promise<{ success: boolean; message?: string }> {
     try {
-      console.log('Attempting login for employee ID:', employeeId);
+      console.log('🔐 Attempting login for employee ID:', employeeId);
 
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: employeeId, password }),
-      });
+      // Try external API first
+      let response: Response;
+      let useExternalAPI = true;
+
+      try {
+        console.log('🌐 Trying external API...');
+        response = await fetch('https://pia.printo.in/api/v1/auth/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: employeeId, password }),
+        });
+        console.log('📡 External API response:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
+      } catch (externalError) {
+        console.warn('⚠️ External API failed, falling back to local API:', externalError);
+        useExternalAPI = false;
+
+        // Fallback to local API
+        response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: employeeId, password }),
+        });
+        console.log('📡 Local API response:', {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
+      }
 
       if (!response.ok) {
         let errorMessage = 'Authentication failed';
         try {
           const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
+          errorMessage = errorData.message || errorData.detail || errorMessage;
         } catch {
           errorMessage = `Authentication failed (${response.status})`;
         }
-        console.error('Login failed with status:', response.status, errorMessage);
+        console.error('❌ Login failed with status:', response.status, errorMessage);
         return { success: false, message: errorMessage };
       }
 
       const result = await response.json();
-      console.log('Login response received:', { success: result.success, hasData: !!result.data });
 
-      // Validate response structure
-      if (!result.success) {
-        const message = result.message || 'Login failed';
-        console.error('Login unsuccessful:', message);
-        return { success: false, message };
+      let authData;
+      if (useExternalAPI) {
+        console.log('📦 External API response received:', {
+          hasRefresh: !!result.refresh,
+          hasAccess: !!result.access,
+          hasFullName: !!result.full_name,
+          isOpsTeam: result.is_ops_team
+        });
+
+        // Validate response structure for external API
+        if (!result.access || !result.refresh) {
+          console.error('❌ Missing required tokens in external API response');
+          return { success: false, message: 'Invalid response format - missing tokens' };
+        }
+
+        // Parse the external API response format
+        authData = this.parseExternalAuthResponse(result, employeeId);
+      } else {
+        console.log('📦 Local API response received:', { success: result.success, hasData: !!result.data });
+
+        // Validate response structure for local API
+        if (!result.success) {
+          const message = result.message || 'Login failed';
+          console.error('❌ Local API login unsuccessful:', message);
+          return { success: false, message };
+        }
+
+        if (!result.data) {
+          console.error('❌ No data in local API response');
+          return { success: false, message: 'Invalid response format' };
+        }
+
+        // Parse the local API response format
+        authData = this.parseAuthenticationResponse(result.data, employeeId);
       }
 
-      if (!result.data) {
-        console.error('No data in login response');
-        return { success: false, message: 'Invalid response format' };
-      }
-
-      // Extract and validate authentication data
-      const authData = this.parseAuthenticationResponse(result.data, employeeId);
       if (!authData.success) {
-        console.error('Failed to parse authentication response:', authData.message);
+        console.error('❌ Failed to parse auth response:', authData.message);
         return { success: false, message: authData.message };
       }
 
       const { accessToken, refreshToken, user } = authData.data!;
 
       // Store authentication data
+      console.log('💾 About to store authentication data:', {
+        hasAccessToken: !!accessToken,
+        accessTokenLength: accessToken?.length,
+        hasRefreshToken: !!refreshToken,
+        refreshTokenLength: refreshToken?.length,
+        userId: user.id,
+        userRole: user.role
+      });
+
       this.storeAuthenticationData(accessToken, refreshToken, user);
 
-      console.log('Login successful for user:', user.employeeId, 'Role:', user.role);
+      // Verify storage immediately after storing
+      console.log('🔍 Verifying localStorage after login:');
+      const storedAccessToken = localStorage.getItem('access_token');
+      const storedRefreshToken = localStorage.getItem('refresh_token');
+      const storedUser = localStorage.getItem('auth_user');
+
+      console.log('📦 Post-login localStorage verification:', {
+        accessTokenStored: !!storedAccessToken,
+        accessTokenLength: storedAccessToken?.length,
+        refreshTokenStored: !!storedRefreshToken,
+        refreshTokenLength: storedRefreshToken?.length,
+        userDataStored: !!storedUser,
+        userDataLength: storedUser?.length,
+        accessTokenMatches: storedAccessToken === accessToken,
+        refreshTokenMatches: storedRefreshToken === refreshToken
+      });
+
+      console.log('✅ Login successful for user:', user.employeeId, 'Role:', user.role);
       return { success: true };
 
     } catch (error) {
@@ -505,7 +668,70 @@ class AuthService {
   }
 
   /**
-   * Parse and validate the authentication response from the server
+   * Parse and validate the external API authentication response
+   */
+  private parseExternalAuthResponse(data: any, employeeId: string): {
+    success: boolean;
+    message?: string;
+    data?: { accessToken: string; refreshToken: string | null; user: User }
+  } {
+    try {
+      // Validate required fields from external API
+      if (!data.access) {
+        return { success: false, message: 'No access token received' };
+      }
+
+      if (!data.refresh) {
+        return { success: false, message: 'No refresh token received' };
+      }
+
+      if (!this.isValidTokenFormat(data.access)) {
+        return { success: false, message: 'Invalid access token format' };
+      }
+
+      if (!this.isValidTokenFormat(data.refresh)) {
+        return { success: false, message: 'Invalid refresh token format' };
+      }
+
+      // Create user object from external API response
+      const user: User = {
+        id: employeeId, // Use employeeId as ID
+        username: employeeId,
+        employeeId: employeeId,
+        email: employeeId,
+        fullName: data.full_name || employeeId,
+        role: data.is_ops_team ? UserRole.OPS_TEAM : UserRole.DRIVER,
+        isActive: true,
+        permissions: [],
+        isOpsTeam: data.is_ops_team || false,
+        isAdmin: data.is_ops_team || false, // OPS_TEAM has admin privileges
+        isSuperAdmin: false // Only set via special override
+      };
+
+      console.log('👤 Created user from external API:', {
+        id: user.id,
+        fullName: user.fullName,
+        role: user.role,
+        isOpsTeam: data.is_ops_team
+      });
+
+      return {
+        success: true,
+        data: {
+          accessToken: data.access,
+          refreshToken: data.refresh,
+          user
+        }
+      };
+
+    } catch (error) {
+      console.error('Error parsing external auth response:', error);
+      return { success: false, message: 'Failed to parse authentication response' };
+    }
+  }
+
+  /**
+   * Parse and validate the authentication response from the server (legacy)
    */
   private parseAuthenticationResponse(data: any, employeeId: string): {
     success: boolean;
@@ -655,11 +881,28 @@ class AuthService {
    * Store authentication data with error recovery
    */
   private storeAuthenticationData(accessToken: string, refreshToken: string | null, user: User): void {
+    console.log('💾 storeAuthenticationData called:', {
+      hasAccessToken: !!accessToken,
+      accessTokenLength: accessToken?.length,
+      hasRefreshToken: !!refreshToken,
+      refreshTokenLength: refreshToken?.length,
+      userId: user.id,
+      userRole: user.role
+    });
+
     try {
+      // Check localStorage before storing
+      console.log('📦 localStorage before storing:', {
+        accessToken: localStorage.getItem('access_token') ? 'exists' : 'null',
+        refreshToken: localStorage.getItem('refresh_token') ? 'exists' : 'null',
+        authUser: localStorage.getItem('auth_user') ? 'exists' : 'null'
+      });
+
       // Calculate token expiry (default to 1 hour if not specified)
       const tokenExpiry = Date.now() + (60 * 60 * 1000);
 
       // Use enhanced TokenStorage with error recovery
+      console.log('🔧 Calling TokenStorage.store...');
       const stored = TokenStorage.store({
         accessToken,
         refreshToken: refreshToken || '',
@@ -668,19 +911,32 @@ class AuthService {
         lastRefresh: Date.now()
       });
 
+      console.log('📝 TokenStorage.store result:', stored);
+
+      // Check localStorage after storing
+      console.log('📦 localStorage after TokenStorage.store:', {
+        accessToken: localStorage.getItem('access_token') ? 'exists' : 'null',
+        accessTokenLength: localStorage.getItem('access_token')?.length,
+        refreshToken: localStorage.getItem('refresh_token') ? 'exists' : 'null',
+        refreshTokenLength: localStorage.getItem('refresh_token')?.length,
+        authUser: localStorage.getItem('auth_user') ? 'exists' : 'null',
+        authUserLength: localStorage.getItem('auth_user')?.length
+      });
+
       if (!stored) {
         // If storage failed, we can still continue with in-memory state
-        console.warn('Failed to persist authentication data, continuing with memory-only session');
+        console.warn('⚠️ Failed to persist authentication data, continuing with memory-only session');
 
         // Check storage health for debugging
         const storageHealth = TokenStorage.getStorageHealth();
         if (!storageHealth.healthy) {
-          console.warn('Storage health issues detected:', storageHealth.errors);
-          console.log('Recommendations:', storageHealth.recommendations);
+          console.warn('🏥 Storage health issues detected:', storageHealth.errors);
+          console.log('💡 Recommendations:', storageHealth.recommendations);
         }
       }
 
       // Update application state regardless of storage success
+      console.log('🔄 Setting auth state...');
       this.setAuthState({
         user,
         accessToken,
@@ -690,7 +946,10 @@ class AuthService {
         isLoading: false,
       }, 'login-success');
 
-      console.log('Authentication data processed successfully', {
+      // Set cookies for Django compatibility
+      this.setCookiesForAuth();
+
+      console.log('✅ Authentication data processed successfully', {
         stored,
         memoryOnly: !stored
       });
@@ -714,26 +973,31 @@ class AuthService {
   }
 
   public async logout(): Promise<boolean> {
-    console.log('Initiating logout...');
+    console.log('🚪 AuthService: Logout initiated');
+    console.log('📍 Logout called from:', new Error().stack?.split('\n')[2]?.trim());
+
     try {
       // Just clear local data - backend doesn't need a logout endpoint for JWT tokens
       this.clearAuthData();
+      console.log('✅ AuthService: Logout completed successfully');
       return true;
     } catch (error) {
-      console.error('Logout failed:', error);
+      console.error('❌ AuthService: Logout failed:', error);
       this.clearAuthData();
       return false;
     }
   }
 
   private clearAuthData(): void {
-    console.log('AuthService: Clearing all authentication data');
+    console.log('🧹 AuthService: Clearing all authentication data');
+    console.log('📍 clearAuthData called from:', new Error().stack?.split('\n')[2]?.trim());
 
     try {
       // Use enhanced TokenStorage for clearing with error recovery
       TokenStorage.clear();
+      console.log('✅ TokenStorage cleared successfully');
     } catch (error) {
-      console.error('Failed to clear auth data using TokenStorage:', error);
+      console.error('❌ Failed to clear auth data using TokenStorage:', error);
 
       // Fallback to manual clearing
       this.clearAuthDataLegacy();
@@ -810,7 +1074,20 @@ class AuthService {
 
   // New method that works with local API endpoints (like /api/shipments)
   public async fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+    console.log('🔐 AuthService.fetchWithAuth called:', {
+      url,
+      method: options.method || 'GET',
+      hasAccessToken: !!this.state.accessToken,
+      accessTokenLength: this.state.accessToken?.length,
+      hasRefreshToken: !!this.state.refreshToken,
+      isAuthenticated: this.state.isAuthenticated,
+      user: this.state.user?.username,
+      timestamp: new Date().toISOString()
+    });
+
     if (!this.state.accessToken) {
+      console.error('❌ No access token available in fetchWithAuth');
+      console.log('Current auth state:', this.state);
       throw new Error('No access token available');
     }
 
@@ -820,17 +1097,42 @@ class AuthService {
       'Authorization': `Bearer ${this.state.accessToken}`,
     };
 
+    // Set cookies for Django compatibility
+    this.setCookiesForAuth();
+
+    console.log('📤 Making authenticated request:', {
+      url,
+      method: options.method || 'GET',
+      hasAuthHeader: !!headers.Authorization,
+      authHeaderPrefix: headers.Authorization?.substring(0, 20) + '...'
+    });
+
     let response = await fetch(url, {
       ...options,
       headers,
     });
 
+    console.log('📥 Response received:', {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
     // If we get a 401, try to refresh the token and retry
     if (response.status === 401) {
-      console.log('Received 401 on fetchWithAuth, attempting token refresh...');
+      console.warn('🔄 401 response received, attempting token refresh...');
       const refreshSuccess = await this.refreshAccessToken();
 
+      console.log('Token refresh result:', {
+        refreshSuccess,
+        hasNewAccessToken: !!this.state.accessToken,
+        newTokenLength: this.state.accessToken?.length
+      });
+
       if (refreshSuccess && this.state.accessToken) {
+        console.log('✅ Token refresh successful, retrying request');
         // Retry with new token
         const newHeaders = {
           'Content-Type': 'application/json',
@@ -842,12 +1144,236 @@ class AuthService {
           ...options,
           headers: newHeaders,
         });
+
+        console.log('📥 Retry response:', {
+          url,
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
       } else {
+        console.error('❌ Token refresh failed, throwing error');
         throw new Error('Session expired. Please log in again.');
       }
     }
 
     return response;
+  }
+
+  // --- Storage Monitoring ---
+
+  /**
+   * Set up localStorage monitoring to catch what's clearing our auth data
+   */
+  private setupStorageMonitoring(): void {
+    if (typeof window === 'undefined') return;
+
+    // Monitor storage events (from other tabs/windows)
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'access_token' || e.key === 'refresh_token' || e.key === 'auth_user') {
+        console.log('🚨 STORAGE EVENT DETECTED:', {
+          key: e.key,
+          oldValue: e.oldValue ? 'present' : 'null',
+          newValue: e.newValue ? 'present' : 'null',
+          url: e.url,
+          storageArea: e.storageArea === localStorage ? 'localStorage' : 'sessionStorage'
+        });
+
+        if (e.newValue === null && e.oldValue !== null) {
+          console.log('🚨 AUTH TOKEN REMOVED BY EXTERNAL SOURCE!');
+          console.trace('Storage clear stack trace');
+        }
+      }
+    });
+
+    // Override localStorage methods to catch direct clearing
+    const originalSetItem = localStorage.setItem;
+    const originalRemoveItem = localStorage.removeItem;
+    const originalClear = localStorage.clear;
+
+    localStorage.setItem = function (key: string, value: string) {
+      if (key === 'access_token' || key === 'refresh_token' || key === 'auth_user') {
+        console.log('📝 localStorage.setItem called:', {
+          key,
+          hasValue: !!value,
+          valueLength: value?.length,
+          caller: new Error().stack?.split('\n')[2]?.trim()
+        });
+      }
+      return originalSetItem.call(this, key, value);
+    };
+
+    localStorage.removeItem = function (key: string) {
+      if (key === 'access_token' || key === 'refresh_token' || key === 'auth_user') {
+        console.log('🗑️ localStorage.removeItem called:', {
+          key,
+          caller: new Error().stack?.split('\n')[2]?.trim()
+        });
+        console.trace('removeItem stack trace');
+      }
+      return originalRemoveItem.call(this, key);
+    };
+
+    localStorage.clear = function () {
+      console.log('🧹 localStorage.clear() called!');
+      console.trace('localStorage.clear stack trace');
+      return originalClear.call(this);
+    };
+
+    console.log('👀 Storage monitoring enabled - will track localStorage changes');
+  }
+
+  /**
+   * Restore auth state from HMR backup in sessionStorage
+   */
+  private restoreFromHMRBackup(): void {
+    try {
+      const hmrBackup = sessionStorage.getItem('__auth_hmr_backup');
+      if (hmrBackup) {
+        const backupState = JSON.parse(hmrBackup);
+        console.log('🔄 Restoring auth state from HMR backup:', {
+          hasUser: !!backupState.user,
+          hasAccessToken: !!backupState.accessToken,
+          isAuthenticated: backupState.isAuthenticated
+        });
+
+        // Restore the state
+        this.state = { ...this.state, ...backupState };
+
+        // Also restore to localStorage if it's missing
+        if (backupState.isAuthenticated && backupState.accessToken) {
+          const tokensExist = localStorage.getItem('access_token');
+          if (!tokensExist) {
+            console.log('🔧 Restoring tokens to localStorage from HMR backup');
+            localStorage.setItem('access_token', backupState.accessToken);
+            localStorage.setItem('refresh_token', backupState.refreshToken || '');
+            localStorage.setItem('auth_user', JSON.stringify(backupState.user));
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to restore from HMR backup:', error);
+    }
+  }
+
+  /**
+   * Backup auth state to sessionStorage for HMR persistence
+   */
+  private backupForHMR(): void {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const backup = {
+        user: this.state.user,
+        accessToken: this.state.accessToken,
+        refreshToken: this.state.refreshToken,
+        permissions: this.state.permissions,
+        isAuthenticated: this.state.isAuthenticated,
+        timestamp: Date.now()
+      };
+
+      sessionStorage.setItem('__auth_hmr_backup', JSON.stringify(backup));
+    } catch (error) {
+      console.warn('Failed to backup auth state for HMR:', error);
+    }
+  }
+
+  // --- Cookie Management for Django Compatibility ---
+
+  /**
+   * Set cookies for Django compatibility
+   */
+  private setCookiesForAuth(): void {
+    if (typeof document === 'undefined') return;
+
+    try {
+      if (this.state.accessToken) {
+        document.cookie = `access=${this.state.accessToken}; path=/; SameSite=Lax`;
+      }
+
+      if (this.state.refreshToken) {
+        document.cookie = `refresh=${this.state.refreshToken}; path=/; SameSite=Lax`;
+      }
+
+      if (this.state.user?.fullName) {
+        document.cookie = `full_name=${encodeURIComponent(this.state.user.fullName)}; path=/; SameSite=Lax`;
+      }
+
+      if (this.state.user?.role === UserRole.OPS_TEAM) {
+        document.cookie = `is_ops_team=true; path=/; SameSite=Lax`;
+      }
+
+      console.log('🍪 Set authentication cookies for Django compatibility');
+    } catch (error) {
+      console.warn('Failed to set authentication cookies:', error);
+    }
+  }
+
+  // --- Debug Methods (Development Only) ---
+
+  /**
+   * Debug method to test external API connectivity
+   */
+  public async debugTestExternalAPI(): Promise<void> {
+    console.log('🧪 Testing external API connectivity...');
+
+    try {
+      const response = await fetch('https://pia.printo.in/api/v1/auth/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: '12592',
+          password: '}o17@]Oz4V35qAx78@96+Hq2Hp&pu+\\7'
+        }),
+      });
+
+      console.log('🌐 External API test response:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📦 External API test data:', data);
+      } else {
+        const errorText = await response.text();
+        console.error('❌ External API test error:', errorText);
+      }
+    } catch (error) {
+      console.error('❌ External API test failed:', error);
+    }
+  }
+
+  /**
+   * Debug method to manually set authentication state for testing
+   * Only available in development mode
+   */
+  public debugSetAuthState(mockUser: any, mockToken: string): void {
+    if (process.env.NODE_ENV !== 'development') {
+      console.warn('debugSetAuthState is only available in development mode');
+      return;
+    }
+
+    console.log('🧪 DEBUG: Setting mock authentication state');
+
+    const permissions = this.getPermissionsForRole(mockUser.role);
+
+    // Store in localStorage for persistence
+    localStorage.setItem('access_token', mockToken);
+    localStorage.setItem('auth_user', JSON.stringify(mockUser));
+
+    this.setAuthState({
+      user: mockUser,
+      accessToken: mockToken,
+      refreshToken: 'mock-refresh-token',
+      permissions,
+      isAuthenticated: true,
+      isLoading: false,
+    }, 'debug-mock-auth');
   }
 
   // --- Getters ---

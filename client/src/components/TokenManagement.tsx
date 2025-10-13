@@ -270,17 +270,18 @@ const TokenManagement: React.FC<TokenManagementProps> = ({ canEdit }) => {
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Key className="h-5 w-5" />
               API Token Management
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <Button
                 onClick={handleCleanupExpired}
                 disabled={!canEdit}
                 variant="outline"
                 size="sm"
+                className="w-full sm:w-auto"
               >
                 <AlertTriangle className="h-4 w-4 mr-2" />
                 Cleanup Expired
@@ -289,6 +290,7 @@ const TokenManagement: React.FC<TokenManagementProps> = ({ canEdit }) => {
                 onClick={() => setShowCreateModal(true)}
                 disabled={!canEdit}
                 size="sm"
+                className="w-full sm:w-auto"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Create Token
@@ -321,33 +323,33 @@ const TokenManagement: React.FC<TokenManagementProps> = ({ canEdit }) => {
               {tokens.map((token) => (
                 <div
                   key={token.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg hover:bg-gray-50 gap-4"
                 >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-medium">{token.name}</h3>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <h3 className="font-medium truncate">{token.name}</h3>
                       {getStatusBadge(token.status)}
                       {getPermissionBadge(token.permissions)}
                       {getExpirationBadge(token.expiresAt)}
                     </div>
 
                     <div className="text-sm text-muted-foreground space-y-1">
-                      {token.description && <p>{token.description}</p>}
-                      <div className="flex items-center gap-4">
-                        <span>Token: {token.prefix}...</span>
+                      {token.description && <p className="truncate">{token.description}</p>}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                        <span className="truncate">Token: {token.prefix}...</span>
                         <span className="flex items-center gap-1">
-                          <Activity className="w-3 h-3" />
+                          <Activity className="w-3 h-3 flex-shrink-0" />
                           {token.requestCount} requests
                         </span>
                         {token.lastUsedAt && (
                           <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            Last used: {formatDate(token.lastUsedAt)}
+                            <Clock className="w-3 h-3 flex-shrink-0" />
+                            <span className="truncate">Last used: {formatDate(token.lastUsedAt)}</span>
                           </span>
                         )}
                         {token.expiresAt && (
                           <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
+                            <Clock className="w-3 h-3 flex-shrink-0" />
                             {getExpirationStatus(token.expiresAt).message}
                           </span>
                         )}

@@ -200,6 +200,17 @@ export function useAuth(): AuthContextValue {
     throw new Error('useAuth must be used within an AuthProvider');
   }
 
+  // Add debug logging for auth access (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    const caller = new Error().stack?.split('\n')[2]?.trim();
+    console.log('🔍 useAuth called:', {
+      isAuthenticated: context.authState.isAuthenticated,
+      hasUser: !!context.authState.user,
+      hasAccessToken: !!context.authState.accessToken,
+      caller: caller?.substring(0, 100) + '...'
+    });
+  }
+
   return context;
 }
 
@@ -220,7 +231,19 @@ export function usePermissions(): Permission[] {
 }
 
 export function useIsAuthenticated(): boolean {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authState } = useAuth();
+
+  // Debug logging for authentication checks
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔐 useIsAuthenticated called:', {
+      isAuthenticated,
+      hasUser: !!authState.user,
+      hasAccessToken: !!authState.accessToken,
+      isLoading: authState.isLoading,
+      caller: new Error().stack?.split('\n')[2]?.trim()?.substring(0, 100) + '...'
+    });
+  }
+
   return isAuthenticated;
 }
 

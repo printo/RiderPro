@@ -19,6 +19,7 @@ import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 const ShipmentsList = lazy(() => import("@/components/ShipmentsList"));
 import { useAuth } from "@/hooks/useAuth";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useToast } from "@/hooks/use-toast";
 
 function ShipmentsWithTracking() {
   const [filters, setFilters] = useState<ShipmentFilters>({});
@@ -26,24 +27,73 @@ function ShipmentsWithTracking() {
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
-  const [showRouteControls, setShowRouteControls] = useState(true);
+  const { toast } = useToast();
 
   const { user: currentUser, isAuthenticated, authState } = useAuth();
 
   // Debug: Log component mount and auth state
   useEffect(() => {
-    console.log('ShipmentsWithTracking mounted');
-    console.log('Current auth state:', {
+    console.log('🚢 ShipmentsWithTracking mounted');
+    console.log('📊 Current auth state:', {
       isAuthenticated,
       user: currentUser,
       hasAccessToken: !!authState.accessToken,
-      hasRefreshToken: !!authState.refreshToken
+      hasRefreshToken: !!authState.refreshToken,
+      userRole: currentUser?.role,
+      employeeId: currentUser?.employeeId || currentUser?.username
     });
 
+    // Check localStorage directly
+    const directTokenCheck = {
+      accessToken: localStorage.getItem('access_token'),
+      refreshToken: localStorage.getItem('refresh_token'),
+      authUser: localStorage.getItem('auth_user')
+    };
+    console.log('💾 Direct localStorage check:', {
+      hasAccessToken: !!directTokenCheck.accessToken,
+      hasRefreshToken: !!directTokenCheck.refreshToken,
+      hasAuthUser: !!directTokenCheck.authUser,
+      accessTokenLength: directTokenCheck.accessToken?.length,
+      refreshTokenLength: directTokenCheck.refreshToken?.length
+    });
+
+    // Add logout detection
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'access_token' && e.newValue === null) {
+        console.log('🚨 LOGOUT DETECTED: access_token removed from localStorage');
+        console.log('Storage event details:', {
+          key: e.key,
+          oldValue: e.oldValue ? 'present' : 'null',
+          newValue: e.newValue,
+          url: e.url
+        });
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
     return () => {
-      console.log('ShipmentsWithTracking unmounted');
+      console.log('🚢 ShipmentsWithTracking unmounted');
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, [isAuthenticated, currentUser, authState]);
+
+  // Monitor auth state changes
+  useEffect(() => {
+    console.log('🔄 Auth state changed in ShipmentsWithTracking:', {
+      isAuthenticated,
+      hasUser: !!currentUser,
+      hasAccessToken: !!authState.accessToken,
+      timestamp: new Date().toISOString()
+    });
+
+    // If we lose authentication while on this page, log it
+    if (!isAuthenticated && currentUser === null && !authState.accessToken) {
+      console.log('🚨 AUTHENTICATION LOST while on shipments page');
+      console.log('Current URL:', window.location.href);
+      console.log('Referrer:', document.referrer);
+    }
+  }, [isAuthenticated, currentUser, authState.accessToken]);
 
   const employeeId = currentUser?.employeeId || currentUser?.username || "";
 
@@ -166,6 +216,17 @@ function ShipmentsWithTracking() {
 
   const { hasActiveSession, activeSession } = useRouteTracking(employeeId);
 
+  // Show welcome toast when shipments are loaded
+  useEffect(() => {
+    if (shipments?.length > 0 && !isLoading && !error) {
+      const userName = currentUser?.fullName?.split?.(' ')?.[0] || currentUser?.username || 'User';
+      toast({
+        title: `Welcome back, ${userName}! 👋`,
+        description: `You have ${shipments.length} shipment${shipments.length !== 1 ? 's' : ''} to manage today.`,
+      });
+    }
+  }, [shipments?.length, isLoading, error, currentUser, toast]);
+
   const handleShipmentSelect = (shipmentId: string, selected: boolean) => {
     setSelectedShipmentIds((prev) =>
       selected ? [...prev, shipmentId] : prev.filter((id) => id !== shipmentId)
@@ -173,8 +234,8 @@ function ShipmentsWithTracking() {
   };
 
   const handleSelectAll = (selected: boolean) => {
-    if (selected) {
-      setSelectedShipmentIds(shipments.map((s: Shipment) => s.id));
+    if (selected && shipments?.length > 0) {
+      setSelectedShipmentIds(shipments.map((s: Shipment) => s?.id).filter(Boolean));
     } else {
       setSelectedShipmentIds([]);
     }
@@ -209,9 +270,7 @@ function ShipmentsWithTracking() {
     }
   };
 
-  const toggleRouteControls = () => {
-    setShowRouteControls(!showRouteControls);
-  };
+
 
   // Debounce filter changes to prevent excessive API calls
   const debouncedFilters = useDebounce(effectiveFilters, 500);
@@ -231,6 +290,12 @@ function ShipmentsWithTracking() {
       page: 1
     }));
   }, []);
+
+  // Add missing toggleRouteControls function
+  const [showRouteControls, setShowRouteControls] = useState(true);
+  const toggleRouteControls = () => {
+    setShowRouteControls(prev => !prev);
+  };
 
   // Error banner
   const renderErrorBanner = () => {
@@ -328,7 +393,7 @@ function ShipmentsWithTracking() {
           <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
               <h2 className="text-xl font-semibold text-foreground" data-testid="text-shipments-title">
-                Shipments with GPS Tracking
+                Shipments
               </h2>
               <div className="flex items-center gap-2">
                 <Button
@@ -420,79 +485,52 @@ function ShipmentsWithTracking() {
   );
 
   return (
-    <div className="container mx-auto p-4">
-      {/* Filter Section - Always show first */}
-      {renderFilterSection()}
-
-      {/* Shipments List Section - Lazy loaded */}
-      <div className="space-y-4">
-        {error ? (
-          renderErrorState()
-        ) : (
-          <Suspense fallback={renderLoadingState()}>
-            <ShipmentsList
-              filters={effectiveFilters}
-              onShipmentSelect={setSelectedShipment}
-              selectedShipmentIds={selectedShipmentIds}
-              onSelectShipment={handleShipmentSelect}
-              onSelectAll={handleSelectAll}
-              onRefresh={refetch}
-              isLoading={isLoading || isFetching}
-              employeeId={employeeId}
-            />
-          </Suspense>
-        )}
-      </div>
-
-      {/* Route Tracking Controls */}
-      {showRouteControls && (
-        <div className="mb-6">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex flex-col lg:flex-row gap-4">
-                <div className="flex-1">
-                  <RouteSessionControls
-                    employeeId={employeeId}
-                    onSessionStart={() => console.log("Route session started")}
-                    onSessionStop={() => console.log("Route session stopped")}
-                  />
-                </div>
-                {hasActiveSession && (
-                  <div className="lg:w-80">
-                    <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Navigation className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm font-medium text-blue-800 dark:text-blue-400">
-                            Active Route Session
-                          </span>
-                        </div>
-                        <p className="text-xs text-blue-600 dark:text-blue-400">
-                          GPS tracking is active. Shipment pickup/delivery locations will be automatically recorded.
-                        </p>
-                        {activeSession && (
-                          <p className="text-xs text-blue-500 dark:text-blue-500 mt-1">
-                            Session: {activeSession.id.slice(-8)}
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
+    <div className="container mx-auto p-4 space-y-6">
+      {/* Route Tracking Controls - Moved to top */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1">
+              <RouteSessionControls
+                employeeId={employeeId}
+                onSessionStart={() => console.log("Route session started")}
+                onSessionStop={() => console.log("Route session stopped")}
+              />
+            </div>
+            {hasActiveSession && (
+              <div className="lg:w-80">
+                <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Navigation className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-400">
+                        Active Route Session
+                      </span>
+                    </div>
+                    <p className="text-xs text-blue-600 dark:text-blue-400">
+                      GPS tracking is active. Shipment locations will be automatically recorded.
+                    </p>
+                    {activeSession && (
+                      <p className="text-xs text-blue-500 dark:text-blue-500 mt-1">
+                        Session: {activeSession.id.slice(-8)}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Filters */}
-      <Card className="mb-6" data-testid="card-filters">
+      {/* Filters Section */}
+      <Card>
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-            <h2 className="text-xl font-semibold text-foreground" data-testid="text-shipments-title">
-              Shipments with GPS Tracking
+            <h2 className="text-xl font-semibold text-foreground">
+              Shipments
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 onClick={handleBatchUpdate}
                 disabled={selectedShipmentIds.length === 0}
@@ -500,10 +538,6 @@ function ShipmentsWithTracking() {
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Batch Update ({selectedShipmentIds.length})
-              </Button>
-              <Button variant="outline" onClick={toggleRouteControls}>
-                <MapPin className="h-4 w-4 mr-2" />
-                {showRouteControls ? "Hide" : "Show"} Tracking
               </Button>
               <Button variant="secondary" onClick={handleRefresh}>
                 <RotateCcw className="h-4 w-4 mr-2" />
@@ -514,16 +548,13 @@ function ShipmentsWithTracking() {
               </Button>
             </div>
           </div>
-          <Filters filters={filters} onFiltersChange={setFilters} />
+          <Filters filters={filters} onFiltersChange={handleFilterChange} />
         </CardContent>
       </Card>
 
-      {/* Sentinel */}
-      <div ref={sentinelRef} />
-
-      {/* Shipments Section */}
+      {/* Shipments Content */}
       {!shouldLoadShipments ? (
-        <Card className="mt-6">
+        <Card>
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground mb-4">
               Shipments will load when this section scrolls into view. You can also load them now.
@@ -537,9 +568,9 @@ function ShipmentsWithTracking() {
           </CardContent>
         </Card>
       ) : error ? (
-        renderErrorBanner()
-      ) : shipments.length === 0 ? (
-        <Card className="mt-6">
+        renderErrorState()
+      ) : !shipments || shipments.length === 0 ? (
+        <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground" data-testid="text-no-shipments">
               {filters.status || filters.type || filters.routeName || filters.date || (filters as any).employeeId
@@ -558,13 +589,13 @@ function ShipmentsWithTracking() {
           <div className="flex items-center gap-2 px-2">
             <input
               type="checkbox"
-              checked={selectedShipmentIds.length === shipments.length}
+              checked={shipments?.length > 0 && selectedShipmentIds.length === shipments.length}
               onChange={(e) => handleSelectAll(e.target.checked)}
               className="rounded border-gray-300"
               data-testid="checkbox-select-all"
             />
             <span className="text-sm text-muted-foreground">
-              Select all ({shipments.length} shipments)
+              Select all ({shipments?.length || 0} shipments)
             </span>
             {hasActiveSession && (
               <span className="text-xs text-green-600 dark:text-green-400 ml-4">
@@ -580,19 +611,24 @@ function ShipmentsWithTracking() {
           </div>
 
           {/* Shipment Cards */}
-          {shipments.map((shipment: Shipment) => (
-            <ShipmentCardWithTracking
-              key={shipment.id}
-              shipment={shipment}
-              selected={selectedShipmentIds.includes(shipment.id)}
-              onSelect={(selected) => handleShipmentSelect(shipment.id, selected)}
-              onViewDetails={() => setSelectedShipment(shipment)}
-              employeeId={employeeId}
-              showTrackingControls={showRouteControls}
-            />
-          ))}
+          {shipments?.map?.((shipment: Shipment) =>
+            shipment?.id ? (
+              <ShipmentCardWithTracking
+                key={shipment.id}
+                shipment={shipment}
+                selected={selectedShipmentIds.includes(shipment.id)}
+                onSelect={(selected) => handleShipmentSelect(shipment.id, selected)}
+                onViewDetails={() => setSelectedShipment(shipment)}
+                employeeId={employeeId}
+                showTrackingControls={true}
+              />
+            ) : null
+          )}
         </div>
       )}
+
+      {/* Sentinel for lazy loading */}
+      <div ref={sentinelRef} />
 
       {/* Modals */}
       {selectedShipment && (

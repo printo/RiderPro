@@ -64,6 +64,14 @@ function FloatingActionMenu() {
     }
   ] : [];
 
+  // Settings menu item - available to all users
+  const settingsMenuItem = {
+    href: "/settings",
+    icon: Settings,
+    label: "Settings",
+    testId: "menu-settings"
+  };
+
   const handleNavigation = (href: string) => {
     setLocation(href);
     setIsOpen(false);
@@ -137,7 +145,7 @@ function FloatingActionMenu() {
                   Navigation
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
-                  {[...menuItems, ...adminMenuItems].map((item) => {
+                  {[...menuItems, ...adminMenuItems, settingsMenuItem].map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.href);
                     return (

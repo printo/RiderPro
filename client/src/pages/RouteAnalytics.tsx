@@ -139,33 +139,32 @@ function RouteAnalytics() {
 
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      <div className="space-y-6">
+    <div className="container mx-auto p-4">
+      <div className="w-full space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <BarChart3 className="h-8 w-8 text-blue-600" />
-              Route Analytics
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2 sm:gap-3">
+              <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 flex-shrink-0" />
+              <span className="truncate">Route Analytics</span>
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-sm sm:text-base text-muted-foreground mt-1">
               Comprehensive insights into route performance and fuel efficiency
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-
-
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
             <Button
               variant="outline"
               onClick={() => refetch()}
               disabled={isLoading}
+              className="w-full sm:w-auto"
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
 
-            <Button onClick={handleExport}>
+            <Button onClick={handleExport} className="w-full sm:w-auto">
               <Download className="h-4 w-4 mr-2" />
               Export Data
             </Button>
@@ -245,8 +244,8 @@ function RouteAnalytics() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Distance</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-muted-foreground">Total Distance</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {summaryMetrics.totalDistance.toFixed(1)} km
                   </p>
                 </div>
@@ -259,8 +258,8 @@ function RouteAnalytics() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Time</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-muted-foreground">Total Time</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {Math.round(summaryMetrics.totalTime / 3600)} hrs
                   </p>
                 </div>
@@ -273,8 +272,8 @@ function RouteAnalytics() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Fuel Cost</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-muted-foreground">Fuel Cost</p>
+                  <p className="text-2xl font-bold text-foreground">
                     ${summaryMetrics.totalFuelCost.toFixed(2)}
                   </p>
                 </div>
@@ -287,8 +286,8 @@ function RouteAnalytics() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Shipments</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-muted-foreground">Shipments</p>
+                  <p className="text-2xl font-bold text-foreground">
                     {summaryMetrics.totalShipments}
                   </p>
                 </div>
@@ -299,54 +298,82 @@ function RouteAnalytics() {
         </div>
 
         {/* Analytics Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="fuel">Fuel Analytics</TabsTrigger>
-            <TabsTrigger value="employees">Employees</TabsTrigger>
-          </TabsList>
+        <Card>
+          <CardContent className="p-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <div className="border-b">
+                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto bg-transparent rounded-none">
+                  <TabsTrigger
+                    value="overview"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent"
+                  >
+                    Overview
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="performance"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent"
+                  >
+                    Performance
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="fuel"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent"
+                  >
+                    Fuel Analytics
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="employees"
+                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent"
+                  >
+                    Employees
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <PerformanceMetricsChart
-                data={analyticsData || []}
-                viewType={filters.viewType}
-              />
-              <FuelAnalyticsChart
-                data={analyticsData || []}
-                viewType={filters.viewType}
-              />
-            </div>
-            <RouteComparisonChart
-              data={analyticsData || []}
-              viewType={filters.viewType}
-            />
-          </TabsContent>
+              <div className="p-6">
+                <TabsContent value="overview" className="space-y-6 mt-0">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <PerformanceMetricsChart
+                      data={analyticsData || []}
+                      viewType={filters.viewType}
+                    />
+                    <FuelAnalyticsChart
+                      data={analyticsData || []}
+                      viewType={filters.viewType}
+                    />
+                  </div>
+                  <RouteComparisonChart
+                    data={analyticsData || []}
+                    viewType={filters.viewType}
+                  />
+                </TabsContent>
 
-          <TabsContent value="performance" className="space-y-6">
-            <PerformanceMetricsChart
-              data={analyticsData || []}
-              viewType={filters.viewType}
-              detailed={true}
-            />
-          </TabsContent>
+                <TabsContent value="performance" className="space-y-6 mt-0">
+                  <PerformanceMetricsChart
+                    data={analyticsData || []}
+                    viewType={filters.viewType}
+                    detailed={true}
+                  />
+                </TabsContent>
 
-          <TabsContent value="fuel" className="space-y-6">
-            <FuelAnalyticsChart
-              data={analyticsData || []}
-              viewType={filters.viewType}
-              detailed={true}
-            />
-          </TabsContent>
+                <TabsContent value="fuel" className="space-y-6 mt-0">
+                  <FuelAnalyticsChart
+                    data={analyticsData || []}
+                    viewType={filters.viewType}
+                    detailed={true}
+                  />
+                </TabsContent>
 
-          <TabsContent value="employees" className="space-y-6">
-            <EmployeePerformanceTable
-              data={analyticsData || []}
-              dateRange={filters.dateRange}
-            />
-          </TabsContent>
-        </Tabs>
+                <TabsContent value="employees" className="space-y-6 mt-0">
+                  <EmployeePerformanceTable
+                    data={analyticsData || []}
+                    dateRange={filters.dateRange}
+                  />
+                </TabsContent>
+              </div>
+            </Tabs>
+          </CardContent>
+        </Card>
 
         {/* Error State */}
         {error && (

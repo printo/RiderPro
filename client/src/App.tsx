@@ -15,6 +15,7 @@ import NotFound from "@/pages/not-found";
 import AdminPage from "@/pages/Admin";
 import RouteAnalytics from "@/pages/RouteAnalytics";
 import RouteVisualizationPage from "@/pages/RouteVisualizationPage";
+import Settings from "@/pages/Settings";
 import { useIsAuthenticated, useIsAdmin, useIsSuperAdmin } from "@/hooks/useAuth";
 
 function Router() {
@@ -22,7 +23,18 @@ function Router() {
   const isAdmin = useIsAdmin();
   const isSuperAdmin = useIsSuperAdmin();
 
+  // Debug logging for authentication state in Router
+  console.log('🛣️ Router render:', {
+    isAuthenticated,
+    isAdmin,
+    isSuperAdmin,
+    currentPath: window.location.pathname,
+    timestamp: new Date().toISOString()
+  });
+
   if (!isAuthenticated) {
+    console.log('🚨 Router: User not authenticated, redirecting to login');
+    console.log('Current URL:', window.location.href);
     return <Login />;
   }
 
@@ -61,6 +73,7 @@ function Router() {
         </Route>
         <Route path="/route-analytics" component={RouteAnalytics} />
         <Route path="/route-visualization" component={RouteVisualizationPage} />
+        <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
       <FloatingActionMenu />

@@ -35,6 +35,7 @@ export interface SyncStatus {
 export class OfflineStorageService {
   private db: IDBDatabase | null = null;
   private readonly dbName = 'RouteTrackingOffline';
+  private initialized = false;
   private readonly dbVersion = 1;
   private syncStatus: SyncStatus = {
     isOnline: navigator.onLine,
@@ -65,7 +66,10 @@ export class OfflineStorageService {
 
       request.onsuccess = () => {
         this.db = request.result;
-        console.log('IndexedDB initialized successfully');
+        if (!this.initialized) {
+          console.log('IndexedDB initialized successfully');
+          this.initialized = true;
+        }
         this.updatePendingCount();
         resolve();
       };

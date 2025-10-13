@@ -66,7 +66,7 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
     );
   }
 
-  if (shipments.length === 0) {
+  if (!shipments || shipments.length === 0) {
     return (
       <div className="p-8 text-center text-gray-500">
         No shipments found. Try adjusting your filters.
@@ -78,7 +78,7 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">
         <div className="text-sm text-gray-500">
-          Showing {shipments.length} of {total} shipments
+          Showing {shipments?.length || 0} of {total} shipments
         </div>
         <button
           onClick={handleRefresh}
@@ -104,18 +104,20 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
       </div>
 
       <div className="grid gap-4">
-        {shipments.map((shipment: Shipment) => (
-          <ErrorBoundary key={shipment.id} variant="listItem" componentName="ShipmentCard">
-            <ShipmentCardWithTracking
-              shipment={shipment}
-              selected={selectedShipmentIds.includes(shipment.id)}
-              onSelect={(selected) => onSelectShipment(shipment.id, selected)}
-              onViewDetails={() => onShipmentSelect(shipment)}
-              employeeId={employeeId || ''}
-              showTrackingControls={true}
-            />
-          </ErrorBoundary>
-        ))}
+        {shipments?.map?.((shipment: Shipment) =>
+          shipment?.id ? (
+            <ErrorBoundary key={shipment.id} variant="listItem" componentName="ShipmentCard">
+              <ShipmentCardWithTracking
+                shipment={shipment}
+                selected={selectedShipmentIds?.includes?.(shipment.id) || false}
+                onSelect={(selected) => onSelectShipment(shipment.id, selected)}
+                onViewDetails={() => onShipmentSelect(shipment)}
+                employeeId={employeeId || ''}
+                showTrackingControls={true}
+              />
+            </ErrorBoundary>
+          ) : null
+        )}
       </div>
 
       {/* Pagination would go here */}

@@ -28,10 +28,14 @@ function Login() {
 
     try {
       console.log('[Login] Attempting login for:', employeeId);
+      console.log('[Login] About to call login function...');
+
       const result = await login(employeeId, password);
 
+      console.log('[Login] Login result received:', result);
+
       if (result.success) {
-        console.log('[Login] Login successful!');
+        console.log('[Login] Login successful! Navigating to dashboard...');
         // Navigate to dashboard after successful login
         setLocation('/dashboard');
       } else {

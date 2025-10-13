@@ -45,16 +45,36 @@ export class TokenStorage {
    * Store authentication data securely with error recovery
    */
   public static store(data: Omit<StoredAuthData, 'version'>): boolean {
+    console.log('🏪 TokenStorage.store called:', {
+      hasAccessToken: !!data.accessToken,
+      accessTokenLength: data.accessToken?.length,
+      hasRefreshToken: !!data.refreshToken,
+      refreshTokenLength: data.refreshToken?.length,
+      hasUser: !!data.user,
+      userId: data.user?.id,
+      userRole: data.user?.role
+    });
+
     const authData: StoredAuthData = {
       ...data,
       version: this.CURRENT_VERSION
     };
 
     const serializedData = JSON.stringify(authData);
+    console.log('📝 Serialized data length:', serializedData.length);
 
     // Try localStorage first
+    console.log('🔄 Attempting localStorage storage...');
     const localStorageResult = this.tryStoreInLocalStorage(serializedData, data);
+
+    console.log('📊 localStorage storage result:', {
+      success: localStorageResult.success,
+      errorType: localStorageResult.error?.type,
+      errorMessage: localStorageResult.error?.message
+    });
+
     if (localStorageResult.success) {
+      console.log('✅ Successfully stored in localStorage');
       this.storageHealthy = true;
       this.isUsingMemoryFallback = false;
       return true;
@@ -66,7 +86,7 @@ export class TokenStorage {
       StorageErrorType.UNKNOWN_ERROR,
       true
     );
-    console.warn('localStorage failed, falling back to memory storage:', storageError);
+    console.warn('⚠️ localStorage failed, falling back to memory storage:', storageError);
     return this.fallbackToMemoryStorage(serializedData, data, storageError);
   }
 
@@ -91,12 +111,28 @@ export class TokenStorage {
       }
 
       // Try to store the main auth data
+      console.log('💾 Setting localStorage items...');
       localStorage.setItem(this.STORAGE_KEY, serializedData);
+      console.log('✅ Set auth_data in localStorage');
 
       // Store individual tokens for backward compatibility
       localStorage.setItem('access_token', data.accessToken);
+      console.log('✅ Set access_token in localStorage');
+
       localStorage.setItem('refresh_token', data.refreshToken);
+      console.log('✅ Set refresh_token in localStorage');
+
       localStorage.setItem('auth_user', JSON.stringify(data.user));
+      console.log('✅ Set auth_user in localStorage');
+
+      // Verify storage immediately
+      const verification = {
+        authData: localStorage.getItem(this.STORAGE_KEY) ? 'stored' : 'missing',
+        accessToken: localStorage.getItem('access_token') ? 'stored' : 'missing',
+        refreshToken: localStorage.getItem('refresh_token') ? 'stored' : 'missing',
+        authUser: localStorage.getItem('auth_user') ? 'stored' : 'missing'
+      };
+      console.log('🔍 Storage verification:', verification);
 
       return { success: true };
 
@@ -282,27 +318,56 @@ export class TokenStorage {
    * Retrieve authentication data with error recovery
    */
   public static retrieve(): StoredAuthData | null {
+    console.log('📥 TokenStorage.retrieve called');
+
+    // Check what's in localStorage first
+    const rawCheck = {
+      authData: localStorage.getItem(this.STORAGE_KEY) ? 'exists' : 'null',
+      accessToken: localStorage.getItem('access_token') ? 'exists' : 'null',
+      refreshToken: localStorage.getItem('refresh_token') ? 'exists' : 'null',
+      authUser: localStorage.getItem('auth_user') ? 'exists' : 'null'
+    };
+    console.log('📦 Raw localStorage check:', rawCheck);
+
     // Try localStorage first
+    console.log('🔄 Attempting localStorage retrieval...');
     const localStorageResult = this.tryRetrieveFromLocalStorage();
+
+    console.log('📊 localStorage retrieval result:', {
+      success: localStorageResult.success,
+      hasData: !!localStorageResult.data,
+      errorType: localStorageResult.error?.type,
+      errorMessage: localStorageResult.error?.message
+    });
+
     if (localStorageResult.success && localStorageResult.data) {
+      console.log('✅ Successfully retrieved from localStorage:', {
+        hasUser: !!localStorageResult.data.user,
+        userId: localStorageResult.data.user?.id,
+        hasAccessToken: !!localStorageResult.data.accessToken,
+        hasRefreshToken: !!localStorageResult.data.refreshToken,
+        isExpired: this.isTokenExpired(localStorageResult.data)
+      });
       return localStorageResult.data;
     }
 
     // If localStorage failed but we have memory fallback, use it
     if (this.isUsingMemoryFallback) {
-      console.log('Retrieving auth data from memory fallback');
+      console.log('🧠 Retrieving auth data from memory fallback');
       return this.retrieveFromMemoryStorage();
     }
 
     // Handle storage corruption
     if (localStorageResult.error?.type === StorageErrorType.CORRUPTION_DETECTED) {
-      console.warn('Storage corruption detected, attempting recovery...');
+      console.warn('🔧 Storage corruption detected, attempting recovery...');
       const recoveryResult = this.attemptCorruptionRecovery();
       if (recoveryResult) {
+        console.log('✅ Successfully recovered corrupted data');
         return recoveryResult;
       }
     }
 
+    console.log('❌ No valid auth data found in any storage');
     return null;
   }
 
