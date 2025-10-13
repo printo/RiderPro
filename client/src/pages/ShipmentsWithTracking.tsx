@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Edit, RotateCcw, Navigation, MapPin, AlertCircle } from "lucide-react";
 import ShipmentCardWithTracking from "@/components/ShipmentCardWithTracking";
-import ShipmentDetailModal from "@/components/ShipmentDetailModal";
+import ShipmentDetailModalWithTracking from "@/components/ShipmentDetailModalWithTracking";
 import BatchUpdateModal from "@/components/BatchUpdateModal";
 import RouteSessionControls from "@/components/RouteSessionControls";
 import Filters from "@/components/Filters";
@@ -437,6 +437,7 @@ function ShipmentsWithTracking() {
               onSelectAll={handleSelectAll}
               onRefresh={refetch}
               isLoading={isLoading || isFetching}
+              employeeId={employeeId}
             />
           </Suspense>
         )}
@@ -594,10 +595,11 @@ function ShipmentsWithTracking() {
 
       {/* Modals */}
       {selectedShipment && (
-        <ShipmentDetailModal
+        <ShipmentDetailModalWithTracking
           shipment={selectedShipment}
           isOpen={true}
           onClose={() => setSelectedShipment(null)}
+          employeeId={employeeId}
         />
       )}
 

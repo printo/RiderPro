@@ -1,111 +1,62 @@
-# RiderPro Setup Guide
+# RiderPro Shipment Management System
 
-## Prerequisites
-- Node.js 18+ 
-- npm or yarn
-- Your external authentication API endpoint
+## Overview
 
-## Installation
+RiderPro is a comprehensive shipment management system designed for logistics and delivery operations. The application provides a real-time dashboard for tracking shipments, managing deliveries, and monitoring rider performance with GPS route tracking capabilities. The system integrates with external APIs for authentication and data synchronization while maintaining local SQLite storage for offline functionality.
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+## User Preferences
 
-2. **Configure environment variables:**
-   ```bash
-   cp .env.example .env
-   ```
-   
-   Edit `.env` and set:
-   ```env
-   # Printo API Configuration
-   PRINTO_API_BASE_URL=https://pia.printo.in/api/v1
-   ```
+Preferred communication style: Simple, everyday language.
 
-3. **Initialize SQLite database:**
-   ```bash
-   npm run migrate
-   ```
+## System Architecture
 
-4. **Start the application:**
-   ```bash
-   # Development
-   npm run dev
-   
-   # Production
-   npm run build
-   npm start
-   ```
+### Frontend Architecture
+- **React 18 with TypeScript**: Modern component-based UI using functional components and hooks
+- **Vite Build System**: Fast development server with optimized production builds and hot module replacement
+- **Shadcn/ui Component Library**: Accessible UI components built on Radix primitives with Tailwind CSS styling
+- **TanStack Query**: Server state management with automatic caching, background refetching, and optimistic updates
+- **Wouter Routing**: Lightweight client-side routing without React Router dependencies
+- **Form Management**: React Hook Form with Zod validation for type-safe form handling
+- **Theme System**: CSS variables-based theming with dark/light mode support
 
-5. **Login with your Printo credentials:**
-   - Email: `12180`
-   - Password: `Shadow@12180`
-   - The system will authenticate via Printo API and store your Bearer token
+### Backend Architecture
+- **Express.js with TypeScript**: RESTful API server using ES modules and modern Node.js features
+- **Dual Database Pattern**: SQLite with live/replica setup - live database for active operations, replica for persistence and development
+- **Drizzle ORM**: Type-safe database queries with PostgreSQL dialect configuration for future migration
+- **File Upload System**: Multer-based file handling with organized storage for signatures and delivery photos
+- **Scheduled Tasks**: Node-cron for automated database maintenance and cleanup operations
+- **Error Handling**: Structured error responses with request logging and audit trails
 
-## Printo API Authentication
+### Data Storage Solutions
+- **Primary Storage**: SQLite databases with Better-sqlite3 for high performance
+- **Database Strategy**: Development mode uses replica DB, production uses live DB with daily resets
+- **File Storage**: Local filesystem with organized directory structure for uploaded media
+- **Schema Design**: Normalized tables for shipments, acknowledgments, route tracking, and sync status
+- **Data Lifecycle**: Automated retention policies with configurable cleanup schedules
 
-The system integrates with Printo API for unified authentication.
+### Authentication and Authorization
+- **External API Integration**: Django token-based authentication via Printo API proxy
+- **Token Management**: Access/refresh token handling with automatic renewal
+- **Role-Based Access Control**: Admin, operations, delivery, and user roles with permission-based UI
+- **Session Management**: Cookie-based session storage with secure token handling
 
-The login endpoint accepts POST requests with this format:
+## External Dependencies
 
-**Login Request:**
-```json
-{
-  "email": "12180",
-  "password": "Shadow@12180"
-}
-```
+### Core APIs
+- **Printo API**: External authentication service at `https://pia.printo.in/api/v1` for user login and token management
+- **External Sync API**: Configurable endpoint for shipment status synchronization with retry logic
 
-**Login Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "accessToken": "eyJ0eXAiO...",
-    "refreshToken": "eyJ0eX0...",
-    "user": {
-      "id": "12180",
-      "username": "12180",
-      "email": "12180@printo.in",
-      "role": "admin",
-      "employeeId": "12180",
-      "fullName": "User Name",
-      "permissions": ["view_all_routes", "manage_users", ...]
-    }
-  }
-}
-```
+### Third-Party Libraries
+- **Leaflet Maps**: Interactive mapping with custom markers and real-time GPS tracking
+- **Sharp**: Image processing for uploaded photos and signatures
+- **Axios**: HTTP client with retry logic and exponential backoff for external API calls
 
-**Using Bearer Token:**
-All subsequent API calls use the Bearer token:
-```bash
-curl -H "Authorization: Bearer eyJ0eXAiO..." \
-     https://your-app.com/api/shipments
-```
+### Infrastructure Services
+- **WebSocket Server**: Real-time live tracking updates for GPS coordinates and rider status
+- **File Upload Service**: Multer with image optimization and storage management
+- **Database Migration System**: Drizzle-kit for schema management and PostgreSQL migration readiness
 
-## Database
-
-The system uses SQLite stored in `./data/riderpro.db`. The database will be created automatically when you run migrations.
-
-## Features
-
-- ✅ GPS route tracking
-- ✅ Real-time analytics
-- ✅ Fuel consumption monitoring
-- ✅ Employee performance metrics
-- ✅ Mobile-optimized interface
-- ✅ Offline capability with sync
-- ✅ Privacy compliance (GDPR)
-- ✅ Audit logging
-- ✅ External authentication integration
-
-## File Structure
-
-```
-├── client/          # React frontend
-├── server/          # Node.js backend
-├── shared/          # Shared types and schemas
-├── data/            # SQLite database (auto-created)
-└── docs/            # Documentation
-```
+### Development Tools
+- **Replit Integration**: Vite plugin for runtime error overlay and development environment integration
+- **TypeScript Configuration**: Shared types between client and server with path aliases
+- **Linting and Validation**: cSpell for project-specific terminology and code quality tools

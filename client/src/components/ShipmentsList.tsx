@@ -14,6 +14,7 @@ interface ShipmentsListProps {
   onSelectAll: (selected: boolean) => void;
   onRefresh: () => void;
   isLoading?: boolean;
+  employeeId?: string;
 }
 
 const ShipmentsList: React.FC<ShipmentsListProps> = ({
@@ -23,7 +24,8 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
   onSelectShipment,
   onSelectAll,
   onRefresh,
-  isLoading: externalLoading
+  isLoading: externalLoading,
+  employeeId
 }) => {
   const {
     data: shipmentsData = { data: [], total: 0, page: 1, limit: 20, totalPages: 1 },
@@ -33,11 +35,11 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
   } = useQuery<PaginatedResponse<Shipment>, Error>({
     queryKey: ['shipments', filters],
     queryFn: () => shipmentsApi.getShipments(filters),
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  const { data: shipments = [], total, page, limit, totalPages } = shipmentsData;
+  const { data: shipments = [], total = 0, page = 1, limit = 20, totalPages = 0 } = shipmentsData || {};
   const isLoading = externalLoading || isQueryLoading;
 
   // Handle refresh by calling both the local refetch and the parent's refresh
@@ -102,13 +104,15 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
       </div>
 
       <div className="grid gap-4">
-        {shipments.map((shipment) => (
+        {shipments.map((shipment: Shipment) => (
           <ErrorBoundary key={shipment.id} variant="listItem" componentName="ShipmentCard">
             <ShipmentCardWithTracking
               shipment={shipment}
-              isSelected={selectedShipmentIds.includes(shipment.id)}
+              selected={selectedShipmentIds.includes(shipment.id)}
               onSelect={(selected) => onSelectShipment(shipment.id, selected)}
-              onClick={() => onShipmentSelect(shipment)}
+              onViewDetails={() => onShipmentSelect(shipment)}
+              employeeId={employeeId || ''}
+              showTrackingControls={true}
             />
           </ErrorBoundary>
         ))}

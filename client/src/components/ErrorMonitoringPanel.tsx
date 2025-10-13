@@ -403,8 +403,9 @@ function ErrorMonitoringPanel({
       </Collapsible>
     </Card>
   );
-}export d
-efault withComponentErrorBoundary(ErrorMonitoringPanel, {
+}
+
+export default withComponentErrorBoundary(ErrorMonitoringPanel, {
   componentVariant: 'card',
   componentName: 'ErrorMonitoringPanel'
 });

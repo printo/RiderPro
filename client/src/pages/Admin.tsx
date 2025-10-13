@@ -2,9 +2,10 @@ import authService from "@/services/AuthService";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { BarChart3, Map, Settings, Users, Shield, Fuel, Send, Copy, Plus, Trash2 } from "lucide-react";
+import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import FuelSettingsModal, { FuelSettings } from "@/components/FuelSettingsModal";
+import TokenManagement from "@/components/TokenManagement";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
@@ -19,8 +20,8 @@ function AdminPage() {
   const [testResults, setTestResults] = useState<Array<{ index: number, success: boolean, trackingNumber?: string, error?: string }>>([]);
   const { toast } = useToast();
 
-  const canAccessAdmin = user?.isAdmin || user?.isSuperAdmin;
-  const canEdit = user?.isAdmin || user?.isSuperAdmin;
+  const canAccessAdmin = !!(user?.isAdmin || user?.isSuperAdmin);
+  const canEdit = !!(user?.isAdmin || user?.isSuperAdmin);
 
   // Fuel settings state
   const [fuelSettings, setFuelSettings] = useState<FuelSettings>({
@@ -258,7 +259,7 @@ function AdminPage() {
       </div>
 
       {/* Quick Actions - Route Management */}
-      <Card className="mb-6">
+      {/* <Card className="mb-6">
         <CardHeader>
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
@@ -296,7 +297,7 @@ function AdminPage() {
             </Button>
           </div>
         </CardContent>
-      </Card>
+      </Card> */}
 
       {/* Shipment Testing Section */}
       <Card className="mb-6">
@@ -406,7 +407,7 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
       {/* System Management */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* System Settings Section */}
-        <Card>
+        {/* <Card>
           <CardHeader>
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Settings className="h-5 w-5" />
@@ -420,25 +421,12 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
               {!canEdit && <span className="text-xs text-muted-foreground">Read only access</span>}
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
 
-        {/* User Management Section */}
-        <Card>
-          <CardHeader>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              User Management
-            </h2>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">Create, update or disable users.</p>
-            <div className="flex gap-3">
-              <Button disabled={!canEdit}>Add User</Button>
-              <Button variant="secondary" disabled={!canEdit}>Update Roles</Button>
-            </div>
-            {!canEdit && <span className="text-xs text-muted-foreground">Read only access</span>}
-          </CardContent>
-        </Card>
+        {/* API Token Management Section */}
+        <div className="lg:col-span-2">
+          <TokenManagement canEdit={canEdit} />
+        </div>
 
         {/* Analytics Settings Section */}
         <Card>

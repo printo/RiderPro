@@ -238,7 +238,8 @@ function LiveTrackingMap({
       </div>
     </div>
   );
-} expo
-rt default withChartErrorBoundary(LiveTrackingMap, {
+}
+
+export default withChartErrorBoundary(LiveTrackingMap, {
   componentName: 'LiveTrackingMap'
 });

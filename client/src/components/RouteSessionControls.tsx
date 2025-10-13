@@ -6,7 +6,8 @@ import { useRouteSession } from '@/hooks/useRouteSession';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 import RouteCompletionDialog from './RouteCompletionDialog';
 import SmartCompletionSettings from './SmartCompletionSettings';
-import UnifiedSyncStatus from './unified/UnifiedSyncStatus';
+import SyncStatusIndicator from './SyncStatusIndicator';
+import OfflineSyncStatus from './OfflineSyncStatus';
 import BatteryPerformanceMonitor from './BatteryPerformanceMonitor';
 import ErrorMonitoringPanel from './ErrorMonitoringPanel';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
@@ -382,8 +383,9 @@ function RouteSessionControls({
       )}
     </>
   );
-} expor
-t default withComponentErrorBoundary(RouteSessionControls, {
+}
+
+export default withComponentErrorBoundary(RouteSessionControls, {
   componentVariant: 'card',
   componentName: 'RouteSessionControls'
 });

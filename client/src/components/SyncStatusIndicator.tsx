@@ -363,8 +363,9 @@ function SyncStatusDetails({
       </CardContent>
     </>
   );
-} expor
-t default withComponentErrorBoundary(SyncStatusIndicator, {
+}
+
+export default withComponentErrorBoundary(SyncStatusIndicator, {
   componentVariant: 'inline',
   componentName: 'SyncStatusIndicator'
 });

@@ -14,6 +14,7 @@ import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 interface FiltersProps {
   filters: ShipmentFilters;
   onFiltersChange: (filters: ShipmentFilters) => void;
+  onClear?: () => void;
 }
 
 function Filters({ filters, onFiltersChange, onClear }: FiltersProps) {

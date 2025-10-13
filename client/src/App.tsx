@@ -9,7 +9,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import Navigation from "@/components/Navigation";
 import FloatingActionMenu from "@/components/FloatingActionMenu";
 import Dashboard from "@/pages/Dashboard";
-import Shipments from "@/pages/Shipments";
+import ShipmentsWithTracking from "@/pages/ShipmentsWithTracking";
 import Login from "@/pages/Login";
 import authService from "@/services/AuthService";
 import NotFound from "@/pages/not-found";
@@ -28,7 +28,7 @@ function Router({ isLoggedIn, onLogin }: { isLoggedIn: boolean; onLogin: () => v
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/dashboard" component={Dashboard} />
-        <Route path="/shipments" component={Shipments} />
+        <Route path="/shipments" component={ShipmentsWithTracking} />
         <Route path="/admin">
           {(params) => {
             const user = authService.getUser();

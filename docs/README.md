@@ -1,223 +1,109 @@
-# Documentation
+# RiderPro Documentation
 
-This folder contains product and technical documentation for RiderPro. Below is the full system overview and API docs. See also:
-- smart-route-completion.md
+Welcome to the RiderPro documentation hub. This directory contains comprehensive documentation for the RiderPro shipment management system.
 
-# RiderPro Shipment Management System
+## 📚 Documentation Index
 
-## Overview
+### Core Documentation
+- **[System Architecture](./system-architecture.md)** - Complete system design, technology stack, and architectural decisions
+- **[API Documentation](./api-documentation.md)** - Complete REST API reference with examples and error codes
+- **[Database Schema](./database-schema.md)** - Database design, tables, relationships, and data lifecycle
 
-RiderPro is a comprehensive shipment management system designed for logistics and delivery operations. The application provides a real-time dashboard for tracking shipments, managing deliveries and pickups, and handling acknowledgments with digital signatures and photos. Built as a full-stack application with real-time updates and mobile-responsive design, it serves both operational staff and field workers managing shipment lifecycles.
+### Feature Documentation
+- **[Smart Route Completion](./smart-route-completion.md)** - AI-powered route optimization and completion features
+- **[Shipment Testing Guide](./shipment-testing.md)** - Testing procedures and validation workflows
 
-## Authentication & Roles
+### Technical Documentation
+- **[Replit Integration](./replit.md)** - Development environment setup and Replit-specific configurations
 
-- Django token-based login proxied via `/api/auth/login`
-- Stored tokens: access_token, refresh_token
-- Cookies mirrored: access, refresh, full_name, is_ops_team
-- Literal roles used from Django: admin, isops, isdelivery, user
-- Admin UI:
-  - admin: full edit access
-  - isops: view-only, no edits
-  - isdelivery: no access to Admin (link hidden, route guarded)
-- /admin redirects to /dashboard if role is not admin or isops.
+## 🚀 Quick Start
 
-## Technology Stack
+### For Developers
+1. Start with [System Architecture](./system-architecture.md) to understand the overall design
+2. Review [Database Schema](./database-schema.md) for data structure
+3. Use [API Documentation](./api-documentation.md) for integration
+
+### For Operations Teams
+1. Check [Shipment Testing Guide](./shipment-testing.md) for operational procedures
+2. Review [Smart Route Completion](./smart-route-completion.md) for route optimization features
+
+### For System Administrators
+1. Review [System Architecture](./system-architecture.md) for deployment considerations
+2. Check [Database Schema](./database-schema.md) for backup and maintenance procedures
+
+## 📋 System Overview
+
+RiderPro is a comprehensive shipment management system designed for logistics and delivery operations. The application provides:
+
+- **Real-time Dashboard** for tracking shipments and performance metrics
+- **GPS Tracking** with route optimization and completion
+- **Digital Acknowledgments** with signature and photo capture
+- **Batch Operations** for efficient bulk updates
+- **External API Integration** with Django-based authentication
+- **Offline Capabilities** with automatic synchronization
+
+## 🔧 Technology Stack
 
 ### Frontend
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite for fast development and optimized production builds
-- **UI Components**: Shadcn/ui component library built on Radix UI primitives
-- **Styling**: Tailwind CSS with custom design system and CSS variables for theming
-- **State Management**: TanStack Query (React Query) for server state management with automatic caching and real-time updates
-- **Routing**: Wouter for lightweight client-side routing
-- **Form Handling**: React Hook Form with Zod validation for type-safe form management
-- **Error Handling**: React Error Boundaries with graceful fallback UI and error logging
+- React 18 with TypeScript
+- Vite for development and building
+- Tailwind CSS with Shadcn/ui components
+- TanStack Query for state management
+- Leaflet for interactive maps
 
 ### Backend
-- **Runtime**: Node.js with Express.js framework
-- **Language**: TypeScript with ES modules
-- **Database**: SQLite with Better SQLite3 for local storage, dual database setup (live + replica)
-- **ORM**: Drizzle ORM with PostgreSQL dialect configuration (ready for migration)
-- **File Handling**: Multer for multipart file uploads (signatures and photos)
-- **Scheduling**: Node-cron for automated database maintenance tasks
-- **External Sync**: Axios with retry logic and exponential backoff for API integrations
-- **API Design**: RESTful API with structured error handling and request logging
+- Node.js with Express.js
+- SQLite with dual database setup
+- Drizzle ORM for database operations
+- Multer for file uploads
+- JWT authentication integration
 
-### Data Storage
-- **Primary Database**: SQLite with two instances - live database for active operations and replica database for data persistence
-- **File Storage**: Local file system with organized directory structure for uploaded signatures and photos
-- **Database Schema**: Normalized schema with shipments, acknowledgments, and sync_status tables
-- **Data Lifecycle**: Automated daily reset of live database while maintaining historical data in replica
+## 🏗️ Architecture Highlights
 
-## Project Structure
+### Design Principles
+- **Mobile-First**: Optimized for field workers
+- **Offline-Capable**: Local storage with sync
+- **Real-Time**: Live updates and notifications
+- **Scalable**: Modular, microservice-ready architecture
+- **Secure**: Role-based access control
 
-```
-├── client/                     # Frontend React application
-│   ├── src/
-│   │   ├── components/         # Reusable UI components
-│   │   │   ├── ui/            # Shadcn/ui base components
-│   │   │   ├── ErrorBoundary.tsx      # Error handling wrapper
-│   │   │   ├── FloatingActionMenu.tsx # Mobile navigation menu
-│   │   │   ├── Navigation.tsx         # Top navigation bar
-│   │   │   ├── ShipmentCard.tsx       # Shipment list item component
-│   │   │   ├── ShipmentDetailModal.tsx # Shipment details and actions
-│   │   │   ├── RemarksModal.tsx       # Remarks collection for cancelled/returned
-│   │   │   ├── SyncStatusPanel.tsx    # External sync monitoring
-│   │   │   ├── SignatureCanvas.tsx    # Digital signature capture
-│   │   │   ├── BatchUpdateModal.tsx   # Bulk operations interface
-│   │   │   └── Filters.tsx           # Shipment filtering controls
-│   │   ├── pages/             # Page components
-│   │   │   ├── Dashboard.tsx          # Real-time metrics and overview
-│   │   │   ├── Shipments.tsx          # Shipment list and management
-│   │   │   └── not-found.tsx          # 404 page
-│   │   ├── hooks/             # Custom React hooks
-│   │   │   ├── useDashboard.ts        # Dashboard data fetching
-│   │   │   ├── useShipments.ts        # Shipment data management
-│   │   │   └── use-toast.ts           # Toast notification system
-│   │   ├── lib/               # Utility libraries
-│   │   │   ├── queryClient.ts         # TanStack Query configuration
-│   │   │   └── utils.ts               # General utility functions
-│   │   ├── App.tsx            # Main application component
-│   │   └── index.css          # Global styles and Tailwind configuration
-├── server/                     # Backend Node.js application
-│   ├── api/                   # API route organization
-│   │   └── index.ts           # API structure documentation
-│   ├── db/                    # Database layer
-│   │   ├── connection.ts      # Database connection and initialization
-│   │   ├── queries.ts         # Database query operations
-│   │   ├── sqlite.db          # Live database (production)
-│   │   └── replica_sqlite.db  # Replica database (development)
-│   ├── services/              # Business logic services
-│   │   ├── externalSync.ts    # External API synchronization
-│   │   └── scheduler.ts       # Automated task scheduling
-│   ├── uploads/               # File storage directory
-│   │   ├── signatures/        # Digital signature files
-│   │   └── photos/           # Delivery photo files
-│   ├── routes.ts              # Express route definitions
-│   ├── storage.ts             # Data access layer interface
-│   ├── index.ts               # Server entry point
-│   └── vite.ts                # Vite development server integration
-├── shared/                     # Shared TypeScript schemas
-│   ├── schema.ts              # Zod schemas for data validation
-│   └── syncStatus.ts          # Sync operation type definitions
-├── package.json               # Project dependencies and scripts
-├── vite.config.ts             # Vite build configuration
-├── tailwind.config.ts         # Tailwind CSS configuration
-├── drizzle.config.ts          # Database migration configuration
-└── tsconfig.json              # TypeScript configuration
-```
+### Key Features
+- **Dual Database System**: Live and replica databases for development/production
+- **External Authentication**: Django API integration
+- **File Management**: Organized storage for signatures and photos
+- **Automated Sync**: Background synchronization with retry logic
+- **Performance Optimization**: Caching, lazy loading, and code splitting
 
-## Database Schema
+## 📊 Authentication & Roles
 
-### Shipments Table
-```sql
-CREATE TABLE shipments (
-  id TEXT PRIMARY KEY,
-  type TEXT NOT NULL CHECK(type IN ('delivery', 'pickup')),
-  customerName TEXT NOT NULL,
-  customerMobile TEXT NOT NULL,
-  address TEXT NOT NULL,
-  cost REAL NOT NULL,
-  deliveryTime TEXT NOT NULL,
-  routeName TEXT NOT NULL,
-  employeeId TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'Assigned' CHECK(status IN ('Assigned', 'In Transit', 'Delivered', 'Picked Up', 'Returned', 'Cancelled')),
-  createdAt TEXT DEFAULT (datetime('now')),
-  updatedAt TEXT DEFAULT (datetime('now'))
-);
-```
+The system uses Django-based authentication with the following roles:
 
-### Acknowledgments Table
-```sql
-CREATE TABLE acknowledgments (
-  id TEXT PRIMARY KEY,
-  shipmentId TEXT NOT NULL,
-  signatureUrl TEXT,
-  photoUrl TEXT,
-  capturedAt TEXT NOT NULL,
-  FOREIGN KEY (shipmentId) REFERENCES shipments (id)
-);
-```
+- **admin**: Full system access and configuration
+- **isops**: Operations team with view-only access  
+- **isdelivery**: Field workers with shipment update capabilities
+- **user**: Basic access with limited permissions
 
-### Sync Status Table
-```sql
-CREATE TABLE sync_status (
-  id TEXT PRIMARY KEY,
-  shipmentId TEXT NOT NULL,
-  status TEXT NOT NULL CHECK(status IN ('pending', 'success', 'failed')),
-  attempts INTEGER DEFAULT 0,
-  lastAttempt TEXT,
-  error TEXT,
-  createdAt TEXT DEFAULT (datetime('now')),
-  FOREIGN KEY (shipmentId) REFERENCES shipments (id)
-);
-```
+## 🔗 Related Resources
 
-## API Documentation
+- **Main README**: [../README.md](../README.md) - Project overview and setup instructions
+- **Source Code**: Explore the `client/` and `server/` directories
+- **Configuration**: Check `package.json`, `vite.config.ts`, and other config files
 
-### Base URL
-- Development: `http://localhost:5000/api`
-- Production: `https://your-domain.com/api`
+## 📝 Contributing to Documentation
 
-### Authentication
-Uses Django-issued token authentication (no JWT required):
-- Login proxied via `/api/auth/login` to `https://pia.printo.in/api/v1/auth/`
-- Stores `access_token`, `refresh_token`, user with literal role (`admin`, `isops`, `isdelivery`)
-- Sends `Authorization: Bearer <access-token>` and cookies
-- Auto-refresh via `/api/auth/refresh` on 401
+When updating documentation:
 
-### Authentication Endpoints
+1. Keep technical accuracy and clarity as priorities
+2. Include code examples and practical use cases
+3. Update the index above when adding new documents
+4. Cross-reference related documentation sections
+5. Maintain consistent formatting and structure
 
-#### Login
-**POST** `/api/auth/login`
+## 🆘 Support
 
-**Request Body:**
-```json
-{
-  "email": "user@company.com",
-  "password": "userpassword"
-}
-```
+For questions about the documentation or system:
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "accessToken": "...",
-    "refreshToken": "...",
-    "user": {
-      "id": "employee123",
-      "username": "user@company.com",
-      "email": "user@company.com",
-      "role": "isops",
-      "employeeId": "employee123",
-      "fullName": "User Name",
-      "permissions": ["view_all_routes"]
-    }
-  }
-}
-```
-
-#### Get Current User
-**GET** `/api/auth/me`
-
-**Headers:**
-```
-Authorization: Bearer <access-token>
-```
-
-#### Logout
-**POST** `/api/auth/logout`
-
-**Headers:**
-```
-Authorization: Bearer <access-token>
-```
-
-### Data Endpoints
-
-All data endpoints require authentication. Include the access token in the Authorization header:
-```
-Authorization: Bearer <access-token>
-```
+1. Check the relevant documentation section first
+2. Review the API documentation for integration issues
+3. Consult the system architecture for design questions
+4. Contact the development team for additional support

@@ -181,8 +181,7 @@ export function GPSTrackingCard({ employeeId, showDetails = true, className }: {
       className={className}
     />
   );
-} e
-xport default withComponentErrorBoundary(GPSTrackingIndicator, {
+} export default withComponentErrorBoundary(GPSTrackingIndicator, {
   componentVariant: 'inline',
   componentName: 'GPSTrackingIndicator'
 });

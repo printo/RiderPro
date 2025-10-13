@@ -351,8 +351,7 @@ function BatteryPerformanceMonitor({
       </Collapsible>
     </Card>
   );
-} e
-xport default withComponentErrorBoundary(BatteryPerformanceMonitor, {
+} export default withComponentErrorBoundary(BatteryPerformanceMonitor, {
   componentVariant: 'card',
   componentName: 'BatteryPerformanceMonitor'
 });
