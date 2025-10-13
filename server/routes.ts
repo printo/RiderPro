@@ -89,6 +89,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const setupErrorHandling = () => {
     app.use(ApiTokenErrorHandler.errorMiddleware());
   };
+
+  // Health check endpoint for connectivity monitoring
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   // Auth endpoints
   app.post('/api/auth/login', async (req, res) => {
     try {

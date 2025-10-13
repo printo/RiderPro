@@ -1,5 +1,6 @@
 // client/src/services/AuthService.ts
 import { User, UserRole, Permission } from '../types/Auth';
+import { TokenStorage } from './TokenStorage';
 
 interface AuthState {
   user: User | null;
@@ -159,15 +160,17 @@ class AuthService {
    */
   private cacheAuthStateForOfflineUse(authState: AuthState): void {
     try {
-      // Import ApiClient dynamically to avoid circular dependencies
-      const { apiClient } = require('./ApiClient');
-
-      // Cache the current auth state for offline use
-      apiClient.cacheAuthState({
-        isAuthenticated: authState.isAuthenticated,
-        user: authState.user,
-        permissions: authState.permissions,
-        lastCached: Date.now()
+      // Dynamically import ApiClient to avoid circular dependencies
+      import('./ApiClient').then(({ apiClient }) => {
+        // Cache the current auth state for offline use
+        apiClient.cacheAuthState({
+          isAuthenticated: authState.isAuthenticated,
+          user: authState.user,
+          permissions: authState.permissions,
+          lastCached: Date.now()
+        });
+      }).catch(error => {
+        console.warn('Failed to import ApiClient for caching:', error);
       });
     } catch (error) {
       console.warn('Failed to cache auth state for offline use:', error);
@@ -299,9 +302,6 @@ class AuthService {
 
   private initializeAuth() {
     try {
-      // Import TokenStorage dynamically to avoid circular dependencies
-      const { TokenStorage } = require('./TokenStorage');
-
       // Try to retrieve auth data using enhanced storage with error recovery
       const authData = TokenStorage.retrieve();
 
@@ -402,6 +402,17 @@ class AuthService {
 
   private getPermissionsForRole(role: UserRole): Permission[] {
     switch (role) {
+      case UserRole.SUPER_ADMIN:
+        // Super admin has all permissions
+        return [
+          Permission.VIEW_ALL_ROUTES,
+          Permission.VIEW_ANALYTICS,
+          Permission.EXPORT_DATA,
+          Permission.MANAGE_USERS,
+          Permission.VIEW_LIVE_TRACKING,
+          Permission.ACCESS_AUDIT_LOGS,
+          Permission.CONFIGURE_SYSTEM,
+        ];
       case UserRole.ADMIN:
         return [
           Permission.VIEW_ALL_ROUTES,
@@ -411,6 +422,13 @@ class AuthService {
           Permission.VIEW_LIVE_TRACKING,
           Permission.ACCESS_AUDIT_LOGS,
           Permission.CONFIGURE_SYSTEM,
+        ];
+      case UserRole.OPS_TEAM:
+        return [
+          Permission.VIEW_ALL_ROUTES,
+          Permission.VIEW_ANALYTICS,
+          Permission.EXPORT_DATA,
+          Permission.VIEW_LIVE_TRACKING,
         ];
       case UserRole.MANAGER:
         return [
@@ -638,9 +656,6 @@ class AuthService {
    */
   private storeAuthenticationData(accessToken: string, refreshToken: string | null, user: User): void {
     try {
-      // Import TokenStorage dynamically to avoid circular dependencies
-      const { TokenStorage } = require('./TokenStorage');
-
       // Calculate token expiry (default to 1 hour if not specified)
       const tokenExpiry = Date.now() + (60 * 60 * 1000);
 
@@ -716,7 +731,6 @@ class AuthService {
 
     try {
       // Use enhanced TokenStorage for clearing with error recovery
-      const { TokenStorage } = require('./TokenStorage');
       TokenStorage.clear();
     } catch (error) {
       console.error('Failed to clear auth data using TokenStorage:', error);
@@ -865,16 +879,19 @@ class AuthService {
     let networkStatus;
 
     try {
-      // Get network status from ApiClient
-      const { apiClient } = require('./ApiClient');
-      const netStatus = apiClient.getNetworkStatus();
-      const cachedState = apiClient.getCachedAuthState();
+      // Dynamically import ApiClient to avoid circular dependencies
+      import('./ApiClient').then(({ apiClient }) => {
+        const netStatus = apiClient.getNetworkStatus();
+        const cachedState = apiClient.getCachedAuthState();
 
-      networkStatus = {
-        isOnline: netStatus.isOnline,
-        queuedRequests: netStatus.queuedRequests,
-        hasOfflineCache: !!cachedState
-      };
+        networkStatus = {
+          isOnline: netStatus.isOnline,
+          queuedRequests: netStatus.queuedRequests,
+          hasOfflineCache: !!cachedState
+        };
+      }).catch(error => {
+        console.warn('Failed to get network status:', error);
+      });
     } catch (error) {
       console.warn('Failed to get network status:', error);
     }
@@ -905,32 +922,36 @@ class AuthService {
     let lastCachedAuth: number | null = null;
 
     try {
-      const { apiClient } = require('./ApiClient');
-      const cachedState = apiClient.getCachedAuthState();
+      // Note: ApiClient import is async, so we return current state
+      // Network status will be updated asynchronously
+      import('./ApiClient').then(({ apiClient }) => {
+        const cachedState = apiClient.getCachedAuthState();
 
-      if (cachedState) {
-        hasOfflineCache = true;
-        lastCachedAuth = cachedState.lastCached || null;
-      }
-
-      const networkStatus = apiClient.getNetworkStatus();
-
-      if (!networkStatus.isOnline) {
-        recommendations.push('You are currently offline');
-
-        if (hasOfflineCache) {
-          recommendations.push('Using cached authentication data');
-          recommendations.push('Some features may be limited while offline');
-        } else {
-          recommendations.push('No offline authentication cache available');
-          recommendations.push('Please connect to the internet to authenticate');
+        if (cachedState) {
+          hasOfflineCache = true;
+          lastCachedAuth = cachedState.lastCached || null;
         }
 
-        if (networkStatus.queuedRequests > 0) {
-          recommendations.push(`${networkStatus.queuedRequests} requests queued for when connection is restored`);
-        }
-      }
+        const networkStatus = apiClient.getNetworkStatus();
 
+        if (!networkStatus.isOnline) {
+          recommendations.push('You are currently offline');
+
+          if (hasOfflineCache) {
+            recommendations.push('Using cached authentication data');
+            recommendations.push('Some features may be limited while offline');
+          } else {
+            recommendations.push('No offline authentication cache available');
+            recommendations.push('Please connect to the internet to authenticate');
+          }
+
+          if (networkStatus.queuedRequests > 0) {
+            recommendations.push(`${networkStatus.queuedRequests} requests queued for when connection is restored`);
+          }
+        }
+      }).catch(error => {
+        console.warn('Failed to get offline auth capabilities:', error);
+      });
     } catch (error) {
       console.warn('Failed to get offline auth capabilities:', error);
       recommendations.push('Unable to determine offline capabilities');

@@ -255,10 +255,12 @@ interface AuthState {
 ```
 
 #### Enhanced Security Features
-- **Token Storage Security**: Secure localStorage with corruption detection
-- **Network Error Resilience**: Offline mode support and retry logic
+- **Token Storage Security**: Secure localStorage with corruption detection and memory fallback
+- **Network Error Resilience**: Offline mode support with automatic retry logic
 - **Permission-Based Access**: Granular role and permission system
 - **Request Authentication**: Automatic authentication headers for all API calls
+- **ES Module Security**: No CommonJS `require()` - all ES module imports for browser safety
+- **Health Monitoring**: Automatic connectivity checks via `/api/health` endpoint
 
 #### Role & Permission System
 - **super_admin**: Complete system control and configuration
@@ -343,3 +345,4 @@ const Shipments = lazy(() => import('./pages/ShipmentsWithTracking'));
 - **PostgreSQL Ready**: Schema designed for easy migration
 - **Microservices**: Modular architecture for service extraction
 - **API Versioning**: Backward compatibility support
+

@@ -861,22 +861,9 @@ export class ApiClient {
       clearTimeout(timeoutId);
       return response.ok;
     } catch (error) {
-      // If health endpoint fails, try a more basic connectivity check
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 2000);
-
-        await fetch('/', {
-          method: 'HEAD',
-          signal: controller.signal,
-          cache: 'no-cache'
-        });
-
-        clearTimeout(timeoutId);
-        return true;
-      } catch (basicError) {
-        return false;
-      }
+      // Silently handle connectivity check failures
+      // This is expected when server is offline or endpoint doesn't exist
+      return false;
     }
   }
 

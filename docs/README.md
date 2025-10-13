@@ -85,6 +85,8 @@ The system features a modern, unified authentication system with:
 - **Role-Based Access Control**: Granular permission system
 - **Comprehensive Error Handling**: User-friendly error recovery
 - **Type-Safe API Client**: Centralized, authenticated API requests
+- **Network Resilience**: Automatic connectivity monitoring and offline support
+- **Secure Storage**: localStorage with memory fallback and corruption detection
 
 ### User Roles
 - **super_admin**: Complete system control and configuration

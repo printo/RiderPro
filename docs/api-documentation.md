@@ -31,6 +31,27 @@ const response = await apiClient.get('/api/shipments');
 - **Authorization Headers**: `Authorization: Bearer <access-token>` sent automatically
 - **Auto-Refresh**: Automatic token refresh on 401 responses via `/api/auth/refresh`
 
+## System Endpoints
+
+### Health Check
+**GET** `/api/health`
+
+Check server connectivity and health status.
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-15T10:00:00.000Z"
+}
+```
+
+**Usage:**
+- Used by ApiClient for automatic connectivity monitoring
+- Checks every 30 seconds when online
+- Checks every 5 seconds when offline (to detect reconnection)
+- No authentication required
+
 ## Authentication Endpoints
 
 ### Login
