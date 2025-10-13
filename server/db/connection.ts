@@ -69,13 +69,12 @@ const initTables = (db: Database.Database) => {
     )
   `);
 
-  // Create indexes for better performance
+  // Create indexes for better performance (excluding location index which is created in migration)
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(status);
     CREATE INDEX IF NOT EXISTS idx_shipments_type ON shipments(type);
     CREATE INDEX IF NOT EXISTS idx_shipments_route ON shipments(routeName);
     CREATE INDEX IF NOT EXISTS idx_shipments_date ON shipments(deliveryTime);
-    CREATE INDEX IF NOT EXISTS idx_shipments_location ON shipments(latitude, longitude);
     CREATE INDEX IF NOT EXISTS idx_acknowledgments_shipment ON acknowledgments(shipmentId);
     CREATE INDEX IF NOT EXISTS idx_sync_status_shipment ON sync_status(shipmentId);
     CREATE INDEX IF NOT EXISTS idx_sync_status_status ON sync_status(status);
@@ -100,8 +99,12 @@ const migrateDatabase = (db: Database.Database) => {
       db.exec('ALTER TABLE shipments ADD COLUMN longitude REAL');
     }
 
-    // Create location index if columns were added
-    if (!hasLatitude || !hasLongitude) {
+    // Create location index after ensuring both columns exist
+    const updatedTableInfo = db.prepare("PRAGMA table_info(shipments)").all();
+    const finalHasLatitude = updatedTableInfo.some((col: any) => col.name === 'latitude');
+    const finalHasLongitude = updatedTableInfo.some((col: any) => col.name === 'longitude');
+
+    if (finalHasLatitude && finalHasLongitude) {
       console.log('Creating location index...');
       db.exec('CREATE INDEX IF NOT EXISTS idx_shipments_location ON shipments(latitude, longitude)');
     }

@@ -10,7 +10,8 @@
     "check": "tsc",
     "db:push": "drizzle-kit push",
     "debug:shipments": "node debug-shipments.js",
-    "test:shipment": "node test-shipment-creation.js"
+    "test:shipment": "node test-shipment-creation.js",
+    "fix:database": "node fix-database.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
