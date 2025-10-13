@@ -127,6 +127,106 @@ Authorization: Bearer <access-token>
 }
 ```
 
+### Location-Based Endpoints
+
+#### Get Nearby Shipments
+**GET** `/api/shipments/near`
+
+**Query Parameters:**
+- `latitude` (required): Latitude coordinate (-90 to 90)
+- `longitude` (required): Longitude coordinate (-180 to 180)  
+- `radius` (optional): Search radius in kilometers (default: 5, max: 100)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "shipment123",
+      "customerName": "John Doe",
+      "address": "123 Main St",
+      "latitude": 40.7128,
+      "longitude": -74.0060,
+      "distance": 2.5,
+      "status": "Assigned"
+    }
+  ],
+  "location": {
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "radius": 5
+  },
+  "count": 1
+}
+```
+
+#### Get Shipments With Location
+**GET** `/api/shipments/with-location`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "shipment123",
+      "customerName": "John Doe",
+      "latitude": 40.7128,
+      "longitude": -74.0060,
+      "status": "Assigned"
+    }
+  ],
+  "count": 1
+}
+```
+
+#### Get Shipments Without Location
+**GET** `/api/shipments/without-location`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "shipment456",
+      "customerName": "Jane Smith",
+      "latitude": null,
+      "longitude": null,
+      "status": "Assigned"
+    }
+  ],
+  "count": 1
+}
+```
+
+#### Update Shipment Location
+**PATCH** `/api/shipments/:id/location`
+
+**Request Body:**
+```json
+{
+  "latitude": 40.7128,
+  "longitude": -74.0060
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "shipment123",
+    "customerName": "John Doe",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "status": "Assigned"
+  },
+  "message": "Shipment location updated successfully"
+}
+```
+
 ### Acknowledgments
 
 #### Create Acknowledgment

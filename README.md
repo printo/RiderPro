@@ -2,6 +2,14 @@
 
 A comprehensive delivery management system built with React, TypeScript, and Express.js, designed for efficient shipment tracking, route optimization, and real-time GPS monitoring.
 
+## 🆕 Latest Updates
+
+### ✅ Location-Based Features (Latest)
+- **GPS Coordinates Support**: Latitude and longitude fields added to shipments
+- **Proximity Search**: Find shipments within a specified radius
+- **Location Analytics**: Track shipments with and without location data
+- **Database Migration**: Automatic schema updates for existing installations
+
 ## 🚀 Quick Start
 
 ### Development Setup
@@ -44,6 +52,7 @@ npm run dev
 
 ### 🚛 Core Functionality
 - **Real-time Shipment Tracking** with live GPS coordinates
+- **Location-Based Services** with proximity search and mapping
 - **Smart Route Optimization** with AI-powered suggestions  
 - **Digital Acknowledgments** with signature and photo capture
 - **Batch Operations** for efficient bulk updates

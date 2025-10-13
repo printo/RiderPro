@@ -19,13 +19,13 @@ export class ShipmentQueries {
       SELECT COUNT(*) as total FROM shipments 
       WHERE 1=1
     `;
-    
+
     // Base query for fetching data
     let dataQuery = `
       SELECT * FROM shipments 
       WHERE 1=1
     `;
-    
+
     const params: any[] = [];
 
     // Apply filters
@@ -73,17 +73,17 @@ export class ShipmentQueries {
     const page = Math.max(1, parseInt(filters.page as string) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(filters.limit as string) || 20));
     const offset = (page - 1) * limit;
-    
+
     dataQuery += ` LIMIT ? OFFSET ?`;
     const dataParams = [...params, limit, offset];
-    
+
     // Get total count
     const totalResult = this.db.prepare(countQuery).get(...params);
     const total = totalResult?.total || 0;
-    
+
     // Get paginated data
     const data = this.db.prepare(dataQuery).all(...dataParams);
-    
+
     return { data, total };
   }
 
@@ -98,16 +98,25 @@ export class ShipmentQueries {
     const stmt = this.db.prepare(`
       INSERT INTO shipments (
         id, type, customerName, customerMobile, address, 
-        cost, deliveryTime, routeName, employeeId, status, 
-        createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        latitude, longitude, cost, deliveryTime, routeName, 
+        employeeId, status, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
+    // Map schema fields to database fields
+    const customerName = shipment.customerName || shipment.recipientName || 'Unknown Customer';
+    const customerMobile = shipment.customerMobile || shipment.recipientPhone || '';
+    const address = shipment.address || shipment.deliveryAddress || '';
+    const cost = shipment.cost || 0;
+    const deliveryTime = shipment.deliveryTime || shipment.estimatedDeliveryTime || now;
+    const routeName = shipment.routeName || 'Default Route';
+    const employeeId = shipment.employeeId || 'default';
+
     stmt.run(
-      id, shipment.type, shipment.customerName, shipment.customerMobile,
-      shipment.address, shipment.cost, shipment.deliveryTime,
-      shipment.routeName, shipment.employeeId, shipment.status || 'Assigned',
-      now, now
+      id, shipment.type, customerName, customerMobile,
+      address, shipment.latitude || null, shipment.longitude || null,
+      cost, deliveryTime, routeName,
+      employeeId, shipment.status || 'Assigned', now, now
     );
 
     // Also insert into replica
@@ -116,16 +125,16 @@ export class ShipmentQueries {
       const replicaStmt = replicaDb.prepare(`
         INSERT INTO shipments (
           id, type, customerName, customerMobile, address, 
-          cost, deliveryTime, routeName, employeeId, status, 
-          createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          latitude, longitude, cost, deliveryTime, routeName, 
+          employeeId, status, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       replicaStmt.run(
-        id, shipment.type, shipment.customerName, shipment.customerMobile,
-        shipment.address, shipment.cost, shipment.deliveryTime,
-        shipment.routeName, shipment.employeeId, shipment.status || 'Assigned',
-        now, now
+        id, shipment.type, customerName, customerMobile,
+        address, shipment.latitude || null, shipment.longitude || null,
+        cost, deliveryTime, routeName,
+        employeeId, shipment.status || 'Assigned', now, now
       );
     }
 
@@ -135,13 +144,58 @@ export class ShipmentQueries {
   updateShipment(id: string, updates: UpdateShipment): Shipment | null {
     const now = new Date().toISOString();
 
+    // Build dynamic update query based on provided fields
+    const updateFields: string[] = [];
+    const updateValues: any[] = [];
+
+    if (updates.status !== undefined) {
+      updateFields.push('status = ?');
+      updateValues.push(updates.status);
+    }
+
+    if (updates.latitude !== undefined) {
+      updateFields.push('latitude = ?');
+      updateValues.push(updates.latitude);
+    }
+
+    if (updates.longitude !== undefined) {
+      updateFields.push('longitude = ?');
+      updateValues.push(updates.longitude);
+    }
+
+    if (updates.address !== undefined) {
+      updateFields.push('address = ?');
+      updateValues.push(updates.address);
+    }
+
+    if (updates.customerName !== undefined) {
+      updateFields.push('customerName = ?');
+      updateValues.push(updates.customerName);
+    }
+
+    if (updates.customerMobile !== undefined) {
+      updateFields.push('customerMobile = ?');
+      updateValues.push(updates.customerMobile);
+    }
+
+    // Always update the updatedAt field
+    updateFields.push('updatedAt = ?');
+    updateValues.push(now);
+
+    // Add the ID for the WHERE clause
+    updateValues.push(id);
+
+    if (updateFields.length === 1) { // Only updatedAt field
+      return this.getShipmentById(id);
+    }
+
     const stmt = this.db.prepare(`
       UPDATE shipments 
-      SET status = ?, updatedAt = ?
+      SET ${updateFields.join(', ')}
       WHERE id = ?
     `);
 
-    const result = stmt.run(updates.status, now, id);
+    const result = stmt.run(...updateValues);
 
     if (result.changes === 0) {
       return null;
@@ -151,10 +205,10 @@ export class ShipmentQueries {
     if (this.db === liveDb) {
       const replicaStmt = replicaDb.prepare(`
         UPDATE shipments 
-        SET status = ?, updatedAt = ?
+        SET ${updateFields.join(', ')}
         WHERE id = ?
       `);
-      replicaStmt.run(updates.status, now, id);
+      replicaStmt.run(...updateValues);
     }
 
     return this.getShipmentById(id);
@@ -328,4 +382,6 @@ export class ShipmentQueries {
     this.db.prepare('DELETE FROM acknowledgments WHERE timestamp < ?').run(cutoffIso);
     this.db.prepare('DELETE FROM shipments WHERE createdAt < ?').run(cutoffIso);
   }
+
+
 }

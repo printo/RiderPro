@@ -31,6 +31,8 @@ CREATE TABLE shipments (
   customerName TEXT NOT NULL,
   customerMobile TEXT NOT NULL,
   address TEXT NOT NULL,
+  latitude REAL,
+  longitude REAL,
   cost REAL NOT NULL,
   deliveryTime TEXT NOT NULL,
   routeName TEXT NOT NULL,
@@ -48,6 +50,8 @@ CREATE TABLE shipments (
 - `customerName`: Customer's full name
 - `customerMobile`: Customer's contact number
 - `address`: Complete delivery/pickup address
+- `latitude`: GPS latitude coordinate (optional, -90 to 90)
+- `longitude`: GPS longitude coordinate (optional, -180 to 180)
 - `cost`: Shipment cost in decimal format
 - `deliveryTime`: Scheduled delivery/pickup time (ISO 8601)
 - `routeName`: Assigned route identifier
@@ -145,6 +149,7 @@ CREATE INDEX idx_shipments_employee ON shipments(employeeId);
 CREATE INDEX idx_shipments_route ON shipments(routeName);
 CREATE INDEX idx_shipments_type ON shipments(type);
 CREATE INDEX idx_shipments_created ON shipments(createdAt);
+CREATE INDEX idx_shipments_location ON shipments(latitude, longitude);
 
 -- Foreign key relationships
 CREATE INDEX idx_acknowledgments_shipment ON acknowledgments(shipmentId);

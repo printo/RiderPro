@@ -225,6 +225,20 @@ function ShipmentCardWithTracking({
                     {formatTime(shipment.deliveryTime || shipment.estimatedDeliveryTime || '')}
                   </span>
                 </div>
+                <div className="flex items-center text-muted-foreground">
+                  <Navigation className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span data-testid={`text-location-${shipment.id}`}>
+                    {shipment.latitude && shipment.longitude ? (
+                      <span className="text-green-600 dark:text-green-400">
+                        GPS Available
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">
+                        No GPS Data
+                      </span>
+                    )}
+                  </span>
+                </div>
               </div>
 
               {/* GPS Tracking Controls */}

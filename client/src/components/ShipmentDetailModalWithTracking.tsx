@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CheckCircle, Package, Undo, XCircle, Truck, Navigation,
-  MapPin, Clock, AlertCircle, Loader2
+  MapPin, Clock, AlertCircle, Loader2, Copy
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -302,8 +302,140 @@ function ShipmentDetailModalWithTracking({
                     {shipment.deliveryTime ? new Date(shipment.deliveryTime).toLocaleString() : 'Not scheduled'}
                   </span>
                 </div>
+
+                {/* Location Information with Directions */}
+                <div className="flex items-center gap-2">
+                  <Navigation className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex-1">
+                    {shipment.latitude && shipment.longitude ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">
+                          Location: {shipment.latitude.toFixed(6)}, {shipment.longitude.toFixed(6)}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const url = `https://www.google.com/maps/dir/?api=1&destination=${shipment.latitude},${shipment.longitude}`;
+                            window.open(url, '_blank');
+                          }}
+                          className="h-6 px-2 text-xs"
+                        >
+                          <Navigation className="h-3 w-3 mr-1" />
+                          Directions
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Location: N/A</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* Location & Directions Card */}
+            <Card className="border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-400">
+                      GPS Location
+                    </span>
+                  </div>
+                  {shipment.latitude && shipment.longitude && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const coordinates = `${shipment.latitude},${shipment.longitude}`;
+                          navigator.clipboard.writeText(coordinates);
+                          toast({
+                            title: "Coordinates copied!",
+                            description: `${coordinates} copied to clipboard`,
+                          });
+                        }}
+                        className="h-8 px-3 text-xs bg-white hover:bg-gray-50 border-blue-300"
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Copy
+                      </Button>
+                      <div className="relative group">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const url = `https://www.google.com/maps/dir/?api=1&destination=${shipment.latitude},${shipment.longitude}`;
+                            window.open(url, '_blank');
+                          }}
+                          className="h-8 px-3 text-xs bg-white hover:bg-gray-50 border-blue-300"
+                        >
+                          <Navigation className="h-3 w-3 mr-1" />
+                          Directions
+                        </Button>
+
+                        {/* Dropdown for other map options */}
+                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[120px]">
+                          <button
+                            onClick={() => {
+                              const url = `https://www.google.com/maps/dir/?api=1&destination=${shipment.latitude},${shipment.longitude}`;
+                              window.open(url, '_blank');
+                            }}
+                            className="w-full px-3 py-2 text-xs text-left hover:bg-gray-50 border-b border-gray-100"
+                          >
+                            Google Maps
+                          </button>
+                          <button
+                            onClick={() => {
+                              const url = `https://maps.apple.com/?daddr=${shipment.latitude},${shipment.longitude}`;
+                              window.open(url, '_blank');
+                            }}
+                            className="w-full px-3 py-2 text-xs text-left hover:bg-gray-50 border-b border-gray-100"
+                          >
+                            Apple Maps
+                          </button>
+                          <button
+                            onClick={() => {
+                              const url = `https://waze.com/ul?ll=${shipment.latitude},${shipment.longitude}&navigate=yes`;
+                              window.open(url, '_blank');
+                            }}
+                            className="w-full px-3 py-2 text-xs text-left hover:bg-gray-50"
+                          >
+                            Waze
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-2">
+                  {shipment.latitude && shipment.longitude ? (
+                    <div className="space-y-1">
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        Latitude: {shipment.latitude.toFixed(6)}
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        Longitude: {shipment.longitude.toFixed(6)}
+                      </p>
+                      <p className="text-xs text-blue-500 dark:text-blue-500 mt-2">
+                        Click "Get Directions" to navigate using Google Maps
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        GPS coordinates not available
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-500">
+                        Location data was not provided for this shipment
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Action Buttons */}
             {shipment.status === "Assigned" && (

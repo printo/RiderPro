@@ -22,6 +22,8 @@ export interface Shipment {
   customerName?: string;
   customerMobile?: string;
   address?: string;
+  latitude?: number;
+  longitude?: number;
   cost?: number;
   deliveryTime?: string;
   routeName?: string;
@@ -45,6 +47,8 @@ export interface InsertShipment {
   customerName?: string;
   customerMobile?: string;
   address?: string;
+  latitude?: number;
+  longitude?: number;
   cost?: number;
   deliveryTime?: string;
   routeName?: string;
@@ -69,6 +73,8 @@ export interface UpdateShipment {
   customerName?: string;
   customerMobile?: string;
   address?: string;
+  latitude?: number;
+  longitude?: number;
   cost?: number;
   deliveryTime?: string;
   routeName?: string;
@@ -299,6 +305,23 @@ export const insertShipmentSchema = {
 
     if (typeof data.trackingNumber !== 'string' || data.trackingNumber.trim() === '') {
       throw new Error('Tracking number must be a non-empty string');
+    }
+
+    // Validate latitude and longitude if provided
+    if (data.latitude !== undefined && data.latitude !== null) {
+      const lat = Number(data.latitude);
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        throw new Error('Latitude must be a number between -90 and 90');
+      }
+      data.latitude = lat;
+    }
+
+    if (data.longitude !== undefined && data.longitude !== null) {
+      const lng = Number(data.longitude);
+      if (isNaN(lng) || lng < -180 || lng > 180) {
+        throw new Error('Longitude must be a number between -180 and 180');
+      }
+      data.longitude = lng;
     }
 
     // Return validated data

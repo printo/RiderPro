@@ -111,6 +111,8 @@ function AdminPage() {
     customerName: "John Doe",
     customerMobile: "+91-9876543210",
     address: "456 Delivery Avenue, Mumbai, Maharashtra",
+    latitude: 19.0760 + (Math.random() - 0.5) * 0.02, // Mumbai area with smaller variation for better testing
+    longitude: 72.8777 + (Math.random() - 0.5) * 0.02,
     cost: 500.00,
     deliveryTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     routeName: "Route A",

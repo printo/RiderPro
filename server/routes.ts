@@ -119,34 +119,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const data = await response.json();
-      const { access, refresh, full_name, is_ops_team = false, is_admin = false, is_super_admin = false, user_id } = data;
 
-      if (!access) {
+      // Handle the actual response format from Printo API
+      const accessToken = data.data?.accessToken || data.access;
+      const refreshToken = data.data?.refreshToken || data.refresh;
+      const userData = data.data?.user || data.user || {};
+
+      if (!accessToken) {
         return res.status(401).json({
           success: false,
           message: 'Authentication failed'
         });
       }
 
-      // Determine role
-      let role = 'user';
-      if (is_super_admin) role = 'super_admin';
-      else if (is_admin) role = 'admin';
-      else if (is_ops_team) role = 'ops_team';
+      // Map the role from the actual response to match frontend UserRole enum
+      let role = 'driver'; // default to driver instead of user
+      if (userData.role === 'admin' || userData.is_admin) {
+        role = 'admin';
+      } else if (userData.role === 'super_admin' || userData.is_super_admin) {
+        role = 'super_admin';
+      } else if (userData.role === 'ops_team' || userData.is_ops_team) {
+        role = 'ops_team'; // Match the frontend enum
+      } else if (userData.role === 'delivery' || userData.is_delivery) {
+        role = 'driver'; // Map delivery to driver role
+      }
 
       const user = {
-        id: user_id?.toString() || email,
-        email,
-        name: full_name || `Employee ${email}`,
+        id: userData.id || userData.user_id?.toString() || email,
+        email: userData.email || email,
+        name: userData.name || userData.full_name || `Employee ${email}`,
         role,
-        employeeId: email,
+        employeeId: userData.employeeId || userData.employee_id || userData.id || email,
       };
 
       res.json({
         success: true,
         data: {
-          accessToken: access,
-          refreshToken: refresh || null,
+          accessToken,
+          refreshToken: refreshToken || null,
           user
         }
       });
@@ -171,12 +181,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Call external refresh API
-      const response = await fetch('https://pia.printo.in/api/v1/auth/refresh-token', {
+      const response = await fetch('https://pia.printo.in/api/v1/auth/refresh/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refreshToken: refresh }),
+        body: JSON.stringify({ refresh: refresh }),
       });
 
       if (!response.ok) {
@@ -188,7 +198,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const data = await response.json();
 
-      if (!data.accessToken) {
+      const accessToken = data.access || data.accessToken;
+      if (!accessToken) {
         return res.status(401).json({
           success: false,
           message: 'Failed to refresh token'
@@ -198,7 +209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         success: true,
         data: {
-          accessToken: data.accessToken
+          accessToken: accessToken
         }
       });
     } catch (error: any) {
@@ -854,33 +865,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get shipments with optional filters, pagination, and sorting
-  app.get('/api/shipments', authenticateEither, async (req: ApiTokenRequest, res) => {
+  app.get('/api/shipments', async (req, res) => {
     try {
-      // Get authenticated user from either JWT or API token
-      const authUser = getAuthenticatedUser(req);
-      if (!authUser) {
-        return res.status(401).json({ message: 'Authentication failed' });
+      // Simple JWT authentication for shipments
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Authentication required' });
       }
 
-      // For API tokens, we need to map the role to employeeId format
-      let employeeId: string;
-      let userRole: string;
-
-      if (req.isApiTokenAuth && req.apiToken) {
-        // For API tokens, use a generic identifier since they don't have specific employee IDs
-        employeeId = `api-token-${req.apiToken.id}`;
-        userRole = req.apiToken.permissions === 'admin' ? 'admin' : 'user';
-      } else {
-        // For JWT tokens, use the existing getUserFromToken logic
-        const authHeader = req.headers.authorization;
-        const token = authHeader?.split(' ')[1];
-        const user = await getUserFromToken(token!);
-        if (!user || !user.employeeId) {
-          return res.status(401).json({ message: 'Invalid or expired token' });
-        }
-        employeeId = user.employeeId;
-        userRole = user.role;
+      const token = authHeader.substring(7);
+      const user = await getUserFromToken(token);
+      if (!user || !user.employeeId) {
+        return res.status(401).json({ message: 'Invalid or expired token' });
       }
+
+      const employeeId = user.employeeId;
+      const userRole = user.role;
 
       // Convert query parameters to filters
       const filters: ShipmentFilters = {};
@@ -939,12 +939,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // If the user is not an admin, filter by their employee ID
-      // For API tokens with 'read' or 'write' permissions, don't filter by employee ID
-      // Only filter for JWT users who are not admin
-      if (!req.isApiTokenAuth && userRole !== 'admin' && userRole !== 'super_admin') {
+      // Apply role-based filtering according to requirements:
+      // - admin, super_admin: can see all shipments
+      // - driver: can only see their own shipments  
+      // - everyone else (ops_team): can see all shipments
+      if (userRole === 'driver') {
+        // Only drivers/delivery personnel see filtered results
         filters.employeeId = employeeId;
       }
+      // For admin, super_admin, ops_team, and other roles: no filtering (see all shipments)
 
       // Set cache control headers (5 minutes)
       res.set('Cache-Control', 'public, max-age=300');
@@ -982,43 +985,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return null;
       }
 
-      // Try to decode the JWT payload (basic check without signature verification)
-      try {
-        const parts = token.split('.');
-        if (parts.length !== 3) {
-          return null;
-        }
+      // Use external API verification for reliability
+      const authHeader = `Bearer ${token}`;
+      const response = await fetch('https://pia.printo.in/api/v1/auth/me/', {
+        headers: { 'Authorization': authHeader }
+      });
 
-        const payload = JSON.parse(atob(parts[1]));
-
-        // Check if token is expired
-        if (payload.exp && Date.now() >= payload.exp * 1000) {
-          return null;
-        }
-
-        // Extract user info from payload
-        return {
-          employeeId: payload.email || payload.sub || 'unknown',
-          role: payload.is_superuser ? 'admin' : 'user'
-        };
-      } catch (decodeError) {
-        // If JWT decode fails, fall back to external API verification
-        const authHeader = `Bearer ${token}`;
-        const response = await fetch('https://pia.printo.in/api/v1/auth/me/', {
-          headers: { 'Authorization': authHeader }
-        });
-
-        if (!response.ok) {
-          console.error('Failed to verify token with external API:', response.status);
-          return null;
-        }
-
-        const userData = await response.json();
-        return {
-          employeeId: userData.employee_id || userData.email || userData.username,
-          role: userData.is_superuser || userData.is_admin ? 'admin' : 'user'
-        };
+      if (!response.ok) {
+        console.error('Failed to verify token with external API:', response.status);
+        return null;
       }
+
+      const userData = await response.json();
+
+      // Map the actual role from the API response to match frontend UserRole enum
+      let role = 'driver'; // default
+      if (userData.is_superuser || userData.is_super_admin || userData.role === 'super_admin') {
+        role = 'super_admin';
+      } else if (userData.is_admin || userData.role === 'admin') {
+        role = 'admin';
+      } else if (userData.is_ops_team || userData.role === 'ops_team') {
+        role = 'ops_team'; // Match the frontend enum
+      } else if (userData.is_delivery || userData.role === 'delivery') {
+        role = 'driver'; // Map delivery to driver role
+      }
+
+      return {
+        employeeId: userData.employee_id || userData.email || userData.username,
+        role: role
+      };
     } catch (error) {
       console.error('Error verifying token:', error);
       return null;

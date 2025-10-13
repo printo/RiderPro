@@ -31,6 +31,8 @@ const initTables = (db: Database.Database) => {
       customerName TEXT NOT NULL,
       customerMobile TEXT NOT NULL,
       address TEXT NOT NULL,
+      latitude REAL,
+      longitude REAL,
       cost REAL NOT NULL,
       deliveryTime TEXT NOT NULL,
       routeName TEXT NOT NULL,
@@ -73,13 +75,46 @@ const initTables = (db: Database.Database) => {
     CREATE INDEX IF NOT EXISTS idx_shipments_type ON shipments(type);
     CREATE INDEX IF NOT EXISTS idx_shipments_route ON shipments(routeName);
     CREATE INDEX IF NOT EXISTS idx_shipments_date ON shipments(deliveryTime);
+    CREATE INDEX IF NOT EXISTS idx_shipments_location ON shipments(latitude, longitude);
     CREATE INDEX IF NOT EXISTS idx_acknowledgments_shipment ON acknowledgments(shipmentId);
     CREATE INDEX IF NOT EXISTS idx_sync_status_shipment ON sync_status(shipmentId);
     CREATE INDEX IF NOT EXISTS idx_sync_status_status ON sync_status(status);
   `);
 };
 
+// Migration function to add latitude and longitude columns to existing databases
+const migrateDatabase = (db: Database.Database) => {
+  try {
+    // Check if latitude column exists
+    const tableInfo = db.prepare("PRAGMA table_info(shipments)").all();
+    const hasLatitude = tableInfo.some((col: any) => col.name === 'latitude');
+    const hasLongitude = tableInfo.some((col: any) => col.name === 'longitude');
+
+    if (!hasLatitude) {
+      console.log('Adding latitude column to shipments table...');
+      db.exec('ALTER TABLE shipments ADD COLUMN latitude REAL');
+    }
+
+    if (!hasLongitude) {
+      console.log('Adding longitude column to shipments table...');
+      db.exec('ALTER TABLE shipments ADD COLUMN longitude REAL');
+    }
+
+    // Create location index if columns were added
+    if (!hasLatitude || !hasLongitude) {
+      console.log('Creating location index...');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_shipments_location ON shipments(latitude, longitude)');
+    }
+  } catch (error) {
+    console.error('Migration error:', error);
+  }
+};
+
 initTables(liveDb);
 initTables(replicaDb);
 
-export { initTables };
+// Run migrations on both databases
+migrateDatabase(liveDb);
+migrateDatabase(replicaDb);
+
+export { initTables, migrateDatabase };

@@ -188,19 +188,34 @@ export class OfflineStorageService {
     }
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['gpsRecords'], 'readonly');
-      const store = transaction.objectStore('gpsRecords');
-      const index = store.index('synced');
-      const request = index.getAll(IDBKeyRange.only(false));
+      try {
+        const transaction = this.db!.transaction(['gpsRecords'], 'readonly');
+        const store = transaction.objectStore('gpsRecords');
 
-      request.onsuccess = () => {
-        resolve(request.result);
-      };
+        // Get all records and filter manually to avoid IDBKeyRange issues
+        const request = store.getAll();
 
-      request.onerror = () => {
-        console.error('Failed to get unsynced GPS records:', request.error);
-        reject(request.error);
-      };
+        request.onsuccess = () => {
+          try {
+            const allRecords = request.result;
+            const unsyncedRecords = allRecords.filter(record =>
+              record.synced === false || record.synced == null || record.synced === undefined
+            );
+            resolve(unsyncedRecords);
+          } catch (filterError) {
+            console.error('Error filtering unsynced records:', filterError);
+            resolve([]); // Return empty array on error
+          }
+        };
+
+        request.onerror = () => {
+          console.error('Failed to get unsynced GPS records:', request.error);
+          resolve([]); // Return empty array instead of rejecting
+        };
+      } catch (error) {
+        console.error('Error in getUnsyncedGPSRecords:', error);
+        resolve([]); // Return empty array on error to prevent crashes
+      }
     });
   }
 
@@ -213,19 +228,34 @@ export class OfflineStorageService {
     }
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['routeSessions'], 'readonly');
-      const store = transaction.objectStore('routeSessions');
-      const index = store.index('synced');
-      const request = index.getAll(IDBKeyRange.only(false));
+      try {
+        const transaction = this.db!.transaction(['routeSessions'], 'readonly');
+        const store = transaction.objectStore('routeSessions');
 
-      request.onsuccess = () => {
-        resolve(request.result);
-      };
+        // Get all records and filter manually to avoid IDBKeyRange issues
+        const request = store.getAll();
 
-      request.onerror = () => {
-        console.error('Failed to get unsynced route sessions:', request.error);
-        reject(request.error);
-      };
+        request.onsuccess = () => {
+          try {
+            const allRecords = request.result;
+            const unsyncedRecords = allRecords.filter(record =>
+              record.synced === false || record.synced == null || record.synced === undefined
+            );
+            resolve(unsyncedRecords);
+          } catch (filterError) {
+            console.error('Error filtering unsynced sessions:', filterError);
+            resolve([]); // Return empty array on error
+          }
+        };
+
+        request.onerror = () => {
+          console.error('Failed to get unsynced route sessions:', request.error);
+          resolve([]); // Return empty array instead of rejecting
+        };
+      } catch (error) {
+        console.error('Error in getUnsyncedRouteSessions:', error);
+        resolve([]); // Return empty array on error to prevent crashes
+      }
     });
   }
 

@@ -10,6 +10,7 @@ Welcome to the RiderPro documentation hub. This directory contains comprehensive
 - **[Database Schema](./database-schema.md)** - Database design, tables, relationships, and data lifecycle
 
 ### Feature Documentation
+- **[📍 Location-Based Features](./location-features.md)** - GPS coordinates and proximity search (NEW)
 - **[Smart Route Completion](./smart-route-completion.md)** - AI-powered route optimization and completion features
 - **[Shipment Testing Guide](./shipment-testing.md)** - Testing procedures and validation workflows
 

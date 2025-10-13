@@ -14,6 +14,8 @@ export interface IStorage {
   updateShipment(id: string, updates: UpdateShipment): Promise<Shipment | undefined>;
   batchUpdateShipments(updates: BatchUpdate): Promise<number>;
 
+
+
   // Acknowledgment operations
   createAcknowledgment(acknowledgment: InsertAcknowledgment): Promise<Acknowledgment>;
   getAcknowledgmentByShipmentId(shipmentId: string): Promise<Acknowledgment | undefined>;
@@ -81,6 +83,8 @@ export class SqliteStorage implements IStorage {
   async getDashboardMetrics(): Promise<DashboardMetrics> {
     return this.liveQueries.getDashboardMetrics();
   }
+
+
 }
 
 export const storage = new SqliteStorage();
