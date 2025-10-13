@@ -251,11 +251,9 @@ function FuelSettingsModal({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="INR">INR (₹)</SelectItem>
                       <SelectItem value="USD">USD ($)</SelectItem>
                       <SelectItem value="EUR">EUR (€)</SelectItem>
-                      <SelectItem value="GBP">GBP (£)</SelectItem>
-                      <SelectItem value="CAD">CAD (C$)</SelectItem>
-                      <SelectItem value="AUD">AUD (A$)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -26,7 +26,7 @@ function AdminPage() {
   const [fuelSettings, setFuelSettings] = useState<FuelSettings>({
     defaultVehicleType: 'standard-van',
     fuelPrice: 1.5,
-    currency: 'USD',
+    currency: 'INR',
     vehicleTypes: [
       {
         id: 'standard-van',
