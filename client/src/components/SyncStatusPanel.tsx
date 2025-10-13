@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { RefreshCw, Send, CheckCircle, XCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
+import { apiClient } from "@/services/ApiClient";
 
 interface SyncStats {
   totalPending: number;
@@ -21,7 +22,7 @@ function SyncStatusPanel() {
   const { data: syncStats, isLoading } = useQuery<SyncStats>({
     queryKey: ["/api/sync/stats"],
     queryFn: async () => {
-      const response = await fetch('/api/sync/stats');
+      const response = await apiClient.get('/api/sync/stats');
       if (!response.ok) throw new Error('Failed to fetch sync stats');
       return response.json();
     },
@@ -30,7 +31,7 @@ function SyncStatusPanel() {
 
   const triggerSyncMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/sync/trigger', { method: 'POST' });
+      const response = await apiClient.post('/api/sync/trigger');
       if (!response.ok) throw new Error('Failed to trigger sync');
       return response.json();
     },

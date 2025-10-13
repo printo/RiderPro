@@ -1,6 +1,7 @@
-import authService from "@/services/AuthService";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { apiClient } from "@/services/ApiClient";
 import { useLocation } from "wouter";
 import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
@@ -11,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
 function AdminPage() {
-  const user = authService.getUser();
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [showFuelSettings, setShowFuelSettings] = useState(false);
   const [payloadInput, setPayloadInput] = useState<string>('');
@@ -172,13 +173,7 @@ function AdminPage() {
             continue;
           }
 
-          const response = await authService.fetchWithAuth('/api/shipments', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-          });
+          const response = await apiClient.post('/api/shipments', payload);
 
           if (response.ok) {
             const responseData = await response.json();

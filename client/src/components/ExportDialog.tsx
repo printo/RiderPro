@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -195,6 +195,9 @@ function ExportDialog({
             <Download className="h-5 w-5" />
             Export Route Data
           </DialogTitle>
+          <DialogDescription>
+            Export your route analytics data in various formats for analysis and reporting.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

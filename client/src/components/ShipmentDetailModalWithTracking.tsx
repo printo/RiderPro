@@ -13,6 +13,7 @@ import {
   CheckCircle, Package, Undo, XCircle, Truck, Navigation,
   MapPin, Clock, AlertCircle, Loader2, Copy
 } from "lucide-react";
+import { apiClient } from "@/services/ApiClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -86,10 +87,7 @@ function ShipmentDetailModalWithTracking({
 
   const acknowledgmentMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await fetch(`/api/shipments/${shipment.id}/acknowledgement`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await apiClient.upload(`/api/shipments/${shipment.id}/acknowledgement`, formData);
       if (!response.ok) {
         const error = await response.text();
         throw new Error(error || "Failed to save acknowledgment");

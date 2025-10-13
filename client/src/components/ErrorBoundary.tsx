@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, RefreshCw, Home, ArrowLeft } from "lucide-react";
+import { apiClient } from "@/services/ApiClient";
 
 // Enhanced Props interface with context-aware options
 interface Props {
@@ -59,11 +60,7 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('RiderPro Error:', errorData);
 
     // Send to API endpoint for logging
-    fetch('/api/errors', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(errorData),
-    }).catch(() => {
+    apiClient.post('/api/errors', errorData).catch(() => {
       // Silently fail if error logging fails
     });
   };

@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import authService from "@/services/AuthService";
+import { apiClient } from "@/services/ApiClient";
 import { Copy, Eye, EyeOff, Key, Shield, AlertCircle, CheckCircle } from "lucide-react";
 
 interface CreateTokenModalProps {
@@ -207,13 +208,7 @@ const CreateTokenModal: React.FC<CreateTokenModalProps> = ({
         customExpiration: formData.customExpiration
       };
 
-      const response = await authService.fetchWithAuth('/api/admin/tokens', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(sanitizedData)
-      });
+      const response = await apiClient.post('/api/admin/tokens', sanitizedData);
 
       if (response.ok) {
         const data = await response.json();
@@ -344,6 +339,9 @@ const CreateTokenModal: React.FC<CreateTokenModalProps> = ({
               <CheckCircle className="h-5 w-5 text-green-600" />
               Token Created Successfully
             </DialogTitle>
+            <DialogDescription>
+              Your new API token has been generated. Copy and store it securely as it won't be shown again.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -448,6 +446,9 @@ const CreateTokenModal: React.FC<CreateTokenModalProps> = ({
             <Key className="h-5 w-5" />
             Create API Token
           </DialogTitle>
+          <DialogDescription>
+            Create a new API token for external integrations and automated access to your account.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">

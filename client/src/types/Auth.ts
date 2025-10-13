@@ -18,6 +18,7 @@ export interface User {
   fullName?: string;
   isActive: boolean;
   lastLogin?: string;
+  permissions?: Permission[];
   isOpsTeam: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;

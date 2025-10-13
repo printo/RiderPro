@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RouteAnalytics } from '../types/RouteAnalytics';
 import { withChartErrorBoundary } from '@/components/ErrorBoundary';
+import { apiClient } from '../services/ApiClient';
 import '../styles/mobile.css';
 
 interface MobileRouteAnalyticsProps {
@@ -60,7 +61,7 @@ export const MobileRouteAnalytics: React.FC<MobileRouteAnalyticsProps> = ({
       if (filters.endDate) queryParams.append('endDate', filters.endDate);
       queryParams.append('period', filters.period);
 
-      const response = await fetch(`/api/routes/analytics?${queryParams}`);
+      const response = await apiClient.get(`/api/routes/analytics?${queryParams}`);
       if (!response.ok) throw new Error('Failed to load analytics');
 
       const data = await response.json();

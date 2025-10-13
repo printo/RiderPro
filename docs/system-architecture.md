@@ -50,6 +50,20 @@ client/src/
 
 ### State Management Strategy
 
+#### Authentication State (React Context)
+- **Unified Auth System**: Single `useAuth()` hook for all authentication needs
+- **Automatic Token Management**: Seamless token refresh and storage
+- **Permission System**: Role-based access control with granular permissions
+- **Error Recovery**: Comprehensive error handling and user feedback
+
+```typescript
+// Modern authentication usage
+const { user, isAuthenticated, hasPermission, login, logout } = useAuth();
+
+// Permission-based rendering
+const canManageUsers = hasPermission(Permission.MANAGE_USERS);
+```
+
 #### Server State (TanStack Query)
 - **Automatic Caching**: Intelligent background refetching
 - **Optimistic Updates**: Immediate UI feedback
@@ -57,10 +71,10 @@ client/src/
 - **Real-Time Sync**: Polling and WebSocket integration
 
 ```typescript
-// Example query configuration
+// Example query configuration with authentication
 const shipmentQuery = useQuery({
   queryKey: ['shipments', filters],
-  queryFn: () => fetchShipments(filters),
+  queryFn: () => apiClient.get('/api/shipments').then(r => r.json()),
   staleTime: 30000, // 30 seconds
   refetchInterval: 60000, // 1 minute
   retry: 3
@@ -220,19 +234,45 @@ interface SyncStatus {
 
 ## Security Architecture
 
-### Authentication & Authorization
+### Modern Authentication System
 
-#### Multi-Layer Security
-- **External Authentication**: Django-based user management
-- **Token Validation**: JWT token verification
-- **Role-Based Access**: Granular permission system
-- **Session Management**: Secure cookie handling
+#### Unified Authentication Layer
+- **React Context Integration**: Centralized authentication state management
+- **Automatic Token Refresh**: Seamless session continuation without user interruption
+- **Type-Safe API Client**: All API calls go through authenticated client
+- **Comprehensive Error Handling**: User-friendly error messages and recovery strategies
 
-#### Role Definitions
-- **admin**: Full system access and configuration
-- **isops**: Operations team with view-only access
-- **isdelivery**: Field workers with shipment updates
-- **user**: Basic access with limited permissions
+```typescript
+// Authentication architecture
+interface AuthState {
+  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  permissions: Permission[];
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+```
+
+#### Enhanced Security Features
+- **Token Storage Security**: Secure localStorage with corruption detection
+- **Network Error Resilience**: Offline mode support and retry logic
+- **Permission-Based Access**: Granular role and permission system
+- **Request Authentication**: Automatic authentication headers for all API calls
+
+#### Role & Permission System
+- **super_admin**: Complete system control and configuration
+- **admin**: Full operational access and user management  
+- **ops_team**: Operations oversight with analytics access
+- **manager**: Route management and performance analytics
+- **driver**: Personal route and delivery management
+
+```typescript
+// Permission checking in components
+const { hasPermission, hasAnyRole } = useAuth();
+const canViewAnalytics = hasPermission(Permission.VIEW_ANALYTICS);
+const isAdminUser = hasAnyRole([UserRole.ADMIN, UserRole.SUPER_ADMIN]);
+```
 
 ### Data Security
 

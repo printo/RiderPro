@@ -5,20 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Package, Eye, EyeOff, Loader2 } from "lucide-react";
-import authService from "@/services/AuthService";
+import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
-interface LoginProps {
-  onLogin: () => void;
-}
-
-function Login({ onLogin }: LoginProps) {
+function Login() {
   const [employeeId, setEmployeeId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [, setLocation] = useLocation();
+
+  // Use the new authentication context
+  const { login } = useAuth();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,20 +27,19 @@ function Login({ onLogin }: LoginProps) {
     setIsLoading(true);
 
     try {
-      console.log('Attempting login...');
-      const result = await authService.login(employeeId, password);
+      console.log('[Login] Attempting login for:', employeeId);
+      const result = await login(employeeId, password);
 
       if (result.success) {
-        console.log('Login successful!');
-        onLogin();
+        console.log('[Login] Login successful!');
         // Navigate to dashboard after successful login
         setLocation('/dashboard');
       } else {
-        console.error('Login failed:', result.message);
+        console.error('[Login] Login failed:', result.message);
         setError(result.message || "Invalid credentials");
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('[Login] Login error:', error);
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);

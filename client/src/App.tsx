@@ -1,25 +1,29 @@
-import { useEffect, useState } from "react";
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Navigation from "@/components/Navigation";
 import FloatingActionMenu from "@/components/FloatingActionMenu";
 import Dashboard from "@/pages/Dashboard";
 import ShipmentsWithTracking from "@/pages/ShipmentsWithTracking";
 import Login from "@/pages/Login";
-import authService from "@/services/AuthService";
 import NotFound from "@/pages/not-found";
 import AdminPage from "@/pages/Admin";
 import RouteAnalytics from "@/pages/RouteAnalytics";
 import RouteVisualizationPage from "@/pages/RouteVisualizationPage";
+import { useIsAuthenticated, useIsAdmin, useIsSuperAdmin } from "@/hooks/useAuth";
 
-function Router({ isLoggedIn, onLogin }: { isLoggedIn: boolean; onLogin: () => void }) {
-  if (!isLoggedIn) {
-    return <Login onLogin={onLogin} />;
+function Router() {
+  const isAuthenticated = useIsAuthenticated();
+  const isAdmin = useIsAdmin();
+  const isSuperAdmin = useIsSuperAdmin();
+
+  if (!isAuthenticated) {
+    return <Login />;
   }
 
   return (
@@ -30,9 +34,8 @@ function Router({ isLoggedIn, onLogin }: { isLoggedIn: boolean; onLogin: () => v
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/shipments" component={ShipmentsWithTracking} />
         <Route path="/admin">
-          {(params) => {
-            const user = authService.getUser();
-            if (user && (user.isAdmin || user.isSuperAdmin)) {
+          {() => {
+            if (isAdmin || isSuperAdmin) {
               return <AdminPage />;
             }
             return (
@@ -66,21 +69,16 @@ function Router({ isLoggedIn, onLogin }: { isLoggedIn: boolean; onLogin: () => v
 }
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(authService.isAuthenticated());
-
-  useEffect(() => {
-    const unsubscribe = authService.subscribe((s) => setIsLoggedIn(s.isAuthenticated));
-    return unsubscribe;
-  }, []);
-
   return (
     <ThemeProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <Toaster />
-            <Router isLoggedIn={isLoggedIn} onLogin={() => setIsLoggedIn(true)} />
-          </TooltipProvider>
+          <AuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </AuthProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </ThemeProvider>

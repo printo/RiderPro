@@ -4,12 +4,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import authService from "@/services/AuthService";
+import { apiClient } from "@/services/ApiClient";
 import {
   Key,
   Shield,
@@ -88,7 +89,7 @@ const TokenDetailsModal: React.FC<TokenDetailsModalProps> = ({
 
     try {
       setLoadingUsage(true);
-      const response = await authService.fetchWithAuth(`/api/admin/tokens/${token.id}/usage`);
+      const response = await apiClient.get(`/api/admin/tokens/${token.id}/usage`);
 
       if (response.ok) {
         const data = await response.json();
@@ -117,13 +118,7 @@ const TokenDetailsModal: React.FC<TokenDetailsModalProps> = ({
 
     try {
       setUpdatingStatus(true);
-      const response = await authService.fetchWithAuth(`/api/admin/tokens/${token.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
+      const response = await apiClient.patch(`/api/admin/tokens/${token.id}/status`, { status: newStatus });
 
       if (response.ok) {
         toast({
@@ -210,6 +205,9 @@ const TokenDetailsModal: React.FC<TokenDetailsModalProps> = ({
             <Key className="h-5 w-5" />
             Token Details: {token.name}
           </DialogTitle>
+          <DialogDescription>
+            View detailed information, usage statistics, and manage settings for this API token.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

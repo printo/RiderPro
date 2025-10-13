@@ -6,6 +6,7 @@ Welcome to the RiderPro documentation hub. This directory contains comprehensive
 
 ### Core Documentation
 - **[System Architecture](./system-architecture.md)** - Complete system design, technology stack, and architectural decisions
+- **[Authentication System](./authentication-system.md)** - Comprehensive authentication guide with React hooks and API integration
 - **[API Documentation](./api-documentation.md)** - Complete REST API reference with examples and error codes
 - **[Database Schema](./database-schema.md)** - Database design, tables, relationships, and data lifecycle
 
@@ -75,14 +76,24 @@ RiderPro is a comprehensive shipment management system designed for logistics an
 - **Automated Sync**: Background synchronization with retry logic
 - **Performance Optimization**: Caching, lazy loading, and code splitting
 
-## 📊 Authentication & Roles
+## 🔐 Authentication & Security
 
-The system uses Django-based authentication with the following roles:
+The system features a modern, unified authentication system with:
 
-- **admin**: Full system access and configuration
-- **isops**: Operations team with view-only access  
-- **isdelivery**: Field workers with shipment update capabilities
-- **user**: Basic access with limited permissions
+- **React Context Integration**: Seamless authentication state management
+- **Automatic Token Refresh**: Uninterrupted user sessions
+- **Role-Based Access Control**: Granular permission system
+- **Comprehensive Error Handling**: User-friendly error recovery
+- **Type-Safe API Client**: Centralized, authenticated API requests
+
+### User Roles
+- **super_admin**: Complete system control and configuration
+- **admin**: Full operational access and user management
+- **ops_team**: Operations oversight with analytics access
+- **manager**: Route management and performance analytics
+- **driver**: Personal route and delivery management
+
+See [Authentication System Documentation](./authentication-system.md) for complete implementation details.
 
 ## 🔗 Related Resources
 

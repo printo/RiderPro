@@ -1,6 +1,6 @@
 import { useDashboard } from "@/hooks/useDashboard";
 import { Card, CardContent } from "@/components/ui/card";
-import { authService } from "@/services/AuthService";
+import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import SyncStatusPanel from "@/components/SyncStatusPanel";
 import StatusDistributionChart from "@/components/StatusDistributionChart";
@@ -11,6 +11,7 @@ import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
 function Dashboard() {
   const { data: metrics, isLoading, error } = useDashboard();
+  const { logout } = useAuth();
 
   if (isLoading) {
     return (
@@ -81,7 +82,7 @@ function Dashboard() {
                 <div className="mt-4">
                   <button
                     onClick={() => {
-                      authService.logout().finally(() => {
+                      logout().finally(() => {
                         window.location.href = '/login';
                       });
                     }}

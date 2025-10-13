@@ -17,33 +17,34 @@ import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
 // Lazy load the shipments list component
 const ShipmentsList = lazy(() => import("@/components/ShipmentsList"));
-import { authService } from "@/services/AuthService";
+import { useAuth } from "@/hooks/useAuth";
 import { useDebounce } from "@/hooks/useDebounce";
 
 function ShipmentsWithTracking() {
   const [filters, setFilters] = useState<ShipmentFilters>({});
+  const { logout } = useAuth();
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [showRouteControls, setShowRouteControls] = useState(true);
 
+  const { user: currentUser, isAuthenticated, authState } = useAuth();
+
   // Debug: Log component mount and auth state
   useEffect(() => {
     console.log('ShipmentsWithTracking mounted');
-    const user = authService.getUser();
     console.log('Current auth state:', {
-      isAuthenticated: authService.isAuthenticated(),
-      user,
-      hasAccessToken: !!authService.getState().accessToken,
-      hasRefreshToken: !!authService.getState().refreshToken
+      isAuthenticated,
+      user: currentUser,
+      hasAccessToken: !!authState.accessToken,
+      hasRefreshToken: !!authState.refreshToken
     });
 
     return () => {
       console.log('ShipmentsWithTracking unmounted');
     };
-  }, []);
+  }, [isAuthenticated, currentUser, authState]);
 
-  const currentUser = authService.getUser();
   const employeeId = currentUser?.employeeId || currentUser?.username || "";
 
   // Memoize effective filters so query key is stable
@@ -299,7 +300,7 @@ function ShipmentsWithTracking() {
                   ) : (
                     <Button
                       onClick={() => {
-                        authService.logout().finally(() => {
+                        logout().finally(() => {
                           window.location.href = "/login";
                         });
                       }}

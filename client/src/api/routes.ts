@@ -3,6 +3,7 @@ import {
   RouteSession, StartRouteSession, StopRouteSession,
   GPSCoordinate, RouteAnalytics, RouteFilters, RouteTracking
 } from "@shared/schema";
+import { apiClient } from "../services/ApiClient";
 
 export interface RouteAPIResponse<T = any> {
   success: boolean;
@@ -130,7 +131,7 @@ export const routeAPI = {
    */
   getActiveSession: async (employeeId: string): Promise<RouteSession | null> => {
     try {
-      const response = await fetch(`/api/routes/active/${employeeId}`);
+      const response = await apiClient.get(`/api/routes/active/${employeeId}`);
       const result = await response.json();
 
       if (response.status === 404) {
@@ -154,7 +155,7 @@ export const routeAPI = {
    * Get session coordinates
    */
   getSessionCoordinates: async (sessionId: string): Promise<RouteTracking[]> => {
-    const response = await fetch(`/api/routes/session/${sessionId}`);
+    const response = await apiClient.get(`/api/routes/session/${sessionId}`);
     const result = await response.json();
 
     if (!response.ok || !result.success) {
@@ -176,7 +177,7 @@ export const routeAPI = {
     if (filters.sessionStatus) params.append('sessionStatus', filters.sessionStatus);
 
     const url = `/api/routes/analytics${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await fetch(url);
+    const response = await apiClient.get(url);
     const result = await response.json();
 
     if (!response.ok || !result.success) {
@@ -211,7 +212,7 @@ export const routeAPI = {
    * Get session summary with calculated metrics
    */
   getSessionSummary: async (sessionId: string): Promise<SessionSummary> => {
-    const response = await fetch(`/api/routes/session/${sessionId}/summary`);
+    const response = await apiClient.get(`/api/routes/session/${sessionId}/summary`);
     const result = await response.json();
 
     if (!response.ok || !result.success) {
@@ -259,7 +260,7 @@ export const routeAPI = {
    */
   checkAPIHealth: async (): Promise<boolean> => {
     try {
-      const response = await fetch('/api/routes/analytics?limit=1');
+      const response = await apiClient.get('/api/routes/analytics?limit=1');
       return response.ok;
     } catch (error) {
       return false;

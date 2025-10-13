@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
-import authService from "@/services/AuthService";
+import { apiClient } from "@/services/ApiClient";
 import CreateTokenModal from "./CreateTokenModal";
 import TokenDetailsModal from "./TokenDetailsModal";
 
@@ -59,7 +59,7 @@ const TokenManagement: React.FC<TokenManagementProps> = ({ canEdit }) => {
   const loadTokens = async () => {
     try {
       setLoading(true);
-      const response = await authService.fetchWithAuth('/api/admin/tokens');
+      const response = await apiClient.get('/api/admin/tokens');
 
       if (response.ok) {
         const data = await response.json();
@@ -90,13 +90,7 @@ const TokenManagement: React.FC<TokenManagementProps> = ({ canEdit }) => {
 
   const handleStatusChange = async (tokenId: number, newStatus: 'active' | 'disabled' | 'revoked') => {
     try {
-      const response = await authService.fetchWithAuth(`/api/admin/tokens/${tokenId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus })
-      });
+      const response = await apiClient.patch(`/api/admin/tokens/${tokenId}/status`, { status: newStatus });
 
       if (response.ok) {
         setTokens(prev => prev.map(token =>
@@ -131,9 +125,7 @@ const TokenManagement: React.FC<TokenManagementProps> = ({ canEdit }) => {
 
   const handleCleanupExpired = async () => {
     try {
-      const response = await authService.fetchWithAuth('/api/admin/tokens/cleanup', {
-        method: 'POST'
-      });
+      const response = await apiClient.post('/api/admin/tokens/cleanup');
 
       if (response.ok) {
         const data = await response.json();

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import authService from "@/services/AuthService";
+import { useAuth } from "@/hooks/useAuth";
 import type { User } from "@/types/Auth";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -25,21 +25,7 @@ function FloatingActionMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const { theme, toggleTheme } = useTheme();
-  const [user, setUser] = useState<User | null>(null);
-
-  // Subscribe to auth state changes
-  useEffect(() => {
-    // Initial state
-    const state = authService.getState();
-    setUser(state.user);
-
-    // Subscribe to future changes
-    const unsubscribe = authService.subscribe((newState) => {
-      setUser(newState.user);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const { user, logout } = useAuth();
 
   const menuItems = [
     {
@@ -219,7 +205,7 @@ function FloatingActionMenu() {
                     className="h-14 flex items-center justify-start gap-3 rounded-xl transition-all duration-200 hover:scale-[1.02] hover:shadow-lg border border-transparent hover:border-red-200 group p-3 hover:bg-gradient-to-br hover:from-red-50 hover:to-red-100"
                     data-testid="button-logout"
                     onClick={async () => {
-                      await authService.logout();
+                      await logout();
                       window.location.href = '/login';
                     }}
                   >

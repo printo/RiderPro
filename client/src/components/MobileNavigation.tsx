@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
-import authService from '../services/AuthService';
+import { useAuth } from '../hooks/useAuth';
 import { UserRole } from '../types/Auth';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import '../styles/mobile.css';
@@ -24,6 +24,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeRiders, setActiveRiders] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const { user, logout } = useAuth();
 
   const mobileOptimization = useMobileOptimization({
     enableGestures: true
@@ -46,7 +47,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
       icon: '🗺️',
       badge: activeRiders
     },
-    ...(authService.getUser()?.role === UserRole.ADMIN ? [{
+    ...(user?.role === UserRole.ADMIN ? [{
       path: '/admin',
       label: 'Admin',
       icon: '⚙️'
@@ -94,7 +95,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   const handleLogout = async () => {
     console.log('Logout button clicked');
     try {
-      const success = await authService.logout();
+      const success = await logout();
       if (success) {
         console.log('Redirecting to login page...');
         // Use window.location to ensure a full page reload

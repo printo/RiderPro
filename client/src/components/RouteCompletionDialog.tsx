@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -117,6 +117,9 @@ function RouteCompletionDialog({
             <Target className="h-5 w-5 text-green-600" />
             Route Completion Detected
           </DialogTitle>
+          <DialogDescription>
+            Your route session has been automatically detected as complete based on your location and activity.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

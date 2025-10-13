@@ -5,6 +5,7 @@ import {
   TimeBasedMetrics,
   FuelAnalyticsData
 } from '../services/RouteDataAggregator';
+import { apiClient } from '../services/ApiClient';
 
 export interface AnalyticsAPIResponse<T = any> {
   success: boolean;
@@ -61,7 +62,7 @@ export const analyticsApi = {
     if (filters.endDate) params.append('endDate', filters.endDate);
 
     const url = `/api/analytics/employees${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await fetch(url);
+    const response = await apiClient.get(url);
     const result: EmployeeMetricsResponse = await response.json();
 
     if (!response.ok || !result.success) {
@@ -82,7 +83,7 @@ export const analyticsApi = {
     if (filters.endDate) params.append('endDate', filters.endDate);
 
     const url = `/api/analytics/routes${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await fetch(url);
+    const response = await apiClient.get(url);
     const result: RouteMetricsResponse = await response.json();
 
     if (!response.ok || !result.success) {
@@ -106,7 +107,7 @@ export const analyticsApi = {
     if (filters.endDate) params.append('endDate', filters.endDate);
 
     const url = `/api/analytics/time/${groupBy}${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await fetch(url);
+    const response = await apiClient.get(url);
     const result: TimeMetricsResponse = await response.json();
 
     if (!response.ok || !result.success) {
@@ -127,7 +128,7 @@ export const analyticsApi = {
     if (filters.endDate) params.append('endDate', filters.endDate);
 
     const url = `/api/analytics/fuel${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await fetch(url);
+    const response = await apiClient.get(url);
     const result: FuelAnalyticsResponse = await response.json();
 
     if (!response.ok || !result.success) {
@@ -144,7 +145,7 @@ export const analyticsApi = {
     metric: 'distance' | 'efficiency' | 'fuel',
     limit: number = 10
   ): Promise<TopPerformersResponse['performers']> => {
-    const response = await fetch(`/api/analytics/top-performers/${metric}?limit=${limit}`);
+    const response = await apiClient.get(`/api/analytics/top-performers/${metric}?limit=${limit}`);
     const result: TopPerformersResponse = await response.json();
 
     if (!response.ok || !result.success) {
@@ -170,7 +171,7 @@ export const analyticsApi = {
     if (filters.endDate) params.append('endDate', filters.endDate);
 
     const url = `/api/analytics/activity/hourly${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await fetch(url);
+    const response = await apiClient.get(url);
     const result = await response.json();
 
     if (!response.ok || !result.success) {

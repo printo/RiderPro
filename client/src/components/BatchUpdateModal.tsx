@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -70,6 +70,9 @@ function BatchUpdateModal({
       <DialogContent className="max-w-md" data-testid="modal-batch-update">
         <DialogHeader>
           <DialogTitle>Batch Update</DialogTitle>
+          <DialogDescription>
+            Update the status of {selectedCount} selected shipment{selectedCount !== 1 ? 's' : ''} at once.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">

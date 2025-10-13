@@ -1,10 +1,12 @@
 import { Link, useLocation } from "wouter";
 import { Truck } from "lucide-react";
-import authService from "@/services/AuthService";
+import { useUser, useUserDisplayInfo } from "@/hooks/useAuth";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 
 function Navigation() {
   const [location] = useLocation();
+  const user = useUser();
+  const { displayName, role } = useUserDisplayInfo();
 
   const isActive = (path: string) => {
     if (path === "/" && (location === "/" || location === "/dashboard")) {
@@ -26,10 +28,15 @@ function Navigation() {
               <h1 className="text-xl font-bold text-foreground hover:text-primary transition-colors">RiderPro</h1>
             </Link>
             <div className="flex items-center gap-4">
-              {authService.getUser()?.role && (
-                <span className="text-xs px-2 py-1 rounded-full bg-muted text-foreground capitalize">
-                  {String(authService.getUser()?.role)}
-                </span>
+              {user && (
+                <>
+                  <span className="text-sm text-foreground hidden sm:inline">
+                    {displayName}
+                  </span>
+                  <span className="text-xs px-2 py-1 rounded-full bg-muted text-foreground capitalize">
+                    {role}
+                  </span>
+                </>
               )}
             </div>
           </div>

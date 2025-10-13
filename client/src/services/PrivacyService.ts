@@ -1,5 +1,5 @@
 import { PrivacySettings, ConsentType, AuditLogEntry, AuditLogFilters, AuditStatistics } from '../types/Auth';
-import { authService } from './AuthService';
+import { apiClient } from './ApiClient';
 
 interface DataProcessingSummary {
   employeeId: string;
@@ -30,7 +30,7 @@ class PrivacyService {
   // Privacy Settings Management
   public async getPrivacySettings(employeeId: string): Promise<{ success: boolean; settings?: PrivacySettings; message?: string }> {
     try {
-      const response = await authService.authenticatedFetch(`/api/privacy/settings/${employeeId}`);
+      const response = await apiClient.get(`/api/privacy/settings/${employeeId}`);
       const data = await response.json();
 
       if (data.success) {
@@ -55,10 +55,7 @@ class PrivacyService {
 
   public async updatePrivacySettings(employeeId: string, settings: Partial<PrivacySettings>): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await authService.authenticatedFetch(`/api/privacy/settings/${employeeId}`, {
-        method: 'PUT',
-        body: JSON.stringify(settings)
-      });
+      const response = await apiClient.put(`/api/privacy/settings/${employeeId}`, settings);
 
       const data = await response.json();
       return data;
@@ -74,10 +71,7 @@ class PrivacyService {
   // Consent Management
   public async grantGPSConsent(employeeId: string, consent: boolean): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await authService.authenticatedFetch(`/api/privacy/consent/gps/${employeeId}`, {
-        method: 'POST',
-        body: JSON.stringify({ consent })
-      });
+      const response = await apiClient.post(`/api/privacy/consent/gps/${employeeId}`, { consent });
 
       const data = await response.json();
       return data;
@@ -103,7 +97,7 @@ class PrivacyService {
   // Data Processing and Export
   public async getDataProcessingSummary(employeeId: string): Promise<{ success: boolean; summary?: DataProcessingSummary; message?: string }> {
     try {
-      const response = await authService.authenticatedFetch(`/api/privacy/data-summary/${employeeId}`);
+      const response = await apiClient.get(`/api/privacy/data-summary/${employeeId}`);
       const data = await response.json();
 
       if (data.success) {
@@ -128,7 +122,7 @@ class PrivacyService {
 
   public async exportEmployeeData(employeeId: string, format: 'json' | 'csv' = 'json'): Promise<{ success: boolean; message?: string }> {
     try {
-      const response = await authService.authenticatedFetch(`/api/privacy/export/${employeeId}?format=${format}`);
+      const response = await apiClient.get(`/api/privacy/export/${employeeId}?format=${format}`);
 
       if (response.ok) {
         const blob = await response.blob();
@@ -163,10 +157,7 @@ class PrivacyService {
 
   public async deleteEmployeeData(employeeId: string, confirmDeletion: boolean = false): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await authService.authenticatedFetch(`/api/privacy/data/${employeeId}`, {
-        method: 'DELETE',
-        body: JSON.stringify({ confirmDeletion })
-      });
+      const response = await apiClient.delete(`/api/privacy/data/${employeeId}`, { data: { confirmDeletion } });
 
       const data = await response.json();
       return data;
@@ -190,7 +181,7 @@ class PrivacyService {
         }
       });
 
-      const response = await authService.authenticatedFetch(`/api/privacy/audit-logs?${queryParams}`);
+      const response = await apiClient.get(`/api/privacy/audit-logs?${queryParams}`);
       const data = await response.json();
 
       if (data.success) {
@@ -224,7 +215,7 @@ class PrivacyService {
         }
       });
 
-      const response = await authService.authenticatedFetch(`/api/privacy/audit-stats?${queryParams}`);
+      const response = await apiClient.get(`/api/privacy/audit-stats?${queryParams}`);
       const data = await response.json();
 
       if (data.success) {
@@ -250,9 +241,7 @@ class PrivacyService {
   // Data Retention and Cleanup (Admin only)
   public async applyDataRetention(): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await authService.authenticatedFetch('/api/privacy/data-retention', {
-        method: 'POST'
-      });
+      const response = await apiClient.post('/api/privacy/data-retention');
 
       const data = await response.json();
       return data;
@@ -267,10 +256,7 @@ class PrivacyService {
 
   public async cleanupAuditLogs(retentionDays: number = 90): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await authService.authenticatedFetch('/api/privacy/cleanup-audit-logs', {
-        method: 'POST',
-        body: JSON.stringify({ retentionDays })
-      });
+      const response = await apiClient.post('/api/privacy/cleanup-audit-logs', { retentionDays });
 
       const data = await response.json();
       return data;
@@ -294,7 +280,7 @@ class PrivacyService {
         }
       });
 
-      const response = await authService.authenticatedFetch(`/api/privacy/anonymized-routes?${queryParams}`);
+      const response = await apiClient.get(`/api/privacy/anonymized-routes?${queryParams}`);
       const data = await response.json();
 
       if (data.success) {

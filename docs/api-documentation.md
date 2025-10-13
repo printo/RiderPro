@@ -5,11 +5,31 @@
 - Production: `https://your-domain.com/api`
 
 ## Authentication
-Uses Django-issued token authentication (no JWT required):
-- Login proxied via `/api/auth/login` to `https://pia.printo.in/api/v1/auth/`
-- Stores `access_token`, `refresh_token`, user with literal role (`admin`, `isops`, `isdelivery`)
-- Sends `Authorization: Bearer <access-token>` and cookies
-- Auto-refresh via `/api/auth/refresh` on 401
+
+The system uses a modern, unified authentication system with automatic token management:
+
+### Client-Side Integration
+- **React Hook**: Use `useAuth()` hook for all authentication needs
+- **API Client**: Use `apiClient` for all authenticated requests
+- **Automatic Headers**: Authentication headers added automatically
+- **Token Refresh**: Seamless token renewal on expiration
+
+```typescript
+// React component usage
+import { useAuth } from '@/hooks/useAuth';
+import { apiClient } from '@/services/ApiClient';
+
+const { user, isAuthenticated, login, logout } = useAuth();
+
+// API calls with automatic authentication
+const response = await apiClient.get('/api/shipments');
+```
+
+### Server Integration
+- **Django Authentication**: Proxied via `/api/auth/login` to `https://pia.printo.in/api/v1/auth/`
+- **Token Storage**: Secure storage of `access_token`, `refresh_token`, and user data
+- **Authorization Headers**: `Authorization: Bearer <access-token>` sent automatically
+- **Auto-Refresh**: Automatic token refresh on 401 responses via `/api/auth/refresh`
 
 ## Authentication Endpoints
 
@@ -35,10 +55,22 @@ Uses Django-issued token authentication (no JWT required):
       "id": "employee123",
       "username": "user@company.com",
       "email": "user@company.com",
-      "role": "isops",
+      "role": "ops_team",
       "employeeId": "employee123",
       "fullName": "User Name",
-      "permissions": ["view_all_routes"]
+      "isActive": true,
+      "lastLogin": "2024-01-15T10:00:00Z",
+      "permissions": [
+        "view_all_routes",
+        "view_analytics",
+        "export_data",
+        "view_live_tracking"
+      ],
+      "isOpsTeam": true,
+      "isAdmin": false,
+      "isSuperAdmin": false,
+      "createdAt": "2024-01-01T00:00:00Z",
+      "updatedAt": "2024-01-15T10:00:00Z"
     }
   }
 }
