@@ -16,9 +16,9 @@ import {
 } from 'lucide-react';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
 
-import RouteVisualization from '@/components/RouteVisualization';
-import RouteComparison from '@/components/RouteComparison';
-import RouteOptimizationSuggestions from '@/components/RouteOptimizationSuggestions';
+import RouteVisualization from '@/components/routes/RouteVisualization';
+import RouteComparison from '@/components/routes/RouteComparison';
+import RouteOptimizationSuggestions from '@/components/routes/RouteOptimizationSuggestions';
 
 // Mock data interfaces (in real app, these would come from API)
 interface RoutePoint {

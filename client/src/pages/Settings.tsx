@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/useAuth';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
-import SyncStatusPanel from '@/components/SyncStatusPanel';
+import SyncStatusPanel from '@/components/sync/SyncStatusPanel';
 import {
   User,
   Settings as SettingsIcon,

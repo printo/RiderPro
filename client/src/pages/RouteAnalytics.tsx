@@ -30,7 +30,7 @@ import PerformanceMetricsChart from '@/components/analytics/PerformanceMetricsCh
 import FuelAnalyticsChart from '@/components/analytics/FuelAnalyticsChart';
 import EmployeePerformanceTable from '@/components/analytics/EmployeePerformanceTable';
 import RouteComparisonChart from '@/components/analytics/RouteComparisonChart';
-import ExportDialog from '@/components/ExportDialog';
+import ExportDialog from '@/components/ui/forms/ExportDialog';
 
 import { routeAPI } from '@/apiClient/routes';
 

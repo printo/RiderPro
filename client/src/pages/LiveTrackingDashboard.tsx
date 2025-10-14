@@ -14,8 +14,8 @@ import {
   Maximize2,
   Minimize2
 } from 'lucide-react';
-import LiveTrackingMap, { RiderLocation } from '@/components/LiveTrackingMap';
-import RiderStatusPanel from '@/components/RiderStatusPanel';
+import LiveTrackingMap, { RiderLocation } from '@/components/tracking/LiveTrackingMap';
+import RiderStatusPanel from '@/components/ui/status/RiderStatusPanel';
 import { useLiveTracking } from '@/hooks/useLiveTracking';
 
 function LiveTrackingDashboard() {

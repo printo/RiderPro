@@ -5,7 +5,7 @@ import { apiClient } from "@/services/ApiClient";
 import { useLocation } from "wouter";
 import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2 } from "lucide-react";
 import { useState } from "react";
-import FuelSettingsModal, { FuelSettings } from "@/components/FuelSettingsModal";
+import FuelSettingsModal, { FuelSettings } from "@/components/ui/forms/FuelSettingsModal";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";

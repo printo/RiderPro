@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 
 const RiderSignupForm = () => {
   const [formData, setFormData] = useState({
@@ -12,7 +12,7 @@ const RiderSignupForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -34,7 +34,7 @@ const RiderSignupForm = () => {
       console.log('Form submitted:', formData);
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
-      navigate('/account/approval');
+      setLocation('/account/approval');
     } catch (err) {
       setError('Failed to create account. Please try again.');
     } finally {
@@ -246,7 +246,7 @@ const RiderSignupForm = () => {
                     className="font-medium text-blue-600 hover:text-blue-500"
                     onClick={(e) => {
                       e.preventDefault();
-                      navigate('/login');
+                      setLocation('/login');
                     }}
                   >
                     Sign in

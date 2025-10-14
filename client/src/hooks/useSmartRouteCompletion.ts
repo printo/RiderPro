@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GeofencingService, GeofenceEvent } from '@/services/GeofencingService';
 import { GPSPosition } from '@/services/GPSTracker';
-import { RouteCompletionData } from '@/components/RouteCompletionDialog';
+import { RouteCompletionData } from '@/components/routes/RouteCompletionDialog';
 
 export interface SmartCompletionConfig {
   enabled: boolean;
