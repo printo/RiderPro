@@ -14,6 +14,7 @@ import { Shipment, ShipmentFilters } from "@shared/schema";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
+import { useAuth } from "@/hooks/useAuth";
 
 // Lazy load the shipments list component
 const ShipmentsList = lazy(() => import("@/components/shipments/ShipmentsList"));
@@ -22,13 +23,13 @@ import { useToast } from "@/hooks/use-toast";
 
 function ShipmentsWithTracking() {
   const [filters, setFilters] = useState<ShipmentFilters>({});
-  // Auth removed - no logout needed
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const { toast } = useToast();
+  const { user: currentUser, isAuthenticated, accessToken, refreshToken } = useAuth();
 
-  // Auth removed - no user context needed
+  const authState = { accessToken, refreshToken };
 
   // Debug: Log component mount and auth state
   useEffect(() => {

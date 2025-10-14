@@ -9,12 +9,13 @@ import RouteSessionControls from "@/components/routes/RouteSessionControls";
 import { Package, CheckCircle, Clock, HourglassIcon, Navigation, Wifi } from "lucide-react";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
+import { useAuth } from "@/hooks/useAuth";
 
 function Dashboard() {
   const { data: metrics, isLoading, error } = useDashboard();
-  // Auth removed - no user context needed
+  const { user, logout } = useAuth();
 
-  const employeeId = "default-user"; // Default employee ID since auth is removed
+  const employeeId = user?.employeeId || user?.username || "default-user";
   const { hasActiveSession, activeSession } = useRouteTracking(employeeId);
 
   if (isLoading) {

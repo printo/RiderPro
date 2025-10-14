@@ -124,28 +124,30 @@ class AuthService {
     try {
       this.setState({ isLoading: true });
 
-      const response = await fetch('/api/auth/external-login', {
+      const response = await fetch('https://pia.printo.in/api/v1/auth/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          employee_id: employeeId,
+          email: employeeId,  // PIA API expects 'email' field
           password: password,
         }),
       });
 
       if (!response.ok) {
-        return { success: false, message: 'Invalid credentials' };
+        const errorData = await response.json();
+        return { success: false, message: errorData.message || 'Invalid credentials' };
       }
 
       const data: ExternalAuthResponse = await response.json();
+      console.log('[AuthService] PIA API response:', data);
 
       // Save to localStorage with all user details
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
       localStorage.setItem('full_name', data.full_name);
-      localStorage.setItem('employee_id', data.employee_id || employeeId);
+      localStorage.setItem('employee_id', employeeId);  // Use the original employee ID
       localStorage.setItem('is_staff', (data.is_staff || false).toString());
       localStorage.setItem('is_super_user', (data.is_super_user || false).toString());
       localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
@@ -154,11 +156,11 @@ class AuthService {
 
       this.setState({
         user: {
-          id: data.employee_id || employeeId,
-          username: data.employee_id || employeeId,
+          id: employeeId,  // Use the original employee ID
+          username: employeeId,
           email: '',
           role,
-          employeeId: data.employee_id || employeeId,
+          employeeId: employeeId,
           fullName: data.full_name,
           isActive: true,
           isOpsTeam: data.is_ops_team || false,
@@ -328,7 +330,10 @@ class AuthService {
       ...(options.headers as Record<string, string> || {}),
     };
 
-    let response = await fetch(url, { ...options, headers });
+    let response = await fetch(url, {
+      ...options,
+      headers
+    });
 
     // If 401, try to refresh token and retry
     if (response.status === 401) {
@@ -336,7 +341,10 @@ class AuthService {
       if (refreshSuccess) {
         const newAccessToken = localStorage.getItem('access_token');
         const newHeaders = { ...headers, 'Authorization': `Bearer ${newAccessToken}` };
-        response = await fetch(url, { ...options, headers: newHeaders });
+        response = await fetch(url, {
+          ...options,
+          headers: newHeaders
+        });
       } else {
         // Refresh failed, logout user
         this.logout();

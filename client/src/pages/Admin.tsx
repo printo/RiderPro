@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/ApiClient";
 import { useLocation } from "wouter";
-import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key } from "lucide-react";
+import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2, Users, UserCheck, UserX } from "lucide-react";
 import { useState, useEffect } from "react";
 import FuelSettingsModal, { FuelSettings } from "@/components/ui/forms/FuelSettingsModal";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,7 +35,6 @@ function AdminPage() {
   });
   const [newPassword, setNewPassword] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
-  const [apiKeys, setApiKeys] = useState<Array<{ type: string; key: string; masked: string }>>([]);
   const [accessTokens, setAccessTokens] = useState<Array<{
     id: string;
     name: string;
@@ -49,11 +48,10 @@ function AdminPage() {
   const canAccessAdmin = !!(user?.isSuperUser || user?.isSuperAdmin);
   const canEdit = !!(user?.isSuperUser || user?.isSuperAdmin);
 
-  // Load pending users, API keys, and access tokens
+  // Load pending users and access tokens
   useEffect(() => {
     if (canAccessAdmin) {
       loadPendingUsers();
-      loadApiKeys();
       loadAccessTokens();
     }
   }, [canAccessAdmin]);
@@ -78,24 +76,6 @@ function AdminPage() {
     }
   };
 
-  const loadApiKeys = async () => {
-    try {
-      const response = await fetch('/api/admin/api-keys');
-      if (response.ok) {
-        const data = await response.json();
-        setApiKeys(data.apiKeys || []);
-      }
-    } catch (error) {
-      console.error('Failed to load API keys:', error);
-      // Fallback to hardcoded keys for display
-      setApiKeys([
-        { type: 'external api key', key: 'hardcoded-external-api-key-12345', masked: 'hard*******12345' },
-        { type: 'internal api key', key: 'hardcoded-internal-api-key-67890', masked: 'hard*******67890' },
-        { type: 'webhook secret', key: 'hardcoded-webhook-secret-abcdef', masked: 'hard*******abcdef' },
-        { type: 'admin api key', key: 'hardcoded-admin-api-key-xyz789', masked: 'hard*******xyz789' }
-      ]);
-    }
-  };
 
   const loadAccessTokens = async () => {
     try {
@@ -673,49 +653,6 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
         </Card>
       </div>
 
-      {/* API Keys Section */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            API Keys Configuration
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Hardcoded API keys for system integration. Keys are masked for security.
-            </p>
-            <div className="grid gap-4">
-              {apiKeys.map((apiKey, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium capitalize">{apiKey.type}</p>
-                    <p className="text-sm text-muted-foreground font-mono">{apiKey.masked}</p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(apiKey.key);
-                      toast({
-                        title: "Copied",
-                        description: `${apiKey.type} copied to clipboard`,
-                      });
-                    }}
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy
-                  </Button>
-                </div>
-              ))}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              💡 To change API keys, update the hardcoded values in the server configuration.
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Access Tokens Section */}
       <Card className="mt-6">
@@ -737,8 +674,8 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
                     <div className="flex items-center gap-2 mb-2">
                       <h4 className="font-medium">{token.name}</h4>
                       <span className={`px-2 py-1 text-xs rounded-full ${token.status === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
                         }`}>
                         {token.status}
                       </span>

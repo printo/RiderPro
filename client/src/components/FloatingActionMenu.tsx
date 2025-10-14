@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-// Auth types removed
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -19,12 +18,13 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 function FloatingActionMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const { theme, toggleTheme } = useTheme();
-  // Auth removed - no user context needed
+  const { user, logout } = useAuth();
 
   const menuItems = [
     {
@@ -232,8 +232,9 @@ function FloatingActionMenu() {
       </Sheet>
     </div>
   );
-} export
-  default withComponentErrorBoundary(FloatingActionMenu, {
-    componentVariant: 'minimal',
-    componentName: 'FloatingActionMenu'
-  });
+}
+
+export default withComponentErrorBoundary(FloatingActionMenu, {
+  componentVariant: 'minimal',
+  componentName: 'FloatingActionMenu'
+});

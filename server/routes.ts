@@ -20,7 +20,6 @@ import { externalSync } from "./services/externalSync.js";
 import { fieldMappingService } from "./services/FieldMappingService.js";
 import { payloadValidationService } from "./services/PayloadValidationService.js";
 import { webhookAuth, webhookSecurity, webhookLogger, webhookRateLimit, webhookPayloadLimit } from "./middleware/webhookAuth.js";
-import { ApiTokenErrorHandler } from "./utils/apiTokenErrorHandler.js";
 import path from 'path';
 
 // Helper function to check if user has required permission level
@@ -31,11 +30,10 @@ function hasRequiredPermission(_req: any, _requiredLevel: 'read' | 'write' | 'ad
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Add request ID middleware for better error tracking
-  app.use(ApiTokenErrorHandler.requestIdMiddleware());
 
   // Add error handling middleware at the end
   const setupErrorHandling = () => {
-    app.use(ApiTokenErrorHandler.errorMiddleware());
+    // Error handling middleware can be added here if needed
   };
 
   // Health check endpoint for connectivity monitoring with caching and rate limiting
@@ -100,60 +98,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===== AUTHENTICATION ROUTES =====
-
-  // External API login proxy (to avoid CORS issues)
-  app.post('/api/auth/external-login', async (req, res) => {
-    try {
-      const { employee_id, password } = req.body;
-
-      if (!employee_id || !password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Employee ID and password are required'
-        });
-      }
-
-      // Make request to external PIA API from server side
-      const piaResponse = await fetch('https://pia.printo.in/api/v1/auth/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          employee_id,
-          password,
-        }),
-      });
-
-      if (!piaResponse.ok) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
-
-      const piaData = await piaResponse.json();
-
-      // Return the response from PIA API
-      res.json({
-        success: true,
-        access: piaData.access,
-        refresh: piaData.refresh,
-        full_name: piaData.full_name,
-        is_staff: piaData.is_staff,
-        is_super_user: piaData.is_super_user,
-        is_ops_team: piaData.is_ops_team,
-        employee_id: piaData.employee_id
-      });
-
-    } catch (error: any) {
-      console.error('External login proxy error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Login failed. Please try again.'
-      });
-    }
-  });
 
   // Local user registration
   app.post('/api/auth/register', async (req, res) => {

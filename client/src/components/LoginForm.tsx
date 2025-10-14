@@ -91,7 +91,7 @@ function Login() {
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
               >
-                PIA Access
+                Using PIA Access
               </button>
               <button
                 type="button"
@@ -102,7 +102,7 @@ function Login() {
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
               >
-                Rider ID
+                Using Rider ID
               </button>
             </div>
 
