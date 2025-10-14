@@ -146,7 +146,27 @@ GET /api/shipments
 - `sortField` (string): Field to sort by
 - `sortOrder` (string): ASC or DESC
 
-**Response:**
+**Sample Request URL:**
+```
+GET /api/shipments?page=1&limit=10&status=pending&type=delivery&routeName=Route%20A&sortField=createdAt&sortOrder=DESC
+```
+
+**Sample Query Payload (as URL parameters):**
+```json
+{
+  "page": 1,
+  "limit": 10,
+  "status": "pending",
+  "type": "delivery",
+  "routeName": "Route A",
+  "employeeId": "EMP001",
+  "date": "2024-01-15",
+  "sortField": "createdAt",
+  "sortOrder": "DESC"
+}
+```
+
+**Sample Response:**
 ```json
 {
   "data": [
@@ -156,13 +176,13 @@ GET /api/shipments
       "status": "pending",
       "priority": "high",
       "type": "delivery",
-      "pickupAddress": "123 Warehouse St, City",
-      "deliveryAddress": "456 Customer Ave, City",
+      "pickupAddress": "123 Warehouse St, New York, NY 10001",
+      "deliveryAddress": "456 Customer Ave, New York, NY 10002",
       "recipientName": "John Doe",
       "recipientPhone": "+1234567890",
       "weight": 2.5,
       "dimensions": "30x20x15 cm",
-      "specialInstructions": "Handle with care",
+      "specialInstructions": "Handle with care - fragile electronics",
       "estimatedDeliveryTime": "2024-01-15T14:30:00Z",
       "actualDeliveryTime": null,
       "latitude": 40.7128,
@@ -172,12 +192,35 @@ GET /api/shipments
       "cost": 25.50,
       "createdAt": "2024-01-15T10:00:00Z",
       "updatedAt": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "SHIP002",
+      "trackingNumber": "TRK123456790",
+      "status": "pending",
+      "priority": "medium",
+      "type": "delivery",
+      "pickupAddress": "123 Warehouse St, New York, NY 10001",
+      "deliveryAddress": "789 Business Blvd, New York, NY 10003",
+      "recipientName": "Jane Smith",
+      "recipientPhone": "+1234567891",
+      "weight": 1.8,
+      "dimensions": "25x15x10 cm",
+      "specialInstructions": "Call before delivery",
+      "estimatedDeliveryTime": "2024-01-15T16:00:00Z",
+      "actualDeliveryTime": null,
+      "latitude": 40.7589,
+      "longitude": -73.9851,
+      "routeName": "Route A",
+      "employeeId": "EMP001",
+      "cost": 18.75,
+      "createdAt": "2024-01-15T10:15:00Z",
+      "updatedAt": "2024-01-15T10:15:00Z"
     }
   ],
   "total": 150,
   "page": 1,
-  "limit": 20,
-  "totalPages": 8,
+  "limit": 10,
+  "totalPages": 15,
   "hasNextPage": true,
   "hasPreviousPage": false
 }
@@ -230,39 +273,58 @@ GET /api/shipments/:id
 POST /api/shipments
 ```
 
-**Request Body:**
+**Sample Request Payload:**
 ```json
 {
-  "trackingNumber": "TRK123456789",
+  "trackingNumber": "TRK123456791",
   "status": "pending",
   "priority": "high",
   "type": "delivery",
-  "pickupAddress": "123 Warehouse St, City",
-  "deliveryAddress": "456 Customer Ave, City",
+  "pickupAddress": "123 Warehouse St, New York, NY 10001",
+  "deliveryAddress": "456 Customer Ave, New York, NY 10002",
   "recipientName": "John Doe",
   "recipientPhone": "+1234567890",
   "weight": 2.5,
   "dimensions": "30x20x15 cm",
-  "specialInstructions": "Handle with care",
+  "specialInstructions": "Handle with care - fragile electronics. Call recipient before delivery.",
   "estimatedDeliveryTime": "2024-01-15T14:30:00Z",
   "latitude": 40.7128,
   "longitude": -74.0060,
   "routeName": "Route A",
   "employeeId": "EMP001",
-  "cost": 25.50
+  "cost": 25.50,
+  "customerName": "John Doe",
+  "customerMobile": "+1234567890",
+  "address": "456 Customer Ave, New York, NY 10002"
 }
 ```
 
-**Response:**
+**Sample Response:**
 ```json
 {
   "success": true,
+  "message": "Shipment created successfully",
   "data": {
-    "id": "SHIP001",
-    "trackingNumber": "TRK123456789",
+    "id": "SHIP003",
+    "trackingNumber": "TRK123456791",
     "status": "pending",
-    "createdAt": "2024-01-15T10:00:00Z",
-    "updatedAt": "2024-01-15T10:00:00Z"
+    "priority": "high",
+    "type": "delivery",
+    "pickupAddress": "123 Warehouse St, New York, NY 10001",
+    "deliveryAddress": "456 Customer Ave, New York, NY 10002",
+    "recipientName": "John Doe",
+    "recipientPhone": "+1234567890",
+    "weight": 2.5,
+    "dimensions": "30x20x15 cm",
+    "specialInstructions": "Handle with care - fragile electronics. Call recipient before delivery.",
+    "estimatedDeliveryTime": "2024-01-15T14:30:00Z",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "routeName": "Route A",
+    "employeeId": "EMP001",
+    "cost": 25.50,
+    "createdAt": "2024-01-15T10:30:00Z",
+    "updatedAt": "2024-01-15T10:30:00Z"
   }
 }
 ```
@@ -272,24 +334,54 @@ POST /api/shipments
 PATCH /api/shipments/:id
 ```
 
-**Request Body:**
+**Sample Request URL:**
+```
+PATCH /api/shipments/SHIP001
+```
+
+**Sample Request Payload:**
 ```json
 {
   "status": "in_transit",
   "actualDeliveryTime": "2024-01-15T15:45:00Z",
   "latitude": 40.7130,
   "longitude": -74.0062,
-  "specialInstructions": "Updated delivery instructions"
+  "specialInstructions": "Updated delivery instructions - recipient will be available after 3 PM",
+  "employeeId": "EMP001",
+  "routeName": "Route A",
+  "priority": "high",
+  "recipientPhone": "+1234567890",
+  "weight": 2.5,
+  "dimensions": "30x20x15 cm"
 }
 ```
 
-**Response:**
+**Sample Response:**
 ```json
 {
   "success": true,
+  "message": "Shipment updated successfully",
   "data": {
     "id": "SHIP001",
+    "trackingNumber": "TRK123456789",
     "status": "in_transit",
+    "priority": "high",
+    "type": "delivery",
+    "pickupAddress": "123 Warehouse St, New York, NY 10001",
+    "deliveryAddress": "456 Customer Ave, New York, NY 10002",
+    "recipientName": "John Doe",
+    "recipientPhone": "+1234567890",
+    "weight": 2.5,
+    "dimensions": "30x20x15 cm",
+    "specialInstructions": "Updated delivery instructions - recipient will be available after 3 PM",
+    "estimatedDeliveryTime": "2024-01-15T14:30:00Z",
+    "actualDeliveryTime": "2024-01-15T15:45:00Z",
+    "latitude": 40.7130,
+    "longitude": -74.0062,
+    "routeName": "Route A",
+    "employeeId": "EMP001",
+    "cost": 25.50,
+    "createdAt": "2024-01-15T10:00:00Z",
     "updatedAt": "2024-01-15T15:45:00Z"
   }
 }
@@ -300,31 +392,86 @@ PATCH /api/shipments/:id
 PATCH /api/shipments/batch
 ```
 
-**Request Body:**
+**Sample Request Payload:**
 ```json
 {
   "updates": [
     {
       "id": "SHIP001",
       "status": "in_transit",
-      "employeeId": "EMP001"
+      "employeeId": "EMP001",
+      "routeName": "Route A",
+      "latitude": 40.7130,
+      "longitude": -74.0062,
+      "specialInstructions": "Out for delivery",
+      "updatedBy": "EMP001"
     },
     {
-      "id": "SHIP002",
+      "id": "SHIP002", 
       "status": "delivered",
-      "actualDeliveryTime": "2024-01-15T16:00:00Z"
+      "actualDeliveryTime": "2024-01-15T16:00:00Z",
+      "latitude": 40.7589,
+      "longitude": -73.9851,
+      "employeeId": "EMP001",
+      "specialInstructions": "Package delivered to recipient",
+      "updatedBy": "EMP001"
+    },
+    {
+      "id": "SHIP003",
+      "status": "picked_up",
+      "actualDeliveryTime": "2024-01-15T15:30:00Z",
+      "latitude": 40.7505,
+      "longitude": -73.9934,
+      "employeeId": "EMP001",
+      "specialInstructions": "Package picked up from sender",
+      "updatedBy": "EMP001"
     }
-  ]
+  ],
+  "batchMetadata": {
+    "batchId": "BATCH_001",
+    "routeSession": "SESSION_001",
+    "timestamp": "2024-01-15T16:00:00Z",
+    "source": "mobile_app"
+  }
 }
 ```
 
-**Response:**
+**Sample Response:**
 ```json
 {
   "success": true,
+  "message": "Batch update completed successfully",
   "data": {
-    "updatedCount": 2,
-    "message": "Successfully updated 2 shipments"
+    "batchId": "BATCH_001",
+    "updatedCount": 3,
+    "failedCount": 0,
+    "results": [
+      {
+        "id": "SHIP001",
+        "success": true,
+        "status": "in_transit",
+        "updatedAt": "2024-01-15T16:00:00Z"
+      },
+      {
+        "id": "SHIP002",
+        "success": true,
+        "status": "delivered",
+        "updatedAt": "2024-01-15T16:00:00Z"
+      },
+      {
+        "id": "SHIP003",
+        "success": true,
+        "status": "picked_up",
+        "updatedAt": "2024-01-15T16:00:00Z"
+      }
+    ],
+    "summary": {
+      "totalRequested": 3,
+      "successful": 3,
+      "failed": 0,
+      "processedAt": "2024-01-15T16:00:00Z",
+      "processingTime": 245
+    }
   }
 }
 ```
@@ -336,7 +483,7 @@ PATCH /api/shipments/batch
 POST /api/routes/start
 ```
 
-**Request Body:**
+**Sample Request Payload:**
 ```json
 {
   "employeeId": "EMP001",
@@ -344,26 +491,48 @@ POST /api/routes/start
   "longitude": -74.0060,
   "routeId": "ROUTE_A_001",
   "driverId": "EMP001",
-  "vehicleId": "VEH001"
+  "vehicleId": "VEH001",
+  "plannedRoute": "Route A",
+  "estimatedDuration": 28800,
+  "estimatedDistance": 120.0,
+  "startAddress": "123 Warehouse St, New York, NY 10001",
+  "deviceInfo": {
+    "deviceId": "DEVICE_001",
+    "platform": "mobile",
+    "appVersion": "1.0.0",
+    "gpsAccuracy": 5.0
+  }
 }
 ```
 
-**Response:**
+**Sample Response:**
 ```json
 {
   "success": true,
   "message": "Route session started successfully",
   "session": {
-    "id": "SESSION_001",
+    "id": "SESSION_20240115_001",
     "employeeId": "EMP001",
     "startTime": "2024-01-15T08:00:00Z",
+    "endTime": null,
     "status": "active",
     "startLatitude": 40.7128,
     "startLongitude": -74.0060,
+    "endLatitude": null,
+    "endLongitude": null,
     "totalDistance": 0,
     "totalTime": 0,
+    "routeId": "ROUTE_A_001",
+    "vehicleId": "VEH001",
+    "plannedRoute": "Route A",
     "createdAt": "2024-01-15T08:00:00Z",
     "updatedAt": "2024-01-15T08:00:00Z"
+  },
+  "tracking": {
+    "sessionToken": "TRK_SESSION_TOKEN_001",
+    "updateInterval": 30000,
+    "accuracyThreshold": 10.0,
+    "batteryOptimization": true
   }
 }
 ```
