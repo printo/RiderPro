@@ -233,9 +233,13 @@ function AdminPage() {
   const handleFuelSettingsSave = async (newSettings: FuelSettings) => {
     try {
       setFuelSettings(newSettings);
-      // Save to localStorage or API
-      localStorage.setItem('fuelSettings', JSON.stringify(newSettings));
-      console.log('Fuel settings saved:', newSettings);
+      // Save to localStorage (excluding vehicleTypes since they're now in database)
+      const settingsToSave = {
+        ...newSettings,
+        vehicleTypes: [] // Don't save vehicle types to localStorage
+      };
+      localStorage.setItem('fuelSettings', JSON.stringify(settingsToSave));
+      console.log('Fuel settings saved:', settingsToSave);
     } catch (error) {
       console.error('Failed to save fuel settings:', error);
       throw error;

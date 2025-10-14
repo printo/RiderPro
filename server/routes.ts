@@ -13,7 +13,10 @@ import {
   stopRouteSessionSchema,
   gpsCoordinateSchema,
   routeFiltersSchema,
-  ShipmentFilters
+  ShipmentFilters,
+  VehicleType,
+  InsertVehicleType,
+  UpdateVehicleType
 } from "@shared/schema";
 import { upload, getFileUrl, saveBase64File } from "./utils/fileUpload.js";
 import { externalSync } from "./services/externalSync.js";
@@ -381,6 +384,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Vehicle Types CRUD endpoints
+  app.get('/api/vehicle-types', async (req, res) => {
+    try {
+      const vehicleTypes = await storage.getVehicleTypes();
+      res.json(vehicleTypes);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get('/api/vehicle-types/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const vehicleType = await storage.getVehicleType(id);
+      if (!vehicleType) {
+        return res.status(404).json({ message: 'Vehicle type not found' });
+      }
+      res.json(vehicleType);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/vehicle-types', async (req, res) => {
+    try {
+      const vehicleTypeData: InsertVehicleType = req.body;
+
+      // Generate ID if not provided
+      if (!vehicleTypeData.id) {
+        vehicleTypeData.id = `vt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      }
+
+      const vehicleType = await storage.createVehicleType(vehicleTypeData);
+      res.status(201).json(vehicleType);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put('/api/vehicle-types/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates: UpdateVehicleType = req.body;
+
+      const vehicleType = await storage.updateVehicleType(id, updates);
+      if (!vehicleType) {
+        return res.status(404).json({ message: 'Vehicle type not found' });
+      }
+      res.json(vehicleType);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete('/api/vehicle-types/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteVehicleType(id);
+      if (!deleted) {
+        return res.status(404).json({ message: 'Vehicle type not found' });
+      }
+      res.json({ message: 'Vehicle type deleted successfully' });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get shipments with optional filters, pagination, and sorting
   app.get('/api/shipments/fetch', async (req, res) => {
     try {
@@ -570,12 +640,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Validate that shipment ID is provided
-      if (!req.body.trackingNumber) {
+      if (!req.body.shipment_id && !req.body.trackingNumber) {
         return res.status(400).json({
           success: false,
-          message: 'Shipment ID (trackingNumber) is required and cannot be empty',
+          message: 'Shipment ID (shipment_id or trackingNumber) is required and cannot be empty',
           code: 'MISSING_SHIPMENT_ID'
         });
+      }
+
+      // Use trackingNumber as shipment_id if shipment_id is not provided
+      if (!req.body.shipment_id && req.body.trackingNumber) {
+        req.body.shipment_id = req.body.trackingNumber;
       }
 
       const shipmentData = insertShipmentSchema.parse(req.body);

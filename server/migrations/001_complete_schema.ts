@@ -166,7 +166,23 @@ export const up = (db: Database) => {
     );
   `);
 
-  // 7. Create all indexes for performance
+  // 7. Vehicle types table
+  db.exec(`
+    -- Vehicle types table
+    CREATE TABLE IF NOT EXISTS vehicle_types (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      fuel_efficiency REAL NOT NULL,
+      description TEXT,
+      icon TEXT DEFAULT 'car',
+      fuel_type TEXT DEFAULT 'petrol',
+      co2_emissions REAL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  // 8. Create all indexes for performance
   db.exec(`
     -- Route tracking indexes
     CREATE INDEX IF NOT EXISTS idx_route_sessions_employee ON route_sessions(employee_id);
@@ -183,6 +199,10 @@ export const up = (db: Database) => {
     CREATE INDEX IF NOT EXISTS idx_users_employee_id ON users(employee_id);
     CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
     CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens(token_hash);
+
+    -- Vehicle types indexes
+    CREATE INDEX IF NOT EXISTS idx_vehicle_types_name ON vehicle_types(name);
+    CREATE INDEX IF NOT EXISTS idx_vehicle_types_fuel_type ON vehicle_types(fuel_type);
 
     -- Shipments indexes
     CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(status);
@@ -207,7 +227,7 @@ export const up = (db: Database) => {
     CREATE INDEX IF NOT EXISTS idx_system_config_key ON system_config(config_key);
   `);
 
-  // 8. Insert default data
+  // 9. Insert default data
   db.exec(`
     -- Insert default feature flags
     INSERT OR IGNORE INTO feature_flags (id, flag_name, flag_value, description) VALUES
@@ -222,6 +242,13 @@ export const up = (db: Database) => {
     ('cfg_002', 'gps_accuracy_threshold', '10', 'GPS accuracy threshold in meters'),
     ('cfg_003', 'sync_retry_attempts', '3', 'Number of retry attempts for failed syncs'),
     ('cfg_004', 'external_api_timeout', '30000', 'External API timeout in milliseconds');
+
+    -- Insert default vehicle types
+    INSERT OR IGNORE INTO vehicle_types (id, name, fuel_efficiency, description, icon, fuel_type, co2_emissions) VALUES
+    ('vt_001', 'Standard Van', 15.0, 'Standard delivery van', 'truck', 'diesel', 0.2),
+    ('vt_002', 'Small Car', 20.0, 'Small delivery car', 'car', 'petrol', 0.15),
+    ('vt_003', 'Motorcycle', 35.0, 'Delivery motorcycle', 'car', 'petrol', 0.1),
+    ('vt_004', 'Electric Van', 25.0, 'Electric delivery van', 'truck', 'electric', 0.0);
   `);
 
   console.log('✅ Complete database schema created successfully');
@@ -268,6 +295,7 @@ export const down = (db: Database) => {
     DROP TABLE IF EXISTS sync_status;
     DROP TABLE IF EXISTS acknowledgments;
     DROP TABLE IF EXISTS shipments;
+    DROP TABLE IF EXISTS vehicle_types;
     DROP TABLE IF EXISTS api_tokens;
     DROP TABLE IF EXISTS users;
     DROP TABLE IF EXISTS route_tracking;

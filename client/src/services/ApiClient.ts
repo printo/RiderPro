@@ -49,6 +49,7 @@ export class ApiClient {
   private refreshInProgress = false;
   private refreshAttemptTimestamp = 0;
   private readonly REFRESH_COOLDOWN = 5000; // 5 seconds cooldown between refresh attempts
+  private readonly BASE_URL = 'http://localhost:5000';
   private pendingRequests: Array<{
     config: ApiRequestConfig;
     resolve: (response: Response) => void;
@@ -88,11 +89,14 @@ export class ApiClient {
   public async request(config: ApiRequestConfig): Promise<Response> {
     const { url, method, data, skipAuth = false, retryCount = 0, headers = {} } = config;
 
+    // Construct full URL
+    const fullUrl = url.startsWith('http') ? url : `${this.BASE_URL}${url}`;
+
     // Skip logging for auth-related requests to prevent log spam
     const isAuthRequest = url.includes('/auth/');
 
     if (!isAuthRequest) {
-      console.log(`[ApiClient] ${method} ${url}`, data ? { data } : '');
+      console.log(`[ApiClient] ${method} ${fullUrl}`, data ? { data } : '');
     }
 
     try {
@@ -100,7 +104,7 @@ export class ApiClient {
       const requestOptions = this.buildRequestOptions(method, data, skipAuth, headers);
 
       // Make the request
-      let response = await fetch(url, requestOptions);
+      let response = await fetch(fullUrl, requestOptions);
 
       // Handle 401 errors with automatic token refresh
       if (response.status === 401 && !isAuthRequest && !skipAuth) {

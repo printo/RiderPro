@@ -1,5 +1,5 @@
 import { liveDb, replicaDb } from './connection.js';
-import { Shipment, InsertShipment, UpdateShipment, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters } from '@shared/schema';
+import { Shipment, InsertShipment, UpdateShipment, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType } from '@shared/schema';
 import { randomUUID } from 'crypto';
 
 export class ShipmentQueries {
@@ -698,6 +698,136 @@ export class ShipmentQueries {
 
       return results;
     });
+  }
+
+  // Vehicle Types CRUD operations
+  getAllVehicleTypes(): VehicleType[] {
+    const stmt = this.db.prepare('SELECT * FROM vehicle_types ORDER BY name');
+    return stmt.all();
+  }
+
+  getVehicleTypeById(id: string): VehicleType | null {
+    const stmt = this.db.prepare('SELECT * FROM vehicle_types WHERE id = ?');
+    const vehicleType = stmt.get(id);
+    return vehicleType || null;
+  }
+
+  createVehicleType(vehicleType: InsertVehicleType): VehicleType {
+    const now = new Date().toISOString();
+
+    const stmt = this.db.prepare(`
+      INSERT INTO vehicle_types (
+        id, name, fuel_efficiency, description, icon, fuel_type, co2_emissions, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      vehicleType.id,
+      vehicleType.name,
+      vehicleType.fuel_efficiency,
+      vehicleType.description || null,
+      vehicleType.icon || 'car',
+      vehicleType.fuel_type || 'petrol',
+      vehicleType.co2_emissions || null,
+      now,
+      now
+    );
+
+    // Also insert into replica
+    if (this.db === liveDb) {
+      const replicaStmt = replicaDb.prepare(`
+        INSERT INTO vehicle_types (
+          id, name, fuel_efficiency, description, icon, fuel_type, co2_emissions, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      replicaStmt.run(
+        vehicleType.id,
+        vehicleType.name,
+        vehicleType.fuel_efficiency,
+        vehicleType.description || null,
+        vehicleType.icon || 'car',
+        vehicleType.fuel_type || 'petrol',
+        vehicleType.co2_emissions || null,
+        now,
+        now
+      );
+    }
+
+    return this.getVehicleTypeById(vehicleType.id)!;
+  }
+
+  updateVehicleType(id: string, updates: UpdateVehicleType): VehicleType | null {
+    const now = new Date().toISOString();
+
+    const updateFields = [];
+    const values = [];
+
+    if (updates.name !== undefined) {
+      updateFields.push('name = ?');
+      values.push(updates.name);
+    }
+    if (updates.fuel_efficiency !== undefined) {
+      updateFields.push('fuel_efficiency = ?');
+      values.push(updates.fuel_efficiency);
+    }
+    if (updates.description !== undefined) {
+      updateFields.push('description = ?');
+      values.push(updates.description);
+    }
+    if (updates.icon !== undefined) {
+      updateFields.push('icon = ?');
+      values.push(updates.icon);
+    }
+    if (updates.fuel_type !== undefined) {
+      updateFields.push('fuel_type = ?');
+      values.push(updates.fuel_type);
+    }
+    if (updates.co2_emissions !== undefined) {
+      updateFields.push('co2_emissions = ?');
+      values.push(updates.co2_emissions);
+    }
+
+    if (updateFields.length === 0) {
+      return this.getVehicleTypeById(id);
+    }
+
+    updateFields.push('updated_at = ?');
+    values.push(now);
+    values.push(id);
+
+    const stmt = this.db.prepare(`
+      UPDATE vehicle_types
+      SET ${updateFields.join(', ')}
+      WHERE id = ?
+    `);
+
+    stmt.run(...values);
+
+    // Also update replica
+    if (this.db === liveDb) {
+      const replicaStmt = replicaDb.prepare(`
+        UPDATE vehicle_types
+        SET ${updateFields.join(', ')}
+        WHERE id = ?
+      `);
+      replicaStmt.run(...values);
+    }
+
+    return this.getVehicleTypeById(id);
+  }
+
+  deleteVehicleType(id: string): boolean {
+    const stmt = this.db.prepare('DELETE FROM vehicle_types WHERE id = ?');
+    const result = stmt.run(id);
+
+    // Also delete from replica
+    if (this.db === liveDb) {
+      const replicaStmt = replicaDb.prepare('DELETE FROM vehicle_types WHERE id = ?');
+      replicaStmt.run(id);
+    }
+
+    return result.changes > 0;
   }
 
 

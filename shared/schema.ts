@@ -443,6 +443,21 @@ export interface RouteFilters {
 // These are placeholder schemas - in a real app you'd use Zod or similar for validation
 export const insertShipmentSchema = {
   parse: (data: any): InsertShipment => {
+    // Map address to deliveryAddress if needed
+    if (data.address && !data.deliveryAddress) {
+      data.deliveryAddress = data.address;
+    }
+
+    // Map customerName to recipientName if needed
+    if (data.customerName && !data.recipientName) {
+      data.recipientName = data.customerName;
+    }
+
+    // Map customerMobile to recipientPhone if needed
+    if (data.customerMobile && !data.recipientPhone) {
+      data.recipientPhone = data.customerMobile;
+    }
+
     // Basic validation for required fields (trackingNumber is now optional for external shipments)
     const requiredFields = [
       'status', 'priority', 'type', 'pickupAddress',
@@ -792,6 +807,37 @@ export interface AnalyticsFilters {
   employeeId?: string;
   routeId?: string;
   metricType?: 'fuel' | 'performance' | 'efficiency';
+}
+
+export interface VehicleType {
+  id: string;
+  name: string;
+  fuel_efficiency: number;
+  description?: string;
+  icon: string;
+  fuel_type: string;
+  co2_emissions?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InsertVehicleType {
+  id: string;
+  name: string;
+  fuel_efficiency: number;
+  description?: string;
+  icon?: string;
+  fuel_type?: string;
+  co2_emissions?: number;
+}
+
+export interface UpdateVehicleType {
+  name?: string;
+  fuel_efficiency?: number;
+  description?: string;
+  icon?: string;
+  fuel_type?: string;
+  co2_emissions?: number;
 }
 
 export interface DashboardStats {

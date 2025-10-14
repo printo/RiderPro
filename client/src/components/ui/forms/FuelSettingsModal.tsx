@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withModalErrorBoundary } from '@/components/ErrorBoundary';
+import { useVehicleTypes, useCreateVehicleType, useUpdateVehicleType, useDeleteVehicleType } from '@/hooks/useVehicleTypes';
+import { VehicleType as DbVehicleType } from '@shared/schema';
 import {
   Fuel,
   Settings,
@@ -87,10 +89,25 @@ function FuelSettingsModal({
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Database hooks
+  const { data: dbVehicleTypes, isLoading: isLoadingVehicleTypes } = useVehicleTypes();
+  const createVehicleTypeMutation = useCreateVehicleType();
+  const updateVehicleTypeMutation = useUpdateVehicleType();
+  const deleteVehicleTypeMutation = useDeleteVehicleType();
+
   useEffect(() => {
     setSettings(currentSettings);
     setErrors({});
   }, [currentSettings, isOpen]);
+
+  // Convert database vehicle types to local format
+  const vehicleTypes: VehicleType[] = dbVehicleTypes?.map((vt: DbVehicleType) => ({
+    id: vt.id,
+    name: vt.name,
+    fuelEfficiency: vt.fuel_efficiency,
+    description: vt.description,
+    icon: vt.icon
+  })) || [];
 
   const validateSettings = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -103,11 +120,11 @@ function FuelSettingsModal({
       newErrors.dataRetentionDays = 'Data retention must be at least 1 day';
     }
 
-    if (settings.vehicleTypes.length === 0) {
+    if (vehicleTypes.length === 0) {
       newErrors.vehicleTypes = 'At least one vehicle type is required';
     }
 
-    if (!settings.vehicleTypes.find(v => v.id === settings.defaultVehicleType)) {
+    if (!vehicleTypes.find(v => v.id === settings.defaultVehicleType)) {
       newErrors.defaultVehicleType = 'Default vehicle type must be selected from available types';
     }
 
@@ -122,7 +139,12 @@ function FuelSettingsModal({
 
     setIsSaving(true);
     try {
-      await onSave(settings);
+      // Create a settings object without vehicleTypes since they're now in the database
+      const settingsToSave = {
+        ...settings,
+        vehicleTypes: vehicleTypes // Use database vehicle types
+      };
+      await onSave(settingsToSave);
       onClose();
     } catch (error) {
       console.error('Failed to save fuel settings:', error);
@@ -140,7 +162,7 @@ function FuelSettingsModal({
     setErrors({});
   };
 
-  const addVehicleType = () => {
+  const addVehicleType = async () => {
     if (!newVehicleType.name || !newVehicleType.fuelEfficiency) {
       setErrors({ newVehicle: 'Name and fuel efficiency are required' });
       return;
@@ -151,32 +173,41 @@ function FuelSettingsModal({
       return;
     }
 
-    const vehicleType: VehicleType = {
-      id: newVehicleType.name!.toLowerCase().replace(/\s+/g, '-'),
+    const vehicleTypeData = {
+      id: `vt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       name: newVehicleType.name!,
-      fuelEfficiency: newVehicleType.fuelEfficiency!,
+      fuel_efficiency: newVehicleType.fuelEfficiency!,
       description: newVehicleType.description || '',
-      icon: 'car'
+      icon: 'car',
+      fuel_type: 'petrol'
     };
 
-    setSettings(prev => ({
-      ...prev,
-      vehicleTypes: [...prev.vehicleTypes, vehicleType]
-    }));
-
-    setNewVehicleType({});
-    setIsAddingVehicle(false);
-    setErrors({});
+    try {
+      await createVehicleTypeMutation.mutateAsync(vehicleTypeData);
+      setNewVehicleType({});
+      setIsAddingVehicle(false);
+      setErrors({});
+    } catch (error) {
+      console.error('Failed to create vehicle type:', error);
+    }
   };
 
-  const removeVehicleType = (id: string) => {
-    setSettings(prev => ({
-      ...prev,
-      vehicleTypes: prev.vehicleTypes.filter(v => v.id !== id),
-      defaultVehicleType: prev.defaultVehicleType === id
-        ? prev.vehicleTypes.find(v => v.id !== id)?.id || ''
-        : prev.defaultVehicleType
-    }));
+  const removeVehicleType = async (id: string) => {
+    try {
+      await deleteVehicleTypeMutation.mutateAsync(id);
+      // Update default vehicle type if needed
+      if (settings.defaultVehicleType === id) {
+        const remainingTypes = vehicleTypes.filter(v => v.id !== id);
+        if (remainingTypes.length > 0) {
+          setSettings(prev => ({
+            ...prev,
+            defaultVehicleType: remainingTypes[0].id
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete vehicle type:', error);
+    }
   };
 
   const getVehicleIcon = (iconType: string) => {
@@ -295,7 +326,7 @@ function FuelSettingsModal({
                       <SelectValue placeholder="Select default vehicle" />
                     </SelectTrigger>
                     <SelectContent>
-                      {settings.vehicleTypes.map((vehicle) => (
+                      {vehicleTypes.map((vehicle) => (
                         <SelectItem key={vehicle.id} value={vehicle.id}>
                           <div className="flex items-center gap-2">
                             {getVehicleIcon(vehicle.icon || 'car')}
@@ -417,7 +448,7 @@ function FuelSettingsModal({
 
               {/* Existing Vehicle Types */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {settings.vehicleTypes.map((vehicle) => (
+                {vehicleTypes.map((vehicle) => (
                   <Card key={vehicle.id} className="relative">
                     <CardContent className="pt-4">
                       <div className="flex items-start justify-between">
@@ -443,7 +474,7 @@ function FuelSettingsModal({
                             variant="ghost"
                             size="sm"
                             onClick={() => removeVehicleType(vehicle.id)}
-                            disabled={settings.vehicleTypes.length <= 1}
+                            disabled={vehicleTypes.length <= 1}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

@@ -43,39 +43,6 @@ function ShipmentsWithTracking() {
       employeeId: currentUser?.employeeId || currentUser?.username
     });
 
-    // Check localStorage directly
-    const directTokenCheck = {
-      accessToken: localStorage.getItem('access_token'),
-      refreshToken: localStorage.getItem('refresh_token'),
-      authUser: localStorage.getItem('auth_user')
-    };
-    console.log('💾 Direct localStorage check:', {
-      hasAccessToken: !!directTokenCheck.accessToken,
-      hasRefreshToken: !!directTokenCheck.refreshToken,
-      hasAuthUser: !!directTokenCheck.authUser,
-      accessTokenLength: directTokenCheck.accessToken?.length,
-      refreshTokenLength: directTokenCheck.refreshToken?.length
-    });
-
-    // Add logout detection
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'access_token' && e.newValue === null) {
-        console.log('🚨 LOGOUT DETECTED: access_token removed from localStorage');
-        console.log('Storage event details:', {
-          key: e.key,
-          oldValue: e.oldValue ? 'present' : 'null',
-          newValue: e.newValue,
-          url: e.url
-        });
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      console.log('🚢 ShipmentsWithTracking unmounted');
-      window.removeEventListener('storage', handleStorageChange);
-    };
   }, [isAuthenticated, currentUser, authState]);
 
   // Monitor auth state changes
@@ -86,13 +53,6 @@ function ShipmentsWithTracking() {
       hasAccessToken: !!authState.accessToken,
       timestamp: new Date().toISOString()
     });
-
-    // If we lose authentication while on this page, log it
-    if (!isAuthenticated && currentUser === null && !authState.accessToken) {
-      console.log('🚨 AUTHENTICATION LOST while on shipments page');
-      console.log('Current URL:', window.location.href);
-      console.log('Referrer:', document.referrer);
-    }
   }, [isAuthenticated, currentUser, authState.accessToken]);
 
   const employeeId = currentUser?.employeeId || currentUser?.username || "";

@@ -1,5 +1,5 @@
 import { ShipmentQueries } from './db/queries.js';
-import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters } from '@shared/schema';
+import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType } from '@shared/schema';
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -29,6 +29,13 @@ export interface IStorage {
 
   // Dashboard operations
   getDashboardMetrics(): Promise<DashboardMetrics>;
+
+  // Vehicle Types operations
+  getVehicleTypes(): Promise<VehicleType[]>;
+  getVehicleType(id: string): Promise<VehicleType | undefined>;
+  createVehicleType(vehicleType: InsertVehicleType): Promise<VehicleType>;
+  updateVehicleType(id: string, updates: UpdateVehicleType): Promise<VehicleType | undefined>;
+  deleteVehicleType(id: string): Promise<boolean>;
 }
 
 export class SqliteStorage implements IStorage {
@@ -103,6 +110,29 @@ export class SqliteStorage implements IStorage {
 
   async getDashboardMetrics(): Promise<DashboardMetrics> {
     return this.liveQueries.getDashboardMetrics();
+  }
+
+  // Vehicle Types operations
+  async getVehicleTypes(): Promise<VehicleType[]> {
+    return this.liveQueries.getAllVehicleTypes();
+  }
+
+  async getVehicleType(id: string): Promise<VehicleType | undefined> {
+    const vehicleType = this.liveQueries.getVehicleTypeById(id);
+    return vehicleType || undefined;
+  }
+
+  async createVehicleType(vehicleType: InsertVehicleType): Promise<VehicleType> {
+    return this.liveQueries.createVehicleType(vehicleType);
+  }
+
+  async updateVehicleType(id: string, updates: UpdateVehicleType): Promise<VehicleType | undefined> {
+    const vehicleType = this.liveQueries.updateVehicleType(id, updates);
+    return vehicleType || undefined;
+  }
+
+  async deleteVehicleType(id: string): Promise<boolean> {
+    return this.liveQueries.deleteVehicleType(id);
   }
 
 
