@@ -2,391 +2,532 @@
 
 ## Overview
 
-This guide explains how to test shipment creation and management in the RiderPro
-system.
+This guide covers comprehensive testing of the RiderPro shipment management system, including GPS tracking, offline functionality, and real-time synchronization features.
 
-## Admin Dashboard Testing Tool
+## Test Environment Setup
 
-### Access
+### Prerequisites
+- Node.js 18+ installed
+- Modern browser with GPS support
+- Network connectivity for external API testing
+- Mobile device or browser dev tools for mobile testing
 
-- **URL:** `http://localhost:5000/admin`
-- **Requirements:** Admin user access (kanna.p@printo.in or employee ID 12180)
-
-### Features
-
-- **Single Textarea Interface:** Paste single JSON objects or JSON arrays for
-  bulk testing
-- **Automatic Payload Detection:** Automatically detects single vs multiple
-  payloads
-- **Sample Payload Generator:** Click "Sample" to auto-fill with valid test data
-- **Real-time JSON Validation:** JSON syntax validation with visual feedback
-- **Individual Result Tracking:** Clear success/failure reporting for each
-  payload
-- **Verification Links:** Direct link to view created shipments
-
-## API Endpoint
-
-### Single Shipment Creation
-
+### Starting the Application
 ```bash
-POST http://localhost:5000/api/shipments
-Content-Type: application/json
-Authorization: Bearer <access-token>
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Application will be available at http://localhost:5000
 ```
 
-### Bulk Shipment Creation
+### Test Data
+The system uses mock data for development testing:
+- **Employee IDs**: EMP001, EMP002, EMP003
+- **Routes**: Route A, Route B, Route C
+- **Shipment Types**: delivery, pickup
+- **Statuses**: pending, assigned, in_transit, delivered, picked_up, cancelled, returned
 
-Send multiple POST requests to the same endpoint, or use the Admin Dashboard
-testing tool.
+## Authentication Testing
 
-## Payload Format
+### Login Flow Testing
 
-### Required Fields
-
-```json
-{
-  "trackingNumber": "TRK123456789",
-  "status": "Assigned",
-  "priority": "high",
-  "type": "delivery",
-  "pickupAddress": "123 Pickup Street, Mumbai, Maharashtra",
-  "deliveryAddress": "456 Delivery Avenue, Mumbai, Maharashtra",
-  "recipientName": "John Doe",
-  "recipientPhone": "+91-9876543210",
-  "weight": 2.5,
-  "dimensions": "30x20x10 cm",
-  "customerName": "John Doe",
-  "customerMobile": "+91-9876543210",
-  "address": "456 Delivery Avenue, Mumbai, Maharashtra",
-  "cost": 500.00,
-  "deliveryTime": "2025-09-23T15:00:00Z",
-  "routeName": "Route A",
-  "employeeId": "EMP123"
-}
-```
-
-### Optional Fields
-
-```json
-{
-  "specialInstructions": "Handle with care",
-  "estimatedDeliveryTime": "2025-09-23T15:00:00Z",
-  "actualDeliveryTime": null
-}
-```
-
-## Testing Scenarios
-
-### 1. Single Shipment Test
-
-```json
-{
-  "trackingNumber": "TEST001",
-  "status": "Assigned",
-  "priority": "high",
-  "type": "delivery",
-  "pickupAddress": "Printo Office, Mumbai",
-  "deliveryAddress": "Customer Location, Mumbai",
-  "recipientName": "Test Customer",
-  "recipientPhone": "+91-9876543210",
-  "weight": 1.0,
-  "dimensions": "20x15x5 cm",
-  "customerName": "Test Customer",
-  "customerMobile": "+91-9876543210",
-  "address": "Customer Location, Mumbai",
-  "cost": 250.00,
-  "deliveryTime": "2025-09-23T16:00:00Z",
-  "routeName": "Test Route",
-  "employeeId": "12180"
-}
-```
-
-### 2. Bulk Shipments Test (JSON Array)
-
-Create multiple shipments using a JSON array format:
-
-```json
-[
-  {
-    "trackingNumber": "BULK001",
-    "status": "Assigned",
-    "priority": "high",
-    "type": "delivery",
-    "pickupAddress": "Warehouse A, Mumbai",
-    "deliveryAddress": "Location 1, Mumbai",
-    "recipientName": "Customer 1",
-    "recipientPhone": "+91-9876543211",
-    "weight": 1.5,
-    "dimensions": "25x20x10 cm",
-    "customerName": "Customer 1",
-    "customerMobile": "+91-9876543211",
-    "address": "Location 1, Mumbai",
-    "cost": 300.00,
-    "deliveryTime": "2025-09-23T14:00:00Z",
-    "routeName": "Route A",
-    "employeeId": "EMP001"
-  },
-  {
-    "trackingNumber": "BULK002",
-    "status": "Assigned",
-    "priority": "medium",
-    "type": "pickup",
-    "pickupAddress": "Location 2, Mumbai",
-    "deliveryAddress": "Warehouse B, Mumbai",
-    "recipientName": "Customer 2",
-    "recipientPhone": "+91-9876543212",
-    "weight": 3.0,
-    "dimensions": "40x30x15 cm",
-    "customerName": "Customer 2",
-    "customerMobile": "+91-9876543212",
-    "address": "Location 2, Mumbai",
-    "cost": 450.00,
-    "deliveryTime": "2025-09-23T17:00:00Z",
-    "routeName": "Route B",
-    "employeeId": "EMP002"
-  }
-]
-```
-
-## Using the Admin Testing Tool
-
-### Step-by-Step Process
-
-1. **Login as Admin:**
-   - Email: `kanna.p@printo.in` or Employee ID: `12180`
-   - Password: Your Printo password
-
-2. **Navigate to Admin Dashboard:**
-   - Go to `http://localhost:5000/admin`
-   - Scroll to "Shipment Testing" section
-
-3. **Prepare Test Payload:**
-   - **Single Shipment:** Paste a JSON object directly
-   - **Bulk Shipments:** Paste a JSON array with multiple objects
-   - **Sample Data:** Click "Sample" to auto-fill with test data
-   - **Validation:** Watch for real-time JSON validation feedback
-
-4. **Send Shipments:**
-   - Ensure JSON is valid (green checkmark appears)
-   - Click "Send X Shipment(s)" button
-   - Watch individual results for each payload
-
-5. **Verify Results:**
-   - Check the "Test Results" section for detailed feedback
-   - Click "View Shipments" to navigate to the shipments list
-   - Verify all data fields are displayed correctly in the sqlite database
-
-6. **Troubleshooting:**
-   - Red validation errors indicate JSON syntax issues
-   - Individual payload errors show specific validation failures
-   - Check browser console for detailed debugging information
-
-## Bulk Testing with cURL
-
-### Single Shipment
-
+#### Test Case 1: Valid Credentials
 ```bash
-curl -X POST http://localhost:5000/api/shipments \
+# Test with operations team member
+Employee ID: Any valid employee ID from your Printo system
+Password: Your Printo password
+Expected: Successful login with ops_team role
+```
+
+#### Test Case 2: Driver Credentials
+```bash
+# Test with driver account
+Employee ID: Driver employee ID
+Password: Driver password
+Expected: Successful login with driver role, limited permissions
+```
+
+#### Test Case 3: Invalid Credentials
+```bash
+Employee ID: invalid_user
+Password: wrong_password
+Expected: Login failure with appropriate error message
+```
+
+### Role-Based Access Testing
+
+#### Operations Team Access
+- ✅ View all shipments
+- ✅ Access analytics dashboard
+- ✅ Export data functionality
+- ✅ Batch update shipments
+- ✅ Live tracking dashboard
+
+#### Driver Access
+- ✅ View assigned shipments only
+- ✅ Update shipment status
+- ✅ GPS tracking functionality
+- ❌ Analytics dashboard (should redirect)
+- ❌ Export functionality (should be hidden)
+
+## Shipment Management Testing
+
+### Viewing Shipments
+
+#### Test Case 1: Shipment List Display
+1. Navigate to `/shipments`
+2. Verify shipments are displayed in card format
+3. Check pagination if more than 20 shipments
+4. Verify responsive design on mobile
+
+**Expected Results:**
+- Shipments displayed with customer name, address, status
+- GPS status indicator (green if coordinates available)
+- Clickable cards for details
+- Mobile-friendly layout
+
+#### Test Case 2: Filtering Functionality
+1. Use filter options in the shipments page
+2. Test status filter (pending, delivered, etc.)
+3. Test type filter (delivery, pickup)
+4. Test route filter
+5. Test date range filter
+
+**Expected Results:**
+- Filters applied correctly
+- Results update in real-time
+- Filter state preserved on page refresh
+- Clear filter option works
+
+#### Test Case 3: Search Functionality
+1. Use search box to find specific shipments
+2. Search by customer name
+3. Search by shipment ID
+4. Search by address
+
+**Expected Results:**
+- Relevant results displayed
+- Search is case-insensitive
+- No results message when appropriate
+
+### Shipment Status Updates
+
+#### Test Case 1: Single Shipment Update
+1. Click on a shipment card
+2. Open shipment details modal
+3. Update status from dropdown
+4. Add notes if required
+5. Save changes
+
+**Expected Results:**
+- Status updated immediately in UI
+- Changes reflected in shipment list
+- Timestamp updated
+- Notes saved correctly
+
+#### Test Case 2: Batch Update
+1. Select multiple shipments using checkboxes
+2. Click "Batch Update" button
+3. Choose new status
+4. Add batch notes
+5. Confirm update
+
+**Expected Results:**
+- All selected shipments updated
+- Batch operation completed successfully
+- Individual shipment timestamps updated
+- Success notification displayed
+
+## GPS Tracking Testing
+
+### Route Session Management
+
+#### Test Case 1: Start Route Session
+1. Navigate to Dashboard
+2. Click "Start Route" in Route Tracking section
+3. Allow GPS permissions when prompted
+4. Verify session starts successfully
+
+**Expected Results:**
+- GPS permission granted
+- Route session created with unique ID
+- Session status shows "Active"
+- GPS coordinates being recorded
+
+#### Test Case 2: GPS Point Recording
+1. With active route session
+2. Move to different locations (or simulate in dev tools)
+3. Verify GPS points are recorded every 30 seconds
+4. Check accuracy and timestamp data
+
+**Expected Results:**
+- GPS points stored locally in IndexedDB
+- Points include latitude, longitude, accuracy, timestamp
+- Background sync attempts to upload points
+- Points queued for sync if offline
+
+#### Test Case 3: Shipment Event Recording
+1. With active route session
+2. Navigate to shipments page
+3. Find shipment with "Assigned" status
+4. Click "Record Pickup" or "Record Delivery" button
+5. Verify GPS coordinates are captured
+
+**Expected Results:**
+- Current GPS position captured
+- Shipment event stored with coordinates
+- Status updated appropriately
+- Event synced to server when online
+
+### Smart Route Completion
+
+#### Test Case 1: Route Completion Detection
+1. Start route session at a location
+2. Travel away from start location
+3. Return to within 100 meters of start location
+4. Wait for completion detection (after minimum duration)
+
+**Expected Results:**
+- Smart completion dialog appears
+- Shows distance from start, duration, shipments completed
+- Auto-confirm countdown starts
+- Option to manually confirm or cancel
+
+#### Test Case 2: Manual Route Completion
+1. With active route session
+2. Click "Stop Route" button
+3. Confirm completion in dialog
+4. Verify session ends properly
+
+**Expected Results:**
+- Route session marked as completed
+- Final GPS coordinates recorded
+- Session summary displayed
+- All data synced to server
+
+## Offline Functionality Testing
+
+### Offline Data Storage
+
+#### Test Case 1: Work Offline
+1. Start route session while online
+2. Disconnect from internet (airplane mode or dev tools)
+3. Continue recording GPS points
+4. Update shipment statuses
+5. Record pickup/delivery events
+
+**Expected Results:**
+- All actions work normally
+- Data stored in IndexedDB
+- UI shows offline indicator
+- Sync queue builds up pending items
+
+#### Test Case 2: Return Online
+1. With pending offline data
+2. Reconnect to internet
+3. Verify automatic sync begins
+4. Check all data is uploaded correctly
+
+**Expected Results:**
+- Sync status indicator shows progress
+- GPS points uploaded in batches
+- Shipment updates synchronized
+- Conflict resolution handles duplicates
+- Success notifications displayed
+
+### Sync Conflict Resolution
+
+#### Test Case 1: Shipment Status Conflicts
+1. Update shipment status offline
+2. Have another user update same shipment online
+3. Come back online and sync
+4. Verify conflict resolution
+
+**Expected Results:**
+- Server status takes precedence for status updates
+- GPS coordinates from client preserved
+- User notified of conflicts resolved
+- No data loss occurs
+
+## Mobile Testing
+
+### Responsive Design
+
+#### Test Case 1: Mobile Layout
+1. Open application on mobile device or use dev tools
+2. Test all pages in portrait and landscape
+3. Verify touch targets are appropriate size
+4. Check floating menu functionality
+
+**Expected Results:**
+- All content fits screen properly
+- Touch targets minimum 44px
+- Floating menu full-width on mobile
+- Navigation works with touch gestures
+
+#### Test Case 2: GPS on Mobile
+1. Use actual mobile device with GPS
+2. Test GPS accuracy and updates
+3. Verify battery optimization features
+4. Test background GPS tracking
+
+**Expected Results:**
+- GPS coordinates accurate within 10 meters
+- Battery optimization reduces frequency when low
+- Background tracking continues when app minimized
+- Location permissions handled properly
+
+### Performance Testing
+
+#### Test Case 1: Large Dataset
+1. Generate or load large number of shipments (100+)
+2. Test scrolling performance
+3. Verify pagination works correctly
+4. Check memory usage
+
+**Expected Results:**
+- Smooth scrolling with virtual scrolling
+- Pagination loads quickly
+- Memory usage remains reasonable
+- No performance degradation
+
+#### Test Case 2: GPS Data Volume
+1. Run route session for extended period (2+ hours)
+2. Generate many GPS points
+3. Test sync performance
+4. Verify storage limits
+
+**Expected Results:**
+- GPS points stored efficiently
+- Batch sync handles large volumes
+- Storage cleanup prevents overflow
+- Performance remains good
+
+## Analytics Testing
+
+### Dashboard Metrics
+
+#### Test Case 1: Dashboard Data
+1. Navigate to Dashboard
+2. Verify metrics display correctly
+3. Check real-time updates
+4. Test different user roles
+
+**Expected Results:**
+- Metrics show current data
+- Charts render properly
+- Data updates automatically
+- Role-based data filtering works
+
+#### Test Case 2: Route Analytics
+1. Navigate to Route Analytics page
+2. Test date range filtering
+3. Verify employee performance data
+4. Check export functionality
+
+**Expected Results:**
+- Analytics data loads correctly
+- Filters work as expected
+- Performance metrics accurate
+- Export generates correct data
+
+## API Testing
+
+### Manual API Testing
+
+#### Test Authentication
+```bash
+# Login request
+curl -X POST http://localhost:5000/api/auth/login \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -d '{
-    "trackingNumber": "CURL001",
-    "status": "Assigned",
-    "priority": "high",
-    "type": "delivery",
-    "pickupAddress": "Test Pickup Location",
-    "deliveryAddress": "Test Delivery Location",
-    "recipientName": "Test Recipient",
-    "recipientPhone": "+91-9876543210",
-    "weight": 2.0,
-    "dimensions": "30x20x10 cm",
-    "customerName": "Test Customer",
-    "customerMobile": "+91-9876543210",
-    "address": "Test Delivery Location",
-    "cost": 400.00,
-    "deliveryTime": "2025-09-23T15:00:00Z",
-    "routeName": "Test Route",
-    "employeeId": "12180"
+    "employeeId": "your_employee_id",
+    "password": "your_password"
   }'
 ```
 
-### Bulk Shipments (Script)
-
+#### Test Shipments API
 ```bash
-#!/bin/bash
-TOKEN="YOUR_ACCESS_TOKEN"
-BASE_URL="http://localhost:5000/api/shipments"
-
-# Create multiple shipments
-for i in {1..5}; do
-  curl -X POST $BASE_URL \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $TOKEN" \
-    -d "{
-      \"trackingNumber\": \"BULK00$i\",
-      \"status\": \"Assigned\",
-      \"priority\": \"medium\",
-      \"type\": \"delivery\",
-      \"pickupAddress\": \"Warehouse, Mumbai\",
-      \"deliveryAddress\": \"Location $i, Mumbai\",
-      \"recipientName\": \"Customer $i\",
-      \"recipientPhone\": \"+91-987654321$i\",
-      \"weight\": $(echo \"1.5 + $i * 0.5\" | bc),
-      \"dimensions\": \"30x20x10 cm\",
-      \"customerName\": \"Customer $i\",
-      \"customerMobile\": \"+91-987654321$i\",
-      \"address\": \"Location $i, Mumbai\",
-      \"cost\": $(echo \"300 + $i * 50\" | bc),
-      \"deliveryTime\": \"2025-09-23T$(printf %02d $((14 + $i))):00:00Z\",
-      \"routeName\": \"Route $(echo $i | tr '12345' 'ABCDE')\",
-      \"employeeId\": \"EMP00$i\"
-    }"
-  echo "Created shipment $i"
-  sleep 1
-done
+# Get shipments (requires auth token)
+curl -X GET http://localhost:5000/api/shipments \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-## Validation Rules
+#### Test GPS Data
+```bash
+# Start route session
+curl -X POST http://localhost:5000/api/routes/sessions \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "employeeId": "EMP001",
+    "startLatitude": 40.7128,
+    "startLongitude": -74.0060
+  }'
 
-### Required Fields
-
-- `trackingNumber` (string, unique)
-- `status` (string: "Assigned", "In Transit", "Delivered", "Picked Up",
-  "Returned", "Cancelled")
-- `priority` (string: "low", "medium", "high")
-- `type` (string: "delivery", "pickup")
-- `pickupAddress` (string)
-- `deliveryAddress` (string)
-- `recipientName` (string)
-- `recipientPhone` (string, phone format)
-- `weight` (number, positive)
-- `dimensions` (string)
-- `customerName` (string)
-- `customerMobile` (string, phone format)
-- `address` (string)
-- `cost` (number, positive)
-- `deliveryTime` (string, ISO date format)
-- `routeName` (string)
-- `employeeId` (string)
-
-### Data Types
-
-- **Dates:** ISO 8601 format (`2025-09-23T15:00:00Z`)
-- **Phone Numbers:** Include country code (`+91-9876543210`)
-- **Weight:** Decimal number in kg
-- **Cost:** Decimal number in currency units
-
-## Troubleshooting
-
-### Common Errors
-
-1. **"Invalid JSON format"**
-   - Check JSON syntax with online validator
-   - Ensure all quotes are properly escaped
-   - Verify comma placement
-   - Use the real-time validation feedback in the interface
-
-2. **"Missing required fields"**
-   - Ensure all required fields are present: trackingNumber, status, priority,
-     pickupAddress, deliveryAddress, recipientName, recipientPhone, weight,
-     dimensions
-   - Check field names match exactly (case-sensitive)
-
-3. **"insertShipmentSchema.parse is not a function"**
-   - This error has been fixed in the latest version
-   - Restart the server if you still see this error
-   - The schema now properly validates all required fields
-
-4. **"Invalid date format"**
-   - Use ISO 8601 format: `2025-09-23T15:00:00Z`
-   - Ensure dates are in the future for deliveries
-
-5. **"Duplicate tracking number"**
-   - Each shipment needs a unique tracking number
-   - Use timestamp or counter for uniqueness
-   - The sample generator automatically creates unique tracking numbers
-
-6. **"Weight must be a positive number"**
-   - Ensure weight field is a number, not a string
-   - Weight must be greater than 0
-
-### Debugging Tips
-
-1. **Use Browser Console:**
-   - Open Developer Tools (F12)
-   - Check Console tab for detailed error messages
-
-2. **Check Network Tab:**
-   - Monitor API requests and responses
-   - Verify payload structure and response codes
-
-3. **Verify in Shipments List:**
-   - Navigate to `/shipments` after creation
-   - Confirm shipments appear with correct data
-
-## Best Practices
-
-1. **Use Unique Tracking Numbers:**
-   ```javascript
-   "trackingNumber": "TRK" + Date.now() + Math.random().toString(36).substr(2, 5)
-   ```
-
-2. **Set Realistic Delivery Times:**
-   ```javascript
-   "deliveryTime": new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-   ```
-
-3. **Test Different Scenarios:**
-   - Different shipment types (delivery vs pickup)
-   - Various priorities (low, medium, high)
-   - Different employee assignments
-   - Multiple routes
-
-4. **Validate Before Sending:**
-   - Use JSON.parse() to validate syntax
-   - Check all required fields are present
-   - Verify data types match schema
-
-## Integration Examples
-
-### From External System
-
-```javascript
-// Example: Integrate with external order system
-const createShipmentFromOrder = async (order) => {
-  const shipmentPayload = {
-    trackingNumber: `ORD-${order.id}`,
-    status: "Assigned",
-    priority: order.urgent ? "high" : "medium",
-    type: "delivery",
-    pickupAddress: order.warehouse.address,
-    deliveryAddress: order.customer.address,
-    recipientName: order.customer.name,
-    recipientPhone: order.customer.phone,
-    weight: order.totalWeight,
-    dimensions: order.packageDimensions,
-    customerName: order.customer.name,
-    customerMobile: order.customer.phone,
-    address: order.customer.address,
-    cost: order.deliveryFee,
-    deliveryTime: order.requestedDeliveryTime,
-    routeName: order.assignedRoute,
-    employeeId: order.assignedDriver,
-  };
-
-  const response = await fetch("http://localhost:5000/api/shipments", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(shipmentPayload),
-  });
-
-  return response.json();
-};
+# Record GPS point
+curl -X POST http://localhost:5000/api/routes/sessions/SESSION_ID/points \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "latitude": 40.7130,
+    "longitude": -74.0062,
+    "timestamp": "2024-01-15T10:30:00.000Z",
+    "accuracy": 5.0,
+    "speed": 25.5
+  }'
 ```
 
----
+## Error Handling Testing
 
-**Last Updated:** September 22, 2025 **Version:** 1.0.0
+### Network Error Scenarios
+
+#### Test Case 1: API Unavailable
+1. Stop the server while using the app
+2. Try to perform various actions
+3. Verify graceful error handling
+
+**Expected Results:**
+- Appropriate error messages displayed
+- Offline mode activated
+- Data queued for later sync
+- User can continue working
+
+#### Test Case 2: Authentication Errors
+1. Use expired or invalid token
+2. Try to access protected resources
+3. Verify automatic token refresh
+
+**Expected Results:**
+- Token refresh attempted automatically
+- User redirected to login if refresh fails
+- No data loss during re-authentication
+- Seamless user experience
+
+### Data Validation Testing
+
+#### Test Case 1: Invalid GPS Coordinates
+1. Try to submit invalid latitude/longitude
+2. Test boundary values (>90, <-90 for lat)
+3. Verify validation messages
+
+**Expected Results:**
+- Invalid coordinates rejected
+- Clear validation error messages
+- Form prevents submission
+- User guided to correct input
+
+## Performance Benchmarks
+
+### Expected Performance Metrics
+
+#### Load Times
+- **Initial Page Load**: < 3 seconds
+- **Shipment List Load**: < 2 seconds
+- **GPS Point Recording**: < 500ms
+- **Status Update**: < 1 second
+
+#### GPS Accuracy
+- **Urban Areas**: 3-5 meters
+- **Suburban Areas**: 5-10 meters
+- **Rural Areas**: 10-20 meters
+
+#### Battery Usage
+- **Normal Mode**: 5-10% per hour
+- **Battery Saver**: 2-5% per hour
+- **Background Mode**: 1-3% per hour
+
+## Troubleshooting Common Issues
+
+### GPS Not Working
+1. Check browser permissions
+2. Verify HTTPS connection (required for GPS)
+3. Test on different devices
+4. Check console for error messages
+
+### Sync Issues
+1. Verify network connectivity
+2. Check authentication status
+3. Review sync queue in dev tools
+4. Test with smaller data sets
+
+### Performance Issues
+1. Clear browser cache and storage
+2. Check available device memory
+3. Reduce GPS tracking frequency
+4. Enable battery optimization
+
+## Test Automation
+
+### Unit Tests
+```bash
+# Run unit tests
+npm run test
+
+# Run with coverage
+npm run test:coverage
+```
+
+### Integration Tests
+```bash
+# Run integration tests
+npm run test:integration
+
+# Test specific features
+npm run test -- --grep "GPS tracking"
+```
+
+### End-to-End Tests
+```bash
+# Run E2E tests
+npm run test:e2e
+
+# Run specific test suite
+npm run test:e2e -- --spec "shipment-management.spec.ts"
+```
+
+## Reporting Issues
+
+When reporting issues, include:
+1. **Environment**: Browser, OS, device type
+2. **Steps to Reproduce**: Detailed steps
+3. **Expected vs Actual**: What should happen vs what happens
+4. **Screenshots**: Visual evidence of issues
+5. **Console Logs**: Any error messages
+6. **Network Logs**: API request/response data
+
+### Issue Template
+```markdown
+## Bug Report
+
+**Environment:**
+- Browser: Chrome 120.0
+- OS: Windows 11
+- Device: Desktop
+
+**Steps to Reproduce:**
+1. Navigate to shipments page
+2. Click on shipment card
+3. Try to update status
+
+**Expected Behavior:**
+Status should update successfully
+
+**Actual Behavior:**
+Error message appears: "Failed to update status"
+
+**Screenshots:**
+[Attach screenshots]
+
+**Console Logs:**
+```
+Error: Network request failed
+  at updateShipmentStatus (shipments.ts:45)
+```
+
+**Additional Context:**
+Issue occurs only with specific shipment IDs
+```

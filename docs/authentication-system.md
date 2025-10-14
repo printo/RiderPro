@@ -1,197 +1,287 @@
-# Authentication System Documentation
+# Authentication System
 
 ## Overview
 
-RiderPro uses a modern, unified authentication system built with React Context, TypeScript, and centralized API management. The system provides seamless user authentication, automatic token refresh, and consistent error handling across the entire application.
+RiderPro implements a secure, modern authentication system that integrates with external Printo API for user verification while maintaining local session management and role-based access control.
 
 ## Architecture
 
-### System Components
+### External Integration
+- **Primary Auth**: Printo API (`https://pia.printo.in/api/v1/auth/`)
+- **Token Management**: JWT access and refresh tokens
+- **Role Assignment**: Based on `is_ops_team` flag from Printo API
+- **Local Storage**: Secure token storage with automatic refresh
 
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant RiderPro API
+    participant Printo API
+    
+    Client->>RiderPro API: POST /auth/login {employeeId, password}
+    RiderPro API->>Printo API: POST /auth/ {employee_id, password}
+    Printo API-->>RiderPro API: {access, refresh, full_name, is_ops_team}
+    RiderPro API-->>Client: {accessToken, refreshToken, user}
+    
+    Note over Client: Store tokens securely
+    
+    Client->>RiderPro API: GET /shipments (with Bearer token)
+    RiderPro API-->>Client: Shipments data
+    
+    Note over RiderPro API: Token expires
+    
+    Client->>RiderPro API: GET /shipments (expired token)
+    RiderPro API-->>Client: 401 Unauthorized
+    Client->>RiderPro API: POST /auth/refresh {refreshToken}
+    RiderPro API->>Printo API: POST /auth/refresh/ {refresh}
+    Printo API-->>RiderPro API: {access, refresh}
+    RiderPro API-->>Client: {accessToken, refreshToken}
 ```
-┌─────────────────────────────────────────┐
-│              UI Components              │
-│         (useAuth() hook only)           │
-├─────────────────────────────────────────┤
-│            AuthContext.tsx              │
-│        (Bridge to AuthService)          │
-├─────────────────────────────────────────┤
-│             ApiClient.ts                │
-│    (Centralized API + Auth handling)    │
-├─────────────────────────────────────────┤
-│            AuthService.ts               │
-│         (Core Auth Logic)               │
-├─────────────────────────────────────────┤
-│           TokenStorage.ts               │
-│      (Secure Token Management)          │
-└─────────────────────────────────────────┘
+
+## User Roles and Permissions
+
+### Role Hierarchy
+1. **Driver** (`role: "driver"`)
+   - View own shipments only
+   - Update shipment status
+   - Record GPS tracking data
+   - Access basic dashboard
+
+2. **Operations Team** (`role: "ops_team"`)
+   - View all shipments
+   - Manage all routes
+   - Access analytics and reports
+   - Export data
+   - View live tracking
+
+### Permission Matrix
+
+| Feature | Driver | Ops Team |
+|---------|--------|----------|
+| View Own Shipments | ✅ | ✅ |
+| View All Shipments | ❌ | ✅ |
+| Update Shipment Status | ✅ | ✅ |
+| Batch Update Shipments | ❌ | ✅ |
+| GPS Tracking | ✅ | ✅ |
+| Route Analytics | ❌ | ✅ |
+| Export Data | ❌ | ✅ |
+| Live Tracking Dashboard | ❌ | ✅ |
+| Admin Panel | ❌ | ❌ |
+
+### Role Assignment Logic
+
+```typescript
+// Role assignment based on Printo API response
+const assignRole = (printoResponse: PrintoAuthResponse): UserRole => {
+  if (printoResponse.is_ops_team) {
+    return UserRole.OPS_TEAM;
+  }
+  return UserRole.DRIVER;
+};
+
+// User object creation
+const user: User = {
+  id: employeeId,
+  username: employeeId,
+  employeeId: employeeId,
+  email: employeeId,
+  fullName: printoResponse.full_name || employeeId,
+  role: assignRole(printoResponse),
+  isActive: true,
+  permissions: [],
+  isOpsTeam: printoResponse.is_ops_team || false,
+  isAdmin: printoResponse.is_ops_team || false,
+  isSuperAdmin: false // No hardcoded super admin accounts
+};
 ```
 
-### Key Features
+## Token Management
 
-- **Unified Authentication**: Single `useAuth()` hook for all authentication needs
-- **Automatic Token Refresh**: Seamless token renewal without user interruption
-- **Centralized API Client**: All API calls go through authenticated client
-- **Comprehensive Error Handling**: User-friendly error messages and recovery
-- **Type Safety**: Full TypeScript support throughout
-- **Offline Support**: Graceful degradation and network error handling
+### JWT Token Structure
 
-## Usage Guide
+**Access Token Payload:**
+```json
+{
+  "sub": "employee_id",
+  "name": "Full Name",
+  "role": "ops_team|driver",
+  "is_ops_team": boolean,
+  "iat": 1642248000,
+  "exp": 1642251600
+}
+```
 
-### For React Components
+**Refresh Token:**
+- Longer expiration (7 days)
+- Used only for token refresh
+- Automatically rotated on refresh
 
-#### Basic Authentication Hook
+### Automatic Token Refresh
+
+```typescript
+class AuthService {
+  private async refreshTokenIfNeeded(): Promise<void> {
+    const token = this.getAccessToken();
+    if (!token || this.isTokenExpired(token)) {
+      await this.refreshToken();
+    }
+  }
+
+  private async refreshToken(): Promise<void> {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const response = await fetch('https://pia.printo.in/api/v1/auth/refresh/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh: refreshToken })
+    });
+
+    if (!response.ok) {
+      this.logout();
+      throw new Error('Token refresh failed');
+    }
+
+    const data = await response.json();
+    this.storeTokens(data.access, data.refresh);
+  }
+}
+```
+
+## Security Features
+
+### Token Storage
+- **LocalStorage**: Encrypted token storage
+- **Memory Cache**: Runtime token caching
+- **Automatic Cleanup**: Tokens cleared on logout
+- **Expiration Handling**: Automatic refresh before expiration
+
+### Request Security
+```typescript
+// Automatic authentication headers
+class ApiClient {
+  private async request(url: string, options: RequestInit = {}): Promise<Response> {
+    await this.authService.refreshTokenIfNeeded();
+    
+    const token = this.authService.getAccessToken();
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...options.headers
+    };
+
+    return fetch(url, { ...options, headers });
+  }
+}
+```
+
+### Session Management
+- **Automatic Logout**: On token refresh failure
+- **Concurrent Sessions**: Multiple tabs supported
+- **Storage Events**: Cross-tab logout synchronization
+- **Idle Timeout**: Configurable session timeout
+
+## Client-Side Implementation
+
+### React Hook Usage
 
 ```typescript
 import { useAuth } from '@/hooks/useAuth';
 
 function MyComponent() {
-  const { user, isAuthenticated, login, logout } = useAuth();
+  const { 
+    user, 
+    isAuthenticated, 
+    isLoading, 
+    login, 
+    logout,
+    isAdmin,
+    isOpsTeam 
+  } = useAuth();
 
-  if (!isAuthenticated) {
-    return <LoginForm onLogin={login} />;
-  }
+  if (isLoading) return <LoadingSpinner />;
+  if (!isAuthenticated) return <LoginForm />;
 
   return (
     <div>
-      <h1>Welcome, {user?.fullName}</h1>
-      <button onClick={logout}>Logout</button>
+      <h1>Welcome, {user.fullName}</h1>
+      {isOpsTeam && <AdminPanel />}
     </div>
   );
 }
 ```
 
-#### Permission Checking
+### Protected Routes
 
 ```typescript
-import { useAuth, useHasPermission } from '@/hooks/useAuth';
-import { Permission } from '@/types/Auth';
+import { useAuth } from '@/hooks/useAuth';
+import { Navigate } from 'wouter';
 
-function AdminPanel() {
-  const { user } = useAuth();
-  const canManageUsers = useHasPermission(Permission.MANAGE_USERS);
-  const canViewAnalytics = useHasPermission(Permission.VIEW_ANALYTICS);
+function ProtectedRoute({ children, requireOpsTeam = false }) {
+  const { isAuthenticated, isOpsTeam, isLoading } = useAuth();
 
-  if (!canManageUsers) {
-    return <div>Access denied</div>;
-  }
+  if (isLoading) return <LoadingSpinner />;
+  if (!isAuthenticated) return <Navigate to="/login" />;
+  if (requireOpsTeam && !isOpsTeam) return <Navigate to="/unauthorized" />;
 
-  return (
-    <div>
-      <h1>Admin Panel</h1>
-      {canViewAnalytics && <AnalyticsSection />}
-    </div>
-  );
+  return children;
 }
 ```
 
-#### Role-Based Access
-
-```typescript
-import { useAuth, useIsAdmin, useHasAnyRole } from '@/hooks/useAuth';
-import { UserRole } from '@/types/Auth';
-
-function Navigation() {
-  const { user } = useAuth();
-  const isAdmin = useIsAdmin();
-  const canAccessAdmin = useHasAnyRole([UserRole.ADMIN, UserRole.SUPER_ADMIN]);
-
-  return (
-    <nav>
-      <Link to="/">Dashboard</Link>
-      <Link to="/shipments">Shipments</Link>
-      {canAccessAdmin && <Link to="/admin">Admin</Link>}
-      {isAdmin && <Link to="/system">System</Link>}
-    </nav>
-  );
-}
-```
-
-### For API Calls
-
-#### Using ApiClient
+### API Client Integration
 
 ```typescript
 import { apiClient } from '@/services/ApiClient';
 
-// GET request
-const response = await apiClient.get('/api/shipments');
-const shipments = await response.json();
-
-// POST request
-const response = await apiClient.post('/api/shipments', {
-  customerName: 'John Doe',
-  address: '123 Main St'
-});
-
-// File upload
-const formData = new FormData();
-formData.append('signature', signatureFile);
-const response = await apiClient.upload('/api/acknowledgments', formData);
+// Automatic authentication - no manual token handling needed
+const shipments = await apiClient.get('/api/shipments');
+const dashboard = await apiClient.get('/api/dashboard/metrics');
 ```
 
-#### Error Handling
+## Error Handling
+
+### Authentication Errors
 
 ```typescript
-import { apiClient } from '@/services/ApiClient';
-import { useAuthErrorHandler } from '@/hooks/useAuth';
+// Common authentication error scenarios
+enum AuthError {
+  INVALID_CREDENTIALS = 'Invalid employee ID or password',
+  TOKEN_EXPIRED = 'Session expired, please log in again',
+  REFRESH_FAILED = 'Unable to refresh session',
+  NETWORK_ERROR = 'Network connection failed',
+  EXTERNAL_API_ERROR = 'Authentication service unavailable'
+}
+```
 
-function ShipmentService() {
-  const { handleAuthError } = useAuthErrorHandler();
+### Error Recovery
 
-  const updateShipment = async (id: string, data: any) => {
-    try {
-      const response = await apiClient.patch(`/api/shipments/${id}`, data);
-      return await response.json();
-    } catch (error) {
-      handleAuthError(error, 'updateShipment');
-      throw error;
+```typescript
+class AuthService {
+  private async handleAuthError(error: AuthError): Promise<void> {
+    switch (error) {
+      case AuthError.TOKEN_EXPIRED:
+      case AuthError.REFRESH_FAILED:
+        await this.logout();
+        this.redirectToLogin();
+        break;
+      
+      case AuthError.NETWORK_ERROR:
+        // Retry with exponential backoff
+        await this.retryWithBackoff();
+        break;
+      
+      case AuthError.EXTERNAL_API_ERROR:
+        // Show offline mode or retry later
+        this.showOfflineMessage();
+        break;
     }
-  };
+  }
 }
 ```
-
-## Authentication Flow
-
-### Login Process
-
-1. **User Credentials**: User enters employeeId and password
-2. **API Request**: Credentials sent to Django authentication endpoint
-3. **Token Response**: Access and refresh tokens received
-4. **Token Storage**: Tokens stored securely with expiration tracking
-5. **State Update**: Authentication state updated across all components
-6. **Redirect**: User redirected to dashboard
-
-```typescript
-const handleLogin = async (employeeId: string, password: string) => {
-  const result = await login(employeeId, password);
-  
-  if (result.success) {
-    // User is automatically redirected
-    console.log('Login successful');
-  } else {
-    // Handle error
-    setError(result.message);
-  }
-};
-```
-
-### Token Refresh Process
-
-1. **API Call**: Request made with expired access token
-2. **401 Response**: Server returns unauthorized error
-3. **Auto Refresh**: System automatically attempts token refresh
-4. **New Tokens**: Fresh tokens received and stored
-5. **Retry Request**: Original request retried with new token
-6. **Seamless Experience**: User experiences no interruption
-
-### Logout Process
-
-1. **Logout Trigger**: User clicks logout or session expires
-2. **Token Cleanup**: All stored tokens cleared from localStorage
-3. **State Reset**: Authentication state reset across all components
-4. **API Cleanup**: Pending requests cancelled
-5. **Redirect**: User redirected to login page
 
 ## Configuration
 
@@ -203,263 +293,113 @@ VITE_AUTH_BASE_URL=https://pia.printo.in/api/v1
 VITE_API_BASE_URL=http://localhost:5000/api
 
 # Token configuration
-VITE_TOKEN_REFRESH_THRESHOLD=300000  # 5 minutes before expiry
-VITE_MAX_RETRY_ATTEMPTS=3
+JWT_ACCESS_TOKEN_EXPIRY=1h
+JWT_REFRESH_TOKEN_EXPIRY=7d
+
+# Security settings
+CORS_ORIGINS=http://localhost:5000,https://your-domain.com
+RATE_LIMIT_AUTH=5
+RATE_LIMIT_API=100
 ```
 
-### AuthService Configuration
+### Client Configuration
 
 ```typescript
-// Token refresh settings
-private readonly MAX_REFRESH_RETRIES = 3;
-private readonly INITIAL_RETRY_DELAY = 1000; // 1 second
-private readonly REFRESH_COOLDOWN = 5000; // 5 seconds
-
-// Network settings
-private readonly MAX_OFFLINE_QUEUE_SIZE = 50;
-private readonly OFFLINE_QUEUE_TTL = 5 * 60 * 1000; // 5 minutes
-```
-
-## User Roles and Permissions
-
-### Role Hierarchy
-
-```typescript
-enum UserRole {
-  SUPER_ADMIN = 'super_admin',
-  ADMIN = 'admin',
-  OPS_TEAM = 'ops_team',
-  MANAGER = 'manager',
-  DRIVER = 'driver'
-}
-```
-
-### Permission System
-
-```typescript
-enum Permission {
-  VIEW_ALL_ROUTES = 'view_all_routes',
-  VIEW_OWN_ROUTES = 'view_own_routes',
-  VIEW_ANALYTICS = 'view_analytics',
-  EXPORT_DATA = 'export_data',
-  MANAGE_USERS = 'manage_users',
-  VIEW_LIVE_TRACKING = 'view_live_tracking',
-  ACCESS_AUDIT_LOGS = 'access_audit_logs',
-  CONFIGURE_SYSTEM = 'configure_system'
-}
-```
-
-### Role-Permission Mapping
-
-| Role | Permissions |
-|------|-------------|
-| **SUPER_ADMIN** | All permissions |
-| **ADMIN** | VIEW_ALL_ROUTES, VIEW_ANALYTICS, EXPORT_DATA, MANAGE_USERS, VIEW_LIVE_TRACKING, ACCESS_AUDIT_LOGS, CONFIGURE_SYSTEM |
-| **OPS_TEAM** | VIEW_ALL_ROUTES, VIEW_ANALYTICS, EXPORT_DATA, VIEW_LIVE_TRACKING |
-| **MANAGER** | VIEW_ALL_ROUTES, VIEW_ANALYTICS, EXPORT_DATA, VIEW_LIVE_TRACKING |
-| **DRIVER** | VIEW_OWN_ROUTES |
-
-## Error Handling
-
-### Error Types
-
-```typescript
-enum ErrorType {
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  AUTH_ERROR = 'AUTH_ERROR',
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  SERVER_ERROR = 'SERVER_ERROR',
-  CLIENT_ERROR = 'CLIENT_ERROR',
-  TIMEOUT_ERROR = 'TIMEOUT_ERROR',
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR'
-}
-```
-
-### Error Recovery
-
-- **Network Errors**: Automatic retry with exponential backoff
-- **Authentication Errors**: Automatic token refresh or logout
-- **Server Errors**: User-friendly error messages
-- **Storage Errors**: Fallback to memory-only storage
-
-### User-Friendly Messages
-
-```typescript
-const errorMessages = {
-  NETWORK_ERROR: 'Unable to connect. Please check your internet connection.',
-  AUTH_ERROR: 'Your session has expired. Please log in again.',
-  VALIDATION_ERROR: 'Please check your input and try again.',
-  SERVER_ERROR: 'Server is temporarily unavailable. Please try again later.',
-  TIMEOUT_ERROR: 'Request timed out. Please try again.'
+// AuthContext configuration
+const authConfig = {
+  tokenRefreshThreshold: 5 * 60 * 1000, // 5 minutes before expiry
+  maxRetryAttempts: 3,
+  retryDelay: 1000,
+  sessionTimeout: 8 * 60 * 60 * 1000, // 8 hours
+  enableCrossTabSync: true
 };
 ```
 
-## Security Features
+## Testing
 
-### Token Security
+### Unit Tests
 
-- **Secure Storage**: Tokens stored in localStorage with validation
-- **Automatic Expiry**: Tokens automatically refreshed before expiration
-- **Corruption Detection**: Invalid tokens automatically cleared
-- **Session Isolation**: Each browser tab maintains independent session
+```typescript
+describe('AuthService', () => {
+  it('should login with valid credentials', async () => {
+    const result = await authService.login('EMP001', 'password');
+    expect(result.success).toBe(true);
+    expect(result.user.employeeId).toBe('EMP001');
+  });
 
-### Request Security
+  it('should refresh token automatically', async () => {
+    // Mock expired token
+    jest.spyOn(authService, 'isTokenExpired').mockReturnValue(true);
+    
+    await authService.refreshTokenIfNeeded();
+    
+    expect(authService.getAccessToken()).toBeTruthy();
+  });
 
-- **Automatic Headers**: Authentication headers added automatically
-- **CSRF Protection**: Cross-site request forgery prevention
-- **Request Validation**: All requests validated before sending
-- **Error Sanitization**: Sensitive information removed from error messages
+  it('should logout on refresh failure', async () => {
+    // Mock refresh failure
+    mockFetch.mockRejectedValueOnce(new Error('Refresh failed'));
+    
+    await expect(authService.refreshToken()).rejects.toThrow();
+    expect(authService.isAuthenticated()).toBe(false);
+  });
+});
+```
 
-### Network Security
+### Integration Tests
 
-- **HTTPS Only**: All authentication requests use HTTPS
-- **Token Rotation**: Refresh tokens rotated on each use
-- **Rate Limiting**: Built-in request rate limiting
-- **Offline Protection**: Secure offline mode with cached credentials
+```typescript
+describe('Authentication Flow', () => {
+  it('should complete full login flow', async () => {
+    // Test login -> API call -> token refresh -> logout
+    await authService.login('EMP001', 'password');
+    
+    const shipments = await apiClient.get('/api/shipments');
+    expect(shipments).toBeDefined();
+    
+    // Simulate token expiry and refresh
+    await authService.refreshToken();
+    
+    const newShipments = await apiClient.get('/api/shipments');
+    expect(newShipments).toBeDefined();
+    
+    await authService.logout();
+    expect(authService.isAuthenticated()).toBe(false);
+  });
+});
+```
+
+## Security Best Practices
+
+1. **No Hardcoded Credentials**: All authentication goes through Printo API
+2. **Token Rotation**: Refresh tokens are rotated on each refresh
+3. **Secure Storage**: Tokens stored securely with encryption
+4. **HTTPS Only**: All authentication requests use HTTPS
+5. **Rate Limiting**: Prevent brute force attacks
+6. **Input Validation**: All inputs validated and sanitized
+7. **Error Handling**: No sensitive information in error messages
+8. **Session Management**: Proper session cleanup and timeout handling
 
 ## Troubleshooting
 
 ### Common Issues
 
-#### "Session expired" errors
-- **Cause**: Token refresh failed or refresh token expired
-- **Solution**: User needs to log in again
-- **Prevention**: Ensure stable network connection
+1. **Login Fails**: Check Printo API connectivity and credentials
+2. **Token Refresh Fails**: Verify refresh token validity and network connection
+3. **Permission Denied**: Check user role and permissions
+4. **Cross-Tab Issues**: Ensure storage event listeners are working
+5. **Network Errors**: Implement proper retry logic and offline handling
 
-#### Components not updating after login
-- **Cause**: Component not using useAuth hook
-- **Solution**: Replace direct AuthService calls with useAuth hook
-- **Example**: `const { user } = useAuth()` instead of `authService.getUser()`
-
-#### API calls failing with 401 errors
-- **Cause**: Manual fetch calls bypassing ApiClient
-- **Solution**: Use apiClient for all API requests
-- **Example**: `apiClient.get('/api/data')` instead of `fetch('/api/data')`
-
-
-
-### Debug Information
+### Debug Mode
 
 ```typescript
-import { useAuthDebug } from '@/hooks/useAuth';
+// Enable debug logging
+localStorage.setItem('auth_debug', 'true');
 
-function DebugPanel() {
-  const { debugInfo } = useAuthDebug();
-  
-  const handleDebug = () => {
-    const info = debugInfo();
-    console.log('Auth Debug Info:', info);
-  };
-  
-  return <button onClick={handleDebug}>Debug Auth</button>;
-}
+// Check authentication state
+console.log('Auth State:', {
+  isAuthenticated: authService.isAuthenticated(),
+  user: authService.getCurrentUser(),
+  tokenExpiry: authService.getTokenExpiry()
+});
 ```
-
-### Monitoring
-
-The authentication system provides comprehensive logging:
-
-- **State Changes**: All authentication state changes logged
-- **Token Operations**: Token refresh and storage operations logged
-- **Error Events**: All authentication errors logged with context
-- **Performance Metrics**: Request timing and retry statistics
-
-## Migration Guide
-
-### From Legacy System
-
-If migrating from direct AuthService usage:
-
-1. **Replace AuthService imports**:
-   ```typescript
-   // Old
-   import authService from '@/services/AuthService';
-   
-   // New
-   import { useAuth } from '@/hooks/useAuth';
-   ```
-
-2. **Update component logic**:
-   ```typescript
-   // Old
-   const user = authService.getUser();
-   const isAuthenticated = authService.isAuthenticated();
-   
-   // New
-   const { user, isAuthenticated } = useAuth();
-   ```
-
-3. **Replace API calls**:
-   ```typescript
-   // Old
-   const response = await authService.fetchWithAuth('/api/data');
-   
-   // New
-   const response = await apiClient.get('/api/data');
-   ```
-
-### Testing Migration
-
-1. **Verify Authentication**: Ensure login/logout works correctly
-2. **Check API Calls**: Verify all API requests include authentication
-3. **Test Token Refresh**: Simulate token expiration scenarios
-4. **Validate Permissions**: Test role-based access control
-5. **Error Handling**: Test network errors and recovery
-
-## Best Practices
-
-### Component Development
-
-1. **Always use useAuth hook** instead of direct AuthService access
-2. **Handle loading states** during authentication operations
-3. **Implement error boundaries** for authentication errors
-4. **Use permission hooks** for conditional rendering
-5. **Never use `require()`** - Always use ES module `import` syntax
-
-### API Integration
-
-1. **Use apiClient** for all authenticated requests
-2. **Handle errors gracefully** with user-friendly messages
-3. **Implement retry logic** for transient failures
-4. **Cache responses** appropriately to reduce API calls
-5. **Use proper imports** - No CommonJS in browser code
-
-### Security
-
-1. **Never store sensitive data** in component state
-2. **Validate user permissions** on both client and server
-3. **Use HTTPS** for all authentication-related requests
-4. **Implement proper logout** to clear all stored data
-5. **Token storage** - Uses secure localStorage with fallback to memory
-
-### Performance
-
-1. **Minimize authentication checks** in render loops
-2. **Use React.memo** for components with auth dependencies
-3. **Implement proper caching** for user data and permissions
-4. **Avoid unnecessary re-renders** from authentication state changes
-5. **Network monitoring** - Automatic connectivity checks every 30 seconds
-
-### Code Quality
-
-1. **ES Modules Only** - No CommonJS `require()` in client code
-2. **Type Safety** - Full TypeScript coverage for all auth code
-3. **Error Handling** - Comprehensive try-catch with fallbacks
-4. **Dynamic Imports** - Use for circular dependency resolution
-
-
-## System Status
-
-### ✅ PRODUCTION READY
-
-The authentication system is production-ready with:
-- ✅ Clean code (no errors or warnings)
-- ✅ Robust error handling with graceful degradation
-- ✅ Comprehensive documentation
-- ✅ ES module architecture (no CommonJS)
-- ✅ Network resilience with automatic connectivity monitoring
-- ✅ Secure token storage with memory fallback
-- ✅ Type-safe implementation throughout
-
-**Status**: Production Ready  
-**Stability**: Stable

@@ -1,348 +1,616 @@
-# System Architecture Documentation
+# System Architecture
 
 ## Overview
 
-RiderPro is a full-stack shipment management system built with modern web technologies, designed for logistics and delivery operations. The architecture emphasizes real-time updates, offline capabilities, and seamless integration with external systems.
+RiderPro is a modern, offline-first shipment management and GPS tracking system built with React, TypeScript, and Node.js. The system integrates with external Printo API for authentication while providing comprehensive route tracking, analytics, and real-time monitoring capabilities.
 
-## Architecture Principles
+## High-Level Architecture
 
-### Design Philosophy
-- **Mobile-First**: Responsive design optimized for field workers
-- **Offline-Capable**: Local data storage with sync capabilities
-- **Real-Time**: Live updates for operational awareness
-- **Scalable**: Modular architecture ready for growth
-- **Secure**: Role-based access with external authentication
-
-### Technology Decisions
-- **TypeScript**: End-to-end type safety
-- **SQLite**: Simple, reliable local storage
-- **React**: Component-based UI with modern hooks
-- **Express**: Lightweight, flexible API server
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        A[React Frontend]
+        B[Service Worker]
+        C[IndexedDB]
+    end
+    
+    subgraph "API Layer"
+        D[Node.js Server]
+        E[Express Router]
+        F[Middleware]
+    end
+    
+    subgraph "External Services"
+        G[Printo API]
+        H[GPS Services]
+    end
+    
+    subgraph "Data Layer"
+        I[Local Storage]
+        J[Memory Cache]
+    end
+    
+    A --> D
+    A --> C
+    B --> C
+    D --> G
+    D --> I
+    E --> F
+    A --> H
+```
 
 ## Frontend Architecture
 
-### React Application Structure
+### Component Structure
 
 ```
-client/src/
-├── components/          # Reusable UI components
-│   ├── ui/             # Base Shadcn/ui components
+src/
+├── components/           # Reusable UI components
+│   ├── ui/              # Base UI components (shadcn/ui)
+│   ├── analytics/       # Analytics-specific components
 │   ├── ErrorBoundary.tsx
-│   ├── Navigation.tsx
-│   ├── ShipmentCardWithTracking.tsx
-│   ├── ShipmentDetailModalWithTracking.tsx
-│   ├── SignatureCanvas.tsx
-│   ├── BatchUpdateModal.tsx
-│   └── SyncStatusPanel.tsx
-├── pages/              # Route components
+│   ├── FloatingActionMenu.tsx
+│   ├── RouteSessionControls.tsx
+│   └── ShipmentCardWithTracking.tsx
+├── pages/               # Page components
 │   ├── Dashboard.tsx
 │   ├── ShipmentsWithTracking.tsx
-│   └── not-found.tsx
-├── hooks/              # Custom React hooks
-│   ├── useDashboard.ts
-│   ├── useShipments.ts
-│   └── use-toast.ts
-├── lib/                # Utilities and configuration
-│   ├── queryClient.ts
-│   └── utils.ts
-└── App.tsx             # Application root
+│   ├── RouteAnalytics.tsx
+│   └── RouteVisualizationPage.tsx
+├── hooks/               # Custom React hooks
+│   ├── useAuth.ts
+│   ├── useRouteAPI.ts
+│   ├── useGPSTracking.ts
+│   └── useMobileOptimization.ts
+├── services/            # Business logic services
+│   ├── AuthService.ts
+│   ├── ApiClient.ts
+│   ├── OfflineStorageService.ts
+│   └── GPSTrackingService.ts
+├── contexts/            # React contexts
+│   ├── AuthContext.tsx
+│   └── ThemeContext.tsx
+└── api/                 # API integration
+    ├── shipments.ts
+    ├── routes.ts
+    └── analytics.ts
 ```
 
-### State Management Strategy
+### State Management
 
-#### Authentication State (React Context)
-- **Unified Auth System**: Single `useAuth()` hook for all authentication needs
-- **Automatic Token Management**: Seamless token refresh and storage
-- **Permission System**: Role-based access control with granular permissions
-- **Error Recovery**: Comprehensive error handling and user feedback
-
+#### Authentication State
 ```typescript
-// Modern authentication usage
-const { user, isAuthenticated, hasPermission, login, logout } = useAuth();
-
-// Permission-based rendering
-const canManageUsers = hasPermission(Permission.MANAGE_USERS);
+interface AuthState {
+  isAuthenticated: boolean;
+  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  isLoading: boolean;
+}
 ```
 
-#### Server State (TanStack Query)
-- **Automatic Caching**: Intelligent background refetching
-- **Optimistic Updates**: Immediate UI feedback
-- **Error Recovery**: Automatic retry with exponential backoff
-- **Real-Time Sync**: Polling and WebSocket integration
-
+#### GPS Tracking State
 ```typescript
-// Example query configuration with authentication
-const shipmentQuery = useQuery({
-  queryKey: ['shipments', filters],
-  queryFn: () => apiClient.get('/api/shipments').then(r => r.json()),
-  staleTime: 30000, // 30 seconds
-  refetchInterval: 60000, // 1 minute
-  retry: 3
+interface GPSState {
+  currentPosition: Position | null;
+  isTracking: boolean;
+  accuracy: number;
+  lastUpdate: Date | null;
+  sessionId: string | null;
+}
+```
+
+### Offline-First Design
+
+#### Service Worker Strategy
+```typescript
+// Service worker for offline functionality
+self.addEventListener('fetch', (event) => {
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => caches.match(event.request))
+    );
+  }
 });
 ```
 
-#### Client State (React Hooks)
-- **UI State**: Component-local state with useState
-- **Form State**: React Hook Form with Zod validation
-- **Global State**: Context API for authentication and theme
-
-### Component Architecture
-
-#### Design System
-- **Shadcn/ui**: Accessible, customizable base components
-- **Tailwind CSS**: Utility-first styling with design tokens
-- **CSS Variables**: Dynamic theming support
-- **Responsive Design**: Mobile-first breakpoint system
-
-#### Component Patterns
-- **Compound Components**: Complex UI with multiple parts
-- **Render Props**: Flexible component composition
-- **Custom Hooks**: Reusable stateful logic
-- **Error Boundaries**: Graceful error handling
+#### IndexedDB Schema
+```typescript
+interface OfflineStorage {
+  gpsPoints: {
+    id: string;
+    sessionId: string;
+    latitude: number;
+    longitude: number;
+    timestamp: string;
+    accuracy: number;
+    synced: boolean;
+  };
+  
+  shipmentEvents: {
+    id: string;
+    shipmentId: string;
+    eventType: 'pickup' | 'delivery';
+    latitude: number;
+    longitude: number;
+    timestamp: string;
+    synced: boolean;
+  };
+  
+  syncQueue: {
+    id: string;
+    endpoint: string;
+    method: string;
+    data: any;
+    timestamp: string;
+    retryCount: number;
+  };
+}
+```
 
 ## Backend Architecture
 
-### Express.js Server Structure
+### Server Structure
 
 ```
 server/
-├── api/                # API documentation
-├── db/                 # Database layer
-│   ├── connection.ts   # Database setup and connection
-│   └── queries.ts      # SQL query operations
-├── services/           # Business logic
-│   ├── externalSync.ts # External API integration
-│   └── scheduler.ts    # Automated tasks
-├── uploads/            # File storage
-│   ├── signatures/     # Digital signatures
-│   └── photos/        # Delivery photos
-├── routes.ts           # API route definitions
-├── storage.ts          # Data access interface
-└── index.ts           # Server entry point
+├── index.ts             # Main server entry point
+├── routes.ts            # API route definitions
+├── middleware/          # Express middleware
+│   ├── auth.ts         # Authentication middleware
+│   ├── cors.ts         # CORS configuration
+│   └── rateLimit.ts    # Rate limiting
+└── services/           # Business logic services
+    ├── AuthService.ts
+    ├── ShipmentService.ts
+    └── GPSService.ts
 ```
 
 ### API Design Patterns
 
 #### RESTful Endpoints
-- **Resource-Based URLs**: `/api/shipments`, `/api/acknowledgments`
-- **HTTP Methods**: GET, POST, PATCH, DELETE
-- **Status Codes**: Consistent HTTP status code usage
-- **Error Handling**: Structured error responses
-
-#### Middleware Stack
 ```typescript
-app.use(cors(corsOptions));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static('uploads'));
-app.use('/api/auth', authRoutes);
-app.use('/api', authenticateToken, apiRoutes);
+// Shipments API
+GET    /api/shipments           # List shipments (paginated)
+POST   /api/shipments           # Create shipment
+GET    /api/shipments/:id       # Get single shipment
+PUT    /api/shipments/:id       # Update shipment
+DELETE /api/shipments/:id       # Delete shipment
+PATCH  /api/shipments/batch     # Batch update
+
+// Route Sessions API
+POST   /api/routes/sessions     # Start route session
+GET    /api/routes/sessions/:id # Get session details
+PUT    /api/routes/sessions/:id/stop # Stop session
+POST   /api/routes/sessions/:id/points # Record GPS point
 ```
 
-### Data Access Layer
-
-#### Database Abstraction
+#### Middleware Pipeline
 ```typescript
-interface StorageInterface {
-  getShipments(filters?: ShipmentFilters): Promise<Shipment[]>;
-  updateShipmentStatus(id: string, status: string): Promise<void>;
-  createAcknowledgment(data: AcknowledgmentData): Promise<string>;
-  getSyncStatus(): Promise<SyncStatus[]>;
+app.use(cors());
+app.use(rateLimit());
+app.use(express.json());
+app.use('/api', authMiddleware);
+app.use('/api', routeHandler);
+app.use(errorHandler);
+```
+
+## GPS Tracking System
+
+### Real-Time GPS Collection
+
+```typescript
+class GPSTrackingService {
+  private watchId: number | null = null;
+  private sessionId: string | null = null;
+  
+  startTracking(sessionId: string): void {
+    this.sessionId = sessionId;
+    this.watchId = navigator.geolocation.watchPosition(
+      this.handlePositionUpdate.bind(this),
+      this.handlePositionError.bind(this),
+      {
+        enableHighAccuracy: true,
+        timeout: 30000,
+        maximumAge: 0
+      }
+    );
+  }
+  
+  private async handlePositionUpdate(position: GeolocationPosition): Promise<void> {
+    const gpsPoint = {
+      sessionId: this.sessionId!,
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy: position.coords.accuracy,
+      speed: position.coords.speed,
+      heading: position.coords.heading,
+      timestamp: new Date().toISOString()
+    };
+    
+    // Store locally first
+    await this.offlineStorage.storeGPSPoint(gpsPoint);
+    
+    // Try to sync immediately
+    try {
+      await this.syncGPSPoint(gpsPoint);
+    } catch (error) {
+      // Will be synced later by background process
+      console.log('GPS point queued for later sync');
+    }
+  }
 }
 ```
 
-#### Query Optimization
-- **Prepared Statements**: SQL injection prevention
-- **Connection Pooling**: Better SQLite3 performance
-- **Index Usage**: Optimized query performance
-- **Batch Operations**: Efficient bulk updates
+### Smart Route Completion
 
-## Data Flow Architecture
-
-### Request Lifecycle
-
-1. **Client Request**: User interaction triggers API call
-2. **Authentication**: Token validation and user context
-3. **Validation**: Request data validation with Zod schemas
-4. **Business Logic**: Service layer processing
-5. **Data Access**: Database operations via storage interface
-6. **Response**: Structured JSON response with error handling
-
-### Real-Time Updates
-
-#### Polling Strategy
 ```typescript
-// Automatic background refetching
-useQuery({
-  queryKey: ['dashboard'],
-  queryFn: fetchDashboardData,
-  refetchInterval: 30000, // 30 seconds
-  refetchOnWindowFocus: true
-});
+class SmartRouteCompletion {
+  private config = {
+    completionRadius: 100, // meters
+    minDuration: 1800,     // 30 minutes
+    autoConfirmDelay: 30   // seconds
+  };
+  
+  detectCompletion(
+    startPosition: Position,
+    currentPosition: Position,
+    sessionDuration: number
+  ): boolean {
+    const distance = this.calculateDistance(startPosition, currentPosition);
+    
+    return distance <= this.config.completionRadius &&
+           sessionDuration >= this.config.minDuration;
+  }
+}
 ```
 
-#### WebSocket Integration (Future)
-- **Live Tracking**: Real-time GPS coordinates
-- **Status Updates**: Instant shipment status changes
-- **Notifications**: Push notifications for critical events
+## Data Synchronization
 
-### File Upload Flow
-
-1. **Client Upload**: Multipart form data with signature/photo
-2. **Multer Processing**: File validation and temporary storage
-3. **File Processing**: Image optimization with Sharp
-4. **Permanent Storage**: Move to organized directory structure
-5. **Database Update**: Store file paths in acknowledgments table
-6. **Cleanup**: Remove temporary files
-
-## External Integration Architecture
-
-### Authentication Proxy
+### Sync Strategy
 
 ```typescript
-// Django API integration
-const authResponse = await axios.post(
-  'https://pia.printo.in/api/v1/auth/',
-  credentials,
-  { timeout: 10000 }
-);
+class SyncService {
+  private syncQueue: SyncItem[] = [];
+  private isOnline = navigator.onLine;
+  
+  async syncPendingData(): Promise<void> {
+    if (!this.isOnline) return;
+    
+    const pendingItems = await this.offlineStorage.getPendingSyncItems();
+    
+    for (const item of pendingItems) {
+      try {
+        await this.syncItem(item);
+        await this.offlineStorage.markAsSynced(item.id);
+      } catch (error) {
+        await this.handleSyncError(item, error);
+      }
+    }
+  }
+  
+  private async handleSyncError(item: SyncItem, error: Error): Promise<void> {
+    item.retryCount++;
+    
+    if (item.retryCount >= 3) {
+      await this.offlineStorage.markAsFailed(item.id);
+    } else {
+      // Exponential backoff
+      const delay = Math.pow(2, item.retryCount) * 1000;
+      setTimeout(() => this.syncItem(item), delay);
+    }
+  }
+}
 ```
 
-#### Token Management
-- **Access Tokens**: Short-lived authentication tokens
-- **Refresh Tokens**: Long-lived token renewal
-- **Cookie Storage**: Secure client-side token storage
-- **Auto-Refresh**: Transparent token renewal on expiry
+### Conflict Resolution
 
-### External Sync Service
-
-#### Sync Strategy
-- **Batch Processing**: Efficient bulk data synchronization
-- **Retry Logic**: Exponential backoff for failed requests
-- **Error Tracking**: Detailed failure logging and monitoring
-- **Manual Triggers**: Admin-initiated sync operations
-
-#### Sync Status Tracking
 ```typescript
-interface SyncStatus {
-  shipmentId: string;
-  status: 'pending' | 'success' | 'failed';
-  attempts: number;
-  lastAttempt?: string;
-  error?: string;
+interface ConflictResolution {
+  strategy: 'client-wins' | 'server-wins' | 'merge' | 'manual';
+  
+  resolveShipmentConflict(
+    clientData: Shipment,
+    serverData: Shipment
+  ): Shipment {
+    // GPS data: client wins (more recent)
+    if (clientData.latitude && clientData.longitude) {
+      return { ...serverData, ...clientData };
+    }
+    
+    // Status updates: server wins (authoritative)
+    return { ...clientData, status: serverData.status };
+  }
+}
+```
+
+## Authentication Integration
+
+### External API Integration
+
+```typescript
+class AuthService {
+  private readonly PRINTO_API_BASE = 'https://pia.printo.in/api/v1';
+  
+  async authenticateWithPrinto(
+    employeeId: string,
+    password: string
+  ): Promise<AuthResponse> {
+    const response = await fetch(`${this.PRINTO_API_BASE}/auth/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        employee_id: employeeId,
+        password: password
+      })
+    });
+    
+    if (!response.ok) {
+      throw new AuthError('Invalid credentials');
+    }
+    
+    const data = await response.json();
+    return this.createUserFromPrintoResponse(data, employeeId);
+  }
+  
+  private createUserFromPrintoResponse(
+    data: PrintoAuthResponse,
+    employeeId: string
+  ): AuthResponse {
+    const user: User = {
+      id: employeeId,
+      username: employeeId,
+      employeeId: employeeId,
+      email: employeeId,
+      fullName: data.full_name || employeeId,
+      role: data.is_ops_team ? UserRole.OPS_TEAM : UserRole.DRIVER,
+      isActive: true,
+      permissions: [],
+      isOpsTeam: data.is_ops_team || false,
+      isAdmin: data.is_ops_team || false,
+      isSuperAdmin: false
+    };
+    
+    return {
+      success: true,
+      accessToken: data.access,
+      refreshToken: data.refresh,
+      user
+    };
+  }
+}
+```
+
+## Performance Optimizations
+
+### Mobile Optimizations
+
+```typescript
+class MobileOptimization {
+  private batteryLevel = 1.0;
+  private isLowPowerMode = false;
+  
+  optimizeForBattery(): OptimizationSettings {
+    if (this.batteryLevel < 0.2 || this.isLowPowerMode) {
+      return {
+        gpsInterval: 60000,      // 1 minute instead of 30 seconds
+        syncInterval: 300000,    // 5 minutes instead of 1 minute
+        reduceAnimations: true,
+        disableBackgroundSync: true
+      };
+    }
+    
+    return {
+      gpsInterval: 30000,
+      syncInterval: 60000,
+      reduceAnimations: false,
+      disableBackgroundSync: false
+    };
+  }
+}
+```
+
+### Caching Strategy
+
+```typescript
+class CacheManager {
+  private memoryCache = new Map<string, CacheItem>();
+  private readonly TTL = 5 * 60 * 1000; // 5 minutes
+  
+  async get<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
+    const cached = this.memoryCache.get(key);
+    
+    if (cached && Date.now() - cached.timestamp < this.TTL) {
+      return cached.data;
+    }
+    
+    const data = await fetcher();
+    this.memoryCache.set(key, {
+      data,
+      timestamp: Date.now()
+    });
+    
+    return data;
+  }
 }
 ```
 
 ## Security Architecture
 
-### Modern Authentication System
-
-#### Unified Authentication Layer
-- **React Context Integration**: Centralized authentication state management
-- **Automatic Token Refresh**: Seamless session continuation without user interruption
-- **Type-Safe API Client**: All API calls go through authenticated client
-- **Comprehensive Error Handling**: User-friendly error messages and recovery strategies
+### Authentication Flow
 
 ```typescript
-// Authentication architecture
-interface AuthState {
-  user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  permissions: Permission[];
-  isAuthenticated: boolean;
-  isLoading: boolean;
+// JWT token validation middleware
+const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+  
+  try {
+    // Verify with Printo API
+    const response = await fetch('https://pia.printo.in/api/v1/auth/me/', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!response.ok) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    const userData = await response.json();
+    req.user = userData;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Token validation failed' });
+  }
+};
+```
+
+### Role-Based Access Control
+
+```typescript
+const requireRole = (requiredRole: UserRole) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user || req.user.role !== requiredRole) {
+      return res.status(403).json({ error: 'Insufficient permissions' });
+    }
+    next();
+  };
+};
+
+// Usage
+app.get('/api/analytics', authMiddleware, requireRole(UserRole.OPS_TEAM), analyticsHandler);
+```
+
+## Monitoring and Logging
+
+### Error Tracking
+
+```typescript
+class ErrorMonitor {
+  logError(error: Error, context: ErrorContext): void {
+    const errorData = {
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+      userId: context.userId,
+      route: context.route,
+      userAgent: context.userAgent
+    };
+    
+    // Log to console in development
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error:', errorData);
+    }
+    
+    // Send to monitoring service in production
+    if (process.env.NODE_ENV === 'production') {
+      this.sendToMonitoringService(errorData);
+    }
+  }
 }
 ```
 
-#### Enhanced Security Features
-- **Token Storage Security**: Secure localStorage with corruption detection and memory fallback
-- **Network Error Resilience**: Offline mode support with automatic retry logic
-- **Permission-Based Access**: Granular role and permission system
-- **Request Authentication**: Automatic authentication headers for all API calls
-- **ES Module Security**: No CommonJS `require()` - all ES module imports for browser safety
-- **Health Monitoring**: Automatic connectivity checks via `/api/health` endpoint
-
-#### Role & Permission System
-- **super_admin**: Complete system control and configuration
-- **admin**: Full operational access and user management  
-- **ops_team**: Operations oversight with analytics access
-- **manager**: Route management and performance analytics
-- **driver**: Personal route and delivery management
+### Performance Monitoring
 
 ```typescript
-// Permission checking in components
-const { hasPermission, hasAnyRole } = useAuth();
-const canViewAnalytics = hasPermission(Permission.VIEW_ANALYTICS);
-const isAdminUser = hasAnyRole([UserRole.ADMIN, UserRole.SUPER_ADMIN]);
+class PerformanceMonitor {
+  trackAPICall(endpoint: string, duration: number, success: boolean): void {
+    const metric = {
+      endpoint,
+      duration,
+      success,
+      timestamp: Date.now()
+    };
+    
+    // Store metrics for analytics
+    this.storeMetric(metric);
+    
+    // Alert on slow requests
+    if (duration > 5000) {
+      this.alertSlowRequest(metric);
+    }
+  }
+}
 ```
-
-### Data Security
-
-#### Input Validation
-```typescript
-const shipmentSchema = z.object({
-  status: z.enum(['Assigned', 'In Transit', 'Delivered']),
-  remarks: z.string().max(500).optional()
-});
-```
-
-#### File Security
-- **Upload Validation**: File type and size restrictions
-- **Path Sanitization**: Prevent directory traversal
-- **Access Control**: Authenticated access to uploaded files
-
-## Performance Architecture
-
-### Frontend Optimization
-
-#### Code Splitting
-```typescript
-// Lazy loading for route components
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Shipments = lazy(() => import('./pages/ShipmentsWithTracking'));
-```
-
-#### Caching Strategy
-- **Query Caching**: TanStack Query automatic caching
-- **Asset Caching**: Vite build optimization
-- **Service Worker**: Offline capability (future enhancement)
-
-### Backend Optimization
-
-#### Database Performance
-- **Connection Reuse**: Single database connection
-- **Query Optimization**: Indexed queries and prepared statements
-- **Batch Operations**: Reduced database round trips
-
-#### Memory Management
-- **File Streaming**: Large file handling
-- **Connection Pooling**: Efficient resource usage
-- **Garbage Collection**: Proper cleanup of temporary resources
 
 ## Deployment Architecture
 
 ### Development Environment
-- **Vite Dev Server**: Hot module replacement
-- **Replica Database**: Safe development data
-- **File Watching**: Automatic server restart
-- **Error Overlay**: Development debugging tools
+```bash
+# Frontend (Vite dev server)
+npm run dev              # http://localhost:5000
+
+# Backend (Node.js)
+npm run server          # http://localhost:5000/api
+
+# External API
+# https://pia.printo.in/api/v1
+```
 
 ### Production Environment
-- **Static Assets**: Optimized build output
-- **Live Database**: Production data operations
-- **Process Management**: PM2 or similar process manager
-- **Logging**: Structured application logging
+```bash
+# Build process
+npm run build           # Build React app
+npm run build:server    # Build Node.js server
 
-### Scalability Considerations
+# Deployment
+docker build -t riderpro .
+docker run -p 80:5000 riderpro
+```
 
-#### Horizontal Scaling
-- **Stateless Design**: No server-side session storage
-- **Database Separation**: Read/write splitting capability
-- **File Storage**: CDN integration for uploaded files
-- **Load Balancing**: Multiple server instance support
+### Environment Configuration
 
-#### Migration Path
-- **PostgreSQL Ready**: Schema designed for easy migration
-- **Microservices**: Modular architecture for service extraction
-- **API Versioning**: Backward compatibility support
+```bash
+# Client environment variables
+VITE_API_BASE_URL=https://api.riderpro.com
+VITE_AUTH_BASE_URL=https://pia.printo.in/api/v1
+VITE_GPS_UPDATE_INTERVAL=30000
+VITE_SYNC_INTERVAL=60000
 
+# Server environment variables
+NODE_ENV=production
+PORT=5000
+PRINTO_API_BASE_URL=https://pia.printo.in/api/v1
+CORS_ORIGINS=https://riderpro.com,https://app.riderpro.com
+RATE_LIMIT_WINDOW=900000
+RATE_LIMIT_MAX=100
+```
+
+## Scalability Considerations
+
+### Horizontal Scaling
+- Stateless server design
+- JWT tokens (no server-side sessions)
+- Database connection pooling
+- Load balancer ready
+
+### Data Growth
+- Pagination for all list endpoints
+- GPS data archiving strategy
+- Efficient indexing for queries
+- Background cleanup jobs
+
+### Performance Bottlenecks
+- GPS point ingestion rate limiting
+- Batch processing for sync operations
+- Caching for frequently accessed data
+- CDN for static assets
+
+## Future Enhancements
+
+### Planned Features
+1. **WebSocket Integration**: Real-time updates
+2. **Push Notifications**: Shipment status alerts
+3. **Advanced Analytics**: Machine learning insights
+4. **Multi-tenant Support**: Multiple organizations
+5. **Mobile App**: Native iOS/Android apps
+
+### Technical Debt
+1. **Database Migration**: Move from mock data to real database
+2. **Microservices**: Split monolith into services
+3. **Event Sourcing**: Audit trail and replay capability
+4. **GraphQL**: More efficient data fetching
+5. **Kubernetes**: Container orchestration
