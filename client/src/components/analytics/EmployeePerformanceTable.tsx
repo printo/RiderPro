@@ -198,7 +198,8 @@ export default function EmployeePerformanceTable({
         )}
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border">
+        {/* Desktop Table View */}
+        <div className="hidden lg:block rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -355,6 +356,82 @@ export default function EmployeePerformanceTable({
               )}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="lg:hidden space-y-4">
+          {filteredAndSortedData.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No employee data found
+            </div>
+          ) : (
+            filteredAndSortedData.map((employee) => (
+              <Card key={employee.employeeId} className="p-4">
+                <div className="space-y-3">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">Employee {employee.employeeId}</h3>
+                    <Badge variant="outline">{employee.workingDays} days</Badge>
+                  </div>
+
+                  {/* Key Metrics Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-blue-600" />
+                      <div>
+                        <p className="text-sm font-medium">{employee.totalDistance.toFixed(1)} km</p>
+                        <p className="text-xs text-muted-foreground">{employee.avgDistancePerDay.toFixed(1)} km/day</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-green-600" />
+                      <div>
+                        <p className="text-sm font-medium">{Math.round(employee.totalTime / 3600)} hrs</p>
+                        <p className="text-xs text-muted-foreground">{Math.round(employee.totalTime / 3600 / employee.workingDays)} hrs/day</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-purple-600" />
+                      <div>
+                        <Badge variant={getPerformanceBadge(employee.averageSpeed, 'averageSpeed')} className="text-xs">
+                          {employee.averageSpeed.toFixed(1)} km/h
+                        </Badge>
+                        <p className="text-xs text-muted-foreground mt-1">Avg Speed</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Fuel className="h-4 w-4 text-orange-600" />
+                      <div>
+                        <p className="text-sm font-medium">${employee.fuelCost.toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">{employee.fuelConsumed.toFixed(1)}L</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Performance Badges */}
+                  <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-muted-foreground">Shipments:</span>
+                      <span className="text-sm font-medium">{employee.shipmentsCompleted}</span>
+                      <span className="text-xs text-muted-foreground">({employee.avgShipmentsPerDay.toFixed(1)}/day)</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={getPerformanceBadge(employee.efficiency, 'efficiency')} className="text-xs">
+                      {employee.efficiency.toFixed(1)} km/shipment
+                    </Badge>
+                    <Badge variant={getPerformanceBadge(employee.fuelEfficiency, 'fuelEfficiency')} className="text-xs">
+                      {employee.fuelEfficiency.toFixed(1)} km/L
+                    </Badge>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
         </div>
 
         {filteredAndSortedData.length > 0 && (

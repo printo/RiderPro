@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,9 +7,6 @@ import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 import RouteCompletionDialog from './RouteCompletionDialog';
 import SmartCompletionSettings from './SmartCompletionSettings';
 import SyncStatusIndicator from './SyncStatusIndicator';
-import OfflineSyncStatus from './OfflineSyncStatus';
-import BatteryPerformanceMonitor from './BatteryPerformanceMonitor';
-import ErrorMonitoringPanel from './ErrorMonitoringPanel';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target, Settings } from 'lucide-react';
 
@@ -341,34 +338,7 @@ function RouteSessionControls({
         </div>
       )}
 
-      {/* Offline Sync Status */}
-      <div className="mt-4">
-        <OfflineSyncStatus
-          expanded={false}
-          showConflicts={true}
-        />
-      </div>
 
-      {/* Battery & Performance Monitor */}
-      <div className="mt-4">
-        <BatteryPerformanceMonitor
-          expanded={false}
-          onOptimizationChange={(enabled) => {
-            // Handle battery optimization toggle
-            console.log('Battery optimization:', enabled);
-          }}
-        />
-      </div>
-
-      {/* Error Monitoring Panel */}
-      <div className="mt-4">
-        <ErrorMonitoringPanel
-          expanded={false}
-          onErrorResolve={(errorId) => {
-            console.log('Error resolved:', errorId);
-          }}
-        />
-      </div>
 
       {/* Route Completion Dialog */}
       {smartCompletion.showCompletionDialog && smartCompletion.completionData && (

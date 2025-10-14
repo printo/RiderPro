@@ -486,42 +486,7 @@ function ShipmentsWithTracking() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      {/* Route Tracking Controls - Moved to top */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <RouteSessionControls
-                employeeId={employeeId}
-                onSessionStart={() => console.log("Route session started")}
-                onSessionStop={() => console.log("Route session stopped")}
-              />
-            </div>
-            {hasActiveSession && (
-              <div className="lg:w-80">
-                <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Navigation className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-800 dark:text-blue-400">
-                        Active Route Session
-                      </span>
-                    </div>
-                    <p className="text-xs text-blue-600 dark:text-blue-400">
-                      GPS tracking is active. Shipment locations will be automatically recorded.
-                    </p>
-                    {activeSession && (
-                      <p className="text-xs text-blue-500 dark:text-blue-500 mt-1">
-                        Session: {activeSession.id.slice(-8)}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+
 
       {/* Filters Section */}
       <Card>

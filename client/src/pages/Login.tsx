@@ -62,7 +62,7 @@ function Login() {
             <Package className="h-12 w-12 text-primary" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">RiderPro</h1>
-          <p className="text-sm text-muted-foreground">Sign in to your account</p>
+          <p className="text-sm text-muted-foreground">Sign in to your account using PIA Access</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">

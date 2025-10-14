@@ -54,8 +54,8 @@ function FloatingActionMenu() {
     }
   ];
 
-  // Admin menu items - only show for admin users (not ops team)
-  const adminMenuItems = user?.isAdmin || user?.isSuperAdmin ? [
+  // Admin menu items - only show for super admin users
+  const adminMenuItems = user?.isSuperAdmin ? [
     {
       href: "/admin",
       icon: Settings,
@@ -105,8 +105,9 @@ function FloatingActionMenu() {
         <SheetContent
           side="bottom"
           className={cn(
-            "h-[60%] w-full max-w-sm border border-border/50 bg-background shadow-2xl p-0 rounded-t-2xl ml-auto mr-4",
-            "ring-1 ring-border/20"
+            "border border-border/50 bg-background shadow-2xl p-0 rounded-t-2xl ring-1 ring-border/20",
+            // Mobile: full width with optimal height, Desktop: max width with right alignment and different height
+            "w-full h-[70vh] sm:max-w-sm sm:ml-auto sm:mr-4 sm:h-[80vh]"
           )}
         >
           {/* Handle bar for visual indication */}
@@ -114,7 +115,7 @@ function FloatingActionMenu() {
             <div className="w-8 h-1 bg-muted-foreground/30 rounded-full" />
           </div>
 
-          <div className="px-4 pb-4 h-[calc(100%-28px)] flex flex-col">
+          <div className="px-4 pb-4 h-[calc(100%-28px)] flex flex-col overflow-hidden">
             {/* Profile Section */}
             <div className="flex items-center space-x-4 pb-6">
               <div className="relative">
@@ -138,7 +139,7 @@ function FloatingActionMenu() {
             <Separator className="mb-6" />
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto space-y-6">
+            <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 pb-4">
               {/* Navigation Menu */}
               <div className="space-y-4">
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">

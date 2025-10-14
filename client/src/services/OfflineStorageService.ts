@@ -67,7 +67,10 @@ export class OfflineStorageService {
       request.onsuccess = () => {
         this.db = request.result;
         if (!this.initialized) {
-          console.log('IndexedDB initialized successfully');
+          // Only log in development mode
+          if (process.env.NODE_ENV === 'development') {
+            console.log('IndexedDB initialized successfully');
+          }
           this.initialized = true;
         }
         this.updatePendingCount();

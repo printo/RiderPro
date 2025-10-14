@@ -830,13 +830,9 @@ class AuthService {
     let isKannaSuperAdmin = false;
 
     try {
-      // Special override for kanna.p@printo.in and employee ID 12180 - always super admin
-      if (userData.email === 'kanna.p@printo.in' ||
-        employeeId === 'kanna.p@printo.in' ||
-        userData.employeeId === '12180' ||
-        employeeId === '12180') {
-        role = UserRole.SUPER_ADMIN;
-        isKannaSuperAdmin = true;
+      // Role assignment based on API response
+      if (userData.is_ops_team) {
+        role = UserRole.OPS_TEAM;
         console.log('Applied special super admin override for:', employeeId);
       } else {
         // Map role from server response

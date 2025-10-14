@@ -134,55 +134,54 @@ function Dashboard() {
         </p>
       </div>
 
-      {/* Route Tracking Quick Access */}
+      {/* Route Tracking & Sync Status */}
       <Card className="mb-6">
         <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Navigation className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <h3 className="text-lg font-semibold">Route Tracking</h3>
-          </div>
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1">
-              <RouteSessionControls
-                employeeId={employeeId}
-                onSessionStart={() => console.log("Route session started")}
-                onSessionStop={() => console.log("Route session stopped")}
-              />
-            </div>
-            {hasActiveSession && (
-              <div className="lg:w-80">
-                <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Navigation className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-sm font-medium text-blue-800 dark:text-blue-400">
-                        Active Session
-                      </span>
-                    </div>
-                    <p className="text-xs text-blue-600 dark:text-blue-400">
-                      GPS tracking active for deliveries
-                    </p>
-                    {activeSession && (
-                      <p className="text-xs text-blue-500 dark:text-blue-500 mt-1">
-                        ID: {activeSession.id.slice(-8)}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Route Tracking Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Navigation className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-lg font-semibold">Route Tracking</h3>
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              <div className="space-y-4">
+                <RouteSessionControls
+                  employeeId={employeeId}
+                  onSessionStart={() => console.log("Route session started")}
+                  onSessionStop={() => console.log("Route session stopped")}
+                />
+                {hasActiveSession && (
+                  <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Navigation className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        <span className="text-sm font-medium text-blue-800 dark:text-blue-400">
+                          Active Session
+                        </span>
+                      </div>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">
+                        GPS tracking active for deliveries
+                      </p>
+                      {activeSession && (
+                        <p className="text-xs text-blue-500 dark:text-blue-500 mt-1">
+                          ID: {activeSession.id.slice(-8)}
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
 
-      {/* Offline Sync Status */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Wifi className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            <h3 className="text-lg font-semibold">Sync Status</h3>
+            {/* Sync Status Section */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Wifi className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-lg font-semibold">Sync Status</h3>
+              </div>
+              <SyncStatusPanel />
+            </div>
           </div>
-          <SyncStatusPanel />
         </CardContent>
       </Card>
 

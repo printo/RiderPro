@@ -338,27 +338,27 @@ function RouteVisualizationPage() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="visualization" className="w-full">
-        <TabsList className={`grid w-full ${isMobile ? 'grid-cols-1 gap-2' : 'grid-cols-3'}`}>
+        <TabsList className={`${isMobile ? 'flex flex-col w-full h-auto p-1 bg-muted' : 'grid w-full grid-cols-3'}`}>
           <TabsTrigger
             value="visualization"
-            className={`flex items-center gap-2 ${isMobile ? 'min-h-[44px] justify-start' : ''}`}
+            className={`flex items-center gap-2 ${isMobile ? 'w-full min-h-[44px] justify-start px-4 py-3 mb-1' : ''}`}
           >
             <Route className="h-4 w-4" />
-            {isMobile ? 'Playback' : 'Route Playback'}
+            {isMobile ? 'Route Playback' : 'Route Playback'}
           </TabsTrigger>
           <TabsTrigger
             value="comparison"
-            className={`flex items-center gap-2 ${isMobile ? 'min-h-[44px] justify-start' : ''}`}
+            className={`flex items-center gap-2 ${isMobile ? 'w-full min-h-[44px] justify-start px-4 py-3 mb-1' : ''}`}
           >
             <BarChart3 className="h-4 w-4" />
-            {isMobile ? 'Compare' : 'Performance Comparison'}
+            {isMobile ? 'Performance Comparison' : 'Performance Comparison'}
           </TabsTrigger>
           <TabsTrigger
             value="optimization"
-            className={`flex items-center gap-2 ${isMobile ? 'min-h-[44px] justify-start' : ''}`}
+            className={`flex items-center gap-2 ${isMobile ? 'w-full min-h-[44px] justify-start px-4 py-3' : ''}`}
           >
             <Target className="h-4 w-4" />
-            {isMobile ? 'Optimize' : 'Optimization Suggestions'}
+            {isMobile ? 'Optimization Suggestions' : 'Optimization Suggestions'}
           </TabsTrigger>
         </TabsList>
 

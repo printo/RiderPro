@@ -43,7 +43,7 @@ export const shipmentsApi = {
         status: 'pending',
         type: 'delivery',
         routeName: 'Route A',
-        employeeId: '12180',
+        employeeId: 'EMP001',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
@@ -54,7 +54,7 @@ export const shipmentsApi = {
         status: 'in_progress',
         type: 'pickup',
         routeName: 'Route B',
-        employeeId: '12180',
+        employeeId: 'EMP002',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
