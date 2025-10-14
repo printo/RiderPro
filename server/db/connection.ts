@@ -139,8 +139,14 @@ const initializeDatabase = async (db: Database.Database, dbName: string) => {
   }
 };
 
-// Initialize both databases
-initializeDatabase(liveDb, 'live');
-initializeDatabase(replicaDb, 'replica');
+// Initialize both databases only if not in production or if explicitly requested
+const shouldInitialize = process.env.NODE_ENV !== 'production' || process.env.INITIALIZE_DB === 'true';
+
+if (shouldInitialize) {
+  initializeDatabase(liveDb, 'live');
+  initializeDatabase(replicaDb, 'replica');
+} else {
+  console.log('Skipping database initialization in production mode');
+}
 
 export { initTables, migrateDatabase };

@@ -4,7 +4,7 @@ import { ShipmentFilters } from "@shared/schema";
 
 export function useShipments(filters: ShipmentFilters = {}) {
   return useQuery({
-    queryKey: ["/api/shipments", filters],
+    queryKey: ["/api/shipments/fetch", filters],
     queryFn: async () => {
       const response = await shipmentsApi.getShipments(filters);
       return response.data; // Return just the array of shipments
@@ -15,7 +15,7 @@ export function useShipments(filters: ShipmentFilters = {}) {
 
 export function useShipment(id: string) {
   return useQuery({
-    queryKey: ["/api/shipments", id],
+    queryKey: ["/api/shipments/fetch", id],
     queryFn: () => shipmentsApi.getShipment(id),
     enabled: !!id,
   });

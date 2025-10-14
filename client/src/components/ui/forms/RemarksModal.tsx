@@ -52,7 +52,7 @@ function RemarksModal({
       return { status: statusResponse, remarks: remarksResponse };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shipments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shipments/fetch"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       toast({
         title: "Status Updated",

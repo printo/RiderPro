@@ -19,8 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { useGPSTracking } from "@/hooks/useGPSTracking";
-import RemarksModal from "./RemarksModal";
-import AcknowledgmentCapture from "./AcknowledgmentCapture";
+import RemarksModal from "@/components/ui/forms/RemarksModal";
+import AcknowledgmentCapture from "@/components/AcknowledgmentCapture";
 import { cn } from "@/lib/utils";
 
 type ShipmentWithAcknowledgment = Shipment & {
@@ -69,7 +69,7 @@ function ShipmentDetailModalWithTracking({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shipments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shipments/fetch"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       toast({
         title: "Status Updated",
@@ -95,7 +95,7 @@ function ShipmentDetailModalWithTracking({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shipments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/shipments/fetch"] });
       toast({
         title: "Acknowledgment Saved",
         description: "Photo and signature have been saved successfully.",

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'wouter';
+import { useAuth } from '@/hooks/useAuth';
+import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 
 const RiderSignupForm = () => {
   const [formData, setFormData] = useState({
@@ -13,6 +15,7 @@ const RiderSignupForm = () => {
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [, setLocation] = useLocation();
+  const { registerUser } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -30,11 +33,18 @@ const RiderSignupForm = () => {
 
     setIsSubmitting(true);
     try {
-      // TODO: Connect to backend when ready
-      console.log('Form submitted:', formData);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setLocation('/account/approval');
+      const result = await registerUser(
+        formData.riderId,
+        formData.password,
+        formData.fullName,
+        formData.email
+      );
+
+      if (result.success) {
+        setLocation('/approval-pending');
+      } else {
+        setError(result.message);
+      }
     } catch (err) {
       setError('Failed to create account. Please try again.');
     } finally {

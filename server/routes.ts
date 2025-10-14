@@ -101,6 +101,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== AUTHENTICATION ROUTES =====
 
+  // External API login proxy (to avoid CORS issues)
+  app.post('/api/auth/external-login', async (req, res) => {
+    try {
+      const { employee_id, password } = req.body;
+
+      if (!employee_id || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Employee ID and password are required'
+        });
+      }
+
+      // Make request to external PIA API from server side
+      const piaResponse = await fetch('https://pia.printo.in/api/v1/auth/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employee_id,
+          password,
+        }),
+      });
+
+      if (!piaResponse.ok) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+
+      const piaData = await piaResponse.json();
+
+      // Return the response from PIA API
+      res.json({
+        success: true,
+        access: piaData.access,
+        refresh: piaData.refresh,
+        full_name: piaData.full_name,
+        is_staff: piaData.is_staff,
+        is_super_user: piaData.is_super_user,
+        is_ops_team: piaData.is_ops_team,
+        employee_id: piaData.employee_id
+      });
+
+    } catch (error: any) {
+      console.error('External login proxy error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Login failed. Please try again.'
+      });
+    }
+  });
+
   // Local user registration
   app.post('/api/auth/register', async (req, res) => {
     try {
@@ -384,7 +438,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get shipments with optional filters, pagination, and sorting
-  app.get('/api/shipments', async (req, res) => {
+  app.get('/api/shipments/fetch', async (req, res) => {
     try {
       // Simple JWT authentication for shipments
       const authHeader = req.headers.authorization;
@@ -559,7 +613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new shipment (no auth for now)
-  app.post('/api/shipments', async (req, res) => {
+  app.post('/api/shipments/create', async (req, res) => {
     try {
       // Authentication removed (simplified app)
 
@@ -571,6 +625,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Validate that shipment ID is provided
+      if (!req.body.trackingNumber) {
+        return res.status(400).json({
+          success: false,
+          message: 'Shipment ID (trackingNumber) is required and cannot be empty',
+          code: 'MISSING_SHIPMENT_ID'
+        });
+      }
+
       const shipmentData = insertShipmentSchema.parse(req.body);
       const shipment = await storage.createShipment(shipmentData);
 
@@ -579,9 +642,311 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('External sync failed for new shipment:', err);
       });
 
-      res.status(201).json(shipment);
+      res.status(201).json({
+        success: true,
+        message: 'Shipment created successfully',
+        shipment: shipment,
+        shipmentId: shipment.shipment_id
+      });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
+    }
+  });
+
+  // Update shipment tracking data
+  app.patch('/api/shipments/:id/tracking', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const trackingData = req.body;
+
+      // Validate tracking data
+      const allowedFields = ['start_latitude', 'start_longitude', 'stop_latitude', 'stop_longitude', 'km_travelled', 'status', 'actualDeliveryTime'];
+      const updates = {};
+
+      for (const field of allowedFields) {
+        if (trackingData[field] !== undefined) {
+          updates[field] = trackingData[field];
+        }
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No valid tracking fields provided',
+          code: 'NO_VALID_FIELDS'
+        });
+      }
+
+      const updatedShipment = storage.updateShipmentTracking(id, updates);
+
+      if (!updatedShipment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Shipment not found',
+          code: 'SHIPMENT_NOT_FOUND'
+        });
+      }
+
+      // Mark as needing sync
+      storage.updateShipment(id, {
+        synced_to_external: false,
+        last_sync_attempt: null,
+        sync_error: null
+      });
+
+      res.json({
+        success: true,
+        message: 'Tracking data updated successfully',
+        shipment: updatedShipment
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message,
+        code: 'TRACKING_UPDATE_FAILED'
+      });
+    }
+  });
+
+  // Sync shipment to external system
+  app.post('/api/shipments/:id/sync', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const shipment = storage.getShipmentById(id);
+
+      if (!shipment) {
+        return res.status(404).json({
+          success: false,
+          message: 'Shipment not found',
+          code: 'SHIPMENT_NOT_FOUND'
+        });
+      }
+
+      // Use optimized external API service
+      try {
+        const { ExternalApiService } = await import('./services/ExternalApiService.js');
+        const externalApi = ExternalApiService.getInstance();
+
+        // Validate payload before sending
+        const syncData = externalApi.prepareSyncData(shipment);
+        const validation = externalApi.validatePayload(syncData);
+
+        if (!validation.valid) {
+          console.warn('Payload validation warnings:', validation.warnings);
+        }
+
+        console.log(`Syncing shipment ${syncData.shipment_id} (${validation.size} bytes)`);
+
+        // Send to external system
+        const result = await externalApi.syncShipment(shipment);
+
+        if (result.success) {
+          // Mark as synced
+          storage.updateShipment(id, {
+            synced_to_external: true,
+            last_sync_attempt: new Date().toISOString(),
+            sync_error: null
+          });
+
+          res.json({
+            success: true,
+            message: result.message,
+            syncedAt: result.synced_at,
+            externalId: result.external_id
+          });
+        } else {
+          // Mark sync as failed
+          storage.updateShipment(id, {
+            synced_to_external: false,
+            last_sync_attempt: new Date().toISOString(),
+            sync_error: result.error || 'Unknown error'
+          });
+
+          res.status(500).json({
+            success: false,
+            message: result.message,
+            error: result.error,
+            code: 'SYNC_FAILED'
+          });
+        }
+      } catch (syncError: any) {
+        // Mark sync as failed
+        storage.updateShipment(id, {
+          synced_to_external: false,
+          last_sync_attempt: new Date().toISOString(),
+          sync_error: syncError.message
+        });
+
+        res.status(500).json({
+          success: false,
+          message: 'Failed to sync to external system',
+          error: syncError.message,
+          code: 'SYNC_FAILED'
+        });
+      }
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message,
+        code: 'SYNC_REQUEST_FAILED'
+      });
+    }
+  });
+
+  // Get access tokens for external integration
+  app.get('/api/admin/access-tokens', async (req, res) => {
+    try {
+      const { API_KEYS, getMaskedApiKey } = await import('./config/apiKeys.js');
+
+      const accessTokens = [
+        {
+          id: 'access-token-1',
+          name: 'Access Token 1',
+          token: API_KEYS.ACCESS_TOKEN_1,
+          masked: getMaskedApiKey('ACCESS_TOKEN_1'),
+          description: 'Primary access token for external system integration',
+          created: '2024-01-01T00:00:00Z',
+          status: 'active'
+        },
+        {
+          id: 'access-token-2',
+          name: 'Access Token 2',
+          token: API_KEYS.ACCESS_TOKEN_2,
+          masked: getMaskedApiKey('ACCESS_TOKEN_2'),
+          description: 'Secondary access token for external system integration',
+          created: '2024-01-01T00:00:00Z',
+          status: 'active'
+        }
+      ];
+
+      res.json({
+        success: true,
+        accessTokens
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve access tokens',
+        error: error.message
+      });
+    }
+  });
+
+  // Get sync status for shipments
+  app.get('/api/shipments/sync-status', async (req, res) => {
+    try {
+      const { shipmentId, status } = req.query;
+
+      let query = 'SELECT id, shipment_id, synced_to_external, last_sync_attempt, sync_error FROM shipments';
+      const conditions = [];
+      const params = [];
+
+      if (shipmentId) {
+        conditions.push('id = ?');
+        params.push(shipmentId);
+      }
+
+      if (status === 'pending') {
+        conditions.push('synced_to_external = 0');
+      } else if (status === 'success') {
+        conditions.push('synced_to_external = 1');
+      } else if (status === 'failed') {
+        conditions.push('synced_to_external = 0 AND sync_error IS NOT NULL');
+      }
+
+      if (conditions.length > 0) {
+        query += ' WHERE ' + conditions.join(' AND ');
+      }
+
+      const shipments = storage.db.prepare(query).all(...params);
+
+      const syncStatus = shipments.map(shipment => ({
+        shipmentId: shipment.id,
+        externalId: shipment.shipment_id,
+        status: shipment.synced_to_external ? 'success' : 'failed',
+        lastAttempt: shipment.last_sync_attempt,
+        error: shipment.sync_error
+      }));
+
+      res.json({
+        success: true,
+        syncStatus
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message,
+        code: 'SYNC_STATUS_FAILED'
+      });
+    }
+  });
+
+  // Batch sync multiple shipments to external system
+  app.post('/api/shipments/batch-sync', async (req, res) => {
+    try {
+      const { shipmentIds } = req.body;
+
+      if (!Array.isArray(shipmentIds) || shipmentIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'shipmentIds array is required',
+          code: 'INVALID_SHIPMENT_IDS'
+        });
+      }
+
+      // Fetch all shipments
+      const shipments = shipmentIds.map(id => storage.getShipmentById(id)).filter(Boolean);
+
+      if (shipments.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'No valid shipments found',
+          code: 'NO_VALID_SHIPMENTS'
+        });
+      }
+
+      // Use optimized external API service for batch sync
+      const { ExternalApiService } = await import('./services/ExternalApiService.js');
+      const externalApi = ExternalApiService.getInstance();
+
+      console.log(`Batch syncing ${shipments.length} shipments...`);
+
+      const results = await externalApi.batchSyncShipments(shipments);
+
+      // Update sync status for each shipment
+      shipments.forEach((shipment, index) => {
+        const result = results[index];
+        if (result) {
+          storage.updateShipment(shipment.id, {
+            synced_to_external: result.success,
+            last_sync_attempt: new Date().toISOString(),
+            sync_error: result.success ? null : result.error
+          });
+        }
+      });
+
+      const successCount = results.filter(r => r.success).length;
+      const failureCount = results.filter(r => !r.success).length;
+
+      res.json({
+        success: true,
+        message: `Batch sync completed: ${successCount} successful, ${failureCount} failed`,
+        results: results.map((result, index) => ({
+          shipmentId: shipments[index].id,
+          externalId: shipments[index].shipment_id || shipments[index].trackingNumber,
+          success: result.success,
+          message: result.message,
+          error: result.error
+        }))
+      });
+
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: 'Batch sync failed',
+        error: error.message,
+        code: 'BATCH_SYNC_FAILED'
+      });
     }
   });
 
@@ -613,6 +978,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
             success: false,
             message: 'Request body must be a valid JSON object',
             error: 'INVALID_PAYLOAD',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Validate access token
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          return res.status(401).json({
+            success: false,
+            message: 'Access token required. Use Authorization: Bearer <token>',
+            error: 'MISSING_ACCESS_TOKEN',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        const providedToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+        const { API_KEYS, validateApiKey } = await import('./config/apiKeys.js');
+
+        // Check if token matches any of our access tokens
+        const isValidToken = validateApiKey(providedToken, 'ACCESS_TOKEN_1') ||
+          validateApiKey(providedToken, 'ACCESS_TOKEN_2');
+
+        if (!isValidToken) {
+          return res.status(401).json({
+            success: false,
+            message: 'Invalid access token. Please use a valid access token.',
+            error: 'INVALID_ACCESS_TOKEN',
             timestamp: new Date().toISOString()
           });
         }

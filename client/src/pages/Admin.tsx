@@ -35,15 +35,26 @@ function AdminPage() {
   });
   const [newPassword, setNewPassword] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [apiKeys, setApiKeys] = useState<Array<{ type: string; key: string; masked: string }>>([]);
+  const [accessTokens, setAccessTokens] = useState<Array<{
+    id: string;
+    name: string;
+    token: string;
+    masked: string;
+    description: string;
+    status: string;
+  }>>([]);
   const { toast } = useToast();
 
   const canAccessAdmin = !!(user?.isSuperUser || user?.isSuperAdmin);
   const canEdit = !!(user?.isSuperUser || user?.isSuperAdmin);
 
-  // Load pending users
+  // Load pending users, API keys, and access tokens
   useEffect(() => {
     if (canAccessAdmin) {
       loadPendingUsers();
+      loadApiKeys();
+      loadAccessTokens();
     }
   }, [canAccessAdmin]);
 
@@ -64,6 +75,56 @@ function AdminPage() {
       });
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const loadApiKeys = async () => {
+    try {
+      const response = await fetch('/api/admin/api-keys');
+      if (response.ok) {
+        const data = await response.json();
+        setApiKeys(data.apiKeys || []);
+      }
+    } catch (error) {
+      console.error('Failed to load API keys:', error);
+      // Fallback to hardcoded keys for display
+      setApiKeys([
+        { type: 'external api key', key: 'hardcoded-external-api-key-12345', masked: 'hard*******12345' },
+        { type: 'internal api key', key: 'hardcoded-internal-api-key-67890', masked: 'hard*******67890' },
+        { type: 'webhook secret', key: 'hardcoded-webhook-secret-abcdef', masked: 'hard*******abcdef' },
+        { type: 'admin api key', key: 'hardcoded-admin-api-key-xyz789', masked: 'hard*******xyz789' }
+      ]);
+    }
+  };
+
+  const loadAccessTokens = async () => {
+    try {
+      const response = await fetch('/api/admin/access-tokens');
+      if (response.ok) {
+        const data = await response.json();
+        setAccessTokens(data.accessTokens || []);
+      }
+    } catch (error) {
+      console.error('Failed to load access tokens:', error);
+      // Fallback to hardcoded tokens for display
+      setAccessTokens([
+        {
+          id: 'access-token-1',
+          name: 'Access Token 1',
+          token: 'riderpro-access-token-1-abc123def456ghi789',
+          masked: 'rider*******ghi789',
+          description: 'Primary access token for external system integration',
+          status: 'active'
+        },
+        {
+          id: 'access-token-2',
+          name: 'Access Token 2',
+          token: 'riderpro-access-token-2-xyz789uvw456rst123',
+          masked: 'rider*******rst123',
+          description: 'Secondary access token for external system integration',
+          status: 'active'
+        }
+      ]);
     }
   };
 
@@ -322,7 +383,7 @@ function AdminPage() {
             continue;
           }
 
-          const response = await apiClient.post('/api/shipments', payload);
+          const response = await apiClient.post('/api/shipments/create', payload);
 
           if (response.ok) {
             const responseData = await response.json();
@@ -611,6 +672,109 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
           </CardContent>
         </Card>
       </div>
+
+      {/* API Keys Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Key className="h-5 w-5" />
+            API Keys Configuration
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Hardcoded API keys for system integration. Keys are masked for security.
+            </p>
+            <div className="grid gap-4">
+              {apiKeys.map((apiKey, index) => (
+                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <p className="font-medium capitalize">{apiKey.type}</p>
+                    <p className="text-sm text-muted-foreground font-mono">{apiKey.masked}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(apiKey.key);
+                      toast({
+                        title: "Copied",
+                        description: `${apiKey.type} copied to clipboard`,
+                      });
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              💡 To change API keys, update the hardcoded values in the server configuration.
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Access Tokens Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Access Tokens
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Access tokens for external system integration. Use these tokens when sending data to external systems.
+            </p>
+            <div className="grid gap-4">
+              {accessTokens.map((token) => (
+                <div key={token.id} className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <h4 className="font-medium">{token.name}</h4>
+                      <span className={`px-2 py-1 text-xs rounded-full ${token.status === 'active'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                        }`}>
+                        {token.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">{token.description}</p>
+                    <div className="flex items-center gap-2">
+                      <code className="text-sm font-mono bg-background px-2 py-1 rounded border">
+                        {token.masked}
+                      </code>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(token.token);
+                        toast({
+                          title: "Copied!",
+                          description: `${token.name} copied to clipboard`,
+                        });
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Token
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              💡 Use these tokens in the Authorization header: <code>Authorization: Bearer &lt;token&gt;</code>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* User Management Section */}
       <Card className="mt-6">

@@ -97,9 +97,9 @@ export interface BatchSyncResult {
 
 // Core entities
 export interface Shipment {
-  // Internal fields
-  id: string;                    // Internal UUID
-  trackingNumber: string;        // Legacy field for compatibility
+  // Primary key (now using shipment_id as primary)
+  shipment_id: string;           // External shipment ID (now primary key)
+  trackingNumber?: string;       // Legacy field for compatibility
   createdAt: string;
   updatedAt: string;
 
@@ -133,16 +133,35 @@ export interface Shipment {
   // Timing fields
   estimatedDeliveryTime?: string;
   deliveryTime?: string;         // Alias for estimatedDeliveryTime
-  actualDeliveryTime?: string;
+  expectedDeliveryTime?: string; // Renamed from actualDeliveryTime
 
   // Assignment fields
   routeName?: string;
   employeeId?: string;
+
+  // Tracking fields
+  start_latitude?: number;
+  start_longitude?: number;
+  stop_latitude?: number;
+  stop_longitude?: number;
+  km_travelled?: number;
+
+  // Acknowledgment fields (merged from acknowledgments table)
+  signatureUrl?: string;
+  photoUrl?: string;
+  capturedAt?: string;
+
+  // Sync tracking fields (merged from sync_status table)
+  synced_to_external?: boolean;
+  last_sync_attempt?: string;
+  sync_error?: string;
+  sync_attempts?: number;
 }
 
 export interface InsertShipment {
   // Required fields
-  trackingNumber?: string;       // Optional for external shipments
+  shipment_id: string;           // External shipment ID (now required)
+  trackingNumber?: string;       // Legacy field for compatibility
   status: string;
   priority: string;
   type: string;
@@ -157,7 +176,7 @@ export interface InsertShipment {
   piashipmentid?: string;        // External system tracking ID
   specialInstructions?: string;
   estimatedDeliveryTime?: string;
-  actualDeliveryTime?: string;
+  expectedDeliveryTime?: string; // Renamed from actualDeliveryTime
 
   // Alias fields for compatibility
   customerName?: string;         // Alias for recipientName
@@ -171,10 +190,21 @@ export interface InsertShipment {
   cost?: number;
   routeName?: string;
   employeeId?: string;
+
+  // Acknowledgment fields
+  signatureUrl?: string;
+  photoUrl?: string;
+  capturedAt?: string;
+
+  // Sync tracking fields
+  synced_to_external?: boolean;
+  last_sync_attempt?: string;
+  sync_error?: string;
+  sync_attempts?: number;
 }
 
 export interface UpdateShipment {
-  id: string;
+  shipment_id: string;
 
   // Core fields that can be updated
   status?: string;

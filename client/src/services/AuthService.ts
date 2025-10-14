@@ -1,4 +1,4 @@
-// client/src/services/SimpleAuthService.ts
+// client/src/services/AuthService.ts
 import { User, UserRole } from '@/types/User';
 
 interface AuthState {
@@ -28,8 +28,8 @@ interface LocalAuthResponse {
   isApproved: boolean;
 }
 
-class SimpleAuthService {
-  private static instance: SimpleAuthService;
+class AuthService {
+  private static instance: AuthService;
   private state: AuthState = {
     user: null,
     accessToken: null,
@@ -43,11 +43,11 @@ class SimpleAuthService {
     this.initializeFromStorage();
   }
 
-  public static getInstance(): SimpleAuthService {
-    if (!SimpleAuthService.instance) {
-      SimpleAuthService.instance = new SimpleAuthService();
+  public static getInstance(): AuthService {
+    if (!AuthService.instance) {
+      AuthService.instance = new AuthService();
     }
-    return SimpleAuthService.instance;
+    return AuthService.instance;
   }
 
   // Initialize auth state from localStorage
@@ -124,7 +124,7 @@ class SimpleAuthService {
     try {
       this.setState({ isLoading: true });
 
-      const response = await fetch('https://pia.printo.in/api/v1/auth/', {
+      const response = await fetch('/api/auth/external-login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -403,4 +403,4 @@ class SimpleAuthService {
   }
 }
 
-export default SimpleAuthService;
+export default AuthService;

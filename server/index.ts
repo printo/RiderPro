@@ -110,13 +110,20 @@ app.get("/api-status", (req, res) => {
 
   const port = parseInt(process.env.PORT || '5000', 10);
   server.listen(port, '0.0.0.0', () => {
-    console.log('\n=== RiderPro Application ===');
+    console.log('\n=== RiderPro Delivery Management System ===');
     console.log(`🚀 Server running on port ${port}`);
     console.log(`🌐 Application: http://localhost:${port}`);
-    console.log(`📡 API: Direct calls to https://pia.printo.in/api/v1/`);
-    console.log(`🔍 Health check: http://localhost:${port}/health`);
-    console.log('===============================\n');
-
-    // Token expiration monitoring removed
+    console.log(`📱 Mobile App: http://localhost:${port} (responsive design)`);
+    console.log(`📡 API Endpoints: http://localhost:${port}/api/*`);
+    console.log(`🔍 Health Check: http://localhost:${port}/health`);
+    console.log(`📊 Admin Panel: http://localhost:${port}/admin`);
+    console.log(`📦 Shipments: http://localhost:${port}/shipments`);
+    console.log(`⚙️  Settings: http://localhost:${port}/settings`);
+    console.log(`\n🔑 API Keys: Hardcoded (see admin panel for details)`);
+    console.log(`🗄️  Database: SQLite with consolidated schema`);
+    console.log(`🔄 Sync Status: Real-time external API integration`);
+    console.log(`📍 GPS Tracking: Auto-calculated distance tracking`);
+    console.log(`👥 Roles: Super User, Ops Team, Staff, Driver`);
+    console.log('===============================================\n');
   });
 })();

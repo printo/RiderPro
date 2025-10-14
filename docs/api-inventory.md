@@ -3,6 +3,24 @@
 ## Overview
 This document provides a comprehensive inventory of all API endpoints in the RiderPro system, including both server-side routes and client-side API usage patterns.
 
+## Role-Based Access Control
+
+### User Roles & Permissions
+- **Super User** (`is_super_user: true`): Full system access, all operations
+- **Ops Team** (`is_ops_team: true`): Read-only access to all shipments, monitoring
+- **Staff** (`is_staff: true`): Limited access to assigned shipments
+- **Driver/Rider** (`role: 'driver'`): Full access to assigned shipments with tracking capabilities
+
+### Shipment Access by Role
+- **Super User**: All CRUD operations on all shipments
+- **Ops Team**: Read-only access to all shipments, monitoring dashboards
+- **Staff**: Read/write access to assigned shipments only
+- **Driver/Rider**: 
+  - Full access to assigned shipments
+  - Can update status, add tracking data, capture acknowledgments
+  - Can add remarks, photos, signatures
+  - Automatic sync to external systems
+
 ## System Health & Monitoring APIs
 
 ### Health Check
@@ -50,7 +68,7 @@ This document provides a comprehensive inventory of all API endpoints in the Rid
 ## Shipment Management APIs
 
 ### Shipment CRUD Operations
-- **GET** `/api/shipments`
+- **GET** `/api/shipments/fetch`
   - **Purpose**: Get shipments with filtering, pagination, sorting
   - **Query Params**: `page`, `limit`, `status`, `employeeId`, `sortBy`, `sortOrder`
   - **Response**: Array of shipments with pagination headers
@@ -60,15 +78,153 @@ This document provides a comprehensive inventory of all API endpoints in the Rid
   - **Purpose**: Get single shipment by ID
   - **Response**: Single shipment object
 
-- **POST** `/api/shipments`
-  - **Purpose**: Create new shipment
-  - **Body**: Shipment object with validation
-  - **Response**: `{ success, trackingNumber, shipment }`
+- **POST** `/api/shipments/create`
+  - **Purpose**: Create new shipment with external shipment ID tracking
+  - **Body**: Shipment object with `trackingNumber` as mandatory field
+  - **Validation**: Returns error if `trackingNumber` is missing
+  - **Database**: Uses UUID for internal `id`, stores external ID in `shipment_id` column
+  - **Request Payload**:
+    ```json
+    {
+      "trackingNumber": "SHIP-2024-001",
+      "type": "delivery",
+      "customerName": "John Doe",
+      "customerMobile": "+1234567890",
+      "address": "123 Main St, City, State",
+      "latitude": 40.7128,
+      "longitude": -74.0060,
+      "cost": 25.50,
+      "deliveryTime": "2024-01-15T10:00:00Z",
+      "routeName": "Route A",
+      "employeeId": "EMP001",
+      "status": "Assigned",
+      "priority": "high",
+      "pickupAddress": "456 Warehouse St",
+      "weight": 2.5,
+      "dimensions": "30x20x15 cm",
+      "specialInstructions": "Fragile - Handle with care"
+    }
+    ```
+  - **Success Response** (201):
+    ```json
+    {
+      "success": true,
+      "message": "Shipment created successfully",
+      "shipment": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "shipment_id": "SHIP-2024-001",
+        "trackingNumber": "SHIP-2024-001",
+        "type": "delivery",
+        "customerName": "John Doe",
+        "customerMobile": "+1234567890",
+        "address": "123 Main St, City, State",
+        "latitude": 40.7128,
+        "longitude": -74.0060,
+        "cost": 25.50,
+        "deliveryTime": "2024-01-15T10:00:00Z",
+        "routeName": "Route A",
+        "employeeId": "EMP001",
+        "status": "Assigned",
+        "priority": "high",
+        "pickupAddress": "456 Warehouse St",
+        "weight": 2.5,
+        "dimensions": "30x20x15 cm",
+        "specialInstructions": "Fragile - Handle with care",
+        "start_latitude": null,
+        "start_longitude": null,
+        "stop_latitude": null,
+        "stop_longitude": null,
+        "km_travelled": 0,
+        "synced_to_external": false,
+        "last_sync_attempt": null,
+        "sync_error": null,
+        "createdAt": "2024-01-15T08:00:00Z",
+        "updatedAt": "2024-01-15T08:00:00Z"
+      },
+      "shipmentId": "SHIP-2024-001"
+    }
+    ```
+  - **Error Response** (400):
+    ```json
+    {
+      "success": false,
+      "message": "Shipment ID (trackingNumber) is required and cannot be empty",
+      "code": "MISSING_SHIPMENT_ID"
+    }
+    ```
 
 - **PATCH** `/api/shipments/:id`
-  - **Purpose**: Update single shipment
-  - **Body**: Partial shipment object
-  - **Response**: `{ success, message, shipment }`
+  - **Purpose**: Update single shipment with tracking and sync capabilities
+  - **Body**: Partial shipment object with tracking fields
+  - **Tracking Fields**: 
+    - `start_latitude`, `start_longitude` - Start location coordinates
+    - `stop_latitude`, `stop_longitude` - End location coordinates  
+    - `km_travelled` - Distance traveled for the shipment
+    - `status` - Current shipment status
+    - `actualDeliveryTime` - Actual delivery timestamp
+  - **Sync Tracking**: Automatically sets `synced_to_external` flag
+  - **Request Payload**:
+    ```json
+    {
+      "status": "In Transit",
+      "start_latitude": 40.7128,
+      "start_longitude": -74.0060,
+      "km_travelled": 5.2
+    }
+    ```
+  - **Success Response** (200):
+    ```json
+    {
+      "success": true,
+      "message": "Shipment updated successfully",
+      "shipment": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "shipment_id": "SHIP-2024-001",
+        "status": "In Transit",
+        "start_latitude": 40.7128,
+        "start_longitude": -74.0060,
+        "km_travelled": 5.2,
+        "synced_to_external": false,
+        "updatedAt": "2024-01-15T09:30:00Z"
+      }
+    }
+    ```
+
+- **PATCH** `/api/shipments/:id/tracking`
+  - **Purpose**: Update shipment tracking data specifically
+  - **Body**: Tracking data object
+  - **Request Payload**:
+    ```json
+    {
+      "start_latitude": 40.7128,
+      "start_longitude": -74.0060,
+      "stop_latitude": 40.7589,
+      "stop_longitude": -73.9851,
+      "km_travelled": 8.5,
+      "status": "Delivered",
+      "actualDeliveryTime": "2024-01-15T14:30:00Z"
+    }
+    ```
+  - **Success Response** (200):
+    ```json
+    {
+      "success": true,
+      "message": "Tracking data updated successfully",
+      "shipment": {
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "shipment_id": "SHIP-2024-001",
+        "start_latitude": 40.7128,
+        "start_longitude": -74.0060,
+        "stop_latitude": 40.7589,
+        "stop_longitude": -73.9851,
+        "km_travelled": 8.5,
+        "status": "Delivered",
+        "actualDeliveryTime": "2024-01-15T14:30:00Z",
+        "synced_to_external": false,
+        "updatedAt": "2024-01-15T14:30:00Z"
+      }
+    }
+    ```
 
 - **PATCH** `/api/shipments/batch`
   - **Purpose**: Batch update multiple shipments
@@ -91,12 +247,94 @@ This document provides a comprehensive inventory of all API endpoints in the Rid
   - **Body**: `{ remarks, reason, timestamp }`
   - **Response**: `{ success, message }`
 
-### External System Integration
+### External System Integration & Sync
 - **POST** `/api/shipments/receive`
   - **Purpose**: Receive shipment data from external systems
   - **Security**: Webhook authentication, rate limiting
   - **Body**: Shipment data from external system
   - **Response**: `{ success, message, processedCount }`
+
+- **POST** `/api/shipments/:id/sync`
+  - **Purpose**: Sync shipment updates to external system
+  - **Body**: None (uses shipment ID from URL)
+  - **Success Response** (200):
+    ```json
+    {
+      "success": true,
+      "message": "Shipment synced successfully",
+      "syncedAt": "2024-01-15T14:30:00Z",
+      "externalId": "SHIP-2024-001"
+    }
+    ```
+  - **Error Response** (500):
+    ```json
+    {
+      "success": false,
+      "message": "Failed to sync to external system",
+      "error": "Connection timeout",
+      "code": "SYNC_FAILED"
+    }
+    ```
+
+- **POST** `/api/shipments/sync-to-external`
+  - **Purpose**: Sync shipment updates to external system (batch)
+  - **Body**: `{ shipmentId, updates }` - Shipment updates to sync
+  - **Request Payload**:
+    ```json
+    {
+      "shipmentId": "550e8400-e29b-41d4-a716-446655440000",
+      "updates": {
+        "status": "Delivered",
+        "tracking": {
+          "start_latitude": 40.7128,
+          "start_longitude": -74.0060,
+          "stop_latitude": 40.7589,
+          "stop_longitude": -73.9851,
+          "km_travelled": 8.5
+        },
+        "delivery_time": "2024-01-15T14:30:00Z"
+      }
+    }
+    ```
+  - **Success Response** (200):
+    ```json
+    {
+      "success": true,
+      "message": "Shipment synced successfully",
+      "syncedAt": "2024-01-15T14:30:00Z",
+      "externalId": "SHIP-2024-001"
+    }
+    ```
+
+- **GET** `/api/shipments/sync-status`
+  - **Purpose**: Get sync status for shipments
+  - **Query Params**: `shipmentId?`, `status?` (pending/success/failed)
+  - **Example URLs**:
+    - `/api/shipments/sync-status` - Get all sync statuses
+    - `/api/shipments/sync-status?status=pending` - Get pending syncs
+    - `/api/shipments/sync-status?shipmentId=550e8400-e29b-41d4-a716-446655440000` - Get specific shipment
+  - **Success Response** (200):
+    ```json
+    {
+      "success": true,
+      "syncStatus": [
+        {
+          "shipmentId": "550e8400-e29b-41d4-a716-446655440000",
+          "externalId": "SHIP-2024-001", 
+          "status": "success",
+          "lastAttempt": "2024-01-15T14:30:00Z",
+          "error": null
+        },
+        {
+          "shipmentId": "550e8400-e29b-41d4-a716-446655440001",
+          "externalId": "SHIP-2024-002", 
+          "status": "failed",
+          "lastAttempt": "2024-01-15T14:25:00Z",
+          "error": "Connection timeout"
+        }
+      ]
+    }
+    ```
 
 - **POST** `/api/shipments/update/external`
   - **Purpose**: Send single shipment update to external system

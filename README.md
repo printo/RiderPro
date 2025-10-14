@@ -4,9 +4,16 @@ A comprehensive delivery management system built with React, TypeScript, and Exp
 
 ## 🆕 Latest Updates
 
-### ✅ Authentication System Overhaul (Latest)
+### ✅ Database Schema & Migration System (Latest)
+- **Consolidated Migrations**: Single comprehensive migration file with complete schema
+- **Shipment Tracking**: Added start/stop coordinates, km travelled, sync tracking
+- **External Integration**: Separate `shipment_id` column for external system tracking
+- **Performance Optimization**: Database indexing only during build, not runtime
+- **Role-Based Access**: Super User, Ops Team, Staff, Driver roles with specific permissions
+
+### ✅ Authentication System Overhaul
 - **Dual Authentication**: External API integration + Local database authentication
-- **Role-Based Access**: Admin, Manager, Driver, Viewer roles with granular permissions
+- **Role-Based Access**: Super User, Ops Team, Staff, Driver roles with granular permissions
 - **Password Security**: bcrypt hashing for all passwords
 - **User Management**: Admin panel for user approval and password reset
 - **Simplified Storage**: localStorage-only authentication state management

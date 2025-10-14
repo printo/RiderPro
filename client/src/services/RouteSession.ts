@@ -377,7 +377,7 @@ export class RouteSession {
 
       // Try to send to API
       try {
-        const { routeAPI } = await import('../api/routes');
+        const { routeAPI } = await import('@/apiClient/routes');
         await routeAPI.batchSubmitCoordinates(coordinatesToSave);
         console.log(`Successfully saved ${coordinatesToSave.length} coordinates for session ${this.sessionId}`);
       } catch (apiError) {

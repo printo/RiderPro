@@ -16,7 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
 // Lazy load the shipments list component
-const ShipmentsList = lazy(() => import("@/components/ShipmentsList"));
+const ShipmentsList = lazy(() => import("@/components/shipments/ShipmentsList"));
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 

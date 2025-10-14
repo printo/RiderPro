@@ -1,17 +1,17 @@
 // client/src/hooks/useAuth.ts
 import { useState, useEffect } from 'react';
-import SimpleAuthService from '../services/SimpleAuthService';
+import AuthService from '../services/AuthService';
 import { User } from '../types/User';
 
 export const useAuth = () => {
-  const [authState, setAuthState] = useState(SimpleAuthService.getInstance().getState());
+  const [authState, setAuthState] = useState(AuthService.getInstance().getState());
 
   useEffect(() => {
-    const unsubscribe = SimpleAuthService.getInstance().subscribe(setAuthState);
+    const unsubscribe = AuthService.getInstance().subscribe(setAuthState);
     return unsubscribe;
   }, []);
 
-  const authService = SimpleAuthService.getInstance();
+  const authService = AuthService.getInstance();
 
   return {
     user: authState.user,

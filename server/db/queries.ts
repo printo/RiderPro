@@ -102,8 +102,8 @@ export class ShipmentQueries {
     return { data, total };
   }
 
-  getShipmentById(id: string): Shipment | null {
-    return this.db.prepare('SELECT * FROM shipments WHERE id = ?').get(id) || null;
+  getShipmentById(shipment_id: string): Shipment | null {
+    return this.db.prepare('SELECT * FROM shipments WHERE shipment_id = ?').get(shipment_id) || null;
   }
 
   getShipmentByExternalId(externalId: string): Shipment | null {
@@ -123,16 +123,19 @@ export class ShipmentQueries {
   }
 
   createShipment(shipment: InsertShipment): Shipment {
-    const id = randomUUID();
     const now = new Date().toISOString();
 
     const stmt = this.db.prepare(`
       INSERT INTO shipments (
-        id, type, customerName, customerMobile, address, 
+        shipment_id, type, customerName, customerMobile, address, 
         latitude, longitude, cost, deliveryTime, routeName, 
         employeeId, status, priority, pickupAddress, weight, 
-        dimensions, specialInstructions, actualDeliveryTime, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        dimensions, specialInstructions, expectedDeliveryTime,
+        start_latitude, start_longitude, stop_latitude, stop_longitude, km_travelled,
+        signatureUrl, photoUrl, capturedAt,
+        synced_to_external, last_sync_attempt, sync_error, sync_attempts,
+        createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // Map schema fields to database fields
@@ -149,39 +152,157 @@ export class ShipmentQueries {
     const dimensions = shipment.dimensions || '';
 
     stmt.run(
-      id, shipment.type, customerName, customerMobile,
+      shipment.shipment_id, shipment.type, customerName, customerMobile,
       address, shipment.latitude || null, shipment.longitude || null,
       cost, deliveryTime, routeName,
       employeeId, shipment.status || 'Assigned', priority, pickupAddress,
       weight, dimensions, shipment.specialInstructions || null,
-      shipment.actualDeliveryTime || null, now, now
+      shipment.expectedDeliveryTime || null,
+      shipment.start_latitude || null, shipment.start_longitude || null,
+      shipment.stop_latitude || null, shipment.stop_longitude || null,
+      shipment.km_travelled || 0,
+      shipment.signatureUrl || null, shipment.photoUrl || null, shipment.capturedAt || null,
+      false, // synced_to_external
+      null,  // last_sync_attempt
+      null,  // sync_error
+      0,     // sync_attempts
+      now, now
     );
 
     // Also insert into replica
     if (this.db === liveDb) {
       const replicaStmt = replicaDb.prepare(`
         INSERT INTO shipments (
-          id, type, customerName, customerMobile, address, 
+          shipment_id, type, customerName, customerMobile, address, 
           latitude, longitude, cost, deliveryTime, routeName, 
           employeeId, status, priority, pickupAddress, weight, 
-          dimensions, specialInstructions, actualDeliveryTime, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          dimensions, specialInstructions, expectedDeliveryTime,
+          start_latitude, start_longitude, stop_latitude, stop_longitude, km_travelled,
+          signatureUrl, photoUrl, capturedAt,
+          synced_to_external, last_sync_attempt, sync_error, sync_attempts,
+          createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       replicaStmt.run(
-        id, shipment.type, customerName, customerMobile,
+        shipment.shipment_id, shipment.type, customerName, customerMobile,
         address, shipment.latitude || null, shipment.longitude || null,
         cost, deliveryTime, routeName,
         employeeId, shipment.status || 'Assigned', priority, pickupAddress,
         weight, dimensions, shipment.specialInstructions || null,
-        shipment.actualDeliveryTime || null, now, now
+        shipment.expectedDeliveryTime || null,
+        shipment.start_latitude || null, shipment.start_longitude || null,
+        shipment.stop_latitude || null, shipment.stop_longitude || null,
+        shipment.km_travelled || 0,
+        shipment.signatureUrl || null, shipment.photoUrl || null, shipment.capturedAt || null,
+        false, // synced_to_external
+        null,  // last_sync_attempt
+        null,  // sync_error
+        0,     // sync_attempts
+        now, now
       );
     }
 
-    return this.getShipmentById(id)!;
+    return this.getShipmentById(shipment.shipment_id)!;
   }
 
-  updateShipment(id: string, updates: UpdateShipment): Shipment | null {
+  updateShipmentTracking(shipment_id: string, trackingData: {
+    start_latitude?: number;
+    start_longitude?: number;
+    stop_latitude?: number;
+    stop_longitude?: number;
+    km_travelled?: number;
+    status?: string;
+    expectedDeliveryTime?: string;
+  }): Shipment | null {
+    const now = new Date().toISOString();
+
+    // Get current shipment data for distance calculation
+    const currentShipment = this.getShipmentById(shipment_id);
+    if (!currentShipment) return null;
+
+    const updateFields = [];
+    const values = [];
+
+    if (trackingData.start_latitude !== undefined) {
+      updateFields.push('start_latitude = ?');
+      values.push(trackingData.start_latitude);
+    }
+    if (trackingData.start_longitude !== undefined) {
+      updateFields.push('start_longitude = ?');
+      values.push(trackingData.start_longitude);
+    }
+    if (trackingData.stop_latitude !== undefined) {
+      updateFields.push('stop_latitude = ?');
+      values.push(trackingData.stop_latitude);
+    }
+    if (trackingData.stop_longitude !== undefined) {
+      updateFields.push('stop_longitude = ?');
+      values.push(trackingData.stop_longitude);
+    }
+    if (trackingData.status !== undefined) {
+      updateFields.push('status = ?');
+      values.push(trackingData.status);
+    }
+    if (trackingData.expectedDeliveryTime !== undefined) {
+      updateFields.push('expectedDeliveryTime = ?');
+      values.push(trackingData.expectedDeliveryTime);
+    }
+
+    // Auto-calculate distance if coordinates are provided
+    if (trackingData.start_latitude !== undefined || trackingData.start_longitude !== undefined ||
+      trackingData.stop_latitude !== undefined || trackingData.stop_longitude !== undefined) {
+
+      const { calculateShipmentDistance } = require('../utils/distanceCalculator');
+
+      // Merge current data with new tracking data
+      const mergedData = {
+        start_latitude: trackingData.start_latitude ?? currentShipment.start_latitude,
+        start_longitude: trackingData.start_longitude ?? currentShipment.start_longitude,
+        stop_latitude: trackingData.stop_latitude ?? currentShipment.stop_latitude,
+        stop_longitude: trackingData.stop_longitude ?? currentShipment.stop_longitude,
+        km_travelled: currentShipment.km_travelled
+      };
+
+      const calculatedDistance = calculateShipmentDistance(mergedData);
+      updateFields.push('km_travelled = ?');
+      values.push(calculatedDistance);
+    } else if (trackingData.km_travelled !== undefined) {
+      // Use provided distance if no coordinates
+      updateFields.push('km_travelled = ?');
+      values.push(trackingData.km_travelled);
+    }
+
+    if (updateFields.length === 0) {
+      return this.getShipmentById(shipment_id);
+    }
+
+    updateFields.push('updatedAt = ?');
+    values.push(now);
+    values.push(shipment_id);
+
+    const stmt = this.db.prepare(`
+      UPDATE shipments 
+      SET ${updateFields.join(', ')}
+      WHERE shipment_id = ?
+    `);
+
+    stmt.run(...values);
+
+    // Also update replica
+    if (this.db === liveDb) {
+      const replicaStmt = replicaDb.prepare(`
+        UPDATE shipments 
+        SET ${updateFields.join(', ')}
+        WHERE shipment_id = ?
+      `);
+      replicaStmt.run(...values);
+    }
+
+    return this.getShipmentById(shipment_id);
+  }
+
+  updateShipment(shipment_id: string, updates: UpdateShipment): Shipment | null {
     const now = new Date().toISOString();
 
     // Build dynamic update query based on provided fields
@@ -277,17 +398,17 @@ export class ShipmentQueries {
     updateFields.push('updatedAt = ?');
     updateValues.push(now);
 
-    // Add the ID for the WHERE clause
-    updateValues.push(id);
+    // Add the shipment_id for the WHERE clause
+    updateValues.push(shipment_id);
 
     if (updateFields.length === 1) { // Only updatedAt field
-      return this.getShipmentById(id);
+      return this.getShipmentById(shipment_id);
     }
 
     const stmt = this.db.prepare(`
       UPDATE shipments 
       SET ${updateFields.join(', ')}
-      WHERE id = ?
+      WHERE shipment_id = ?
     `);
 
     const result = stmt.run(...updateValues);
@@ -301,12 +422,12 @@ export class ShipmentQueries {
       const replicaStmt = replicaDb.prepare(`
         UPDATE shipments 
         SET ${updateFields.join(', ')}
-        WHERE id = ?
+        WHERE shipment_id = ?
       `);
       replicaStmt.run(...updateValues);
     }
 
-    return this.getShipmentById(id);
+    return this.getShipmentById(shipment_id);
   }
 
   batchUpdateShipments(updates: UpdateShipment[]): number {

@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
-import { Button } from './ui/button';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Checkbox } from './ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
-import { Alert, AlertDescription } from './ui/alert';
-import { DatePickerWithRange } from './ui/date-range-picker';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { withModalErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Download,
@@ -21,8 +21,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { DateRange } from 'react-day-picker';
-import { RouteAnalytics } from '../../../shared/schema';
-import { DataExporter, ExportOptions, ExportResult } from '../services/DataExporter';
+import { RouteAnalytics } from '@shared/schema';
+import { DataExporter, ExportOptions, ExportResult } from '@/services/DataExporter';
 
 interface ExportDialogProps {
   isOpen: boolean;
