@@ -12,7 +12,6 @@ import Navigation from "@/components/Navigation";
 import FloatingActionMenu from "@/components/FloatingActionMenu";
 import Dashboard from "@/pages/Dashboard";
 import ShipmentsWithTracking from "@/pages/ShipmentsWithTracking";
-import RoleBasedShipments from "@/pages/RoleBasedShipments";
 import NotFound from "@/pages/not-found";
 import AdminPage from "@/pages/Admin";
 import RouteAnalytics from "@/pages/RouteAnalytics";
@@ -51,7 +50,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Dashboard} />
         <Route path="/dashboard" component={Dashboard} />
-        <Route path="/shipments" component={RoleBasedShipments} />
+        <Route path="/shipments" component={ShipmentsWithTracking} />
         <Route path="/admin" component={AdminPage} />
         <Route path="/route-analytics" component={RouteAnalytics} />
         <Route path="/route-visualization" component={RouteVisualizationPage} />

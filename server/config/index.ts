@@ -206,7 +206,7 @@ const createConfig = (): AppConfig => {
     },
 
     database: {
-      path: process.env.DATABASE_PATH || (isTest ? ':memory:' : './data/riderpro.db'),
+      path: process.env.DATABASE_PATH || (isTest ? ':memory:' : './data/main.db'),
       backupEnabled: parseBoolean(process.env.DB_BACKUP_ENABLED, isProduction),
       backupInterval: parseNumber(process.env.DB_BACKUP_INTERVAL, 24),
       maxBackups: parseNumber(process.env.DB_MAX_BACKUPS, 7),

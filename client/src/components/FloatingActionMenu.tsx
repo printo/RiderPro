@@ -105,8 +105,8 @@ function FloatingActionMenu() {
           side="bottom"
           className={cn(
             "border border-border/50 bg-background shadow-2xl p-0 rounded-t-2xl ring-1 ring-border/20",
-            // Mobile: full width with optimal height, Desktop: max width with right alignment and different height
-            "w-full h-[70vh] sm:max-w-sm sm:ml-auto sm:mr-4 sm:h-[80vh]"
+            // Mobile: shorter height to avoid too much space below buttons, Desktop: taller height for better content fit
+            "w-full h-[60vh] sm:max-w-sm sm:ml-auto sm:mr-4 sm:h-[70vh]"
           )}
         >
           {/* Handle bar for visual indication */}
@@ -116,7 +116,7 @@ function FloatingActionMenu() {
 
           <div className="px-4 pb-4 h-[calc(100%-28px)] flex flex-col overflow-hidden">
             {/* Profile Section */}
-            <div className="flex items-center space-x-4 pb-6">
+            <div className="flex items-center space-x-4 pb-4">
               <div className="relative">
                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground text-xl font-bold shadow-md">
                   {user?.fullName?.charAt(0) || 'U'}
@@ -135,10 +135,10 @@ function FloatingActionMenu() {
               </div>
             </div>
 
-            <Separator className="mb-6" />
+            <Separator className="mb-4" />
 
             {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto space-y-4 sm:space-y-6 pb-4">
+            <div className="flex-1 overflow-y-auto space-y-3 sm:space-y-4 pb-2">
               {/* Navigation Menu */}
               <div className="space-y-4">
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">

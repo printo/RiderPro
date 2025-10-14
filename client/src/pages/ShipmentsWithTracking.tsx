@@ -15,6 +15,7 @@ import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
+import AuthService from "@/services/AuthService";
 
 // Lazy load the shipments list component
 const ShipmentsList = lazy(() => import("@/components/shipments/ShipmentsList"));
@@ -27,9 +28,10 @@ function ShipmentsWithTracking() {
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const { toast } = useToast();
-  const { user: currentUser, isAuthenticated, accessToken, refreshToken } = useAuth();
+  const { user: currentUser, isAuthenticated, authenticatedFetch } = useAuth();
 
-  const authState = { accessToken, refreshToken };
+  // Get auth headers from AuthService
+  const authHeaders = AuthService.getInstance().getAuthHeaders();
 
   // Debug: Log component mount and auth state
   useEffect(() => {
@@ -37,23 +39,22 @@ function ShipmentsWithTracking() {
     console.log('📊 Current auth state:', {
       isAuthenticated,
       user: currentUser,
-      hasAccessToken: !!authState.accessToken,
-      hasRefreshToken: !!authState.refreshToken,
+      hasAuthHeaders: !!authHeaders.Authorization,
       userRole: currentUser?.role,
       employeeId: currentUser?.employeeId || currentUser?.username
     });
 
-  }, [isAuthenticated, currentUser, authState]);
+  }, [isAuthenticated, currentUser, authHeaders]);
 
   // Monitor auth state changes
   useEffect(() => {
     console.log('🔄 Auth state changed in ShipmentsWithTracking:', {
       isAuthenticated,
       hasUser: !!currentUser,
-      hasAccessToken: !!authState.accessToken,
+      hasAuthHeaders: !!authHeaders.Authorization,
       timestamp: new Date().toISOString()
     });
-  }, [isAuthenticated, currentUser, authState.accessToken]);
+  }, [isAuthenticated, currentUser, authHeaders]);
 
   const employeeId = currentUser?.employeeId || currentUser?.username || "";
 

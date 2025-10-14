@@ -409,6 +409,17 @@ class AuthService {
   public getAccessToken(): string | null {
     return this.state.accessToken;
   }
+
+  public getAuthHeaders(): Record<string, string> {
+    const accessToken = this.state.accessToken;
+    if (!accessToken) {
+      return {};
+    }
+    return {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    };
+  }
 }
 
 export default AuthService;

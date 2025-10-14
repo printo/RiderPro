@@ -10,8 +10,8 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const liveDbPath = path.join(dbDir, 'sqlite.db');
-const replicaDbPath = path.join(dbDir, 'replica_sqlite.db');
+const liveDbPath = path.join(dbDir, 'main.db');
+const replicaDbPath = path.join(dbDir, 'replica.db');
 
 // In development, use replica DB for operations, in production use live DB
 const isDevelopment = process.env.NODE_ENV === 'development';

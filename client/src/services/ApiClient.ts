@@ -1,5 +1,5 @@
 // client/src/services/ApiClient.ts
-import authService from './AuthService';
+import AuthService from './AuthService';
 
 export interface ApiRequestConfig {
   url: string;
@@ -192,7 +192,7 @@ export class ApiClient {
 
     try {
       console.log('[ApiClient] Access token expired, attempting to refresh...');
-      const refreshed = await authService.refreshAccessToken();
+      const refreshed = await AuthService.getInstance().refreshAccessToken();
 
       if (refreshed) {
         // Process pending requests with new token
@@ -204,9 +204,11 @@ export class ApiClient {
         // Refresh failed, reject all pending requests
         this.rejectPendingRequests(new Error('Session expired. Please log in again.'));
 
-        // Logout and redirect
-        await authService.logout();
-        window.location.href = '/login';
+        // Only logout and redirect if we're not already on the login page
+        if (!window.location.pathname.includes('/login')) {
+          AuthService.getInstance().logout();
+          window.location.href = '/login';
+        }
 
         const logoutError = this.createApiError(
           new Error('Your session has expired. Please log in again to continue.'),
@@ -225,9 +227,11 @@ export class ApiClient {
       // Reject all pending requests
       this.rejectPendingRequests(refreshError);
 
-      // Clear auth state and redirect
-      await authService.logout();
-      window.location.href = '/login';
+      // Clear auth state and redirect only if not on login page
+      if (!window.location.pathname.includes('/login')) {
+        AuthService.getInstance().logout();
+        window.location.href = '/login';
+      }
 
       // Determine if this is a network error or auth error
       const isNetworkError = this.isNetworkError(refreshError);
@@ -359,7 +363,7 @@ export class ApiClient {
 
     // Add authentication headers if not skipped
     if (!skipAuth) {
-      const authHeaders = authService.getAuthHeaders();
+      const authHeaders = AuthService.getInstance().getAuthHeaders();
       Object.assign(headers, authHeaders);
     }
 
@@ -536,7 +540,7 @@ export class ApiClient {
       console.log(`[ApiClient] Performing graceful logout: ${reason}`);
 
       // Clear authentication state
-      await authService.logout();
+      AuthService.getInstance().logout();
 
       // Clear any pending requests
       this.rejectPendingRequests(new Error('Session expired during logout'));
@@ -562,8 +566,10 @@ export class ApiClient {
       this.refreshInProgress = false;
       this.refreshAttemptTimestamp = 0;
 
-      // Force redirect even if logout fails
-      window.location.href = '/login';
+      // Force redirect even if logout fails, but only if not on login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
     }
   }
 

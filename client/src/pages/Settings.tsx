@@ -35,25 +35,17 @@ function Settings() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    // Load user profile from localStorage
-    const fullName = localStorage.getItem('full_name');
-    const employeeId = localStorage.getItem('employee_id');
-    const isStaff = localStorage.getItem('is_staff') === 'true';
-    const isSuperUser = localStorage.getItem('is_super_user') === 'true';
-    const isOpsTeam = localStorage.getItem('is_ops_team') === 'true';
-    const accessToken = localStorage.getItem('access_token');
-    const refreshToken = localStorage.getItem('refresh_token');
-
-    if (fullName && employeeId) {
+    // Load user profile from AuthService
+    if (user) {
       setUserProfile({
-        fullName,
-        employeeId,
-        role: user?.role || 'driver',
-        isStaff,
-        isSuperUser,
-        isOpsTeam,
-        accessToken: accessToken || '',
-        refreshToken: refreshToken || ''
+        fullName: user.fullName,
+        employeeId: user.employeeId,
+        role: user.role || 'driver',
+        isStaff: user.isStaff || false,
+        isSuperUser: user.isSuperUser || false,
+        isOpsTeam: user.isOpsTeam || false,
+        accessToken: '', // Not exposed for security
+        refreshToken: '' // Not exposed for security
       });
     }
   }, [user]);

@@ -43,40 +43,24 @@ export const up = (db: Database) => {
 
   // 2. User authentication tables
   db.exec(`
-    -- Users table
-    CREATE TABLE IF NOT EXISTS users (
+    -- Rider accounts table for local user registration
+    CREATE TABLE IF NOT EXISTS rider_accounts (
       id TEXT PRIMARY KEY,
-      username TEXT UNIQUE NOT NULL,
-      email TEXT UNIQUE NOT NULL,
+      rider_id TEXT UNIQUE NOT NULL,
+      full_name TEXT NOT NULL,
+      email TEXT,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'viewer',
-      employee_id TEXT,
       is_active BOOLEAN DEFAULT 1,
-      last_login TEXT,
+      is_approved BOOLEAN DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
-    );
-
-    -- API tokens table
-    CREATE TABLE IF NOT EXISTS api_tokens (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      token_name TEXT NOT NULL,
-      token_hash TEXT NOT NULL,
-      permissions TEXT NOT NULL DEFAULT 'read',
-      expires_at TEXT,
-      last_used TEXT,
-      is_active BOOLEAN DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users (id)
     );
   `);
 
   // 3. Shipments table with all required fields
   db.exec(`
     CREATE TABLE IF NOT EXISTS shipments (
-      id TEXT PRIMARY KEY,
-      shipment_id TEXT,
+      shipment_id TEXT PRIMARY KEY,
       type TEXT NOT NULL CHECK(type IN ('delivery', 'pickup')),
       customerName TEXT NOT NULL,
       customerMobile TEXT NOT NULL,
@@ -194,11 +178,9 @@ export const up = (db: Database) => {
     CREATE INDEX IF NOT EXISTS idx_route_tracking_timestamp ON route_tracking(timestamp);
 
     -- User authentication indexes
-    CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-    CREATE INDEX IF NOT EXISTS idx_users_employee_id ON users(employee_id);
-    CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
-    CREATE INDEX IF NOT EXISTS idx_api_tokens_token_hash ON api_tokens(token_hash);
+    CREATE INDEX IF NOT EXISTS idx_rider_accounts_rider_id ON rider_accounts(rider_id);
+    CREATE INDEX IF NOT EXISTS idx_rider_accounts_email ON rider_accounts(email);
+    CREATE INDEX IF NOT EXISTS idx_rider_accounts_approved ON rider_accounts(is_approved);
 
     -- Vehicle types indexes
     CREATE INDEX IF NOT EXISTS idx_vehicle_types_name ON vehicle_types(name);
@@ -273,11 +255,9 @@ export const down = (db: Database) => {
     DROP INDEX IF EXISTS idx_shipments_route;
     DROP INDEX IF EXISTS idx_shipments_type;
     DROP INDEX IF EXISTS idx_shipments_status;
-    DROP INDEX IF EXISTS idx_api_tokens_token_hash;
-    DROP INDEX IF EXISTS idx_api_tokens_user_id;
-    DROP INDEX IF EXISTS idx_users_employee_id;
-    DROP INDEX IF EXISTS idx_users_email;
-    DROP INDEX IF EXISTS idx_users_username;
+    DROP INDEX IF EXISTS idx_rider_accounts_approved;
+    DROP INDEX IF EXISTS idx_rider_accounts_email;
+    DROP INDEX IF EXISTS idx_rider_accounts_rider_id;
     DROP INDEX IF EXISTS idx_route_tracking_timestamp;
     DROP INDEX IF EXISTS idx_route_tracking_date;
     DROP INDEX IF EXISTS idx_route_tracking_employee;
@@ -296,8 +276,7 @@ export const down = (db: Database) => {
     DROP TABLE IF EXISTS acknowledgments;
     DROP TABLE IF EXISTS shipments;
     DROP TABLE IF EXISTS vehicle_types;
-    DROP TABLE IF EXISTS api_tokens;
-    DROP TABLE IF EXISTS users;
+    DROP TABLE IF EXISTS rider_accounts;
     DROP TABLE IF EXISTS route_tracking;
     DROP TABLE IF EXISTS route_sessions;
   `);

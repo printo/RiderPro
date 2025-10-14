@@ -5,19 +5,15 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useLocation } from 'wouter';
+import { useAuth } from '../hooks/useAuth';
 
 export const ApprovalPending: React.FC = () => {
   const [, setLocation] = useLocation();
+  const { logout } = useAuth();
 
   const handleLogout = () => {
-    // Clear localStorage
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('full_name');
-    localStorage.removeItem('employee_id');
-    localStorage.removeItem('is_staff');
-    localStorage.removeItem('is_super_user');
-    localStorage.removeItem('is_ops_team');
+    // Use AuthService logout method
+    logout();
 
     // Redirect to login
     setLocation('/login');

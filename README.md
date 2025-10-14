@@ -55,14 +55,14 @@ npm run dev
 ### 📖 Core Documentation
 - **[📋 Documentation Hub](./docs/README.md)** - Complete documentation index and navigation
 - **[🏗️ System Architecture](./docs/system-architecture.md)** - Technical architecture and design decisions
-- **[🔌 API Documentation](./docs/api-documentation.md)** - Complete REST API reference
 - **[📊 API Inventory](./docs/api-inventory.md)** - Comprehensive endpoint documentation
 - **[🗄️ Database Schema](./docs/database-schema.md)** - Database design and data lifecycle
 - **[🔐 Authentication System](./docs/authentication-system.md)** - Authentication flows and security
 
 ### 🔧 Feature Documentation  
 - **[🛣️ Smart Route Completion](./docs/smart-route-completion.md)** - AI-powered route optimization
-- **[⚙️ Replit Integration](./docs/replit.md)** - Development environment setup
+- **[🚀 Production Migration](./docs/production-migration-strategy.md)** - Production deployment and maintenance
+- **[🔒 Security Audit](./docs/security-audit-report.md)** - Security assessment and guidelines
 
 ## ✨ Key Features
 

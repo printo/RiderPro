@@ -6,7 +6,6 @@ import { useRouteSession } from '@/hooks/useRouteSession';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 import RouteCompletionDialog from '@/components/routes/RouteCompletionDialog';
 // import SmartCompletionSettings from '@/components/routes/SmartCompletionSettings';
-import SyncStatusIndicator from '@/components/sync/SyncStatusIndicator';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target, Settings } from 'lucide-react';
 
@@ -310,11 +309,6 @@ function RouteSessionControls({
             </div>
           )}
 
-          {/* Sync Status */}
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">Data Sync:</span>
-            <SyncStatusIndicator compact={true} />
-          </div>
 
           {/* Loading State */}
           {isLoading && (

@@ -2,6 +2,7 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import SyncStatusPanel from "@/components/sync/SyncStatusPanel";
+import SyncStatusIndicator from "@/components/sync/SyncStatusIndicator";
 import StatusDistributionChart from "@/components/analytics/StatusDistributionChart";
 import RoutePerformanceChart from "@/components/analytics/RoutePerformanceChart";
 import RouteSummary from "@/components/routes/RouteSummary";
@@ -87,9 +88,8 @@ function Dashboard() {
                 <div className="mt-4">
                   <button
                     onClick={() => {
-                      logout().finally(() => {
-                        window.location.href = '/login';
-                      });
+                      logout();
+                      window.location.href = '/login';
                     }}
                     className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   >
@@ -179,7 +179,19 @@ function Dashboard() {
                 <Wifi className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 <h3 className="text-lg font-semibold">Sync Status</h3>
               </div>
-              <SyncStatusPanel />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* External Sync Status */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">External Sync</h4>
+                  <SyncStatusPanel />
+                </div>
+
+                {/* Offline Sync Status */}
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Offline Sync</h4>
+                  <SyncStatusIndicator showDetails={true} />
+                </div>
+              </div>
             </div>
           </div>
         </CardContent>
