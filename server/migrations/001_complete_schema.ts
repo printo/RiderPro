@@ -57,7 +57,7 @@ export const up = (db: Database) => {
     );
   `);
 
-  // 3. Shipments table with all required fields
+  // 3. Shipments table with all required fields (including acknowledgments and sync status)
   db.exec(`
     CREATE TABLE IF NOT EXISTS shipments (
       shipment_id TEXT PRIMARY KEY,
@@ -84,43 +84,23 @@ export const up = (db: Database) => {
       stop_latitude REAL,
       stop_longitude REAL,
       km_travelled REAL DEFAULT 0,
-      -- Sync tracking
+      -- Sync tracking (consolidated from sync_status table)
       synced_to_external BOOLEAN DEFAULT 0,
       last_sync_attempt TEXT,
       sync_error TEXT,
+      sync_status TEXT DEFAULT 'pending' CHECK(sync_status IN ('pending', 'success', 'failed')),
+      sync_attempts INTEGER DEFAULT 0,
+      -- Acknowledgments (consolidated from acknowledgments table)
+      signature_url TEXT,
+      photo_url TEXT,
+      acknowledgment_captured_at TEXT,
       -- Timestamps
       createdAt TEXT DEFAULT (datetime('now')),
       updatedAt TEXT DEFAULT (datetime('now'))
     );
   `);
 
-  // 4. Acknowledgments table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS acknowledgments (
-      id TEXT PRIMARY KEY,
-      shipmentId TEXT NOT NULL,
-      signatureUrl TEXT,
-      photoUrl TEXT,
-      capturedAt TEXT NOT NULL,
-      FOREIGN KEY (shipmentId) REFERENCES shipments (id)
-    );
-  `);
-
-  // 5. Sync status tracking table
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS sync_status (
-      id TEXT PRIMARY KEY,
-      shipmentId TEXT NOT NULL,
-      status TEXT NOT NULL CHECK(status IN ('pending', 'success', 'failed')),
-      attempts INTEGER DEFAULT 0,
-      lastAttempt TEXT,
-      error TEXT,
-      createdAt TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (shipmentId) REFERENCES shipments (id)
-    );
-  `);
-
-  // 6. System monitoring tables
+  // 4. System monitoring tables
   db.exec(`
     CREATE TABLE IF NOT EXISTS system_health_metrics (
       id TEXT PRIMARY KEY,
@@ -194,13 +174,8 @@ export const up = (db: Database) => {
     CREATE INDEX IF NOT EXISTS idx_shipments_employee ON shipments(employeeId);
     CREATE INDEX IF NOT EXISTS idx_shipments_shipment_id ON shipments(shipment_id);
     CREATE INDEX IF NOT EXISTS idx_shipments_synced ON shipments(synced_to_external);
-
-    -- Acknowledgments indexes
-    CREATE INDEX IF NOT EXISTS idx_acknowledgments_shipment ON acknowledgments(shipmentId);
-
-    -- Sync status indexes
-    CREATE INDEX IF NOT EXISTS idx_sync_status_shipment ON sync_status(shipmentId);
-    CREATE INDEX IF NOT EXISTS idx_sync_status_status ON sync_status(status);
+    CREATE INDEX IF NOT EXISTS idx_shipments_sync_status ON shipments(sync_status);
+    CREATE INDEX IF NOT EXISTS idx_shipments_acknowledgment ON shipments(acknowledgment_captured_at);
 
     -- System monitoring indexes
     CREATE INDEX IF NOT EXISTS idx_health_metrics_name ON system_health_metrics(metric_name);
@@ -245,9 +220,8 @@ export const down = (db: Database) => {
     DROP INDEX IF EXISTS idx_feature_flags_name;
     DROP INDEX IF EXISTS idx_health_metrics_timestamp;
     DROP INDEX IF EXISTS idx_health_metrics_name;
-    DROP INDEX IF EXISTS idx_sync_status_status;
-    DROP INDEX IF EXISTS idx_sync_status_shipment;
-    DROP INDEX IF EXISTS idx_acknowledgments_shipment;
+    DROP INDEX IF EXISTS idx_shipments_acknowledgment;
+    DROP INDEX IF EXISTS idx_shipments_sync_status;
     DROP INDEX IF EXISTS idx_shipments_synced;
     DROP INDEX IF EXISTS idx_shipments_shipment_id;
     DROP INDEX IF EXISTS idx_shipments_employee;
@@ -272,8 +246,6 @@ export const down = (db: Database) => {
     DROP TABLE IF EXISTS system_config;
     DROP TABLE IF EXISTS feature_flags;
     DROP TABLE IF EXISTS system_health_metrics;
-    DROP TABLE IF EXISTS sync_status;
-    DROP TABLE IF EXISTS acknowledgments;
     DROP TABLE IF EXISTS shipments;
     DROP TABLE IF EXISTS vehicle_types;
     DROP TABLE IF EXISTS rider_accounts;

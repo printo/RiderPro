@@ -241,26 +241,7 @@ export interface BatchUpdate {
   updates: UpdateShipment[];
 }
 
-export interface Acknowledgment {
-  id: string;
-  shipmentId: string;
-  recipientName: string;
-  signature?: string;
-  photo?: string;
-  timestamp: string;
-  location?: string;
-  notes?: string;
-}
-
-export interface InsertAcknowledgment {
-  shipmentId: string;
-  recipientName: string;
-  signature?: string;
-  photo?: string;
-  timestamp: string;
-  location?: string;
-  notes?: string;
-}
+// Acknowledgment interfaces removed - functionality consolidated into Shipment table
 
 export interface DashboardMetrics {
   totalShipments: number;
@@ -528,9 +509,7 @@ export const batchUpdateSchema = {
   validate: (data: any): data is BatchUpdate => true
 } as any;
 
-export const insertAcknowledgmentSchema = {
-  validate: (data: any): data is InsertAcknowledgment => true
-} as any;
+// insertAcknowledgmentSchema removed - functionality consolidated into shipments
 
 export const shipmentFiltersSchema = {
   validate: (data: any): data is ShipmentFilters => true

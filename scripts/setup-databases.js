@@ -58,7 +58,7 @@ mainDb.exec(`
     FOREIGN KEY (session_id) REFERENCES route_sessions (id)
   );
 
-  -- Shipments table
+  -- Shipments table (with consolidated acknowledgments and sync status)
   CREATE TABLE IF NOT EXISTS shipments (
     shipment_id TEXT PRIMARY KEY,
     type TEXT NOT NULL CHECK(type IN ('delivery', 'pickup')),
@@ -78,39 +78,27 @@ mainDb.exec(`
     dimensions TEXT,
     specialInstructions TEXT,
     actualDeliveryTime TEXT,
+    -- Tracking fields
     start_latitude REAL,
     start_longitude REAL,
     stop_latitude REAL,
     stop_longitude REAL,
     km_travelled REAL DEFAULT 0,
+    -- Sync tracking (consolidated from sync_status table)
     synced_to_external BOOLEAN DEFAULT 0,
     last_sync_attempt TEXT,
     sync_error TEXT,
+    sync_status TEXT DEFAULT 'pending' CHECK(sync_status IN ('pending', 'success', 'failed')),
+    sync_attempts INTEGER DEFAULT 0,
+    -- Acknowledgments (consolidated from acknowledgments table)
+    signature_url TEXT,
+    photo_url TEXT,
+    acknowledgment_captured_at TEXT,
+    -- Timestamps
     createdAt TEXT DEFAULT (datetime('now')),
     updatedAt TEXT DEFAULT (datetime('now'))
   );
 
-  -- Acknowledgments table
-  CREATE TABLE IF NOT EXISTS acknowledgments (
-    id TEXT PRIMARY KEY,
-    shipmentId TEXT NOT NULL,
-    signatureUrl TEXT,
-    photoUrl TEXT,
-    capturedAt TEXT NOT NULL,
-    FOREIGN KEY (shipmentId) REFERENCES shipments (shipment_id)
-  );
-
-  -- Sync status tracking table
-  CREATE TABLE IF NOT EXISTS sync_status (
-    id TEXT PRIMARY KEY,
-    shipmentId TEXT NOT NULL,
-    status TEXT NOT NULL CHECK(status IN ('pending', 'success', 'failed')),
-    attempts INTEGER DEFAULT 0,
-    lastAttempt TEXT,
-    error TEXT,
-    createdAt TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (shipmentId) REFERENCES shipments (shipment_id)
-  );
 
   -- System monitoring tables
   CREATE TABLE IF NOT EXISTS system_health_metrics (
@@ -170,9 +158,8 @@ mainDb.exec(`
   CREATE INDEX IF NOT EXISTS idx_shipments_employee ON shipments(employeeId);
   CREATE INDEX IF NOT EXISTS idx_shipments_shipment_id ON shipments(shipment_id);
   CREATE INDEX IF NOT EXISTS idx_shipments_synced ON shipments(synced_to_external);
-  CREATE INDEX IF NOT EXISTS idx_acknowledgments_shipment ON acknowledgments(shipmentId);
-  CREATE INDEX IF NOT EXISTS idx_sync_status_shipment ON sync_status(shipmentId);
-  CREATE INDEX IF NOT EXISTS idx_sync_status_status ON sync_status(status);
+  CREATE INDEX IF NOT EXISTS idx_shipments_sync_status ON shipments(sync_status);
+  CREATE INDEX IF NOT EXISTS idx_shipments_acknowledgment ON shipments(acknowledgment_captured_at);
   CREATE INDEX IF NOT EXISTS idx_health_metrics_name ON system_health_metrics(metric_name);
   CREATE INDEX IF NOT EXISTS idx_health_metrics_timestamp ON system_health_metrics(timestamp);
   CREATE INDEX IF NOT EXISTS idx_feature_flags_name ON feature_flags(flag_name);
@@ -243,7 +230,7 @@ replicaDb.exec(`
     FOREIGN KEY (session_id) REFERENCES route_sessions (id)
   );
 
-  -- Shipments table
+  -- Shipments table (with consolidated acknowledgments and sync status)
   CREATE TABLE IF NOT EXISTS shipments (
     shipment_id TEXT PRIMARY KEY,
     type TEXT NOT NULL CHECK(type IN ('delivery', 'pickup')),
@@ -263,39 +250,27 @@ replicaDb.exec(`
     dimensions TEXT,
     specialInstructions TEXT,
     actualDeliveryTime TEXT,
+    -- Tracking fields
     start_latitude REAL,
     start_longitude REAL,
     stop_latitude REAL,
     stop_longitude REAL,
     km_travelled REAL DEFAULT 0,
+    -- Sync tracking (consolidated from sync_status table)
     synced_to_external BOOLEAN DEFAULT 0,
     last_sync_attempt TEXT,
     sync_error TEXT,
+    sync_status TEXT DEFAULT 'pending' CHECK(sync_status IN ('pending', 'success', 'failed')),
+    sync_attempts INTEGER DEFAULT 0,
+    -- Acknowledgments (consolidated from acknowledgments table)
+    signature_url TEXT,
+    photo_url TEXT,
+    acknowledgment_captured_at TEXT,
+    -- Timestamps
     createdAt TEXT DEFAULT (datetime('now')),
     updatedAt TEXT DEFAULT (datetime('now'))
   );
 
-  -- Acknowledgments table
-  CREATE TABLE IF NOT EXISTS acknowledgments (
-    id TEXT PRIMARY KEY,
-    shipmentId TEXT NOT NULL,
-    signatureUrl TEXT,
-    photoUrl TEXT,
-    capturedAt TEXT NOT NULL,
-    FOREIGN KEY (shipmentId) REFERENCES shipments (shipment_id)
-  );
-
-  -- Sync status tracking table
-  CREATE TABLE IF NOT EXISTS sync_status (
-    id TEXT PRIMARY KEY,
-    shipmentId TEXT NOT NULL,
-    status TEXT NOT NULL CHECK(status IN ('pending', 'success', 'failed')),
-    attempts INTEGER DEFAULT 0,
-    lastAttempt TEXT,
-    error TEXT,
-    createdAt TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (shipmentId) REFERENCES shipments (shipment_id)
-  );
 
   -- System monitoring tables
   CREATE TABLE IF NOT EXISTS system_health_metrics (
@@ -355,9 +330,8 @@ replicaDb.exec(`
   CREATE INDEX IF NOT EXISTS idx_shipments_employee ON shipments(employeeId);
   CREATE INDEX IF NOT EXISTS idx_shipments_shipment_id ON shipments(shipment_id);
   CREATE INDEX IF NOT EXISTS idx_shipments_synced ON shipments(synced_to_external);
-  CREATE INDEX IF NOT EXISTS idx_acknowledgments_shipment ON acknowledgments(shipmentId);
-  CREATE INDEX IF NOT EXISTS idx_sync_status_shipment ON sync_status(shipmentId);
-  CREATE INDEX IF NOT EXISTS idx_sync_status_status ON sync_status(status);
+  CREATE INDEX IF NOT EXISTS idx_shipments_sync_status ON shipments(sync_status);
+  CREATE INDEX IF NOT EXISTS idx_shipments_acknowledgment ON shipments(acknowledgment_captured_at);
   CREATE INDEX IF NOT EXISTS idx_health_metrics_name ON system_health_metrics(metric_name);
   CREATE INDEX IF NOT EXISTS idx_health_metrics_timestamp ON system_health_metrics(timestamp);
   CREATE INDEX IF NOT EXISTS idx_feature_flags_name ON feature_flags(flag_name);
@@ -392,20 +366,6 @@ const userDataDb = new Database(userDataDbPath);
 
 console.log('👤 Creating user data database...');
 userDataDb.exec(`
-  -- Users table
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    username TEXT UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'viewer',
-    employee_id TEXT,
-    is_active BOOLEAN DEFAULT 1,
-    last_login TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
-  );
-
   -- Rider accounts table for local user registration
   CREATE TABLE IF NOT EXISTS rider_accounts (
     id TEXT PRIMARY KEY,
@@ -431,9 +391,6 @@ userDataDb.exec(`
   );
 
   -- Create indexes
-  CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-  CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-  CREATE INDEX IF NOT EXISTS idx_users_employee_id ON users(employee_id);
   CREATE INDEX IF NOT EXISTS idx_rider_accounts_rider_id ON rider_accounts(rider_id);
   CREATE INDEX IF NOT EXISTS idx_rider_accounts_email ON rider_accounts(email);
   CREATE INDEX IF NOT EXISTS idx_rider_accounts_approved ON rider_accounts(is_approved);

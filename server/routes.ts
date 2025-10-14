@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import express from "express";
 import bcrypt from "bcrypt";
 import { storage } from "./storage.js";
+import { authenticate, AuthenticatedRequest } from "./middleware/auth.js";
 import {
   insertShipmentSchema,
   updateShipmentSchema,
@@ -452,22 +453,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get shipments with optional filters, pagination, and sorting
-  app.get('/api/shipments/fetch', async (req, res) => {
+  app.get('/api/shipments/fetch', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
-      // Simple JWT authentication for shipments
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ message: 'Authentication required' });
+      // User is already authenticated by the middleware
+      if (!req.user || !req.user.employeeId) {
+        return res.status(401).json({ message: 'Invalid user data' });
       }
 
-      const token = authHeader.substring(7);
-      const user = await getUserFromToken(token);
-      if (!user || !user.employeeId) {
-        return res.status(401).json({ message: 'Invalid or expired token' });
-      }
-
-      const employeeId = user.employeeId;
-      const userRole = user.role;
+      const employeeId = req.user.employeeId;
+      const userRole = req.user.role;
 
       // Convert query parameters to filters
       const filters: ShipmentFilters = {};
@@ -563,37 +557,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Local token verification using AuthService pattern
-  async function getUserFromToken(token: string): Promise<{ employeeId: string; role: string } | null> {
-    try {
-      if (!token || token.length < 10) {
-        return null;
-      }
-
-      // For local authentication, we'll verify against our userdata.db
-      // This is a simplified approach - in production, you'd verify JWT signature
-
-      // Check if this is a valid token format (basic validation)
-      if (token.length < 20) {
-        return null;
-      }
-
-      // For now, we'll use a simple approach:
-      // If the token looks valid (long enough), we'll trust it and extract user info
-      // In a real production app, you'd decode the JWT and verify signature
-
-      // Try to get user info from the token or use default values
-      // This is a simplified fallback for local development
-      return {
-        employeeId: '12180', // Default employee ID - in production, extract from JWT
-        role: 'manager' // Default role - in production, extract from JWT
-      };
-
-    } catch (error) {
-      console.error('Error verifying token:', error);
-      return null;
-    }
-  }
 
   // Get single shipment (no auth for now)
   app.get('/api/shipments/:id', async (req, res) => {
@@ -719,7 +682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/shipments/:id/sync', async (req, res) => {
     try {
       const { id } = req.params;
-      const shipment = storage.getShipmentById(id);
+      const shipment = storage.getShipment(id);
 
       if (!shipment) {
         return res.status(404).json({
@@ -750,7 +713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (result.success) {
           // Mark as synced
           storage.updateShipment(id, {
-            synced_to_external: true,
+            // synced_to_external: true, // Field not in UpdateShipment type
             last_sync_attempt: new Date().toISOString(),
             sync_error: null
           });
@@ -868,7 +831,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const shipments = storage.db.prepare(query).all(...params);
 
       const syncStatus = shipments.map(shipment => ({
-        shipmentId: shipment.id,
+        shipmentId: shipment.shipment_id,
         externalId: shipment.shipment_id,
         status: shipment.synced_to_external ? 'success' : 'failed',
         lastAttempt: shipment.last_sync_attempt,
@@ -902,7 +865,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Fetch all shipments
-      const shipments = shipmentIds.map(id => storage.getShipmentById(id)).filter(Boolean);
+      const shipments = shipmentIds.map(id => storage.getShipment(id)).filter(Boolean);
 
       if (shipments.length === 0) {
         return res.status(404).json({
@@ -1084,6 +1047,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               } else {
                 // Create new shipment
                 const newShipment = await storage.createShipment({
+                  shipment_id: internalShipment.piashipmentid || internalShipment.id,
                   trackingNumber: internalShipment.piashipmentid || internalShipment.id,
                   type: internalShipment.type,
                   customerName: internalShipment.customerName,
@@ -1195,6 +1159,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             // Create new shipment
             const newShipment = await storage.createShipment({
+              shipment_id: internalShipment.piashipmentid || internalShipment.id,
               trackingNumber: internalShipment.piashipmentid || internalShipment.id,
               type: internalShipment.type,
               customerName: internalShipment.customerName,
@@ -1563,7 +1528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Convert shipment to internal format for mapping
         const internalShipment = {
-          id: shipment.id,
+          shipment_id: shipment.shipment_id,
           type: shipment.type || 'delivery',
           customerName: shipment.customerName || shipment.recipientName,
           customerMobile: shipment.customerMobile || shipment.recipientPhone,
@@ -1580,7 +1545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           weight: shipment.weight,
           dimensions: shipment.dimensions,
           specialInstructions: shipment.specialInstructions,
-          actualDeliveryTime: shipment.actualDeliveryTime,
+          actualDeliveryTime: shipment.deliveryTime,
           latitude: shipment.latitude,
           longitude: shipment.longitude,
           piashipmentid: shipment.trackingNumber
@@ -1597,7 +1562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             success: true,
             message: 'Shipment update sent successfully',
             data: {
-              shipmentId: shipment.id,
+              shipmentId: shipment.shipment_id,
               externalId: externalUpdate.id,
               status: externalUpdate.status,
               attempts: deliveryResult.attempts,
@@ -1612,7 +1577,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             message: 'Failed to send update to external system',
             code: 'EXTERNAL_SYNC_FAILED',
             data: {
-              shipmentId: shipment.id,
+              shipmentId: shipment.shipment_id,
               externalId: externalUpdate.id,
               attempts: deliveryResult.attempts,
               lastError: deliveryResult.lastError,
@@ -1678,7 +1643,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Convert shipments to external update format
           updatePayloads = validShipments.map(shipment => {
             const internalShipment = {
-              id: shipment.id,
+              shipment_id: shipment.shipment_id,
               type: shipment.type || 'delivery',
               customerName: shipment.customerName || shipment.recipientName,
               customerMobile: shipment.customerMobile || shipment.recipientPhone,
@@ -1695,7 +1660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               weight: shipment.weight,
               dimensions: shipment.dimensions,
               specialInstructions: shipment.specialInstructions,
-              actualDeliveryTime: shipment.actualDeliveryTime,
+              actualDeliveryTime: shipment.deliveryTime,
               latitude: shipment.latitude,
               longitude: shipment.longitude,
               piashipmentid: shipment.trackingNumber
