@@ -55,7 +55,7 @@ npm run dev
 ### 📖 Core Documentation
 - **[📋 Documentation Hub](./docs/README.md)** - Complete documentation index and navigation
 - **[🏗️ System Architecture](./docs/system-architecture.md)** - Technical architecture and design decisions
-- **[📊 API Inventory](./docs/api-inventory.md)** - Comprehensive endpoint documentation
+- **[📊 API Documentation](./docs/api-documentation.md)** - Comprehensive endpoint documentation
 - **[🗄️ Database Schema](./docs/database-schema.md)** - Database design and data lifecycle
 - **[🔐 Authentication System](./docs/authentication-system.md)** - Authentication flows and security
 
@@ -234,7 +234,7 @@ The application provides a comprehensive REST API with 25+ endpoints:
 - **Analytics**: Dashboard metrics, performance tracking
 - **Admin**: User management, system configuration
 
-See [API Inventory](./docs/api-inventory.md) for complete endpoint documentation.
+See [API Documentation](./docs/api-documentation.md) for complete endpoint documentation.
 
 ## 🔧 Configuration
 

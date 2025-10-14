@@ -578,28 +578,34 @@ export class OfflineStorageService {
 
     const transaction = this.db.transaction(['gpsRecords', 'routeSessions'], 'readwrite');
 
-    // Clear synced GPS records
+    // Clear synced GPS records - use a more robust approach
     const gpsStore = transaction.objectStore('gpsRecords');
-    const gpsIndex = gpsStore.index('synced');
-    const gpsRequest = gpsIndex.openCursor(IDBKeyRange.only(true));
+    const gpsRequest = gpsStore.openCursor();
 
     gpsRequest.onsuccess = (event) => {
       const cursor = (event.target as IDBRequest).result;
       if (cursor) {
-        cursor.delete();
+        const record = cursor.value;
+        // Check if synced is truthy (handles boolean true, string "true", number 1, etc.)
+        if (record.synced === true || record.synced === "true" || record.synced === 1) {
+          cursor.delete();
+        }
         cursor.continue();
       }
     };
 
-    // Clear synced route sessions
+    // Clear synced route sessions - use a more robust approach
     const sessionStore = transaction.objectStore('routeSessions');
-    const sessionIndex = sessionStore.index('synced');
-    const sessionRequest = sessionIndex.openCursor(IDBKeyRange.only(true));
+    const sessionRequest = sessionStore.openCursor();
 
     sessionRequest.onsuccess = (event) => {
       const cursor = (event.target as IDBRequest).result;
       if (cursor) {
-        cursor.delete();
+        const record = cursor.value;
+        // Check if synced is truthy (handles boolean true, string "true", number 1, etc.)
+        if (record.synced === true || record.synced === "true" || record.synced === 1) {
+          cursor.delete();
+        }
         cursor.continue();
       }
     };

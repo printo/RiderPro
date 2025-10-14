@@ -17,8 +17,9 @@ Our current migration strategy drops and recreates tables, which is suitable for
 #### 1.1 Database Backup
 ```bash
 # Create full database backup before any changes
-cp data/riderpro.db data/riderpro_backup_$(date +%Y%m%d_%H%M%S).db
-cp data/replica_sqlite.db data/replica_sqlite_backup_$(date +%Y%m%d_%H%M%S).db
+cp data/main.db data/main_backup_$(date +%Y%m%d_%H%M%S).db
+cp data/replica.db data/replica_backup_$(date +%Y%m%d_%H%M%S).db
+cp data/userdata.db data/userdata_backup_$(date +%Y%m%d_%H%M%S).db
 ```
 
 #### 1.2 Environment Configuration

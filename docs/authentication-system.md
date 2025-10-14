@@ -2,25 +2,20 @@
 
 ## Overview
 
-RiderPro implements a modern, secure dual authentication system that supports both external API integration and local database authentication. The system provides role-based access control with granular permissions and secure password management.
+RiderPro implements a secure local authentication system with role-based access control. The system has been simplified to use local database authentication with bcrypt password hashing and comprehensive user management features.
 
 ## Architecture
 
-### Dual Authentication System
+### Local Authentication System
 
-#### 1. External API Authentication
-- **Primary Auth**: Printo API (`https://pia.printo.in/api/v1/auth/`)
-- **Method**: Direct API call with `employee_id` and `password`
-- **Response**: `access_token`, `refresh_token`, `full_name`, `is_staff`, `is_super_user`, `is_ops_team`
-- **Storage**: All user data stored in localStorage
-- **Role Assignment**: Based on response flags from external API
-
-#### 2. Local Database Authentication
+#### Database Authentication
+- **Primary Auth**: Local SQLite database (`userdata.db`)
 - **Registration**: Users register with `rider_id`, `password`, `full_name`, `email`
 - **Approval Workflow**: Admin approval required before login
 - **Password Security**: bcrypt hashing with 12 salt rounds
-- **Token Generation**: Simple token-based authentication
-- **Role Assignment**: Local users default to Driver role
+- **Token Generation**: JWT-based authentication
+- **Role Assignment**: Configurable roles (Super User, Ops Team, Staff, Driver)
+- **Storage**: User data stored in `userdata.db` with localStorage for session management
 
 ### Authentication Flow
 
@@ -28,23 +23,19 @@ RiderPro implements a modern, secure dual authentication system that supports bo
 sequenceDiagram
     participant Client
     participant RiderPro API
-    participant Printo API
-    participant Local DB
+    participant UserData DB
     
-    Note over Client: User chooses authentication method
+    Note over Client: User authentication flow
     
-    alt External API Authentication
-        Client->>RiderPro API: POST /auth/login {employeeId, password}
-        RiderPro API->>Printo API: POST /auth/ {employee_id, password}
-        Printo API-->>RiderPro API: {access, refresh, full_name, is_staff, is_super_user, is_ops_team}
-        RiderPro API-->>Client: {success, user, tokens}
-    else Local Database Authentication
-        Client->>RiderPro API: POST /auth/local-login {riderId, password}
-        RiderPro API->>Local DB: SELECT user WHERE rider_id = ?
-        Local DB-->>RiderPro API: {user data}
-        RiderPro API->>Local DB: bcrypt.compare(password, hash)
-        Local DB-->>RiderPro API: {valid}
-        RiderPro API-->>Client: {success, user, tokens}
+    Client->>RiderPro API: POST /auth/local-login {riderId, password}
+    RiderPro API->>UserData DB: SELECT user WHERE rider_id = ? AND is_approved = 1
+    UserData DB-->>RiderPro API: {user data}
+    RiderPro API->>RiderPro API: bcrypt.compare(password, hash)
+    alt Valid Credentials
+        RiderPro API->>RiderPro API: Generate JWT token
+        RiderPro API-->>Client: {success, accessToken, user}
+    else Invalid Credentials
+        RiderPro API-->>Client: {error: "Invalid credentials"}
     end
     
     Note over Client: Store authentication data in localStorage

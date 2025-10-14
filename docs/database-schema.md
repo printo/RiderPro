@@ -2,21 +2,251 @@
 
 ## Overview
 
-RiderPro uses a hybrid data storage approach combining local IndexedDB for offline functionality and external API integration for persistent data. This document outlines the data structures, relationships, and storage strategies used throughout the system.
+RiderPro uses a multi-database architecture with SQLite databases for server-side persistence and IndexedDB for client-side offline functionality. The system has been redesigned to use three distinct SQLite databases for optimal performance and data management.
 
-## Data Storage Architecture
+## Database Architecture
+
+### Server-Side Storage (SQLite)
+
+The server uses three separate SQLite databases for different purposes:
+
+#### 1. Main Database (`main.db`)
+- **Purpose**: Primary operational database for daily operations
+- **Cleanup**: Daily cleanup script removes old data
+- **Tables**: All operational tables (shipments, routes, tracking, etc.)
+
+#### 2. Replica Database (`replica.db`)
+- **Purpose**: Backup and data retention
+- **Retention**: Maintains data for minimum 3 days
+- **Tables**: Mirrored structure of main database
+
+#### 3. User Data Database (`userdata.db`)
+- **Purpose**: User profiles and local authentication
+- **Tables**: rider_accounts, user_preferences
+- **Security**: Isolated from operational data
 
 ### Client-Side Storage (IndexedDB)
 
-The client uses IndexedDB for offline-first functionality, storing GPS data, shipment events, and sync queues locally.
+The client uses IndexedDB for offline-first functionality, storing GPS data, route sessions, and sync queues locally.
 
-#### Database: `RiderProDB`
-**Version**: 1.0
-**Stores**: `gpsPoints`, `shipmentEvents`, `syncQueue`, `routeSessions`, `userPreferences`
+#### Database: `RouteTrackingOffline`
+**Version**: 1
+**Stores**: `gpsRecords`, `routeSessions`
 
-### External API Integration
+## SQLite Database Schema
 
-Persistent data is managed through external Printo API and internal RiderPro API endpoints.
+### Main Database Tables (main.db)
+
+#### Shipments Table (Consolidated)
+The shipments table has been consolidated to include acknowledgment and sync status fields directly, eliminating the need for separate tables.
+
+```sql
+CREATE TABLE shipments (
+  shipment_id TEXT PRIMARY KEY,
+  type TEXT NOT NULL CHECK(type IN ('delivery', 'pickup')),
+  customerName TEXT NOT NULL,
+  customerMobile TEXT NOT NULL,
+  address TEXT NOT NULL,
+  latitude REAL,
+  longitude REAL,
+  cost REAL NOT NULL,
+  deliveryTime TEXT NOT NULL,
+  routeName TEXT NOT NULL,
+  employeeId TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'Assigned' CHECK(status IN ('Assigned', 'In Transit', 'Delivered', 'Picked Up', 'Returned', 'Cancelled')),
+  priority TEXT DEFAULT 'medium',
+  pickupAddress TEXT,
+  weight REAL DEFAULT 0,
+  dimensions TEXT,
+  specialInstructions TEXT,
+  actualDeliveryTime TEXT,
+  -- Tracking fields
+  start_latitude REAL,
+  start_longitude REAL,
+  stop_latitude REAL,
+  stop_longitude REAL,
+  km_travelled REAL DEFAULT 0,
+  -- Sync tracking (consolidated from sync_status table)
+  synced_to_external BOOLEAN DEFAULT 0,
+  last_sync_attempt TEXT,
+  sync_error TEXT,
+  sync_status TEXT DEFAULT 'pending' CHECK(sync_status IN ('pending', 'success', 'failed')),
+  sync_attempts INTEGER DEFAULT 0,
+  -- Acknowledgments (consolidated from acknowledgments table)
+  signature_url TEXT,
+  photo_url TEXT,
+  acknowledgment_captured_at TEXT,
+  -- Timestamps
+  createdAt TEXT DEFAULT (datetime('now')),
+  updatedAt TEXT DEFAULT (datetime('now'))
+);
+```
+
+#### Route Sessions Table
+```sql
+CREATE TABLE route_sessions (
+  id TEXT PRIMARY KEY,
+  employee_id TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  end_time TEXT,
+  status TEXT NOT NULL CHECK(status IN ('active', 'completed', 'paused')),
+  start_latitude REAL NOT NULL,
+  start_longitude REAL NOT NULL,
+  end_latitude REAL,
+  end_longitude REAL,
+  total_distance REAL,
+  total_time INTEGER,
+  vehicle_type TEXT,
+  route_name TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+```
+
+#### Route Tracking Table
+```sql
+CREATE TABLE route_tracking (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  employee_id TEXT NOT NULL,
+  latitude REAL NOT NULL,
+  longitude REAL NOT NULL,
+  accuracy REAL,
+  speed REAL,
+  heading REAL,
+  timestamp TEXT NOT NULL,
+  date TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (session_id) REFERENCES route_sessions (id)
+);
+```
+
+#### Vehicle Types Table
+```sql
+CREATE TABLE vehicle_types (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  icon TEXT DEFAULT 'car',
+  fuel_type TEXT DEFAULT 'petrol',
+  co2_emissions REAL,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+```
+
+#### System Health Metrics Table
+```sql
+CREATE TABLE system_health_metrics (
+  id TEXT PRIMARY KEY,
+  metric_name TEXT NOT NULL,
+  metric_value REAL NOT NULL,
+  timestamp TEXT NOT NULL,
+  details TEXT
+);
+```
+
+#### Feature Flags Table
+```sql
+CREATE TABLE feature_flags (
+  id TEXT PRIMARY KEY,
+  flag_name TEXT NOT NULL UNIQUE,
+  is_enabled BOOLEAN DEFAULT 0,
+  description TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+```
+
+#### System Configuration Table
+```sql
+CREATE TABLE system_config (
+  id TEXT PRIMARY KEY,
+  config_key TEXT NOT NULL UNIQUE,
+  config_value TEXT NOT NULL,
+  description TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+```
+
+### User Data Database Tables (userdata.db)
+
+#### Rider Accounts Table
+```sql
+CREATE TABLE rider_accounts (
+  id TEXT PRIMARY KEY,
+  rider_id TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  full_name TEXT NOT NULL,
+  email TEXT,
+  is_approved BOOLEAN DEFAULT 0,
+  is_super_user BOOLEAN DEFAULT 0,
+  is_ops_team BOOLEAN DEFAULT 0,
+  is_staff BOOLEAN DEFAULT 0,
+  role TEXT DEFAULT 'driver',
+  last_login_at TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+```
+
+#### User Preferences Table
+```sql
+CREATE TABLE user_preferences (
+  id TEXT PRIMARY KEY,
+  rider_id TEXT NOT NULL,
+  preference_key TEXT NOT NULL,
+  preference_value TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (rider_id) REFERENCES rider_accounts (rider_id)
+);
+```
+
+### Database Indexes
+
+#### Main Database Indexes
+```sql
+-- Route tracking indexes
+CREATE INDEX idx_route_sessions_employee ON route_sessions(employee_id);
+CREATE INDEX idx_route_sessions_status ON route_sessions(status);
+CREATE INDEX idx_route_sessions_start_time ON route_sessions(start_time);
+CREATE INDEX idx_route_tracking_session ON route_tracking(session_id);
+CREATE INDEX idx_route_tracking_employee ON route_tracking(employee_id);
+CREATE INDEX idx_route_tracking_date ON route_tracking(date);
+CREATE INDEX idx_route_tracking_timestamp ON route_tracking(timestamp);
+
+-- Shipments indexes
+CREATE INDEX idx_shipments_status ON shipments(status);
+CREATE INDEX idx_shipments_type ON shipments(type);
+CREATE INDEX idx_shipments_route ON shipments(routeName);
+CREATE INDEX idx_shipments_date ON shipments(deliveryTime);
+CREATE INDEX idx_shipments_employee ON shipments(employeeId);
+CREATE INDEX idx_shipments_shipment_id ON shipments(shipment_id);
+CREATE INDEX idx_shipments_synced ON shipments(synced_to_external);
+CREATE INDEX idx_shipments_sync_status ON shipments(sync_status);
+CREATE INDEX idx_shipments_acknowledgment ON shipments(acknowledgment_captured_at);
+
+-- System monitoring indexes
+CREATE INDEX idx_health_metrics_name ON system_health_metrics(metric_name);
+CREATE INDEX idx_health_metrics_timestamp ON system_health_metrics(timestamp);
+CREATE INDEX idx_feature_flags_name ON feature_flags(flag_name);
+CREATE INDEX idx_system_config_key ON system_config(config_key);
+
+-- Vehicle types indexes
+CREATE INDEX idx_vehicle_types_name ON vehicle_types(name);
+CREATE INDEX idx_vehicle_types_fuel_type ON vehicle_types(fuel_type);
+```
+
+#### User Data Database Indexes
+```sql
+CREATE INDEX idx_rider_accounts_rider_id ON rider_accounts(rider_id);
+CREATE INDEX idx_rider_accounts_email ON rider_accounts(email);
+CREATE INDEX idx_rider_accounts_approved ON rider_accounts(is_approved);
+CREATE INDEX idx_user_preferences_rider ON user_preferences(rider_id);
+CREATE INDEX idx_user_preferences_key ON user_preferences(preference_key);
+```
 
 ## IndexedDB Schema
 

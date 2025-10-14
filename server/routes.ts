@@ -8,7 +8,6 @@ import {
   insertShipmentSchema,
   updateShipmentSchema,
   batchUpdateSchema,
-  insertAcknowledgmentSchema,
   shipmentFiltersSchema,
   startRouteSessionSchema,
   stopRouteSessionSchema,
@@ -569,7 +568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Also get acknowledgment if exists
-      const acknowledgment = await storage.getAcknowledgmentByShipmentId(shipment.id);
+      const acknowledgment = await storage.getAcknowledgmentByShipmentId(shipment.shipment_id);
 
       res.json({ shipment, acknowledgment });
     } catch (error: any) {
@@ -631,7 +630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate tracking data
       const allowedFields = ['start_latitude', 'start_longitude', 'stop_latitude', 'stop_longitude', 'km_travelled', 'status', 'actualDeliveryTime'];
-      const updates = {};
+      const updates: any = { shipment_id: id };
 
       for (const field of allowedFields) {
         if (trackingData[field] !== undefined) {
@@ -639,7 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      if (Object.keys(updates).length === 0) {
+      if (Object.keys(updates).length === 1) { // Only shipment_id
         return res.status(400).json({
           success: false,
           message: 'No valid tracking fields provided',
@@ -647,7 +646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const updatedShipment = storage.updateShipmentTracking(id, updates);
+      const updatedShipment = await storage.updateShipment(id, updates);
 
       if (!updatedShipment) {
         return res.status(404).json({
@@ -659,9 +658,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Mark as needing sync
       storage.updateShipment(id, {
+        shipment_id: id,
         synced_to_external: false,
-        last_sync_attempt: null,
-        sync_error: null
+        last_sync_attempt: undefined,
+        sync_error: undefined
       });
 
       res.json({
@@ -682,7 +682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/shipments/:id/sync', async (req, res) => {
     try {
       const { id } = req.params;
-      const shipment = storage.getShipment(id);
+      const shipment = await storage.getShipment(id);
 
       if (!shipment) {
         return res.status(404).json({
@@ -713,9 +713,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (result.success) {
           // Mark as synced
           storage.updateShipment(id, {
-            // synced_to_external: true, // Field not in UpdateShipment type
+            shipment_id: id,
+            synced_to_external: true,
             last_sync_attempt: new Date().toISOString(),
-            sync_error: null
+            sync_error: undefined
           });
 
           res.json({
@@ -727,6 +728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           // Mark sync as failed
           storage.updateShipment(id, {
+            shipment_id: id,
             synced_to_external: false,
             last_sync_attempt: new Date().toISOString(),
             sync_error: result.error || 'Unknown error'
@@ -742,6 +744,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (syncError: any) {
         // Mark sync as failed
         storage.updateShipment(id, {
+          shipment_id: id,
           synced_to_external: false,
           last_sync_attempt: new Date().toISOString(),
           sync_error: syncError.message
@@ -828,9 +831,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         query += ' WHERE ' + conditions.join(' AND ');
       }
 
-      const shipments = storage.db.prepare(query).all(...params);
+      const shipmentsResult = await storage.getShipments({});
+      const shipments = shipmentsResult.data;
 
-      const syncStatus = shipments.map(shipment => ({
+      const syncStatus = shipments.map((shipment: any) => ({
         shipmentId: shipment.shipment_id,
         externalId: shipment.shipment_id,
         status: shipment.synced_to_external ? 'success' : 'failed',
@@ -865,7 +869,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Fetch all shipments
-      const shipments = shipmentIds.map(id => storage.getShipment(id)).filter(Boolean);
+      const shipmentPromises = shipmentIds.map(id => storage.getShipment(id));
+      const shipmentResults = await Promise.all(shipmentPromises);
+      const shipments = shipmentResults.filter((shipment): shipment is NonNullable<typeof shipment> => shipment !== undefined);
 
       if (shipments.length === 0) {
         return res.status(404).json({
@@ -887,10 +893,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       shipments.forEach((shipment, index) => {
         const result = results[index];
         if (result) {
-          storage.updateShipment(shipment.id, {
+          storage.updateShipment(shipment.shipment_id, {
+            shipment_id: shipment.shipment_id,
             synced_to_external: result.success,
             last_sync_attempt: new Date().toISOString(),
-            sync_error: result.success ? null : result.error
+            sync_error: result.success ? undefined : result.error
           });
         }
       });
@@ -902,7 +909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: `Batch sync completed: ${successCount} successful, ${failureCount} failed`,
         results: results.map((result, index) => ({
-          shipmentId: shipments[index].id,
+          shipmentId: shipments[index].shipment_id,
           externalId: shipments[index].shipment_id || shipments[index].trackingNumber,
           success: result.success,
           message: result.message,
@@ -1018,8 +1025,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               if (existingShipment) {
                 // Update existing shipment
-                const updatedShipment = await storage.updateShipment(existingShipment.id, {
-                  id: existingShipment.id,
+                const updatedShipment = await storage.updateShipment(existingShipment.shipment_id, {
+                  shipment_id: existingShipment.shipment_id,
                   status: internalShipment.status,
                   priority: internalShipment.priority,
                   customerName: internalShipment.customerName,
@@ -1040,15 +1047,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 results.updated++;
                 processedShipments.push({
                   piashipmentid: externalShipment.id,
-                  internalId: existingShipment.id,
+                  internalId: existingShipment.shipment_id,
                   status: 'updated',
                   message: 'Shipment updated successfully'
                 });
               } else {
                 // Create new shipment
                 const newShipment = await storage.createShipment({
-                  shipment_id: internalShipment.piashipmentid || internalShipment.id,
-                  trackingNumber: internalShipment.piashipmentid || internalShipment.id,
+                  shipment_id: internalShipment.piashipmentid || internalShipment.shipment_id,
+                  trackingNumber: internalShipment.piashipmentid || internalShipment.shipment_id,
                   type: internalShipment.type,
                   customerName: internalShipment.customerName,
                   customerMobile: internalShipment.customerMobile,
@@ -1074,7 +1081,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 results.created++;
                 processedShipments.push({
                   piashipmentid: externalShipment.id,
-                  internalId: newShipment.id,
+                  internalId: newShipment.shipment_id,
                   status: 'created',
                   message: 'Shipment created successfully'
                 });
@@ -1119,8 +1126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (existingShipment) {
             // Update existing shipment
-            const updatedShipment = await storage.updateShipment(existingShipment.id, {
-              id: existingShipment.id,
+            const updatedShipment = await storage.updateShipment(existingShipment.shipment_id, {
+              shipment_id: existingShipment.shipment_id,
               status: internalShipment.status,
               priority: internalShipment.priority,
               customerName: internalShipment.customerName,
@@ -1150,7 +1157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               },
               processedShipments: [{
                 piashipmentid: payload.id,
-                internalId: existingShipment.id,
+                internalId: existingShipment.shipment_id,
                 status: 'updated',
                 message: 'Shipment updated successfully'
               }],
@@ -1159,8 +1166,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             // Create new shipment
             const newShipment = await storage.createShipment({
-              shipment_id: internalShipment.piashipmentid || internalShipment.id,
-              trackingNumber: internalShipment.piashipmentid || internalShipment.id,
+              shipment_id: internalShipment.piashipmentid || internalShipment.shipment_id,
+              trackingNumber: internalShipment.piashipmentid || internalShipment.shipment_id,
               type: internalShipment.type,
               customerName: internalShipment.customerName,
               customerMobile: internalShipment.customerMobile,
@@ -1195,7 +1202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               },
               processedShipments: [{
                 piashipmentid: payload.id,
-                internalId: newShipment.id,
+                internalId: newShipment.shipment_id,
                 status: 'created',
                 message: 'Shipment created successfully'
               }],
@@ -1277,17 +1284,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate each update in the batch
       for (const update of batchData.updates) {
-        const shipment = await storage.getShipment(update.id);
+        const shipment = await storage.getShipment(update.shipment_id);
         if (!shipment) {
-          return res.status(400).json({ message: `Shipment ${update.id} not found` });
+          return res.status(400).json({ message: `Shipment ${update.shipment_id} not found` });
         }
 
         // Validate status update based on shipment type
         if (update.status === "Delivered" && shipment.type !== "delivery") {
-          return res.status(400).json({ message: `Cannot mark pickup shipment ${update.id} as Delivered` });
+          return res.status(400).json({ message: `Cannot mark pickup shipment ${update.shipment_id} as Delivered` });
         }
         if (update.status === "Picked Up" && shipment.type !== "pickup") {
-          return res.status(400).json({ message: `Cannot mark delivery shipment ${update.id} as Picked Up` });
+          return res.status(400).json({ message: `Cannot mark delivery shipment ${update.shipment_id} as Picked Up` });
         }
       }
 
@@ -1296,7 +1303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get updated shipments for external sync
       const updatedShipments = await Promise.all(
         batchData.updates.map(async (update: any) => {
-          const shipment = await storage.getShipment(update.id);
+          const shipment = await storage.getShipment(update.shipment_id);
           return shipment;
         })
       );
@@ -1480,7 +1487,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // For now, we'll just mark as deleted rather than actually deleting
       // In a real system, you might want to soft delete or archive
       const result = await storage.updateShipment(shipmentId, {
-        id: shipmentId,
+        shipment_id: shipmentId,
         status: 'Deleted'
       });
 

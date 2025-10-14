@@ -148,66 +148,42 @@ function SyncStatusIndicator({
 
   if (compact) {
     return (
-      <Popover open={showPopover} onOpenChange={setShowPopover}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0"
-            onClick={handleShowDetails}
-          >
-            {getStatusIcon()}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-80" align="end">
-          <SyncStatusDetails
-            syncStatus={syncStatus}
-            detailedStatus={detailedStatus}
-            syncHealth={syncHealth}
-            onForceSync={handleForceSync}
-            onClearData={clearSyncedData}
-            formatLastSyncTime={formatLastSyncTime}
-          />
-        </PopoverContent>
-      </Popover>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0"
+        onClick={handleShowDetails}
+      >
+        {getStatusIcon()}
+      </Button>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Badge className={getStatusColor()}>
-          {getStatusIcon()}
-          <span className="ml-1">{getStatusText()}</span>
-        </Badge>
-
-        {isOnline && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleForceSync}
-            disabled={syncInProgress}
-            className="h-6 px-2 text-xs"
-          >
-            <RotateCcw className="h-3 w-3 mr-1" />
-            Sync
-          </Button>
-        )}
-
-        {showDetails && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleShowDetails}
-            className="h-6 px-2 text-xs"
-          >
-            Details
-          </Button>
-        )}
-      </div>
-
-      {showDetails && showPopover && (
-        <Card className="w-full max-w-sm">
+    <div className="flex flex-col md:flex-row gap-4 items-stretch">
+      {/* Details Section */}
+      {showDetails && (
+        <Card className="flex-1 h-full">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <Database className="h-4 w-4" />
+                Sync Status Details
+              </CardTitle>
+              {isOnline && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleForceSync}
+                  disabled={syncInProgress}
+                  className="h-7"
+                >
+                  <RotateCcw className="h-3 w-3 mr-1" />
+                  Sync Now
+                </Button>
+              )}
+            </div>
+          </CardHeader>
           <SyncStatusDetails
             syncStatus={syncStatus}
             detailedStatus={detailedStatus}
@@ -215,6 +191,9 @@ function SyncStatusIndicator({
             onForceSync={handleForceSync}
             onClearData={clearSyncedData}
             formatLastSyncTime={formatLastSyncTime}
+            getStatusIcon={getStatusIcon}
+            getStatusColor={getStatusColor}
+            getStatusText={getStatusText}
           />
         </Card>
       )}
@@ -229,6 +208,9 @@ interface SyncStatusDetailsProps {
   onForceSync: () => void;
   onClearData: () => void;
   formatLastSyncTime: (time?: Date) => string;
+  getStatusIcon?: () => JSX.Element;
+  getStatusColor?: () => string;
+  getStatusText?: () => string;
 }
 
 function SyncStatusDetails({
@@ -240,128 +222,120 @@ function SyncStatusDetails({
   formatLastSyncTime
 }: SyncStatusDetailsProps) {
   return (
-    <>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <Database className="h-4 w-4" />
-          Sync Status
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Connection Status */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {syncStatus.isOnline ? (
-              <Wifi className="h-4 w-4 text-green-600" />
-            ) : (
-              <WifiOff className="h-4 w-4 text-orange-600" />
-            )}
-            <span className="text-sm">
-              {syncStatus.isOnline ? 'Online' : 'Offline'}
-            </span>
-          </div>
-          <Badge variant="outline" className="text-xs">
-            {syncStatus.isOnline ? 'Connected' : 'Disconnected'}
-          </Badge>
-        </div>
-
-        {/* Sync Progress */}
-        {syncStatus.syncInProgress && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span>Syncing data...</span>
-              <RefreshCw className="h-4 w-4 animate-spin" />
-            </div>
-            <Progress value={undefined} className="h-2" />
-          </div>
-        )}
-
-        {/* Pending Records */}
-        {detailedStatus && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium">Pending Records</div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="flex justify-between">
-                <span>GPS Records:</span>
-                <span>{detailedStatus.unsyncedGPSRecords || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Sessions:</span>
-                <span>{detailedStatus.unsyncedSessions || 0}</span>
-              </div>
-            </div>
-            {detailedStatus.totalPending > 0 && (
-              <div className="text-xs text-gray-500">
-                Total: {detailedStatus.totalPending} records pending
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Last Sync Time */}
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-gray-400" />
-            <span>Last Sync:</span>
-          </div>
-          <span className="text-gray-600">
-            {formatLastSyncTime(syncStatus.lastSyncTime)}
+    <CardContent className="space-y-3">
+      {/* Connection Status */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {syncStatus.isOnline ? (
+            <Wifi className="h-4 w-4 text-green-600" />
+          ) : (
+            <WifiOff className="h-4 w-4 text-orange-600" />
+          )}
+          <span className="text-sm">
+            {syncStatus.isOnline ? 'Online' : 'Offline'}
           </span>
         </div>
+        <Badge variant="outline" className="text-xs">
+          {syncStatus.isOnline ? 'Connected' : 'Disconnected'}
+        </Badge>
+      </div>
 
-        {/* Health Status */}
-        <Alert variant={syncHealth.health === 'error' ? 'destructive' : 'default'}>
-          <div className="flex items-center gap-2">
-            {syncHealth.health === 'good' && <CheckCircle className="h-4 w-4 text-green-600" />}
-            {syncHealth.health === 'warning' && <AlertTriangle className="h-4 w-4 text-amber-600" />}
-            {syncHealth.health === 'error' && <XCircle className="h-4 w-4" />}
-            <AlertDescription className="text-sm">
-              {syncHealth.message}
-            </AlertDescription>
+      {/* Sync Progress */}
+      {syncStatus.syncInProgress && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span>Syncing data...</span>
+            <RefreshCw className="h-4 w-4 animate-spin" />
           </div>
-        </Alert>
+          <Progress value={undefined} className="h-2" />
+        </div>
+      )}
 
-        {/* Sync Errors */}
-        {syncStatus.syncErrors.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-red-600">Recent Errors</div>
-            <div className="space-y-1">
-              {syncStatus.syncErrors.slice(0, 3).map((error: string, index: number) => (
-                <div key={index} className="text-xs text-red-600 bg-red-50 p-2 rounded">
-                  {error}
-                </div>
-              ))}
-              {syncStatus.syncErrors.length > 3 && (
-                <div className="text-xs text-gray-500">
-                  +{syncStatus.syncErrors.length - 3} more errors
-                </div>
-              )}
+      {/* Pending Records */}
+      {detailedStatus && (
+        <div className="space-y-2">
+          <div className="text-sm font-medium">Pending Records</div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="flex justify-between">
+              <span>GPS Records:</span>
+              <span>{detailedStatus.unsyncedGPSRecords || 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Sessions:</span>
+              <span>{detailedStatus.unsyncedSessions || 0}</span>
             </div>
           </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-2 pt-2">
-          <Button
-            size="sm"
-            onClick={onForceSync}
-            disabled={!syncStatus.isOnline || syncStatus.syncInProgress}
-            className="flex-1"
-          >
-            <RotateCcw className="h-3 w-3 mr-1" />
-            Force Sync
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onClearData}
-            className="flex-1"
-          >
-            Clear Data
-          </Button>
+          {detailedStatus.totalPending > 0 && (
+            <div className="text-xs text-gray-500">
+              Total: {detailedStatus.totalPending} records pending
+            </div>
+          )}
         </div>
-      </CardContent>
-    </>
+      )}
+
+      {/* Last Sync Time */}
+      <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-gray-400" />
+          <span>Last Sync:</span>
+        </div>
+        <span className="text-gray-600">
+          {formatLastSyncTime(syncStatus.lastSyncTime)}
+        </span>
+      </div>
+
+      {/* Health Status */}
+      <Alert variant={syncHealth.health === 'error' ? 'destructive' : 'default'}>
+        <div className="flex items-center gap-2">
+          {syncHealth.health === 'good' && <CheckCircle className="h-4 w-4 text-green-600" />}
+          {syncHealth.health === 'warning' && <AlertTriangle className="h-4 w-4 text-amber-600" />}
+          {syncHealth.health === 'error' && <XCircle className="h-4 w-4" />}
+          <AlertDescription className="text-sm">
+            {syncHealth.message}
+          </AlertDescription>
+        </div>
+      </Alert>
+
+      {/* Sync Errors */}
+      {syncStatus.syncErrors.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-sm font-medium text-red-600">Recent Errors</div>
+          <div className="space-y-1">
+            {syncStatus.syncErrors.slice(0, 3).map((error: string, index: number) => (
+              <div key={index} className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                {error}
+              </div>
+            ))}
+            {syncStatus.syncErrors.length > 3 && (
+              <div className="text-xs text-gray-500">
+                +{syncStatus.syncErrors.length - 3} more errors
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-2 pt-2">
+        <Button
+          size="sm"
+          onClick={onForceSync}
+          disabled={!syncStatus.isOnline || syncStatus.syncInProgress}
+          className="flex-1"
+        >
+          <RotateCcw className="h-3 w-3 mr-1" />
+          Force Sync
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onClearData}
+          className="flex-1"
+        >
+          Clear Data
+        </Button>
+      </div>
+    </CardContent>
   );
 }
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-RiderPro is a modern, offline-first shipment management and GPS tracking system built with React, TypeScript, and Node.js. The system integrates with external Printo API for authentication while providing comprehensive route tracking, analytics, and real-time monitoring capabilities.
+RiderPro is a modern, offline-first shipment management and GPS tracking system built with React, TypeScript, and Node.js. The system uses a consolidated database architecture with three distinct SQLite databases and provides comprehensive route tracking, analytics, and real-time monitoring capabilities with local authentication support.
 
 ## High-Level Architecture
 
@@ -26,15 +26,19 @@ graph TB
     end
     
     subgraph "Data Layer"
-        I[Local Storage]
-        J[Memory Cache]
+        I[Main Database<br/>main.db]
+        J[Replica Database<br/>replica.db]
+        K[User Data Database<br/>userdata.db]
+        L[IndexedDB<br/>Offline Storage]
     end
     
     A --> D
-    A --> C
-    B --> C
-    D --> G
+    A --> L
+    B --> L
     D --> I
+    D --> J
+    D --> K
+    D --> G
     E --> F
     A --> H
 ```

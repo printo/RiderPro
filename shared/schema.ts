@@ -235,6 +235,18 @@ export interface UpdateShipment {
   cost?: number;
   routeName?: string;
   employeeId?: string;
+
+  // Acknowledgment fields (consolidated from acknowledgments table)
+  signature_url?: string;
+  photo_url?: string;
+  acknowledgment_captured_at?: string;
+
+  // Sync tracking fields (consolidated from sync_status table)
+  synced_to_external?: boolean;
+  last_sync_attempt?: string;
+  sync_error?: string;
+  sync_status?: string;
+  sync_attempts?: number;
 }
 
 export interface BatchUpdate {

@@ -29,12 +29,13 @@ Welcome to the comprehensive documentation for RiderPro Delivery Management Syst
 
 ### 🔌 API Documentation
 
-#### **[API Inventory](./api-inventory.md)**
+#### **[API Documentation](./api-documentation.md)**
 - Complete REST API reference
-- 25+ documented endpoints
+- 40+ documented endpoints
 - Request/response schemas
 - Authentication requirements
 - Error handling
+- Integration examples
 
 ### 🚀 Feature Documentation
 
@@ -63,7 +64,7 @@ Welcome to the comprehensive documentation for RiderPro Delivery Management Syst
 ### For Developers
 1. Start with [System Architecture](./system-architecture.md) for technical overview
 2. Review [Authentication System](./authentication-system.md) for security implementation
-3. Reference [API Inventory](./api-inventory.md) for endpoint documentation
+3. Reference [API Documentation](./api-documentation.md) for endpoint documentation
 4. Check [Database Schema](./database-schema.md) for data structure
 
 ### For DevOps/Deployment
@@ -73,7 +74,7 @@ Welcome to the comprehensive documentation for RiderPro Delivery Management Syst
 
 ### For Feature Development
 1. Review [Smart Route Completion](./smart-route-completion.md) for GPS/route features
-2. Check [API Inventory](./api-inventory.md) for available endpoints
+2. Check [API Documentation](./api-documentation.md) for available endpoints
 3. Reference [Authentication System](./authentication-system.md) for user management
 
 ## 📋 Documentation Standards

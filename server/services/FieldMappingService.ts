@@ -58,7 +58,7 @@ export interface ExternalUpdatePayload {
 
 // Internal database format (matches current schema)
 export interface InternalShipment {
-  id: string;                    // Internal UUID
+  shipment_id: string;           // Primary key identifier
   type: string;
   customerName: string;          // Maps from recipientName
   customerMobile: string;        // Maps from recipientPhone
