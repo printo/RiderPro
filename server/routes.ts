@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import express from "express";
+import bcrypt from "bcrypt";
 import { storage } from "./storage.js";
 import {
   insertShipmentSchema,
@@ -98,7 +99,269 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json(healthData);
   });
 
-  // Auth endpoints removed (simplified app: no server-side auth proxy)
+  // ===== AUTHENTICATION ROUTES =====
+
+  // Local user registration
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const { riderId, password, fullName, email } = req.body;
+
+      if (!riderId || !password || !fullName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Rider ID, password, and full name are required'
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = storage
+        .prepare('SELECT id FROM rider_accounts WHERE rider_id = ?')
+        .get(riderId);
+
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          message: 'Rider ID already exists'
+        });
+      }
+
+      // Hash password using bcrypt
+      const saltRounds = 12;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+
+      // Create user account (pending approval)
+      const userId = 'rider_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+
+      storage.prepare(`
+        INSERT INTO rider_accounts (
+          id, rider_id, full_name, email, password_hash, 
+          is_active, is_approved, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 1, 0, datetime('now'), datetime('now'))
+      `).run(userId, riderId, fullName, email || null, passwordHash);
+
+      res.json({
+        success: true,
+        message: 'Registration successful. Please wait for approval.',
+        userId
+      });
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Registration failed. Please try again.'
+      });
+    }
+  });
+
+  // Local user login
+  app.post('/api/auth/local-login', async (req, res) => {
+    try {
+      const { riderId, password } = req.body;
+
+      if (!riderId || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Rider ID and password are required'
+        });
+      }
+
+      // Find user
+      const user = storage
+        .prepare(`
+          SELECT id, rider_id, full_name, email, password_hash, is_active, is_approved
+          FROM rider_accounts 
+          WHERE rider_id = ? AND is_active = 1
+        `)
+        .get(riderId) as any;
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+
+      // Check password using bcrypt
+      const isValidPassword = await bcrypt.compare(password, user.password_hash);
+      if (!isValidPassword) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials'
+        });
+      }
+
+      // Check if user is approved
+      if (!user.is_approved) {
+        return res.status(403).json({
+          success: false,
+          message: 'Account pending approval. Please contact administrator.',
+          isApproved: false
+        });
+      }
+
+      // Generate simple tokens (in production use JWT)
+      const accessToken = 'local_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
+      const refreshToken = 'refresh_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
+
+      // Update last login
+      storage.prepare(`
+        UPDATE rider_accounts 
+        SET last_login_at = datetime('now'), updated_at = datetime('now')
+        WHERE id = ?
+      `).run(user.id);
+
+      res.json({
+        success: true,
+        message: 'Login successful',
+        accessToken,
+        refreshToken,
+        fullName: user.full_name,
+        isApproved: user.is_approved
+      });
+    } catch (error: any) {
+      console.error('Local login error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Login failed. Please try again.'
+      });
+    }
+  });
+
+  // Get pending approvals (for admin)
+  app.get('/api/auth/pending-approvals', async (req, res) => {
+    try {
+      const pendingUsers = storage
+        .prepare(`
+          SELECT id, rider_id, full_name, email, created_at
+          FROM rider_accounts 
+          WHERE is_approved = 0 AND is_active = 1
+          ORDER BY created_at DESC
+        `)
+        .all();
+
+      res.json({
+        success: true,
+        users: pendingUsers
+      });
+    } catch (error: any) {
+      console.error('Get pending approvals error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch pending approvals'
+      });
+    }
+  });
+
+  // Approve user (for admin)
+  app.post('/api/auth/approve/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      const result = storage
+        .prepare(`
+          UPDATE rider_accounts 
+          SET is_approved = 1, updated_at = datetime('now')
+          WHERE id = ? AND is_active = 1
+        `)
+        .run(userId);
+
+      if (result.changes === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'User approved successfully'
+      });
+    } catch (error: any) {
+      console.error('Approve user error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to approve user'
+      });
+    }
+  });
+
+  // Reject user (for admin)
+  app.post('/api/auth/reject/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      const result = storage
+        .prepare(`
+          UPDATE rider_accounts 
+          SET is_active = 0, updated_at = datetime('now')
+          WHERE id = ?
+        `)
+        .run(userId);
+
+      if (result.changes === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'User rejected successfully'
+      });
+    } catch (error: any) {
+      console.error('Reject user error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to reject user'
+      });
+    }
+  });
+
+  // Reset user password (for admin)
+  app.post('/api/auth/reset-password/:userId', async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const { newPassword } = req.body;
+
+      if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password must be at least 6 characters long'
+        });
+      }
+
+      // Hash new password using bcrypt
+      const saltRounds = 12;
+      const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+      const result = storage
+        .prepare(`
+          UPDATE rider_accounts 
+          SET password_hash = ?, updated_at = datetime('now')
+          WHERE id = ? AND is_active = 1
+        `)
+        .run(passwordHash, userId);
+
+      if (result.changes === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Password reset successfully'
+      });
+    } catch (error: any) {
+      console.error('Reset password error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to reset password'
+      });
+    }
+  });
   // Token admin routes removed
 
   // Serve uploaded files
@@ -258,7 +521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let role = 'driver'; // default
       if (userData.is_superuser || userData.is_super_admin || userData.role === 'super_admin') {
         role = 'super_admin';
-      } else if (userData.is_admin || userData.role === 'admin') {
+      } else if (userData.is_super_user || userData.role === 'admin') {
         role = 'admin';
       } else if (userData.is_ops_team || userData.role === 'ops_team') {
         role = 'ops_team'; // Match the frontend enum

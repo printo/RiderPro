@@ -1,26 +1,177 @@
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/ApiClient";
 import { useLocation } from "wouter";
-import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key } from "lucide-react";
+import { useState, useEffect } from "react";
 import FuelSettingsModal, { FuelSettings } from "@/components/ui/forms/FuelSettingsModal";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
+interface PendingUser {
+  id: string;
+  rider_id: string;
+  full_name: string;
+  email: string;
+  created_at: string;
+}
+
 function AdminPage() {
-  // Auth removed - no user context needed
+  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [showFuelSettings, setShowFuelSettings] = useState(false);
   const [payloadInput, setPayloadInput] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Array<{ index: number, success: boolean, trackingNumber?: string, error?: string }>>([]);
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [resetPasswordModal, setResetPasswordModal] = useState<{ isOpen: boolean; userId: string; userName: string }>({
+    isOpen: false,
+    userId: '',
+    userName: ''
+  });
+  const [newPassword, setNewPassword] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const { toast } = useToast();
 
-  const canAccessAdmin = !!(user?.isAdmin || user?.isSuperAdmin);
-  const canEdit = !!(user?.isAdmin || user?.isSuperAdmin);
+  const canAccessAdmin = !!(user?.isSuperUser || user?.isSuperAdmin);
+  const canEdit = !!(user?.isSuperUser || user?.isSuperAdmin);
+
+  // Load pending users
+  useEffect(() => {
+    if (canAccessAdmin) {
+      loadPendingUsers();
+    }
+  }, [canAccessAdmin]);
+
+  const loadPendingUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const response = await fetch('/api/auth/pending-approvals');
+      const data = await response.json();
+      if (data.success) {
+        setPendingUsers(data.users);
+      }
+    } catch (error) {
+      console.error('Failed to load pending users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load pending users",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const approveUser = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/auth/approve/${userId}`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "User approved successfully",
+        });
+        loadPendingUsers();
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to approve user",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to approve user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to approve user",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const rejectUser = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/auth/reject/${userId}`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "User rejected successfully",
+        });
+        loadPendingUsers();
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to reject user",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to reject user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reject user",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const resetUserPassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsResettingPassword(true);
+    try {
+      const response = await fetch(`/api/auth/reset-password/${resetPasswordModal.userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          newPassword,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Password reset successfully",
+        });
+        setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
+        setNewPassword('');
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to reset password",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to reset password:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reset password",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
 
   // Fuel settings state
   const [fuelSettings, setFuelSettings] = useState<FuelSettings>({
@@ -461,6 +612,93 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
         </Card>
       </div>
 
+      {/* User Management Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            User Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Manage user registrations and approvals
+              </p>
+              <Button
+                onClick={loadPendingUsers}
+                disabled={loadingUsers}
+                variant="outline"
+                size="sm"
+              >
+                {loadingUsers ? 'Loading...' : 'Refresh'}
+              </Button>
+            </div>
+
+            {pendingUsers.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No pending user approvals</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingUsers.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                          <Users className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <h3 className="font-medium">{user.full_name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            ID: {user.rider_id} • {user.email}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Registered: {new Date(user.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => approveUser(user.id)}
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <UserCheck className="h-4 w-4 mr-1" />
+                        Approve
+                      </Button>
+                      <Button
+                        onClick={() => rejectUser(user.id)}
+                        size="sm"
+                        variant="destructive"
+                      >
+                        <UserX className="h-4 w-4 mr-1" />
+                        Reject
+                      </Button>
+                      <Button
+                        onClick={() => setResetPasswordModal({
+                          isOpen: true,
+                          userId: user.id,
+                          userName: user.full_name
+                        })}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Key className="h-4 w-4 mr-1" />
+                        Reset Password
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Fuel Settings Modal */}
       <FuelSettingsModal
         isOpen={showFuelSettings}
@@ -468,6 +706,51 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
         onSave={handleFuelSettingsSave}
         currentSettings={fuelSettings}
       />
+
+      {/* Password Reset Modal */}
+      {resetPasswordModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle>Reset Password</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Reset password for user: <strong>{resetPasswordModal.userName}</strong>
+              </p>
+              <div>
+                <label className="text-sm font-medium">New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter new password (min 6 characters)"
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
+                    setNewPassword('');
+                  }}
+                  disabled={isResettingPassword}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={resetUserPassword}
+                  disabled={isResettingPassword || !newPassword || newPassword.length < 6}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isResettingPassword ? 'Resetting...' : 'Reset Password'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

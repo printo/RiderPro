@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import SyncStatusPanel from '@/components/sync/SyncStatusPanel';
+import { useAuth } from '@/hooks/useAuth';
 import {
   User,
   Settings as SettingsIcon,
@@ -12,18 +13,54 @@ import {
   Shield,
   Smartphone,
   Wifi,
-  Battery
+  Battery,
+  Key,
+  Mail,
+  IdCard
 } from 'lucide-react';
 
+interface UserProfile {
+  fullName: string;
+  employeeId: string;
+  role: string;
+  isStaff: boolean;
+  isSuperUser: boolean;
+  isOpsTeam: boolean;
+  accessToken: string;
+  refreshToken: string;
+}
+
 function Settings() {
-  // Auth removed - no user context needed
+  const { user, logout } = useAuth();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    // Load user profile from localStorage
+    const fullName = localStorage.getItem('full_name');
+    const employeeId = localStorage.getItem('employee_id');
+    const isStaff = localStorage.getItem('is_staff') === 'true';
+    const isSuperUser = localStorage.getItem('is_super_user') === 'true';
+    const isOpsTeam = localStorage.getItem('is_ops_team') === 'true';
+    const accessToken = localStorage.getItem('access_token');
+    const refreshToken = localStorage.getItem('refresh_token');
+
+    if (fullName && employeeId) {
+      setUserProfile({
+        fullName,
+        employeeId,
+        role: user?.role || 'driver',
+        isStaff,
+        isSuperUser,
+        isOpsTeam,
+        accessToken: accessToken || '',
+        refreshToken: refreshToken || ''
+      });
+    }
+  }, [user]);
 
   const handleLogout = async () => {
-    // Auth removed - no logout needed
-    console.log('Logout functionality removed');
+    logout();
   };
-
-  // Auth removed - always show settings
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
@@ -48,22 +85,51 @@ function Settings() {
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Full Name</label>
-                  <p className="text-base font-medium">{user.fullName || user.username}</p>
+                  <p className="text-base font-medium flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    {userProfile?.fullName || user?.fullName || 'Not available'}
+                  </p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Employee ID</label>
-                  <p className="text-base font-mono">{user.employeeId || user.id}</p>
+                  <p className="text-base font-mono flex items-center gap-2">
+                    <IdCard className="h-4 w-4" />
+                    {userProfile?.employeeId || user?.employeeId || 'Not available'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Role</label>
+                  <Badge variant="secondary" className="capitalize">
+                    {userProfile?.role || user?.role || 'driver'}
+                  </Badge>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Role</label>
+                  <label className="text-sm font-medium text-muted-foreground">Permissions</label>
+                  <div className="flex flex-wrap gap-1">
+                    {userProfile?.isSuperUser && (
+                      <Badge variant="destructive" className="text-xs">Super User</Badge>
+                    )}
+                    {userProfile?.isOpsTeam && (
+                      <Badge variant="default" className="text-xs">Ops Team</Badge>
+                    )}
+                    {userProfile?.isStaff && (
+                      <Badge variant="secondary" className="text-xs">Staff</Badge>
+                    )}
+                    {!userProfile?.isSuperUser && !userProfile?.isOpsTeam && !userProfile?.isStaff && (
+                      <Badge variant="outline" className="text-xs">Driver</Badge>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Authentication</label>
                   <div className="flex items-center gap-2">
-                    <Badge variant={user.role === 'super_admin' ? 'default' : 'secondary'}>
-                      {user.role.replace('_', ' ').toUpperCase()}
-                    </Badge>
-                    <Shield className="h-4 w-4 text-muted-foreground" />
+                    <Key className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">
+                      {userProfile?.accessToken ? 'Token Active' : 'No Token'}
+                    </span>
                   </div>
                 </div>
                 <div>
@@ -77,27 +143,27 @@ function Settings() {
               </div>
             </div>
 
-            {/* Permissions */}
-            {permissions && permissions.length > 0 && (
+
+            {/* Additional User Info */}
+            {user && (
               <div>
-                <label className="text-sm font-medium text-muted-foreground">Permissions</label>
+                <label className="text-sm font-medium text-muted-foreground">Account Details</label>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {permissions.slice(0, 6).map((permission) => (
-                    <Badge key={permission} variant="outline" className="text-xs">
-                      {permission.replace(/_/g, ' ').toLowerCase()}
-                    </Badge>
-                  ))}
-                  {permissions.length > 6 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{permissions.length - 6} more
-                    </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {user.role === 'admin' ? 'Administrator' : user.role}
+                  </Badge>
+                  {user.isSuperUser && (
+                    <Badge variant="destructive" className="text-xs">Super User</Badge>
+                  )}
+                  {user.isOpsTeam && (
+                    <Badge variant="default" className="text-xs">Ops Team</Badge>
                   )}
                 </div>
               </div>
             )}
 
             <div className="text-sm text-muted-foreground">
-              <p>Logged in as {user.fullName || user.username}</p>
+              <p>Logged in as {user?.fullName || user?.username || 'Unknown User'}</p>
               <p className="text-xs">Session will expire automatically for security</p>
             </div>
           </CardContent>
@@ -159,7 +225,7 @@ function Settings() {
         </Card>
 
         {/* Health Check Settings Section */}
-        {(user.role === 'admin' || user.role === 'super_admin') && (
+        {(user?.role === 'admin' || user?.isSuperUser) && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

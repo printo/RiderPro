@@ -1,514 +1,262 @@
-# RiderPro - Shipment Management & GPS Tracking System
+# RiderPro Documentation Hub
 
-## Overview
+Welcome to the comprehensive documentation for RiderPro, a modern delivery management system with real-time GPS tracking and offline capabilities.
 
-RiderPro is a modern, offline-first shipment management and GPS tracking system designed for delivery and logistics operations. Built with React, TypeScript, and Node.js, it provides real-time route tracking, comprehensive analytics, and seamless integration with external authentication systems.
+## 📚 Documentation Index
 
-## 🚀 Key Features
+### 🏗️ System Architecture
+- **[System Architecture](./system-architecture.md)** - High-level system design, component structure, and technical decisions
+- **[Database Schema](./database-schema.md)** - Database design, tables, relationships, and data lifecycle
+- **[API Documentation](./api-documentation.md)** - Complete REST API reference with examples
+- **[API Inventory](./api-inventory.md)** - Comprehensive endpoint documentation with security details
+
+### 🔐 Authentication & Security
+- **[Authentication System](./authentication-system.md)** - Dual authentication system, role-based access, and security measures
+- **Password Security** - bcrypt hashing, salt rounds, and secure storage
+- **User Management** - Admin panel, user approval workflow, and role assignment
+
+### 🚀 Development & Deployment
+- **[Smart Route Completion](./smart-route-completion.md)** - AI-powered route optimization and completion detection
+- **Development Setup** - Local development environment and testing procedures
+- **Production Deployment** - Deployment strategies and configuration
+
+## 🎯 Quick Start Guide
+
+### For New Developers
+1. **Read the [System Architecture](./system-architecture.md)** to understand the overall design
+2. **Set up your development environment** following the main README
+3. **Review the [API Documentation](./api-documentation.md)** to understand available endpoints
+4. **Check the [Authentication System](./authentication-system.md)** for login flows and user management
+
+### For System Administrators
+1. **Review [Database Schema](./database-schema.md)** for data management
+2. **Check [API Inventory](./api-inventory.md)** for security and rate limiting details
+3. **Understand [Authentication System](./authentication-system.md)** for user management
+
+### For API Integrators
+1. **Start with [API Inventory](./api-inventory.md)** for endpoint overview
+2. **Use [API Documentation](./api-documentation.md)** for detailed implementation
+3. **Review [Authentication System](./authentication-system.md)** for security requirements
+
+## 🏗️ System Overview
+
+RiderPro is a modern, offline-first delivery management system built with:
+
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS
+- **Backend**: Node.js + Express.js + TypeScript
+- **Database**: SQLite with Drizzle ORM
+- **Authentication**: Dual system (External API + Local Database)
+- **Security**: bcrypt password hashing, JWT tokens, role-based access
+- **Features**: GPS tracking, offline sync, real-time analytics, mobile optimization
+
+## 🔧 Key Features
 
 ### 📦 Shipment Management
-- **Real-time Tracking**: Live shipment status updates with GPS coordinates
-- **Batch Operations**: Update multiple shipments simultaneously
-- **Smart Filtering**: Advanced search and filter capabilities
-- **Mobile-First Design**: Optimized for mobile devices and tablets
-- **Offline Support**: Continue working without internet connection
+- Real-time shipment tracking with GPS coordinates
+- Batch operations for efficient bulk updates
+- Digital acknowledgments with photo and signature capture
+- Advanced filtering and search capabilities
+- Offline support for field operations
 
-### 🗺️ GPS Tracking & Route Management
-- **Live GPS Tracking**: Real-time location recording during route sessions
-- **Smart Route Completion**: Automatic detection when routes are completed
-- **Offline GPS Storage**: GPS points stored locally and synced when online
-- **Route Analytics**: Comprehensive performance metrics and insights
-- **Battery Optimization**: Smart power management for mobile devices
+### 🗺️ GPS Tracking & Routes
+- Live GPS tracking during route sessions
+- Offline GPS storage with automatic sync
+- Smart route completion detection
+- Route analytics and performance metrics
+- Battery optimization for mobile devices
 
 ### 📊 Analytics & Reporting
-- **Performance Dashboard**: Real-time metrics and KPIs
-- **Route Analytics**: Detailed analysis of route efficiency and performance
-- **Employee Performance**: Individual and team performance tracking
-- **Data Export**: Export data in multiple formats for external analysis
-- **Visual Reports**: Interactive charts and graphs
+- Real-time dashboard with KPIs
+- Route performance analytics
+- Employee performance tracking
+- Data export capabilities
+- Interactive charts and visualizations
 
-### 🔐 Security & Authentication
-- **External API Integration**: Secure integration with Printo authentication system
-- **Role-Based Access**: Different permissions for drivers and operations team
-- **JWT Token Management**: Automatic token refresh and secure storage
-- **Data Encryption**: All sensitive data encrypted in transit and at rest
+### 🔐 Security & User Management
+- **Dual Authentication System**:
+  - External API integration (Printo)
+  - Local database with approval workflow
+- **Role-Based Access Control**:
+  - Admin: Full system access
+  - Manager: Operations team access
+  - Driver: Field operations
+  - Viewer: Read-only access
+- **Password Security**: bcrypt hashing with 12 salt rounds
+- **User Management**: Admin panel for approvals and password reset
 
-## 🛠️ Technology Stack
+## 📋 API Reference
 
-### Frontend
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **Tailwind CSS** for styling
-- **shadcn/ui** for component library
-- **React Query** for data fetching and caching
-- **Wouter** for routing
+### Authentication Endpoints
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/local-login` - Local database login
+- `GET /api/auth/pending-approvals` - Get pending user approvals
+- `POST /api/auth/approve/:userId` - Approve user account
+- `POST /api/auth/reject/:userId` - Reject user account
+- `POST /api/auth/reset-password/:userId` - Reset user password
 
-### Backend
-- **Node.js** with Express
-- **TypeScript** for type safety
-- **JWT** for authentication
-- **CORS** for cross-origin requests
-- **Rate limiting** for API protection
+### Shipment Management
+- `GET /api/shipments` - Get shipments with filtering
+- `POST /api/shipments` - Create new shipment
+- `PATCH /api/shipments/:id` - Update shipment
+- `PATCH /api/shipments/batch` - Batch update shipments
+- `DELETE /api/shipments/:id` - Delete shipment
+- `POST /api/shipments/:id/acknowledgement` - Upload acknowledgment
 
-### Storage & Sync
-- **IndexedDB** for offline data storage
-- **LocalStorage** for user preferences
-- **Background Sync** for automatic data synchronization
-- **Service Worker** for offline functionality
+### Route Tracking
+- `POST /api/routes/start` - Start route session
+- `POST /api/routes/stop` - Stop route session
+- `POST /api/routes/coordinates` - Submit GPS coordinates
+- `GET /api/routes/session/:sessionId` - Get session data
+- `POST /api/routes/sync-session` - Sync offline session
+- `POST /api/routes/sync-coordinates` - Sync offline coordinates
 
-### External Integrations
-- **Printo API** for user authentication and authorization
-- **Browser GPS API** for location tracking
-- **Web Workers** for background processing
+### System & Analytics
+- `GET /api/health` - System health check
+- `GET /api/dashboard` - Dashboard metrics
+- `GET /api/sync/stats` - Sync statistics
+- `POST /api/sync/trigger` - Trigger manual sync
+- `POST /api/errors` - Log frontend errors
 
-## 🚀 Quick Start
+## 🔒 Security Features
 
-### Prerequisites
-- Node.js 18 or higher
-- npm or yarn package manager
-- Modern web browser with GPS support
-- Access to Printo authentication system
+### Authentication Security
+- **External API Integration**: Secure integration with Printo authentication
+- **Local Database Security**: bcrypt password hashing with 12 salt rounds
+- **Token Management**: JWT access and refresh tokens
+- **Session Management**: Secure localStorage-based session handling
 
-### Installation
+### Data Security
+- **Input Validation**: Comprehensive validation for all inputs
+- **SQL Injection Prevention**: Parameterized queries with Drizzle ORM
+- **XSS Protection**: Content Security Policy and input sanitization
+- **File Upload Security**: Type validation and size limits
 
-1. **Clone the repository**
+### Access Control
+- **Role-Based Permissions**: Granular permissions based on user roles
+- **API Rate Limiting**: Prevents abuse and ensures system stability
+- **CORS Configuration**: Secure cross-origin resource sharing
+- **Audit Logging**: Comprehensive logging of all operations
+
+## 🚀 Development Workflow
+
+### Local Development
 ```bash
-git clone https://github.com/your-org/riderpro.git
-cd riderpro
-```
-
-2. **Install dependencies**
-```bash
+# Install dependencies
 npm install
-```
 
-3. **Set up environment variables**
-```bash
+# Set up environment
 cp .env.example .env
-```
 
-Edit `.env` file with your configuration:
-```bash
-# API Configuration
-VITE_API_BASE_URL=http://localhost:5000/api
-VITE_AUTH_BASE_URL=https://pia.printo.in/api/v1
+# Initialize database
+npm run db:migrate
 
-# GPS Configuration
-VITE_GPS_UPDATE_INTERVAL=30000
-VITE_SYNC_INTERVAL=60000
-
-# Feature Flags
-VITE_ENABLE_OFFLINE_MODE=true
-VITE_ENABLE_GPS_TRACKING=true
-VITE_ENABLE_ANALYTICS=true
-```
-
-4. **Start the development server**
-```bash
+# Start development server
 npm run dev
 ```
 
-5. **Open your browser**
-Navigate to `http://localhost:5000`
+### Code Organization
+- **Frontend**: React components organized by domain
+- **Backend**: Express.js with modular route handlers
+- **Database**: SQLite with Drizzle ORM for type safety
+- **Shared**: Common types and schemas
+- **Documentation**: Comprehensive docs in `/docs` folder
 
-### Production Build
+### Testing
+- **Unit Tests**: Component and service testing
+- **Integration Tests**: API endpoint testing
+- **E2E Tests**: Full user workflow testing
+- **Mobile Testing**: Responsive design validation
 
-```bash
-# Build for production
-npm run build
+## 📱 Mobile Optimization
 
-# Preview production build
-npm run preview
+### Progressive Web App
+- **Offline Support**: Service worker for offline functionality
+- **App-like Experience**: Full-screen mode and native feel
+- **Push Notifications**: Real-time updates and alerts
+- **Installation**: Add to home screen capability
 
-# Start production server
-npm run start
-```
-
-## 📱 Usage Guide
-
-### Getting Started
-
-1. **Login**: Use your Printo employee ID and password
-2. **Dashboard**: View overview of shipments and metrics
-3. **Start Route**: Begin GPS tracking for your delivery route
-4. **Manage Shipments**: Update status, record pickups/deliveries
-5. **Analytics**: Review performance data and insights
-
-### For Drivers
-
-#### Starting Your Route
-1. Navigate to Dashboard
-2. Click "Start Route" in Route Tracking section
-3. Allow GPS permissions when prompted
-4. Your location will be tracked automatically
-
-#### Managing Shipments
-1. Go to Shipments page
-2. View your assigned shipments
-3. Click on shipment cards to view details
-4. Use "Record Pickup" or "Record Delivery" buttons to update with GPS location
-5. Update status as needed
-
-#### Working Offline
-- All actions work without internet connection
-- Data is stored locally and synced when online
-- GPS tracking continues in background
-- Sync status shown in top bar
-
-### For Operations Team
-
-#### Monitoring Operations
-1. **Dashboard**: Real-time overview of all operations
-2. **Live Tracking**: Monitor driver locations and progress
-3. **Analytics**: Access detailed performance reports
-4. **Batch Operations**: Update multiple shipments at once
-
-#### Route Analytics
-1. Navigate to Route Analytics page
-2. Select date range and filters
-3. View performance metrics by employee
-4. Export data for external analysis
+### Touch Optimization
+- **Touch-Friendly UI**: Large buttons and touch targets
+- **Gesture Support**: Swipe and pinch gestures
+- **Responsive Design**: Adapts to all screen sizes
+- **Performance**: Optimized for mobile devices
 
 ## 🔧 Configuration
 
 ### Environment Variables
-
-#### Client Configuration
 ```bash
-# API Endpoints
-VITE_API_BASE_URL=http://localhost:5000/api
-VITE_AUTH_BASE_URL=https://pia.printo.in/api/v1
-
-# GPS Settings
-VITE_GPS_UPDATE_INTERVAL=30000    # GPS update frequency (ms)
-VITE_GPS_ACCURACY_THRESHOLD=50    # Minimum GPS accuracy (meters)
-VITE_ROUTE_COMPLETION_RADIUS=100  # Route completion detection radius (meters)
-
-# Sync Settings
-VITE_SYNC_INTERVAL=60000          # Background sync frequency (ms)
-VITE_OFFLINE_STORAGE_LIMIT=1000   # Max offline records to store
-VITE_RETRY_ATTEMPTS=3             # Max retry attempts for failed requests
-
-# Feature Flags
-VITE_ENABLE_OFFLINE_MODE=true
-VITE_ENABLE_GPS_TRACKING=true
-VITE_ENABLE_ANALYTICS=true
-VITE_ENABLE_BATTERY_OPTIMIZATION=true
-```
-
-#### Server Configuration
-```bash
-# Server Settings
-NODE_ENV=production
+# Server Configuration
+NODE_ENV=development
 PORT=5000
-HOST=0.0.0.0
+
+# Database
+DATABASE_URL=./data/riderpro.db
 
 # External API
 PRINTO_API_BASE_URL=https://pia.printo.in/api/v1
-API_TIMEOUT=10000
 
 # Security
-CORS_ORIGINS=https://your-domain.com,https://app.your-domain.com
-RATE_LIMIT_WINDOW=900000          # 15 minutes
-RATE_LIMIT_MAX=100                # Max requests per window
-JWT_SECRET=your-jwt-secret
+BCRYPT_SALT_ROUNDS=12
+CORS_ORIGINS=http://localhost:5000
 
-# Logging
-LOG_LEVEL=info
-ENABLE_REQUEST_LOGGING=true
+# Features
+ENABLE_GPS_TRACKING=true
+ENABLE_OFFLINE_SYNC=true
+ENABLE_ANALYTICS=true
 ```
 
-### GPS Configuration
+### Feature Flags
+- **GPS Tracking**: Enable/disable GPS functionality
+- **Offline Sync**: Enable/disable offline capabilities
+- **Analytics**: Enable/disable analytics collection
+- **External API**: Enable/disable external API integration
 
-#### Accuracy Settings
-```typescript
-const gpsOptions = {
-  enableHighAccuracy: true,        // Use GPS instead of network location
-  timeout: 30000,                  // 30 second timeout
-  maximumAge: 0                    // Don't use cached positions
-};
-```
+## 📊 Monitoring & Analytics
 
-#### Battery Optimization
-```typescript
-const batteryOptimization = {
-  lowBatteryThreshold: 0.2,        // 20% battery
-  reducedUpdateInterval: 60000,    // 1 minute when low battery
-  disableBackgroundSync: true      // Stop background sync when low battery
-};
-```
+### System Monitoring
+- **Health Checks**: Automated system health monitoring
+- **Performance Metrics**: Response times and throughput
+- **Error Tracking**: Comprehensive error logging and reporting
+- **Resource Usage**: Memory and CPU monitoring
 
-## 🔐 Authentication & Security
-
-### User Roles
-
-#### Driver Role
-- View assigned shipments only
-- Update shipment status
-- Record GPS tracking data
-- Access basic dashboard
-
-#### Operations Team Role
-- View all shipments and routes
-- Access analytics and reports
-- Perform batch operations
-- Export data
-- Monitor live tracking
-
-### Security Features
-
-- **JWT Authentication**: Secure token-based authentication
-- **Role-Based Access Control**: Granular permissions system
-- **Data Encryption**: All sensitive data encrypted
-- **Rate Limiting**: API protection against abuse
-- **Input Validation**: All inputs validated and sanitized
-- **CORS Protection**: Cross-origin request protection
-
-## 📊 API Documentation
-
-### Authentication Endpoints
-
-```http
-POST /api/auth/login
-POST /api/auth/refresh
-GET  /api/auth/me
-POST /api/auth/logout
-```
-
-### Shipment Endpoints
-
-```http
-GET    /api/shipments              # List shipments (paginated)
-POST   /api/shipments              # Create shipment
-GET    /api/shipments/:id          # Get shipment details
-PUT    /api/shipments/:id          # Update shipment
-PATCH  /api/shipments/batch        # Batch update shipments
-POST   /api/shipments/:id/events   # Record shipment event with GPS
-```
-
-### GPS Tracking Endpoints
-
-```http
-POST /api/routes/sessions          # Start route session
-GET  /api/routes/sessions/:id      # Get session details
-POST /api/routes/sessions/:id/points # Record GPS point
-PUT  /api/routes/sessions/:id/stop # Stop route session
-```
-
-### Analytics Endpoints
-
-```http
-GET /api/analytics/routes          # Route performance data
-GET /api/analytics/performance     # Employee performance metrics
-GET /api/dashboard/metrics         # Dashboard summary data
-```
-
-For complete API documentation, see [API Documentation](./api-documentation.md).
-
-## 🧪 Testing
-
-### Running Tests
-
-```bash
-# Unit tests
-npm run test
-
-# Integration tests
-npm run test:integration
-
-# End-to-end tests
-npm run test:e2e
-
-# Test coverage
-npm run test:coverage
-```
-
-### Manual Testing
-
-1. **GPS Functionality**: Test on actual mobile devices
-2. **Offline Mode**: Disconnect internet and verify functionality
-3. **Performance**: Test with large datasets
-4. **Cross-browser**: Test on different browsers and devices
-
-For detailed testing procedures, see [Testing Guide](./shipment-testing.md).
-
-## 📱 Mobile Optimization
-
-### Responsive Design
-- Mobile-first CSS approach
-- Touch-friendly interface elements
-- Optimized layouts for small screens
-- Gesture support for navigation
-
-### Performance Optimizations
-- Lazy loading of components
-- Virtual scrolling for large lists
-- Image optimization and compression
-- Efficient GPS data handling
-
-### Battery Management
-- Reduced GPS frequency on low battery
-- Background sync optimization
-- Smart caching strategies
-- Minimal network usage
-
-## 🔄 Offline Functionality
-
-### Data Storage
-- **IndexedDB**: GPS points, shipment events, sync queue
-- **LocalStorage**: User preferences, authentication tokens
-- **Memory Cache**: Frequently accessed data
-
-### Sync Strategy
-- **Background Sync**: Automatic when connection restored
-- **Conflict Resolution**: Smart merging of offline changes
-- **Retry Logic**: Exponential backoff for failed requests
-- **Data Integrity**: Validation and deduplication
-
-### Offline Capabilities
-- View and update shipments
-- Record GPS tracking data
-- Update shipment status
-- Continue route sessions
-- Access cached analytics data
-
-## 📈 Analytics & Reporting
-
-### Dashboard Metrics
-- Total shipments and completion rates
-- Real-time status distribution
-- Route performance summaries
-- Employee productivity metrics
-
-### Route Analytics
-- Distance and time analysis
-- Fuel consumption estimates
-- Route efficiency metrics
-- Performance comparisons
-
-### Export Options
-- CSV format for spreadsheet analysis
-- JSON format for system integration
-- PDF reports for presentations
-- Real-time data feeds
-
-## 🚀 Deployment
-
-### Development Deployment
-
-```bash
-# Start development server
-npm run dev
-
-# Build and preview
-npm run build
-npm run preview
-```
-
-### Production Deployment
-
-#### Docker Deployment
-```bash
-# Build Docker image
-docker build -t riderpro .
-
-# Run container
-docker run -p 80:5000 -e NODE_ENV=production riderpro
-```
-
-#### Manual Deployment
-```bash
-# Build application
-npm run build
-
-# Start production server
-npm run start
-```
-
-### Environment Setup
-
-#### Production Environment Variables
-```bash
-NODE_ENV=production
-PORT=5000
-PRINTO_API_BASE_URL=https://pia.printo.in/api/v1
-CORS_ORIGINS=https://your-domain.com
-RATE_LIMIT_MAX=1000
-LOG_LEVEL=warn
-```
+### User Analytics
+- **Usage Patterns**: User behavior and feature usage
+- **Performance Metrics**: Route efficiency and completion rates
+- **Error Analysis**: Common issues and resolution patterns
+- **Business Intelligence**: KPI tracking and reporting
 
 ## 🤝 Contributing
 
-### Development Setup
+### Development Guidelines
+1. **Follow TypeScript best practices**
+2. **Write comprehensive tests**
+3. **Update documentation for new features**
+4. **Follow the existing code style**
+5. **Test on both desktop and mobile devices**
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass
-6. Submit a pull request
+### Code Review Process
+1. **Create feature branch**
+2. **Implement changes with tests**
+3. **Update documentation**
+4. **Submit pull request**
+5. **Address review feedback**
 
-### Code Standards
-
-- **TypeScript**: Strict type checking enabled
-- **ESLint**: Code linting and formatting
-- **Prettier**: Code formatting
-- **Conventional Commits**: Commit message format
-
-### Pull Request Process
-
-1. Update documentation for any new features
-2. Add tests for bug fixes and new features
-3. Ensure CI/CD pipeline passes
-4. Request review from maintainers
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details.
-
-## 🆘 Support
-
-### Documentation
-- [API Documentation](./api-documentation.md)
-- [Authentication System](./authentication-system.md)
-- [System Architecture](./system-architecture.md)
-- [Testing Guide](./shipment-testing.md)
+## 📞 Support
 
 ### Getting Help
-- Check existing documentation
-- Search through issues on GitHub
-- Create a new issue with detailed information
-- Contact the development team
+- **Documentation**: Check this documentation hub first
+- **GitHub Issues**: Report bugs and request features
+- **Discussions**: Ask questions and share ideas
+- **Code Review**: Get help with implementation
 
-### Reporting Issues
-When reporting issues, please include:
-- Environment details (browser, OS, device)
-- Steps to reproduce the issue
-- Expected vs actual behavior
-- Screenshots or error messages
-- Console logs if applicable
-
-## 🔮 Roadmap
-
-### Upcoming Features
-- **WebSocket Integration**: Real-time updates across all clients
-- **Push Notifications**: Instant alerts for important events
-- **Advanced Analytics**: Machine learning insights and predictions
-- **Multi-tenant Support**: Support for multiple organizations
-- **Native Mobile Apps**: iOS and Android applications
-
-### Performance Improvements
-- **Database Integration**: Replace mock data with real database
-- **Microservices Architecture**: Split into smaller, focused services
-- **CDN Integration**: Faster asset delivery
-- **Caching Layer**: Redis for improved performance
-
-### Security Enhancements
-- **Two-Factor Authentication**: Additional security layer
-- **Audit Logging**: Comprehensive activity tracking
-- **Data Encryption**: Enhanced encryption for sensitive data
-- **Compliance**: GDPR and other regulatory compliance
+### Common Issues
+- **Authentication Problems**: Check the authentication system documentation
+- **API Errors**: Review the API documentation and error codes
+- **Database Issues**: Check the database schema and migration status
+- **Mobile Issues**: Verify responsive design and touch optimization
 
 ---
 
-**RiderPro** - Empowering efficient delivery operations with modern technology.
+**Last Updated**: December 2024  
+**Version**: 2.0.0  
+**Maintainer**: RiderPro Development Team

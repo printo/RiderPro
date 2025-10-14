@@ -368,7 +368,7 @@ class AuthService {
       isActive: true,
       permissions: [],
       isOpsTeam: data.is_ops_team || false,
-      isAdmin: data.is_ops_team || false,
+      isSuperUser: data.is_ops_team || false,
       isSuperAdmin: false
     };
     

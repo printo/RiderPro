@@ -1,17 +1,22 @@
 import { Link, useLocation } from "wouter";
-import { Truck } from "lucide-react";
-// Auth removed - no user context needed
+import { Truck, LogOut } from "lucide-react";
+import { useAuth } from "../hooks/useAuth";
+import { Button } from "@/components/ui/button";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 
 function Navigation() {
   const [location] = useLocation();
-  // Auth removed - no user context needed
+  const { user, logout } = useAuth();
 
   const isActive = (path: string) => {
     if (path === "/" && (location === "/" || location === "/dashboard")) {
       return true;
     }
     return location === path;
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   return (
@@ -30,11 +35,20 @@ function Navigation() {
               {user && (
                 <>
                   <span className="text-sm text-foreground hidden sm:inline">
-                    {displayName}
+                    {user.fullName}
                   </span>
                   <span className="text-xs px-2 py-1 rounded-full bg-muted text-foreground capitalize">
-                    {role}
+                    {user.role}
                   </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLogout}
+                    className="flex items-center gap-2"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Logout
+                  </Button>
                 </>
               )}
             </div>

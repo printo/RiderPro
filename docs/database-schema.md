@@ -177,7 +177,7 @@ interface User {
   isActive: boolean;             // Account status
   permissions: string[];         // List of permissions
   isOpsTeam: boolean;            // Operations team member flag
-  isAdmin: boolean;              // Admin privileges flag
+  isSuperUser: boolean;          // Super user privileges flag
   isSuperAdmin: boolean;         // Super admin privileges flag
   lastLogin?: string;            // Last login timestamp
   createdAt: string;             // Account creation timestamp
@@ -332,7 +332,7 @@ erDiagram
         UserRole role
         boolean isActive
         boolean isOpsTeam
-        boolean isAdmin
+        boolean isSuperUser
         boolean isSuperAdmin
     }
     

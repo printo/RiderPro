@@ -138,7 +138,7 @@ const authenticateWithPrintoAPI = async (email: string, password: string) => {
     // Map Printo/Django user data to literal role names when available
     const role = (
       userData.role ||
-      (userData.is_admin ? 'admin' :
+      (userData.is_super_user ? 'admin' :
         userData.is_ops_team ? 'isops' :
           userData.is_delivery ? 'isdelivery' :
             'user')

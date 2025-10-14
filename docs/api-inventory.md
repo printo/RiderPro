@@ -1,218 +1,287 @@
-# API Inventory and Use Cases
+# API Inventory - RiderPro Route Tracking System
 
-This document provides a comprehensive list of all APIs used in the system and their specific use cases.
+## Overview
+This document provides a comprehensive inventory of all API endpoints in the RiderPro system, including both server-side routes and client-side API usage patterns.
 
-## Internal APIs (Our Server Endpoints)
+## System Health & Monitoring APIs
 
-### System Health
+### Health Check
+- **GET** `/api/health`
+  - **Purpose**: System health monitoring with caching and rate limiting
+  - **Rate Limit**: 10 requests per minute per IP
+  - **Cache**: 10 seconds TTL
+  - **Response**: System status, uptime, database connectivity
+  - **Usage**: Monitoring, load balancer health checks
 
-| Endpoint | Method | Use Case |
-|----------|--------|----------|
-| `/api/health` | GET | System health check with rate limiting |
-| `/api-status` | GET | Simple API status/debug endpoint |
+## Authentication & User Management APIs
 
-### Shipment Management
+### User Registration & Login
+- **POST** `/api/auth/register`
+  - **Purpose**: Register new local users (requires approval)
+  - **Body**: `{ riderId, password, fullName, email? }`
+  - **Security**: Passwords hashed with bcrypt (12 salt rounds)
+  - **Response**: `{ success, message, userId }`
 
-| Endpoint | Method | Use Case |
-|----------|--------|----------|
-| `/api/shipments` | GET | Get shipments with filters, pagination, and sorting |
-| `/api/shipments/:id` | GET | Get single shipment details with acknowledgment |
-| `/api/shipments` | POST | Create new shipment |
-| `/api/shipments/:id` | PATCH | Update single shipment status |
-| `/api/shipments/batch` | PATCH | Batch update multiple shipments |
-| `/api/shipments/:id/acknowledgement` | POST | Upload delivery acknowledgment with photo/signature |
-| `/api/shipments/:id/remarks` | POST | Add remarks for cancelled/returned shipments |
-| `/api/shipments/:id` | DELETE | Delete shipment (admin only) |
-| `/api/shipments/receive` | POST | Receive external shipment data (webhook) |
-| `/api/shipments/update/external` | POST | Send single shipment update to external system |
-| `/api/shipments/update/external/batch` | POST | Send batch shipment updates to external system |
+- **POST** `/api/auth/local-login`
+  - **Purpose**: Login with local database credentials
+  - **Body**: `{ riderId, password }`
+  - **Security**: bcrypt password verification
+  - **Response**: `{ success, accessToken, refreshToken, fullName, isApproved }`
 
-### Route Tracking & GPS
+### Admin User Management
+- **GET** `/api/auth/pending-approvals`
+  - **Purpose**: Get users pending approval (admin only)
+  - **Response**: `{ success, users: [{ id, rider_id, full_name, email, created_at }] }`
 
-| Endpoint | Method | Use Case |
-|----------|--------|----------|
-| `/api/routes/start` | POST | Start a new route session for driver |
-| `/api/routes/stop` | POST | Stop active route session |
-| `/api/routes/coordinates` | POST | Submit GPS coordinates during route |
-| `/api/routes/session/:sessionId` | GET | Get session data and coordinates |
-| `/api/routes/coordinates/batch` | POST | Batch submit GPS coordinates (offline sync) |
-| `/api/routes/shipment-event` | POST | Record pickup/delivery event tied to a route session |
-| `/api/routes/sync-session` | POST | Sync an offline route session when back online |
-| `/api/routes/sync-coordinates` | POST | Sync offline GPS coordinates when back online |
+- **POST** `/api/auth/approve/:userId`
+  - **Purpose**: Approve user account (admin only)
+  - **Response**: `{ success, message }`
 
-### Offline Sync
+- **POST** `/api/auth/reject/:userId`
+  - **Purpose**: Reject user account (admin only)
+  - **Response**: `{ success, message }`
 
-| Endpoint | Method | Use Case |
-|----------|--------|----------|
-| `/api/routes/coordinates/batch` | POST | Batch submit GPS coordinates (offline sync) |
-| `/api/routes/sync-session` | POST | Sync an offline route session when back online |
-| `/api/routes/sync-coordinates` | POST | Sync offline GPS coordinates when back online |
+- **POST** `/api/auth/reset-password/:userId`
+  - **Purpose**: Reset user password (admin only)
+  - **Body**: `{ newPassword }`
+  - **Security**: bcrypt hashing
+  - **Response**: `{ success, message }`
 
-### Dashboard & Analytics
+## Shipment Management APIs
 
-| Endpoint | Method | Use Case |
-|----------|--------|----------|
-| `/api/dashboard` | GET | Get dashboard metrics and statistics |
+### Shipment CRUD Operations
+- **GET** `/api/shipments`
+  - **Purpose**: Get shipments with filtering, pagination, sorting
+  - **Query Params**: `page`, `limit`, `status`, `employeeId`, `sortBy`, `sortOrder`
+  - **Response**: Array of shipments with pagination headers
+  - **Headers**: `X-Total-Count`, `X-Total-Pages`, `X-Current-Page`, `X-Per-Page`
 
-### Data Synchronization
+- **GET** `/api/shipments/:id`
+  - **Purpose**: Get single shipment by ID
+  - **Response**: Single shipment object
 
-| Endpoint | Method | Use Case |
-|----------|--------|----------|
-| `/api/sync/stats` | GET | Get synchronization statistics |
-| `/api/sync/trigger` | POST | Trigger manual data sync with external systems |
+- **POST** `/api/shipments`
+  - **Purpose**: Create new shipment
+  - **Body**: Shipment object with validation
+  - **Response**: `{ success, trackingNumber, shipment }`
+
+- **PATCH** `/api/shipments/:id`
+  - **Purpose**: Update single shipment
+  - **Body**: Partial shipment object
+  - **Response**: `{ success, message, shipment }`
+
+- **PATCH** `/api/shipments/batch`
+  - **Purpose**: Batch update multiple shipments
+  - **Body**: `{ updates: [{ id, changes }] }`
+  - **Response**: `{ success, results: [{ id, success, error? }] }`
+
+- **DELETE** `/api/shipments/:id`
+  - **Purpose**: Delete shipment (admin only)
+  - **Response**: `{ success, message }`
+
+### Shipment Acknowledgment & Tracking
+- **POST** `/api/shipments/:id/acknowledgement`
+  - **Purpose**: Upload acknowledgment with photo and signature
+  - **Content-Type**: `multipart/form-data`
+  - **Fields**: `photo`, `signature`, `acknowledgmentType`, `notes`
+  - **Response**: `{ success, message, acknowledgment }`
+
+- **POST** `/api/shipments/:id/remarks`
+  - **Purpose**: Add remarks for cancelled/returned shipments
+  - **Body**: `{ remarks, reason, timestamp }`
+  - **Response**: `{ success, message }`
+
+### External System Integration
+- **POST** `/api/shipments/receive`
+  - **Purpose**: Receive shipment data from external systems
+  - **Security**: Webhook authentication, rate limiting
+  - **Body**: Shipment data from external system
+  - **Response**: `{ success, message, processedCount }`
+
+- **POST** `/api/shipments/update/external`
+  - **Purpose**: Send single shipment update to external system
+  - **Security**: Webhook authentication
+  - **Body**: `{ shipmentId, updates }`
+  - **Response**: `{ success, message }`
+
+- **POST** `/api/shipments/update/external/batch`
+  - **Purpose**: Send batch shipment updates to external system
+  - **Security**: Webhook authentication
+  - **Body**: `{ updates: [{ shipmentId, changes }] }`
+  - **Response**: `{ success, message, results }`
+
+## Route Tracking & GPS APIs
+
+### Route Session Management
+- **POST** `/api/routes/start`
+  - **Purpose**: Start a new route session
+  - **Body**: `{ employeeId, startLatitude, startLongitude, shipmentId? }`
+  - **Response**: `{ success, sessionId, message }`
+
+- **POST** `/api/routes/stop`
+  - **Purpose**: Stop a route session
+  - **Body**: `{ sessionId, endLatitude, endLongitude }`
+  - **Response**: `{ success, message, session }`
+
+- **GET** `/api/routes/session/:sessionId`
+  - **Purpose**: Get session data
+  - **Response**: `{ success, session, coordinates }`
+
+### GPS Coordinate Tracking
+- **POST** `/api/routes/coordinates`
+  - **Purpose**: Submit single GPS coordinate
+  - **Body**: `{ sessionId, latitude, longitude, accuracy?, speed?, timestamp? }`
+  - **Response**: `{ success, message, coordinateId }`
+
+- **POST** `/api/routes/coordinates/batch`
+  - **Purpose**: Submit multiple GPS coordinates
+  - **Body**: `{ coordinates: [{ sessionId, latitude, longitude, ... }] }`
+  - **Response**: `{ success, message, results }`
+
+### Shipment Events & Offline Sync
+- **POST** `/api/routes/shipment-event`
+  - **Purpose**: Record shipment event (pickup/delivery) for a session
+  - **Body**: `{ sessionId, shipmentId, eventType, latitude, longitude }`
+  - **Response**: `{ success, message, eventId }`
+
+- **POST** `/api/routes/sync-session`
+  - **Purpose**: Sync route session created while offline
+  - **Body**: `{ id, employeeId, startTime, endTime, status, startLatitude, startLongitude, endLatitude, endLongitude }`
+  - **Response**: `{ success, message, sessionId }`
+
+- **POST** `/api/routes/sync-coordinates`
+  - **Purpose**: Sync coordinates captured while offline
+  - **Body**: `{ sessionId, coordinates: [{ latitude, longitude, accuracy?, timestamp? }] }`
+  - **Response**: `{ success, message, results }`
+
+## Data Synchronization APIs
+
+### Sync Management
+- **GET** `/api/sync/stats`
+  - **Purpose**: Get synchronization statistics
+  - **Response**: `{ success, stats: { pending, synced, failed, lastSync } }`
+
+- **POST** `/api/sync/trigger`
+  - **Purpose**: Trigger manual synchronization
+  - **Response**: `{ success, message, syncedCount }`
+
+## Dashboard & Analytics APIs
+
+### Dashboard Data
+- **GET** `/api/dashboard`
+  - **Purpose**: Get dashboard metrics and statistics
+  - **Response**: Dashboard data with metrics
+
+## Error Handling & Logging
 
 ### Error Logging
+- **POST** `/api/errors`
+  - **Purpose**: Log frontend errors
+  - **Body**: Error object
+  - **Response**: `{ logged: true }`
 
-| Endpoint | Method | Use Case |
-|----------|--------|----------|
-| `/api/errors` | POST | Log client-side errors for monitoring |
+## File Upload & Static Assets
 
-### File Management
-
-| Endpoint | Method | Use Case |
-|----------|--------|----------|
-| `/uploads/*` | GET | Serve uploaded files (photos, signatures) |
-
-## External APIs (Third-party Services)
-
-### Printo API Integration
-
-| Endpoint | Method | Use Case |
-|----------|--------|----------|
-| `https://pia.printo.in/api/v1/auth/` | POST | Primary user authentication (client calls directly) |
-| `https://pia.printo.in/api/v1/auth/refresh/` | POST | Refresh access tokens (client calls directly) |
-| `https://pia.printo.in/api/v1/auth/me/` | GET | Verify user token and get user info (client calls directly) |
+### File Handling
+- **Static** `/uploads/*`
+  - **Purpose**: Serve uploaded files (photos, signatures)
+  - **CORS**: Enabled for file access
 
 ## Client-Side API Usage Patterns
 
-### API Service Files
+### Authentication Flow
+1. **External API Login**: Direct call to `https://pia.printo.in/api/v1/auth/`
+   - **Method**: POST
+   - **Body**: `{ employee_id, password }`
+   - **Response**: `{ access, refresh, full_name, is_staff?, is_super_user?, is_ops_team?, employee_id }`
 
-| File | Purpose | APIs Used |
-|------|---------|-----------|
-| `client/src/services/ApiClient.ts` | Core HTTP client with retry, offline support | All internal APIs |
-| `client/src/services/AuthService.ts` | Authentication management | Printo API (external only) |
-| `client/src/api/shipments.ts` | Shipment operations | `/api/shipments/*`, `/api/dashboard` |
-| `client/src/api/routes.ts` | Route tracking operations | `/api/routes/*` |
-| `client/src/api/analytics.ts` | Analytics and reporting | `/api/analytics/*` (if implemented) |
+2. **Local Database Login**: Call to `/api/auth/local-login`
+   - **Method**: POST
+   - **Body**: `{ riderId, password }`
+   - **Response**: `{ success, accessToken, refreshToken, fullName, isApproved }`
 
-### Common Usage Patterns
+### Data Fetching
+- **Shipments**: `GET /api/shipments` with query parameters
+- **Routes**: `GET /api/routes/session/:sessionId`
+- **Dashboard**: `GET /api/dashboard`
 
-**Authentication Pattern:**
-```typescript
-// Login flow uses external API directly (no server proxy)
-authService.login(email, password)
-→ POST https://pia.printo.in/api/v1/auth/
-→ Store tokens locally
+### Data Submission
+- **GPS Coordinates**: `POST /api/routes/coordinates` or batch endpoint
+- **Shipment Updates**: `PATCH /api/shipments/:id` or batch endpoint
+- **Acknowledgment**: `POST /api/shipments/:id/acknowledgement` with file upload
+
+### Offline Sync
+- **Session Sync**: `POST /api/routes/sync-session`
+- **Coordinate Sync**: `POST /api/routes/sync-coordinates`
+- **Manual Trigger**: `POST /api/sync/trigger`
+
+## Security & Authentication
+
+### External API Integration
+- **Base URL**: `https://pia.printo.in/api/v1/`
+- **Authentication**: Direct employee_id/password login
+- **Token Management**: Access/refresh tokens stored in localStorage
+- **Role Determination**: Based on `is_staff`, `is_super_user`, `is_ops_team` flags
+
+### Local Database Security
+- **Password Hashing**: bcrypt with 12 salt rounds
+- **Session Management**: Simple token-based (local development)
+- **Approval Workflow**: Admin approval required for new users
+
+### Webhook Security
+- **Authentication**: Webhook-specific auth middleware
+- **Rate Limiting**: Applied to webhook endpoints
+- **Payload Validation**: Comprehensive validation for external data
+
+## Rate Limiting & Caching
+
+### Rate Limits
+- **Health Check**: 10 requests/minute per IP
+- **Webhooks**: Configurable per endpoint
+- **General APIs**: No rate limiting (development mode)
+
+### Caching
+- **Health Check**: 10-second TTL
+- **Dashboard**: No caching (real-time data)
+- **Shipments**: No caching (real-time updates)
+
+## Error Handling
+
+### Standard Error Response Format
+```json
+{
+  "success": false,
+  "message": "Error description",
+  "code": "ERROR_CODE",
+  "details": {}
+}
 ```
 
-**Shipment Management Pattern:**
-```typescript
-// Get shipments with filters
-shipmentsApi.getShipments(filters)
-→ GET /api/shipments?status=pending&page=1
-```
+### HTTP Status Codes
+- **200**: Success
+- **400**: Bad Request (validation errors)
+- **401**: Unauthorized (authentication required)
+- **403**: Forbidden (insufficient permissions)
+- **404**: Not Found
+- **409**: Conflict (duplicate data)
+- **429**: Too Many Requests (rate limit exceeded)
+- **500**: Internal Server Error
 
-**Route Tracking Pattern:**
-```typescript
-// Start route session
-routeAPI.startSession(data)
-→ POST /api/routes/start
+## API Dependencies
 
-// Submit GPS coordinates
-routeAPI.submitCoordinates(gpsData)
-→ POST /api/routes/coordinates
-```
+### External Services
+- **Printo API**: `https://pia.printo.in/api/v1/` (authentication)
+- **File Storage**: Local filesystem (`/uploads/`)
 
-**File Upload Pattern:**
-```typescript
-// Upload acknowledgment with files
-FormData with photo/signature
-→ POST /api/shipments/:id/acknowledgement
-```
+### Internal Services
+- **Database**: SQLite with better-sqlite3
+- **File Upload**: Multer for multipart/form-data
+- **Validation**: Custom validation services
+- **Scheduling**: Node-cron for background tasks
 
-## Webhook Endpoints
+---
 
-### Incoming Webhooks (External → Our System)
-
-| Endpoint | Purpose | Source |
-|----------|---------|--------|
-| `/api/shipments/receive` | Receive shipment data from external systems | External logistics systems |
-
-**Webhook Security:**
-- Bearer token authentication
-- Rate limiting
-- Payload size limits
-- HTTPS enforcement in production
-
-### Outgoing Webhooks (Our System → External)
-
-| Target | Purpose | Trigger |
-|--------|---------|---------|
-| External logistics API | Send shipment updates | Status changes, acknowledgments |
-| External logistics API | Batch shipment updates | Scheduled sync, manual trigger |
-
-## API Authentication Methods
-
-For now, server endpoints are open (development mode). Webhook endpoints remain protected with bearer tokens and rate limiting.
-
-## Error Handling Patterns
-
-**Client-Side Error Handling:**
-- Network errors: Retry with exponential backoff
-- 401 errors: Automatic token refresh
-- 403 errors: Permission denied notification
-- 5xx errors: Retry with user notification
-- Offline mode: Queue requests for later sync
-
-**Server-Side Error Responses:**
-- Consistent JSON error format
-- Appropriate HTTP status codes
-- Detailed error messages for debugging
-- Rate limiting with retry headers
-
-## Performance Optimizations
-
-**Caching:**
-- Health check endpoint: 10-second cache
-- Static file serving with appropriate headers
-- Client-side request caching where appropriate
-
-**Rate Limiting:**
-- Health check: 10 requests/minute per IP
-- Webhook endpoints: Configurable rate limits
-
-**Batch Operations:**
-- GPS coordinates: Batch submission for offline sync
-- Shipment updates: Batch processing for efficiency
-- External sync: Batch webhook delivery
-
-## Monitoring & Analytics
-
-**API Usage Tracking:**
-- Request counts per endpoint (planned)
-- Response times and error rates (planned)
-- Webhook delivery success rates
-
-**Health Monitoring:**
-- Database connectivity checks
-- External API availability
-- Token expiration monitoring
-- Error rate thresholds
-
-## Security Considerations
-
-**Authentication Security:**
-- Client stores external tokens locally
-- HTTPS enforcement recommended in production
-
-**API Security:**
-- Input validation and sanitization
-- SQL injection prevention
-- CORS configuration
-- Request size limits
-
-**Webhook Security:**
-- Signature verification
-- IP whitelisting (if needed)
-- Payload validation
-- Replay attack prevention
+*Last Updated: December 2024*
+*Total Endpoints: 25+*
+*Authentication Methods: 2 (External API + Local Database)*
+*Security Level: Production-ready with bcrypt and webhook authentication*

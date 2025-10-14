@@ -5,6 +5,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { useAuth } from "./hooks/useAuth";
+import LoginForm from "@/components/LoginForm";
+import ApprovalPending from "@/pages/ApprovalPending";
 import Navigation from "@/components/Navigation";
 import FloatingActionMenu from "@/components/FloatingActionMenu";
 import Dashboard from "@/pages/Dashboard";
@@ -18,6 +21,29 @@ import RiderSignupForm from "@/pages/RiderSignupForm";
 import AdminRiderManagement from "@/pages/AdminRiderManagement";
 
 function Router() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  // Show loading spinner while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // Show login form if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/login" component={LoginForm} />
+        <Route path="/approval-pending" component={ApprovalPending} />
+        <Route component={LoginForm} />
+      </Switch>
+    );
+  }
+
+  // Show main app if authenticated
   return (
     <div className="min-h-screen bg-background">
       <Navigation />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'wouter';
 
 interface Rider {
   id: string;
@@ -61,7 +61,7 @@ const AdminRiderManagement = () => {
         // const response = await fetch('/api/admin/riders');
         // const data = await response.json();
         // setRiders(data);
-        
+
         // Using mock data for now
         setRiders(mockRiders);
         setIsLoading(false);
@@ -250,22 +250,20 @@ const AdminRiderManagement = () => {
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
                           <span
-                            className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                              rider.is_active
+                            className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${rider.is_active
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-red-100 text-red-800'
-                            }`}
+                              }`}
                           >
                             {rider.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
                           <span
-                            className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-                              rider.is_super_user
+                            className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${rider.is_super_user
                                 ? 'bg-purple-100 text-purple-800'
                                 : 'bg-gray-100 text-gray-800'
-                            }`}
+                              }`}
                           >
                             {rider.is_super_user ? 'Super User' : 'Rider'}
                           </span>
@@ -287,11 +285,10 @@ const AdminRiderManagement = () => {
                               onClick={() =>
                                 toggleUserStatus(rider.id, rider.is_active)
                               }
-                              className={`ml-4 ${
-                                rider.is_active
+                              className={`ml-4 ${rider.is_active
                                   ? 'text-yellow-600 hover:text-yellow-900'
                                   : 'text-green-600 hover:text-green-900'
-                              }`}
+                                }`}
                             >
                               {rider.is_active ? 'Deactivate' : 'Activate'}
                             </button>
@@ -300,11 +297,10 @@ const AdminRiderManagement = () => {
                                 onClick={() =>
                                   toggleSuperUserStatus(rider.id, rider.is_super_user)
                                 }
-                                className={`ml-4 ${
-                                  rider.is_super_user
+                                className={`ml-4 ${rider.is_super_user
                                     ? 'text-red-600 hover:text-red-900'
                                     : 'text-green-600 hover:text-green-900'
-                                }`}
+                                  }`}
                                 title={rider.is_super_user ? 'Remove Super User' : 'Make Super User'}
                               >
                                 {rider.is_super_user ? 'Remove Admin' : 'Make Admin'}

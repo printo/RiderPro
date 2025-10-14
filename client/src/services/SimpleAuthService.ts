@@ -1,0 +1,406 @@
+// client/src/services/SimpleAuthService.ts
+import { User, UserRole } from '@/types/User';
+
+interface AuthState {
+  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+interface ExternalAuthResponse {
+  access: string;
+  refresh: string;
+  full_name: string;
+  is_staff?: boolean;
+  is_super_user?: boolean;
+  is_ops_team?: boolean;
+  employee_id?: string;
+}
+
+interface LocalAuthResponse {
+  success: boolean;
+  message?: string;
+  accessToken: string;
+  refreshToken: string;
+  fullName: string;
+  isApproved: boolean;
+}
+
+class SimpleAuthService {
+  private static instance: SimpleAuthService;
+  private state: AuthState = {
+    user: null,
+    accessToken: null,
+    refreshToken: null,
+    isAuthenticated: false,
+    isLoading: true,
+  };
+  private listeners: ((state: AuthState) => void)[] = [];
+
+  private constructor() {
+    this.initializeFromStorage();
+  }
+
+  public static getInstance(): SimpleAuthService {
+    if (!SimpleAuthService.instance) {
+      SimpleAuthService.instance = new SimpleAuthService();
+    }
+    return SimpleAuthService.instance;
+  }
+
+  // Initialize auth state from localStorage
+  private initializeFromStorage(): void {
+    try {
+      const accessToken = localStorage.getItem('access_token');
+      const refreshToken = localStorage.getItem('refresh_token');
+      const fullName = localStorage.getItem('full_name');
+      const employeeId = localStorage.getItem('employee_id');
+      const isStaff = localStorage.getItem('is_staff') === 'true';
+      const isSuperUser = localStorage.getItem('is_super_user') === 'true';
+      const isOpsTeam = localStorage.getItem('is_ops_team') === 'true';
+
+      if (accessToken && fullName && employeeId) {
+        const role = this.determineRole(isStaff, isSuperUser, isOpsTeam);
+
+        this.state = {
+          user: {
+            id: employeeId,
+            username: employeeId,
+            email: '',
+            role,
+            employeeId,
+            fullName,
+            isActive: true,
+            isOpsTeam,
+            isSuperUser,
+            isSuperAdmin: isSuperUser,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          accessToken,
+          refreshToken,
+          isAuthenticated: true,
+          isLoading: false,
+        };
+      } else {
+        this.state = {
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          isAuthenticated: false,
+          isLoading: false,
+        };
+      }
+    } catch (error) {
+      console.error('Error initializing auth from storage:', error);
+      this.state = {
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+      };
+    }
+  }
+
+  // Determine role based on API response flags (any one may be present)
+  private determineRole(isStaff?: boolean, isSuperUser?: boolean, isOpsTeam?: boolean): UserRole {
+    if (isSuperUser === true) {
+      return UserRole.ADMIN;
+    }
+    if (isOpsTeam === true) {
+      return UserRole.MANAGER;
+    }
+    if (isStaff === true) {
+      return UserRole.VIEWER;
+    }
+    return UserRole.DRIVER;
+  }
+
+  // Method A: External API Authentication
+  public async loginWithExternalAPI(employeeId: string, password: string): Promise<{ success: boolean; message: string }> {
+    try {
+      this.setState({ isLoading: true });
+
+      const response = await fetch('https://pia.printo.in/api/v1/auth/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          employee_id: employeeId,
+          password: password,
+        }),
+      });
+
+      if (!response.ok) {
+        return { success: false, message: 'Invalid credentials' };
+      }
+
+      const data: ExternalAuthResponse = await response.json();
+
+      // Save to localStorage with all user details
+      localStorage.setItem('access_token', data.access);
+      localStorage.setItem('refresh_token', data.refresh);
+      localStorage.setItem('full_name', data.full_name);
+      localStorage.setItem('employee_id', data.employee_id || employeeId);
+      localStorage.setItem('is_staff', (data.is_staff || false).toString());
+      localStorage.setItem('is_super_user', (data.is_super_user || false).toString());
+      localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
+
+      const role = this.determineRole(data.is_staff, data.is_super_user, data.is_ops_team);
+
+      this.setState({
+        user: {
+          id: data.employee_id || employeeId,
+          username: data.employee_id || employeeId,
+          email: '',
+          role,
+          employeeId: data.employee_id || employeeId,
+          fullName: data.full_name,
+          isActive: true,
+          isOpsTeam: data.is_ops_team || false,
+          isSuperUser: data.is_super_user || false,
+          isSuperAdmin: data.is_super_user || false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        accessToken: data.access,
+        refreshToken: data.refresh,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      return { success: true, message: 'Login successful' };
+    } catch (error) {
+      console.error('External API login error:', error);
+      this.setState({ isLoading: false });
+      return { success: false, message: 'Login failed. Please try again.' };
+    }
+  }
+
+  // Method B: Local Database Authentication
+  public async loginWithLocalDB(riderId: string, password: string): Promise<{ success: boolean; message: string; isApproved?: boolean }> {
+    try {
+      this.setState({ isLoading: true });
+
+      const response = await fetch('/api/auth/local-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          riderId,
+          password,
+        }),
+      });
+
+      const data: LocalAuthResponse = await response.json();
+
+      if (!data.success) {
+        this.setState({ isLoading: false });
+        return { success: false, message: data.message || 'Login failed' };
+      }
+
+      if (!data.isApproved) {
+        this.setState({ isLoading: false });
+        return { success: false, message: 'Account pending approval', isApproved: false };
+      }
+
+      // Save to localStorage with all user details
+      localStorage.setItem('access_token', data.accessToken);
+      localStorage.setItem('refresh_token', data.refreshToken);
+      localStorage.setItem('full_name', data.fullName);
+      localStorage.setItem('employee_id', riderId);
+      localStorage.setItem('is_staff', 'false');
+      localStorage.setItem('is_super_user', 'false');
+      localStorage.setItem('is_ops_team', 'false'); // Local users are drivers by default
+
+      this.setState({
+        user: {
+          id: riderId,
+          username: riderId,
+          email: '',
+          role: UserRole.DRIVER,
+          employeeId: riderId,
+          fullName: data.fullName,
+          isActive: true,
+          isOpsTeam: false,
+          isSuperUser: false,
+          isSuperAdmin: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      return { success: true, message: 'Login successful' };
+    } catch (error) {
+      console.error('Local DB login error:', error);
+      this.setState({ isLoading: false });
+      return { success: false, message: 'Login failed. Please try again.' };
+    }
+  }
+
+  // Register new user (local database)
+  public async registerUser(riderId: string, password: string, fullName: string, email?: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          riderId,
+          password,
+          fullName,
+          email,
+        }),
+      });
+
+      const data = await response.json();
+      return { success: data.success, message: data.message };
+    } catch (error) {
+      console.error('Registration error:', error);
+      return { success: false, message: 'Registration failed. Please try again.' };
+    }
+  }
+
+  // Refresh token automatically
+  public async refreshAccessToken(): Promise<boolean> {
+    try {
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (!refreshToken) {
+        return false;
+      }
+
+      const response = await fetch('https://pia.printo.in/api/v1/auth/refresh/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          refresh: refreshToken,
+        }),
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const data = await response.json();
+
+      // Update localStorage
+      localStorage.setItem('access_token', data.access);
+      if (data.refresh) {
+        localStorage.setItem('refresh_token', data.refresh);
+      }
+
+      // Update state
+      this.setState({
+        accessToken: data.access,
+        refreshToken: data.refresh || refreshToken,
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      return false;
+    }
+  }
+
+  // Authenticated fetch with automatic token refresh
+  public async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+    const accessToken = localStorage.getItem('access_token');
+
+    if (!accessToken) {
+      throw new Error('No access token available');
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+      ...(options.headers as Record<string, string> || {}),
+    };
+
+    let response = await fetch(url, { ...options, headers });
+
+    // If 401, try to refresh token and retry
+    if (response.status === 401) {
+      const refreshSuccess = await this.refreshAccessToken();
+      if (refreshSuccess) {
+        const newAccessToken = localStorage.getItem('access_token');
+        const newHeaders = { ...headers, 'Authorization': `Bearer ${newAccessToken}` };
+        response = await fetch(url, { ...options, headers: newHeaders });
+      } else {
+        // Refresh failed, logout user
+        this.logout();
+        throw new Error('Session expired. Please log in again.');
+      }
+    }
+
+    return response;
+  }
+
+  // Logout
+  public logout(): void {
+    // Clear localStorage
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('full_name');
+    localStorage.removeItem('employee_id');
+    localStorage.removeItem('is_staff');
+    localStorage.removeItem('is_super_user');
+    localStorage.removeItem('is_ops_team');
+
+    // Clear state
+    this.setState({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      isAuthenticated: false,
+      isLoading: false,
+    });
+  }
+
+  // State management
+  private setState(newState: Partial<AuthState>): void {
+    this.state = { ...this.state, ...newState };
+    this.notifyListeners();
+  }
+
+  private notifyListeners(): void {
+    this.listeners.forEach(listener => listener(this.state));
+  }
+
+  public subscribe(listener: (state: AuthState) => void): () => void {
+    this.listeners.push(listener);
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener);
+    };
+  }
+
+  // Getters
+  public getState(): AuthState {
+    return this.state;
+  }
+
+  public isAuthenticated(): boolean {
+    return this.state.isAuthenticated && !!this.state.accessToken;
+  }
+
+  public getUser(): User | null {
+    return this.state.user;
+  }
+
+  public getAccessToken(): string | null {
+    return this.state.accessToken;
+  }
+}
+
+export default SimpleAuthService;
