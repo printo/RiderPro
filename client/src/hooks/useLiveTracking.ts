@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { RiderLocation } from '@/components/tracking/LiveTrackingMap';
+import { RiderLocation } from '@/components/LiveTrackingMap';
 
 interface LocationUpdate {
   type: 'location_update';
