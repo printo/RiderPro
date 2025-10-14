@@ -17,6 +17,8 @@ import RouteAnalytics from "@/pages/RouteAnalytics";
 import RouteVisualizationPage from "@/pages/RouteVisualizationPage";
 import Settings from "@/pages/Settings";
 import { useIsAuthenticated, useIsAdmin, useIsSuperAdmin } from "@/hooks/useAuth";
+import RiderSignupForm from "@/components/rider/RiderSignupForm";
+import AdminRiderManagement from "@/components/admin/AdminRiderManagement";
 
 function Router() {
   const isAuthenticated = useIsAuthenticated();

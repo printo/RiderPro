@@ -2,7 +2,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { tokenExpirationService } from "./services/TokenExpirationService.js";
 import cors from 'cors';
 
 const app = express();
@@ -118,9 +117,6 @@ app.get("/api-status", (req, res) => {
     console.log(`🔍 Health check: http://localhost:${port}/health`);
     console.log('===============================\n');
 
-    // Start token expiration monitoring service
-    // Check for expired tokens every 24 hours
-    tokenExpirationService.start(24);
-    console.log('✅ Token expiration monitoring service started');
+    // Token expiration monitoring removed
   });
 })();

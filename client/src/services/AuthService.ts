@@ -537,8 +537,6 @@ class AuthService {
 
       // Try external API first
       let response: Response;
-      let useExternalAPI = true;
-
       try {
         console.log('🌐 Trying external API...');
         response = await fetch('https://pia.printo.in/api/v1/auth/', {
@@ -554,22 +552,8 @@ class AuthService {
           ok: response.ok
         });
       } catch (externalError) {
-        console.warn('⚠️ External API failed, falling back to local API:', externalError);
-        useExternalAPI = false;
-
-        // Fallback to local API
-        response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email: employeeId, password }),
-        });
-        console.log('📡 Local API response:', {
-          status: response.status,
-          statusText: response.statusText,
-          ok: response.ok
-        });
+        console.warn('⚠️ External API failed:', externalError);
+        return { success: false, message: 'Authentication service unavailable' };
       }
 
       if (!response.ok) {
@@ -587,7 +571,7 @@ class AuthService {
       const result = await response.json();
 
       let authData;
-      if (useExternalAPI) {
+      if (result.access) {
         console.log('📦 External API response received:', {
           hasRefresh: !!result.refresh,
           hasAccess: !!result.access,

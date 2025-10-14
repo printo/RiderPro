@@ -3,10 +3,9 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/ApiClient";
 import { useLocation } from "wouter";
-import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Plus, Trash2 } from "lucide-react";
+import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2 } from "lucide-react";
 import { useState } from "react";
 import FuelSettingsModal, { FuelSettings } from "@/components/FuelSettingsModal";
-import TokenManagement from "@/components/TokenManagement";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
@@ -420,10 +419,7 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
           </CardContent>
         </Card> */}
 
-        {/* API Token Management Section */}
-        <div className="lg:col-span-2">
-          <TokenManagement canEdit={canEdit} />
-        </div>
+        {/* API Token Management Section (removed) */}
 
         {/* Analytics Settings Section */}
         <Card>

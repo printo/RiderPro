@@ -16,72 +16,16 @@ import {
 } from "@shared/schema";
 import { upload, getFileUrl, saveBase64File } from "./utils/fileUpload.js";
 import { externalSync } from "./services/externalSync.js";
-import { apiTokenService } from "./services/ApiTokenService.js";
 import { fieldMappingService } from "./services/FieldMappingService.js";
 import { payloadValidationService } from "./services/PayloadValidationService.js";
 import { webhookAuth, webhookSecurity, webhookLogger, webhookRateLimit, webhookPayloadLimit } from "./middleware/webhookAuth.js";
-import { authenticateEither, getAuthenticatedUser, ApiTokenRequest, requireApiTokenPermission } from "./middleware/apiTokenAuth.js";
-import { apiTokenDbInitializer } from "./db/apiTokenInit.js";
-import { apiTokenErrorHandler, ApiTokenErrorHandler, ApiTokenErrorCode } from "./utils/apiTokenErrorHandler.js";
-import { validateTokenCreationData, checkRateLimit } from "./utils/tokenValidation.js";
+import { ApiTokenErrorHandler } from "./utils/apiTokenErrorHandler.js";
 import path from 'path';
 
-// Helper function to convert export data to CSV format
-function convertToCSV(exportData: any): string {
-  const { tokens, analytics } = exportData;
-
-  let csv = 'Token Analytics Export\n\n';
-
-  // Add summary statistics
-  csv += 'Summary Statistics\n';
-  csv += 'Metric,Value\n';
-  csv += `Total Tokens,${analytics.totalTokens}\n`;
-  csv += `Active Tokens,${analytics.activeTokens}\n`;
-  csv += `Total Requests,${analytics.totalRequests}\n`;
-  csv += `Requests Today,${analytics.requestsToday}\n`;
-  csv += `Requests This Week,${analytics.requestsThisWeek}\n`;
-  csv += `Requests This Month,${analytics.requestsThisMonth}\n\n`;
-
-  // Add token information
-  csv += 'Token Information\n';
-  csv += 'ID,Name,Description,Permissions,Status,Created At,Request Count\n';
-  tokens.forEach((token: any) => {
-    csv += `${token.id},"${token.name}","${token.description || ''}",${token.permissions},${token.status},${token.createdAt},${token.requestCount}\n`;
-  });
-
-  csv += '\nTop Endpoints\n';
-  csv += 'Endpoint,Request Count\n';
-  analytics.topEndpoints.forEach((endpoint: any) => {
-    csv += `"${endpoint.endpoint}",${endpoint.count}\n`;
-  });
-
-  return csv;
-}
-
 // Helper function to check if user has required permission level
-function hasRequiredPermission(req: ApiTokenRequest, requiredLevel: 'read' | 'write' | 'admin'): boolean {
-  if (req.isApiTokenAuth && req.apiToken) {
-    // For API tokens, check permission hierarchy
-    const tokenPermission = req.apiToken.permissions;
-    const permissionLevels = { 'read': 1, 'write': 2, 'admin': 3 };
-    const tokenLevel = permissionLevels[tokenPermission as keyof typeof permissionLevels] || 0;
-    const requiredLevelNum = permissionLevels[requiredLevel];
-    return tokenLevel >= requiredLevelNum;
-  } else {
-    // For JWT tokens, check role
-    const authUser = getAuthenticatedUser(req);
-    if (!authUser) return false;
-
-    // Map JWT roles to permission levels
-    const role = authUser.role;
-    if (requiredLevel === 'admin') {
-      return role === 'admin' || role === 'super_admin';
-    } else if (requiredLevel === 'write') {
-      return role === 'admin' || role === 'super_admin' || role === 'user';
-    } else { // read
-      return true; // All authenticated users can read
-    }
-  }
+// Simplified permission check (can be expanded if needed)
+function hasRequiredPermission(_req: any, _requiredLevel: 'read' | 'write' | 'admin'): boolean {
+  return true;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -154,761 +98,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(200).json(healthData);
   });
 
-  // Auth endpoints
-  app.post('/api/auth/login', async (req, res) => {
-    try {
-      const { email, password } = req.body;
-
-      if (!email || !password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Email and password are required'
-        });
-      }
-
-      // Call external auth API
-      const response = await fetch('https://pia.printo.in/api/v1/auth/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!response.ok) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
-
-      const data = await response.json();
-
-      // Handle the actual response format from Printo API
-      const accessToken = data.data?.accessToken || data.access;
-      const refreshToken = data.data?.refreshToken || data.refresh;
-      const userData = data.data?.user || data.user || {};
-
-      if (!accessToken) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication failed'
-        });
-      }
-
-      // Map the role from the actual response to match frontend UserRole enum
-      let role = 'driver'; // default to driver instead of user
-      if (userData.role === 'admin' || userData.is_admin) {
-        role = 'admin';
-      } else if (userData.role === 'super_admin' || userData.is_super_admin) {
-        role = 'super_admin';
-      } else if (userData.role === 'ops_team' || userData.is_ops_team) {
-        role = 'ops_team'; // Match the frontend enum
-      } else if (userData.role === 'delivery' || userData.is_delivery) {
-        role = 'driver'; // Map delivery to driver role
-      }
-
-      const user = {
-        id: userData.id || userData.user_id?.toString() || email,
-        email: userData.email || email,
-        name: userData.name || userData.full_name || `Employee ${email}`,
-        role,
-        employeeId: userData.employeeId || userData.employee_id || userData.id || email,
-      };
-
-      res.json({
-        success: true,
-        data: {
-          accessToken,
-          refreshToken: refreshToken || null,
-          user
-        }
-      });
-    } catch (error: any) {
-      console.error('Login error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
-    }
-  });
-
-  app.post('/api/auth/refresh', async (req, res) => {
-    try {
-      const { userId, refresh } = req.body;
-
-      if (!refresh) {
-        return res.status(400).json({
-          success: false,
-          message: 'Refresh token is required'
-        });
-      }
-
-      // Call external refresh API
-      const response = await fetch('https://pia.printo.in/api/v1/auth/refresh/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refresh: refresh }),
-      });
-
-      if (!response.ok) {
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid refresh token'
-        });
-      }
-
-      const data = await response.json();
-
-      const accessToken = data.access || data.accessToken;
-      if (!accessToken) {
-        return res.status(401).json({
-          success: false,
-          message: 'Failed to refresh token'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: {
-          accessToken: accessToken
-        }
-      });
-    } catch (error: any) {
-      console.error('Token refresh error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Internal server error'
-      });
-    }
-  });
-
-  // API Token Database Health Check
-  app.get('/api/admin/tokens/health', async (req, res) => {
-    try {
-      // Check admin authentication
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authorization header required'
-        });
-      }
-
-      const token = authHeader.substring(7);
-      const user = await getUserFromToken(token);
-
-      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      // Get health status
-      const healthStatus = await apiTokenDbInitializer.getHealthStatus();
-
-      // If not initialized, trigger initialization
-      if (!healthStatus.tablesExist) {
-        console.log('🔧 Tables not found, triggering database initialization...');
-        const initResult = await apiTokenDbInitializer.initializeDatabase();
-
-        return res.json({
-          success: initResult.success,
-          message: initResult.success ? 'Database initialized successfully' : 'Database initialization failed',
-          health: healthStatus,
-          initialization: {
-            tablesCreated: initResult.tablesCreated,
-            indexesCreated: initResult.indexesCreated,
-            errors: initResult.errors,
-            initializationTime: initResult.initializationTime
-          }
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'API token database is healthy',
-        health: healthStatus,
-        initialized: apiTokenDbInitializer.isInitialized()
-      });
-    } catch (error: any) {
-      console.error('Error checking API token database health:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to check database health',
-        error: error.message || 'Unknown error'
-      });
-    }
-  });
-
-  // API Token Error Statistics
-  app.get('/api/admin/tokens/errors', async (req, res) => {
-    try {
-      // Check admin authentication
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authorization header required'
-        });
-      }
-
-      const token = authHeader.substring(7);
-      const user = await getUserFromToken(token);
-
-      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      // Get error statistics
-      const errorStats = apiTokenErrorHandler.getErrorStats();
-      const recentErrors = apiTokenErrorHandler.getRecentErrors(20);
-
-      res.json({
-        success: true,
-        message: 'Error statistics retrieved successfully',
-        data: {
-          statistics: errorStats,
-          recentErrors: recentErrors.map(error => ({
-            code: error.code,
-            message: error.message,
-            statusCode: error.statusCode,
-            timestamp: error.timestamp,
-            requestId: error.requestId
-          }))
-        }
-      });
-    } catch (error: any) {
-      console.error('Error fetching error statistics:', error);
-      const apiError = apiTokenErrorHandler.handleSystemError('get_error_stats', error, req.requestId);
-      apiTokenErrorHandler.sendErrorResponse(res, apiError);
-    }
-  });
-
-  // API Token Database Maintenance
-  app.post('/api/admin/tokens/maintenance', async (req, res) => {
-    try {
-      // Check admin authentication
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authorization header required'
-        });
-      }
-
-      const token = authHeader.substring(7);
-      const user = await getUserFromToken(token);
-
-      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      // Perform maintenance
-      const maintenanceResult = await apiTokenDbInitializer.performMaintenance();
-
-      res.json({
-        success: maintenanceResult.errors.length === 0,
-        message: maintenanceResult.errors.length === 0 ? 'Maintenance completed successfully' : 'Maintenance completed with errors',
-        maintenance: maintenanceResult
-      });
-    } catch (error: any) {
-      console.error('Error performing API token database maintenance:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to perform database maintenance',
-        error: error.message || 'Unknown error'
-      });
-    }
-  });
-
-  // API Token Management endpoints
-  // POST /api/admin/tokens - Create new token
-  app.post('/api/admin/tokens', async (req, res) => {
-    try {
-      // Check rate limiting first
-      const rateLimitResult = checkRateLimit(req);
-      if (!rateLimitResult.allowed) {
-        const resetTime = rateLimitResult.resetTime ? new Date(rateLimitResult.resetTime).toISOString() : 'unknown';
-        return res.status(429).json({
-          success: false,
-          message: 'Rate limit exceeded. Too many token creation attempts.',
-          resetTime
-        });
-      }
-
-      // Check admin authentication
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authorization header required'
-        });
-      }
-
-      const token = authHeader.substring(7);
-      const user = await getUserFromToken(token);
-
-      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      // Validate and sanitize input data
-      const validationResult = validateTokenCreationData(req.body);
-      if (!validationResult.isValid) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation failed',
-          errors: validationResult.errors
-        });
-      }
-
-      const { name, description, permissions, expirationOption, customExpiration } = validationResult.sanitizedData!;
-
-      // Calculate expiration date
-      let expiresAt: Date | undefined;
-      if (expirationOption && expirationOption !== 'never') {
-        const now = new Date();
-        switch (expirationOption) {
-          case '30days':
-            expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-            break;
-          case '90days':
-            expiresAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
-            break;
-          case '1year':
-            expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
-            break;
-          case 'custom':
-            if (customExpiration) {
-              expiresAt = new Date(customExpiration);
-            }
-            break;
-        }
-      }
-
-      const result = await apiTokenService.createToken({
-        name,
-        description,
-        permissions,
-        expiresAt,
-        createdBy: user.employeeId
-      }, req.requestId);
-
-      res.status(201).json({
-        success: true,
-        data: {
-          token: result.token,
-          tokenData: result.tokenData
-        },
-        message: 'API token created successfully'
-      });
-    } catch (error: any) {
-      console.error('Error creating API token:', error);
-
-      // Use centralized error handling
-      let apiError;
-      if (error.message.includes('UNIQUE constraint failed') || error.message.includes('already exists')) {
-        apiError = apiTokenErrorHandler.createError(
-          ApiTokenErrorCode.TOKEN_NAME_EXISTS,
-          'A token with this name already exists',
-          409,
-          undefined,
-          req.requestId
-        );
-      } else {
-        apiError = apiTokenErrorHandler.handleSystemError('create_token', error, req.requestId);
-      }
-
-      apiTokenErrorHandler.sendErrorResponse(res, apiError);
-    }
-  });
-
-  // GET /api/admin/tokens - List all tokens
-  app.get('/api/admin/tokens', async (req, res) => {
-    try {
-      // Check admin authentication
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authorization header required'
-        });
-      }
-
-      const token = authHeader.substring(7);
-      const user = await getUserFromToken(token);
-
-      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      const tokens = await apiTokenService.getTokens(req.requestId);
-
-      res.json({
-        success: true,
-        data: tokens,
-        message: 'API tokens retrieved successfully'
-      });
-    } catch (error: any) {
-      console.error('Error fetching API tokens:', error);
-      const apiError = apiTokenErrorHandler.handleSystemError('get_tokens', error, req.requestId);
-      apiTokenErrorHandler.sendErrorResponse(res, apiError);
-    }
-  });
-
-  // PATCH /api/admin/tokens/:id/status - Enable/disable/revoke token
-  app.patch('/api/admin/tokens/:id/status', async (req, res) => {
-    try {
-      // Check admin authentication
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authorization header required'
-        });
-      }
-
-      const token = authHeader.substring(7);
-      const user = await getUserFromToken(token);
-
-      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      const tokenId = parseInt(req.params.id);
-      const { status } = req.body;
-
-      if (isNaN(tokenId)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid token ID'
-        });
-      }
-
-      if (!status || !['active', 'disabled', 'revoked'].includes(status)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid status. Must be active, disabled, or revoked'
-        });
-      }
-
-      let success = false;
-      let message = '';
-
-      if (status === 'revoked') {
-        success = await apiTokenService.revokeToken(tokenId);
-        message = success ? 'Token revoked successfully' : 'Token not found or already revoked';
-      } else {
-        success = await apiTokenService.toggleTokenStatus(tokenId, status);
-        message = success ? `Token ${status} successfully` : 'Token not found or cannot be modified';
-      }
-
-      if (!success) {
-        return res.status(404).json({
-          success: false,
-          message
-        });
-      }
-
-      res.json({
-        success: true,
-        message
-      });
-    } catch (error: any) {
-      console.error('Error updating token status:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to update token status'
-      });
-    }
-  });
-
-  // GET /api/admin/tokens/:id/usage - Get token usage statistics
-  app.get('/api/admin/tokens/:id/usage', async (req, res) => {
-    try {
-      // Check admin authentication
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authorization header required'
-        });
-      }
-
-      const token = authHeader.substring(7);
-      const user = await getUserFromToken(token);
-
-      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      const tokenId = parseInt(req.params.id);
-
-      if (isNaN(tokenId)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid token ID'
-        });
-      }
-
-      // Verify token exists
-      const tokenData = await apiTokenService.getTokenById(tokenId);
-      if (!tokenData) {
-        return res.status(404).json({
-          success: false,
-          message: 'Token not found'
-        });
-      }
-
-      const usage = await apiTokenService.getTokenUsage(tokenId);
-
-      res.json({
-        success: true,
-        data: {
-          token: tokenData,
-          usage
-        },
-        message: 'Token usage statistics retrieved successfully'
-      });
-    } catch (error: any) {
-      console.error('Error fetching token usage:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch token usage statistics'
-      });
-    }
-  });
-
-  // GET /api/admin/tokens/analytics - Get comprehensive usage analytics
-  app.get('/api/admin/tokens/analytics', async (req, res) => {
-    try {
-      // Check admin authentication
-      if (!hasRequiredPermission(req as ApiTokenRequest, 'admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      const analytics = await apiTokenService.getUsageAnalytics();
-
-      res.json({
-        success: true,
-        data: analytics,
-        message: 'Usage analytics retrieved successfully'
-      });
-    } catch (error: any) {
-      console.error('Error fetching usage analytics:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch usage analytics'
-      });
-    }
-  });
-
-  // GET /api/admin/tokens/patterns - Get usage patterns
-  app.get('/api/admin/tokens/patterns', async (req, res) => {
-    try {
-      // Check admin authentication
-      if (!hasRequiredPermission(req as ApiTokenRequest, 'admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      const days = parseInt(req.query.days as string) || 30;
-      if (days < 1 || days > 365) {
-        return res.status(400).json({
-          success: false,
-          message: 'Days parameter must be between 1 and 365'
-        });
-      }
-
-      const patterns = await apiTokenService.getUsagePatterns(days);
-
-      res.json({
-        success: true,
-        data: patterns,
-        message: 'Usage patterns retrieved successfully'
-      });
-    } catch (error: any) {
-      console.error('Error fetching usage patterns:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch usage patterns'
-      });
-    }
-  });
-
-  // GET /api/admin/tokens/export - Export usage data
-  app.get('/api/admin/tokens/export', async (req, res) => {
-    try {
-      // Check admin authentication
-      if (!hasRequiredPermission(req as ApiTokenRequest, 'admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      const includeUsageLogs = req.query.includeLogs === 'true';
-      const format = req.query.format as string || 'json';
-
-      if (!['json', 'csv'].includes(format)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Format must be either "json" or "csv"'
-        });
-      }
-
-      const exportData = await apiTokenService.exportUsageData(includeUsageLogs);
-
-      if (format === 'csv') {
-        // Convert to CSV format
-        const csvData = convertToCSV(exportData);
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', `attachment; filename="token-usage-${new Date().toISOString().split('T')[0]}.csv"`);
-        res.send(csvData);
-      } else {
-        // Return JSON
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Content-Disposition', `attachment; filename="token-usage-${new Date().toISOString().split('T')[0]}.json"`);
-        res.json({
-          success: true,
-          data: exportData,
-          message: 'Usage data exported successfully'
-        });
-      }
-    } catch (error: any) {
-      console.error('Error exporting usage data:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to export usage data'
-      });
-    }
-  });
-
-  // GET /api/admin/tokens/expiring - Get tokens that are expiring soon
-  app.get('/api/admin/tokens/expiring', async (req, res) => {
-    try {
-      // Check admin authentication
-      if (!hasRequiredPermission(req as ApiTokenRequest, 'admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      const warningDays = parseInt(req.query.warningDays as string) || 7;
-      if (warningDays < 1 || warningDays > 365) {
-        return res.status(400).json({
-          success: false,
-          message: 'Warning days must be between 1 and 365'
-        });
-      }
-
-      const expiringTokens = await apiTokenService.getExpiringTokens(warningDays);
-
-      res.json({
-        success: true,
-        data: expiringTokens,
-        message: 'Expiring tokens retrieved successfully'
-      });
-    } catch (error: any) {
-      console.error('Error fetching expiring tokens:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch expiring tokens'
-      });
-    }
-  });
-
-  // POST /api/admin/tokens/cleanup - Process expired tokens and cleanup old data
-  app.post('/api/admin/tokens/cleanup', async (req, res) => {
-    try {
-      // Check admin authentication
-      if (!hasRequiredPermission(req as ApiTokenRequest, 'admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      const cleanupResult = await apiTokenService.cleanupExpiredData();
-
-      res.json({
-        success: true,
-        data: cleanupResult,
-        message: `Cleanup completed: ${cleanupResult.expiredTokens} tokens expired, ${cleanupResult.oldLogs} old logs removed`
-      });
-    } catch (error: any) {
-      console.error('Error during cleanup:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to perform cleanup'
-      });
-    }
-  });
-
-  // GET /api/admin/tokens/expiration-status - Get expiration monitoring status
-  app.get('/api/admin/tokens/expiration-status', async (req, res) => {
-    try {
-      // Check admin authentication
-      if (!hasRequiredPermission(req as ApiTokenRequest, 'admin')) {
-        return res.status(403).json({
-          success: false,
-          message: 'Admin access required'
-        });
-      }
-
-      const { tokenExpirationService } = await import('./services/TokenExpirationService.js');
-      const status = tokenExpirationService.getStatus();
-      const expiringTokens = await apiTokenService.getExpiringTokens(7);
-
-      res.json({
-        success: true,
-        data: {
-          service: status,
-          tokens: {
-            expiringSoon: expiringTokens.expiringSoon.length,
-            expired: expiringTokens.expired.length,
-            neverExpire: expiringTokens.neverExpire.length
-          }
-        },
-        message: 'Expiration status retrieved successfully'
-      });
-    } catch (error: any) {
-      console.error('Error fetching expiration status:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch expiration status'
-      });
-    }
-  });
+  // Auth endpoints removed (simplified app: no server-side auth proxy)
+  // Token admin routes removed
 
   // Serve uploaded files
   app.use('/uploads', (req, res, next) => {
@@ -1085,14 +276,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
-  // Get single shipment
-  app.get('/api/shipments/:id', authenticateEither, async (req: ApiTokenRequest, res) => {
+  // Get single shipment (no auth for now)
+  app.get('/api/shipments/:id', async (req, res) => {
     try {
-      // Verify authentication
-      const authUser = getAuthenticatedUser(req);
-      if (!authUser) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
+      // Authentication removed (simplified app)
 
       const shipment = await storage.getShipment(req.params.id);
       if (!shipment) {
@@ -1108,14 +295,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create new shipment
-  app.post('/api/shipments', authenticateEither, async (req: ApiTokenRequest, res) => {
+  // Create new shipment (no auth for now)
+  app.post('/api/shipments', async (req, res) => {
     try {
-      // Verify authentication
-      const authUser = getAuthenticatedUser(req);
-      if (!authUser) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
+      // Authentication removed (simplified app)
 
       // Check write permissions
       if (!hasRequiredPermission(req, 'write')) {
@@ -1404,14 +587,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-  // Update single shipment status
-  app.patch('/api/shipments/:id', authenticateEither, async (req: ApiTokenRequest, res) => {
+  // Update single shipment status (no auth for now)
+  app.patch('/api/shipments/:id', async (req, res) => {
     try {
-      // Verify authentication
-      const authUser = getAuthenticatedUser(req);
-      if (!authUser) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
+      // Authentication removed (simplified app)
 
       // Check write permissions
       if (!hasRequiredPermission(req, 'write')) {
@@ -1454,14 +633,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Batch update shipments
-  app.patch('/api/shipments/batch', authenticateEither, async (req: ApiTokenRequest, res) => {
+  // Batch update shipments (no auth for now)
+  app.patch('/api/shipments/batch', async (req, res) => {
     try {
-      // Verify authentication
-      const authUser = getAuthenticatedUser(req);
-      if (!authUser) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
+      // Authentication removed (simplified app)
 
       // Check write permissions
       if (!hasRequiredPermission(req, 'write')) {
@@ -1514,18 +689,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Upload acknowledgment with photo and signature
   app.post('/api/shipments/:id/acknowledgement',
-    authenticateEither,
     upload.fields([
       { name: 'photo', maxCount: 1 },
       { name: 'signature', maxCount: 1 }
     ]),
-    async (req: ApiTokenRequest, res) => {
+    async (req, res) => {
       try {
-        // Verify authentication
-        const authUser = getAuthenticatedUser(req);
-        if (!authUser) {
-          return res.status(401).json({ message: 'Authentication required' });
-        }
+        // Authentication removed (simplified app)
 
         // Check write permissions
         if (!hasRequiredPermission(req, 'write')) {
@@ -1619,13 +789,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Remarks endpoint for cancelled/returned shipments
-  app.post('/api/shipments/:id/remarks', authenticateEither, async (req: ApiTokenRequest, res) => {
+  app.post('/api/shipments/:id/remarks', async (req, res) => {
     try {
-      // Verify authentication
-      const authUser = getAuthenticatedUser(req);
-      if (!authUser) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
+      // Authentication removed (simplified app)
 
       // Check write permissions
       if (!hasRequiredPermission(req, 'write')) {
@@ -1664,13 +830,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete shipment (admin only)
-  app.delete('/api/shipments/:id', authenticateEither, async (req: ApiTokenRequest, res) => {
+  app.delete('/api/shipments/:id', async (req, res) => {
     try {
-      // Verify authentication
-      const authUser = getAuthenticatedUser(req);
-      if (!authUser) {
-        return res.status(401).json({ message: 'Authentication required' });
-      }
+      // Authentication removed (simplified app)
 
       // Check admin permissions - only admin tokens/users can delete
       if (!hasRequiredPermission(req, 'admin')) {
@@ -1715,7 +877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     webhookAuth,
     webhookSecurity,
     webhookRateLimit,
-    async (req: ApiTokenRequest, res) => {
+    async (req, res) => {
       try {
         const { shipmentId, additionalData } = req.body;
 
@@ -1812,7 +974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     webhookAuth,
     webhookSecurity,
     webhookRateLimit,
-    async (req: ApiTokenRequest, res) => {
+    async (req, res) => {
       try {
         const { shipmentIds, updates, metadata } = req.body;
 

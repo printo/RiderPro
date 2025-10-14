@@ -4,13 +4,12 @@ This document provides a comprehensive list of all APIs used in the system and t
 
 ## Internal APIs (Our Server Endpoints)
 
-### Authentication & Authorization
+### System Health
 
 | Endpoint | Method | Use Case |
 |----------|--------|----------|
-| `/api/auth/login` | POST | User login with email/password via Printo API |
-| `/api/auth/refresh` | POST | Refresh expired access tokens |
 | `/api/health` | GET | System health check with rate limiting |
+| `/api-status` | GET | Simple API status/debug endpoint |
 
 ### Shipment Management
 
@@ -38,6 +37,13 @@ This document provides a comprehensive list of all APIs used in the system and t
 | `/api/routes/session/:sessionId` | GET | Get session data and coordinates |
 | `/api/routes/coordinates/batch` | POST | Batch submit GPS coordinates (offline sync) |
 
+### Offline Sync (Client-initiated)
+
+| Endpoint | Method | Use Case |
+|----------|--------|----------|
+| `/api/routes/sync-session` | POST | Sync offline route sessions from client (client calls exist; server route not found) |
+| `/api/routes/sync-coordinates` | POST | Sync offline GPS coordinates from client (client calls exist; server route not found) |
+
 ### Dashboard & Analytics
 
 | Endpoint | Method | Use Case |
@@ -51,23 +57,12 @@ This document provides a comprehensive list of all APIs used in the system and t
 | `/api/sync/stats` | GET | Get synchronization statistics |
 | `/api/sync/trigger` | POST | Trigger manual data sync with external systems |
 
-### API Token Management (Admin)
+### Additional Client-Used Endpoints (Missing on Server)
 
 | Endpoint | Method | Use Case |
 |----------|--------|----------|
-| `/api/admin/tokens` | POST | Create new API token |
-| `/api/admin/tokens` | GET | List all API tokens |
-| `/api/admin/tokens/:id/status` | PATCH | Enable/disable/revoke API token |
-| `/api/admin/tokens/:id/usage` | GET | Get token usage statistics |
-| `/api/admin/tokens/analytics` | GET | Get comprehensive usage analytics |
-| `/api/admin/tokens/patterns` | GET | Get usage patterns |
-| `/api/admin/tokens/export` | GET | Export usage data (JSON/CSV) |
-| `/api/admin/tokens/expiring` | GET | Get tokens expiring soon |
-| `/api/admin/tokens/cleanup` | POST | Clean up expired tokens and old data |
-| `/api/admin/tokens/expiration-status` | GET | Get expiration monitoring status |
-| `/api/admin/tokens/health` | GET | Check API token database health |
-| `/api/admin/tokens/errors` | GET | Get API token error statistics |
-| `/api/admin/tokens/maintenance` | POST | Perform database maintenance |
+| `/api/routes/shipment-event` | POST | Record pickup/delivery event tied to a route session (used in client `routeAPI.recordShipmentEvent`) |
+
 
 ### Error Logging
 
@@ -87,23 +82,9 @@ This document provides a comprehensive list of all APIs used in the system and t
 
 | Endpoint | Method | Use Case |
 |----------|--------|----------|
-| `https://pia.printo.in/api/v1/auth/` | POST | Primary user authentication |
-| `https://pia.printo.in/api/v1/auth/refresh/` | POST | Refresh access tokens |
-| `https://pia.printo.in/api/v1/auth/me/` | GET | Verify user token and get user info |
-
-**Authentication Flow:**
-1. User enters credentials in our login form
-2. We send credentials to Printo API for verification
-3. Printo API returns access/refresh tokens and user data
-4. We map Printo user roles to our internal roles
-5. We store tokens for subsequent API calls
-
-**Role Mapping:**
-- `is_admin` → `admin`
-- `is_super_admin` → `super_admin`
-- `is_ops_team` → `ops_team`
-- `is_delivery` → `driver`
-- Default → `driver`
+| `https://pia.printo.in/api/v1/auth/` | POST | Primary user authentication (client calls directly) |
+| `https://pia.printo.in/api/v1/auth/refresh/` | POST | Refresh access tokens (client calls directly) |
+| `https://pia.printo.in/api/v1/auth/me/` | GET | Verify user token and get user info (client calls directly) |
 
 ## Client-Side API Usage Patterns
 
@@ -111,8 +92,8 @@ This document provides a comprehensive list of all APIs used in the system and t
 
 | File | Purpose | APIs Used |
 |------|---------|-----------|
-| `client/src/services/ApiClient.ts` | Core HTTP client with auth, retry, offline support | All internal APIs |
-| `client/src/services/AuthService.ts` | Authentication management | Printo API, `/api/auth/*` |
+| `client/src/services/ApiClient.ts` | Core HTTP client with retry, offline support | All internal APIs |
+| `client/src/services/AuthService.ts` | Authentication management | Printo API (external only) |
 | `client/src/api/shipments.ts` | Shipment operations | `/api/shipments/*`, `/api/dashboard` |
 | `client/src/api/routes.ts` | Route tracking operations | `/api/routes/*` |
 | `client/src/api/analytics.ts` | Analytics and reporting | `/api/analytics/*` (if implemented) |
@@ -121,10 +102,9 @@ This document provides a comprehensive list of all APIs used in the system and t
 
 **Authentication Pattern:**
 ```typescript
-// Login flow
-authService.login(email, password) 
-→ POST /api/auth/login 
-→ Printo API authentication
+// Login flow uses external API directly (no server proxy)
+authService.login(email, password)
+→ POST https://pia.printo.in/api/v1/auth/
 → Store tokens locally
 ```
 
@@ -176,12 +156,7 @@ FormData with photo/signature
 
 ## API Authentication Methods
 
-| Method | Used For | Description |
-|--------|----------|-------------|
-| JWT Tokens | User authentication | Standard user sessions |
-| API Tokens | System integration | Machine-to-machine communication |
-| Webhook Auth | External integrations | Bearer token for webhook security |
-| Either Auth | Flexible endpoints | Accepts both JWT and API tokens |
+For now, server endpoints are open (development mode). Webhook endpoints remain protected with bearer tokens and rate limiting.
 
 ## Error Handling Patterns
 
@@ -208,7 +183,6 @@ FormData with photo/signature
 **Rate Limiting:**
 - Health check: 10 requests/minute per IP
 - Webhook endpoints: Configurable rate limits
-- API token creation: Rate limited per user
 
 **Batch Operations:**
 - GPS coordinates: Batch submission for offline sync
@@ -218,9 +192,8 @@ FormData with photo/signature
 ## Monitoring & Analytics
 
 **API Usage Tracking:**
-- Request counts per endpoint
-- Response times and error rates
-- Token usage statistics
+- Request counts per endpoint (planned)
+- Response times and error rates (planned)
 - Webhook delivery success rates
 
 **Health Monitoring:**
@@ -232,10 +205,8 @@ FormData with photo/signature
 ## Security Considerations
 
 **Authentication Security:**
-- Token rotation and expiration
-- Secure token storage
-- Rate limiting on auth endpoints
-- HTTPS enforcement
+- Client stores external tokens locally
+- HTTPS enforcement recommended in production
 
 **API Security:**
 - Input validation and sanitization
