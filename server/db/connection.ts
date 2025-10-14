@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import MigrationManager from '../migrations/index.js';
 
-const dbDir = path.join(process.cwd(), 'server/db');
+const dbDir = path.join(process.cwd(), 'data');
 
 // Ensure db directory exists
 if (!fs.existsSync(dbDir)) {

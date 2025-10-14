@@ -1,286 +1,178 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GPSTracker, GPSPosition } from '../services/GPSTracker';
-import { ErrorHandlingService } from '../services/ErrorHandlingService';
-import '../styles/mobile.css';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
+import {
+  Navigation,
+  MapPin,
+  Clock,
+  Battery,
+  Wifi,
+  WifiOff,
+  Play,
+  Pause,
+  Square,
+  AlertCircle,
+  CheckCircle
+} from 'lucide-react';
 
 interface MobileGPSTrackerProps {
-  onLocationUpdate?: (position: GPSPosition) => void;
-  onError?: (error: any) => void;
-  className?: string;
-}
-
-interface TrackingState {
-  isTracking: boolean;
-  isPaused: boolean;
-  sessionId: string | null;
-  currentPosition: GPSPosition | null;
-  distance: number;
-  duration: number;
-  accuracy: number;
+  onLocationUpdate?: (location: { latitude: number; longitude: number; accuracy: number }) => void;
+  onTrackingStart?: () => void;
+  onTrackingStop?: () => void;
+  isTracking?: boolean;
+  currentLocation?: { latitude: number; longitude: number; accuracy: number };
+  batteryLevel?: number;
+  isOnline?: boolean;
 }
 
 export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
   onLocationUpdate,
-  onError,
-  className = '',
+  onTrackingStart,
+  onTrackingStop,
+  isTracking = false,
+  currentLocation,
+  batteryLevel = 100,
+  isOnline = true
 }) => {
-  const [trackingState, setTrackingState] = useState<TrackingState>({
-    isTracking: false,
-    isPaused: false,
-    sessionId: null,
-    currentPosition: null,
-    distance: 0,
-    duration: 0,
-    accuracy: 0,
-  });
+  const [watchId, setWatchId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [trackingDuration, setTrackingDuration] = useState(0);
+  const [distance, setDistance] = useState(0);
+  const [speed, setSpeed] = useState(0);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  const [permissionStatus, setPermissionStatus] = useState<'unknown' | 'granted' | 'denied' | 'prompt'>('unknown');
-  const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [vibrationSupported, setVibrationSupported] = useState(false);
+  const startTimeRef = useRef<Date | null>(null);
+  const lastLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const gpsTrackerRef = useRef<GPSTracker | null>(null);
-  const errorHandlerRef = useRef<ErrorHandlingService | null>(null);
-  const startTimeRef = useRef<number | null>(null);
-  const durationIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  // Calculate distance between two coordinates
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-  // ------------------------------
-  // Initialization
-  // ------------------------------
-  useEffect(() => {
-    gpsTrackerRef.current = new GPSTracker(
-      true, // enableOfflineStorage
-      true, // enableBatteryOptimization
-      true, // enableAccuracyFiltering
-      true  // enableAdaptiveTracking
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance in meters
+  };
+
+  // Start GPS tracking
+  const startTracking = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by this browser');
+      return;
+    }
+
+    setError(null);
+    startTimeRef.current = new Date();
+    setTrackingDuration(0);
+    setDistance(0);
+    setSpeed(0);
+
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 1000
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        const newLocation = { latitude, longitude, accuracy };
+
+        setCurrentLocation(newLocation);
+        setLastUpdate(new Date());
+
+        // Calculate distance and speed
+        if (lastLocationRef.current) {
+          const dist = calculateDistance(
+            lastLocationRef.current.latitude,
+            lastLocationRef.current.longitude,
+            latitude,
+            longitude
+          );
+          setDistance(prev => prev + dist);
+
+          // Calculate speed (m/s)
+          const timeDiff = (new Date().getTime() - (lastUpdate?.getTime() || Date.now())) / 1000;
+          if (timeDiff > 0) {
+            setSpeed(dist / timeDiff);
+          }
+        }
+
+        lastLocationRef.current = { latitude, longitude };
+        onLocationUpdate?.(newLocation);
+      },
+      (error) => {
+        let errorMessage = 'Unknown error occurred';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location access denied by user';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information unavailable';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out';
+            break;
+        }
+        setError(errorMessage);
+      },
+      options
     );
 
-    errorHandlerRef.current = new ErrorHandlingService({
-      enableLogging: true,
-      enableRemoteLogging: false,
-      maxLocalLogs: 50,
-      enableAutoRecovery: true,
-      enableUserNotifications: true,
-    });
+    setWatchId(watchId);
+    onTrackingStart?.();
+  };
 
-    setVibrationSupported('vibrate' in navigator);
+  // Stop GPS tracking
+  const stopTracking = () => {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      setWatchId(null);
+    }
 
-    return () => {
-      gpsTrackerRef.current?.stopTracking();
-      if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
-    };
-  }, []);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
 
-  // ------------------------------
-  // Permissions
-  // ------------------------------
+    startTimeRef.current = null;
+    onTrackingStop?.();
+  };
+
+  // Update tracking duration
   useEffect(() => {
-    const checkPermission = async () => {
-      if (gpsTrackerRef.current) {
-        const status = await gpsTrackerRef.current.checkPermission();
-        setPermissionStatus(status);
-      }
-    };
-    checkPermission();
-  }, []);
-
-  // ------------------------------
-  // Battery Monitoring
-  // ------------------------------
-  useEffect(() => {
-    const updateBatteryInfo = async () => {
-      if ('getBattery' in navigator) {
-        try {
-          const battery = await (navigator as any).getBattery();
-          setBatteryLevel(battery.level);
-
-          battery.addEventListener('levelchange', () => {
-            setBatteryLevel(battery.level);
-          });
-        } catch {
-          console.log('Battery API not supported');
-        }
-      }
-    };
-    updateBatteryInfo();
-  }, []);
-
-  // ------------------------------
-  // Online/Offline Monitoring
-  // ------------------------------
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  // ------------------------------
-  // Duration Timer
-  // ------------------------------
-  useEffect(() => {
-    if (trackingState.isTracking && !trackingState.isPaused && startTimeRef.current) {
-      durationIntervalRef.current = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startTimeRef.current!) / 1000);
-        setTrackingState((prev) => ({ ...prev, duration: elapsed }));
+    if (isTracking && startTimeRef.current) {
+      intervalRef.current = setInterval(() => {
+        const now = new Date();
+        const duration = Math.floor((now.getTime() - startTimeRef.current!.getTime()) / 1000);
+        setTrackingDuration(duration);
       }, 1000);
     } else {
-      if (durationIntervalRef.current) {
-        clearInterval(durationIntervalRef.current);
-        durationIntervalRef.current = null;
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     }
 
     return () => {
-      if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
-  }, [trackingState.isTracking, trackingState.isPaused]);
+  }, [isTracking]);
 
-  // ------------------------------
-  // Event Handlers
-  // ------------------------------
-  const handleLocationUpdate = (position: GPSPosition) => {
-    setTrackingState((prev) => ({
-      ...prev,
-      currentPosition: position,
-      accuracy: position.accuracy || 0,
-    }));
-
-    onLocationUpdate?.(position);
-
-    if (vibrationSupported) navigator.vibrate(50);
-  };
-
-  const handleError = (error: any) => {
-    errorHandlerRef.current?.logError(
-      'gps',
-      `GPS tracking error: ${error.message}`,
-      error,
-      error.stack,
-      trackingState.sessionId || undefined
-    );
-
-    onError?.(error);
-
-    if (vibrationSupported) navigator.vibrate([100, 50, 100]);
-  };
-
-  const requestPermission = async () => {
-    if (gpsTrackerRef.current) {
-      const granted = await gpsTrackerRef.current.requestPermission();
-      setPermissionStatus(granted ? 'granted' : 'denied');
-      return granted;
-    }
-    return false;
-  };
-
-  const startTracking = async () => {
-    if (!gpsTrackerRef.current) return;
-
-    if (permissionStatus !== 'granted') {
-      const granted = await requestPermission();
-      if (!granted) {
-        alert('GPS permission is required for route tracking');
-        return;
-      }
-    }
-
-    const sessionId = `mobile-session-${Date.now()}`;
-    try {
-      await gpsTrackerRef.current.startTracking(sessionId, handleLocationUpdate, handleError);
-      startTimeRef.current = Date.now();
-      setTrackingState((prev) => ({
-        ...prev,
-        isTracking: true,
-        isPaused: false,
-        sessionId,
-        distance: 0,
-        duration: 0,
-      }));
-
-      if (vibrationSupported) navigator.vibrate(200);
-    } catch (error) {
-      console.error('Failed to start tracking:', error);
-      alert('Failed to start GPS tracking');
-    }
-  };
-
-  const pauseTracking = () => {
-    setTrackingState((prev) => ({ ...prev, isPaused: !prev.isPaused }));
-    if (vibrationSupported) navigator.vibrate(100);
-  };
-
-  const stopTracking = () => {
-    gpsTrackerRef.current?.stopTracking();
-    startTimeRef.current = null;
-
-    setTrackingState({
-      isTracking: false,
-      isPaused: false,
-      sessionId: null,
-      currentPosition: null,
-      distance: 0,
-      duration: 0,
-      accuracy: 0,
-    });
-
-    if (vibrationSupported) navigator.vibrate([100, 50, 100, 50, 100]);
-  };
-
-  const handleTouchStart = (e: React.TouchEvent, action: string) => {
-    const touch = e.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
-
-    if (action === 'stop') {
-      longPressTimerRef.current = setTimeout(() => {
-        setShowConfirmDialog(true);
-        if (vibrationSupported) navigator.vibrate(300);
-      }, 1000);
-    }
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent, action: string) => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-
-    if (!touchStartRef.current) return;
-
-    const touch = e.changedTouches[0];
-    const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
-    const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
-    const deltaTime = Date.now() - touchStartRef.current.time;
-
-    if (deltaX < 10 && deltaY < 10 && deltaTime < 500) {
-      switch (action) {
-        case 'start':
-          startTracking();
-          break;
-        case 'pause':
-          pauseTracking();
-          break;
-        case 'stop':
-          setShowConfirmDialog(true);
-          break;
-      }
-    }
-
-    touchStartRef.current = null;
-  };
-
-  // ------------------------------
-  // Helpers
-  // ------------------------------
+  // Format duration
   const formatDuration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -292,148 +184,150 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Format distance
   const formatDistance = (meters: number): string => {
-    if (meters < 1000) return `${Math.round(meters)}m`;
-    return `${(meters / 1000).toFixed(2)}km`;
+    if (meters >= 1000) {
+      return `${(meters / 1000).toFixed(2)} km`;
+    }
+    return `${meters.toFixed(0)} m`;
   };
 
-  const getStatusText = (): string => {
-    if (!trackingState.isTracking) return 'Stopped';
-    if (trackingState.isPaused) return 'Paused';
-    return 'Active';
+  // Format speed
+  const formatSpeed = (mps: number): string => {
+    const kmh = mps * 3.6;
+    return `${kmh.toFixed(1)} km/h`;
   };
 
-  // ------------------------------
-  // Render
-  // ------------------------------
-  if (permissionStatus === 'denied') {
-    return (
-      <div className={`gps-tracking-container ${className}`}>
-        <div className="error-message">
-          <h3>GPS Permission Required</h3>
-          <p>Please enable location access in your browser settings to use route tracking.</p>
-          <button onClick={requestPermission} className="tracking-button start">
-            Request Permission
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Get battery color
+  const getBatteryColor = (level: number): string => {
+    if (level > 50) return 'text-green-600';
+    if (level > 20) return 'text-yellow-600';
+    return 'text-red-600';
+  };
 
   return (
-    <div className={`gps-tracking-container ${className}`}>
-      {/* Status Display */}
-      <div className="tracking-status">
-        <div className="status-row">
-          <span
-            className={`status-indicator ${trackingState.isTracking ? (trackingState.isPaused ? 'paused' : 'active') : 'stopped'
-              }`}
-          />
-          <span className="status-text">{getStatusText()}</span>
-          {!isOnline && <span className="offline-indicator">📶 Offline</span>}
-        </div>
+    <div className="space-y-4 p-4">
+      {/* Header */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2">
+            <Navigation className="h-5 w-5" />
+            GPS Tracker
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Status Indicators */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1">
+                {isOnline ? (
+                  <Wifi className="h-4 w-4 text-green-600" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-red-600" />
+                )}
+                <span className="text-sm">{isOnline ? 'Online' : 'Offline'}</span>
+              </div>
 
-        {batteryLevel !== null && batteryLevel < 0.2 && (
-          <div className="battery-warning">🔋 Low battery - GPS tracking may be reduced</div>
-        )}
-      </div>
-
-      {/* Tracking Metrics */}
-      <div className="tracking-metrics">
-        <div className="metric-card">
-          <div className="metric-value">{formatDuration(trackingState.duration)}</div>
-          <div className="metric-label">Duration</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-value">{formatDistance(trackingState.distance)}</div>
-          <div className="metric-label">Distance</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-value">
-            {trackingState.accuracy > 0 ? `${Math.round(trackingState.accuracy)}m` : '--'}
-          </div>
-          <div className="metric-label">Accuracy</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-value">
-            {trackingState.currentPosition?.speed
-              ? `${Math.round(trackingState.currentPosition.speed * 3.6)}`
-              : '--'}
-          </div>
-          <div className="metric-label">Speed (km/h)</div>
-        </div>
-      </div>
-
-      {/* Control Buttons */}
-      <div className="tracking-controls">
-        {!trackingState.isTracking ? (
-          <button
-            className="tracking-button start"
-            onTouchStart={(e) => handleTouchStart(e, 'start')}
-            onTouchEnd={(e) => handleTouchEnd(e, 'start')}
-            disabled={permissionStatus === 'unknown'}
-          >
-            🚀 Start Tracking
-          </button>
-        ) : (
-          <>
-            <button
-              className="tracking-button pause"
-              onTouchStart={(e) => handleTouchStart(e, 'pause')}
-              onTouchEnd={(e) => handleTouchEnd(e, 'pause')}
-            >
-              {trackingState.isPaused ? '▶️ Resume' : '⏸️ Pause'}
-            </button>
-            <button
-              className="tracking-button stop"
-              onTouchStart={(e) => handleTouchStart(e, 'stop')}
-              onTouchEnd={(e) => handleTouchEnd(e, 'stop')}
-            >
-              ⏹️ Stop Tracking
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Current Location Display */}
-      {trackingState.currentPosition && (
-        <div className="location-display">
-          <h4>Current Location</h4>
-          <div className="coordinates">
-            <div>Lat: {trackingState.currentPosition.latitude.toFixed(6)}</div>
-            <div>Lng: {trackingState.currentPosition.longitude.toFixed(6)}</div>
-            <div className="timestamp">
-              {new Date(trackingState.currentPosition.timestamp).toLocaleTimeString()}
+              <div className="flex items-center gap-1">
+                <Battery className={`h-4 w-4 ${getBatteryColor(batteryLevel)}`} />
+                <span className="text-sm">{batteryLevel}%</span>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Confirmation Dialog */}
-      {showConfirmDialog && (
-        <div className="modal-overlay" onClick={() => setShowConfirmDialog(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h3>Stop Tracking?</h3>
-            <p>Are you sure you want to stop GPS tracking? This will end the current route session.</p>
-            <div className="modal-actions">
-              <button className="btn-secondary" onClick={() => setShowConfirmDialog(false)}>
-                Cancel
-              </button>
-              <button
-                className="btn-danger"
-                onClick={() => {
-                  stopTracking();
-                  setShowConfirmDialog(false);
-                }}
+            <Badge variant={isTracking ? 'default' : 'secondary'}>
+              {isTracking ? 'Tracking' : 'Stopped'}
+            </Badge>
+          </div>
+
+          {/* Error Display */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Current Location */}
+          {currentLocation && (
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Current Location</div>
+              <div className="text-xs text-muted-foreground">
+                Lat: {currentLocation.latitude.toFixed(6)}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Lng: {currentLocation.longitude.toFixed(6)}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Accuracy: ±{currentLocation.accuracy.toFixed(0)}m
+              </div>
+              {lastUpdate && (
+                <div className="text-xs text-muted-foreground">
+                  Last update: {lastUpdate.toLocaleTimeString()}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tracking Stats */}
+          {isTracking && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-sm text-muted-foreground">Duration</div>
+                <div className="text-lg font-semibold">{formatDuration(trackingDuration)}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Distance</div>
+                <div className="text-lg font-semibold">{formatDistance(distance)}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Speed</div>
+                <div className="text-lg font-semibold">{formatSpeed(speed)}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Battery</div>
+                <div className="text-lg font-semibold">{batteryLevel}%</div>
+              </div>
+            </div>
+          )}
+
+          {/* Battery Level Progress */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span>Battery Level</span>
+              <span>{batteryLevel}%</span>
+            </div>
+            <Progress value={batteryLevel} className="h-2" />
+          </div>
+
+          {/* Control Buttons */}
+          <div className="flex gap-2">
+            {!isTracking ? (
+              <Button
+                onClick={startTracking}
+                className="flex-1"
+                disabled={!isOnline}
               >
+                <Play className="h-4 w-4 mr-2" />
+                Start Tracking
+              </Button>
+            ) : (
+              <Button
+                onClick={stopTracking}
+                variant="destructive"
+                className="flex-1"
+              >
+                <Square className="h-4 w-4 mr-2" />
                 Stop Tracking
-              </button>
-            </div>
+              </Button>
+            )}
           </div>
-        </div>
-      )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
-export default MobileGPSTracker;
+export default withComponentErrorBoundary(MobileGPSTracker, {
+  componentVariant: 'mobile',
+  componentName: 'MobileGPSTracker'
+});

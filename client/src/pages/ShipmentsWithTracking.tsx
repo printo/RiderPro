@@ -17,19 +17,18 @@ import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
 // Lazy load the shipments list component
 const ShipmentsList = lazy(() => import("@/components/ShipmentsList"));
-import { useAuth } from "@/hooks/useAuth";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 
 function ShipmentsWithTracking() {
   const [filters, setFilters] = useState<ShipmentFilters>({});
-  const { logout } = useAuth();
+  // Auth removed - no logout needed
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const { toast } = useToast();
 
-  const { user: currentUser, isAuthenticated, authState } = useAuth();
+  // Auth removed - no user context needed
 
   // Debug: Log component mount and auth state
   useEffect(() => {

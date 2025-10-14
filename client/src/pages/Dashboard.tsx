@@ -1,6 +1,5 @@
 import { useDashboard } from "@/hooks/useDashboard";
 import { Card, CardContent } from "@/components/ui/card";
-import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import SyncStatusPanel from "@/components/sync/SyncStatusPanel";
 import StatusDistributionChart from "@/components/analytics/StatusDistributionChart";
@@ -13,9 +12,9 @@ import { useRouteTracking } from "@/hooks/useRouteAPI";
 
 function Dashboard() {
   const { data: metrics, isLoading, error } = useDashboard();
-  const { logout, user: currentUser } = useAuth();
+  // Auth removed - no user context needed
 
-  const employeeId = currentUser?.employeeId || currentUser?.username || "";
+  const employeeId = "default-user"; // Default employee ID since auth is removed
   const { hasActiveSession, activeSession } = useRouteTracking(employeeId);
 
   if (isLoading) {

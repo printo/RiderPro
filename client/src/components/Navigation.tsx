@@ -1,12 +1,11 @@
 import { Link, useLocation } from "wouter";
 import { Truck } from "lucide-react";
-import { useUser, useUserDisplayInfo } from "@/hooks/useAuth";
+// Auth removed - no user context needed
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 
 function Navigation() {
   const [location] = useLocation();
-  const user = useUser();
-  const { displayName, role } = useUserDisplayInfo();
+  // Auth removed - no user context needed
 
   const isActive = (path: string) => {
     if (path === "/" && (location === "/" || location === "/dashboard")) {

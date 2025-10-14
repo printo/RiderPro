@@ -1,458 +1,293 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import '../styles/mobile.css';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
+import {
+  MapPin,
+  Clock,
+  Navigation,
+  Users,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle,
+  Play,
+  Pause
+} from 'lucide-react';
 
 interface RiderLocation {
   id: string;
   name: string;
   latitude: number;
   longitude: number;
-  status: 'active' | 'paused' | 'offline';
+  accuracy: number;
+  speed: number;
+  heading: number;
   lastUpdate: string;
-  accuracy?: number;
-  speed?: number;
-  sessionId?: string;
+  status: 'active' | 'inactive' | 'offline';
+  batteryLevel: number;
 }
 
 interface MobileLiveTrackingProps {
-  className?: string;
+  riders?: RiderLocation[];
+  onRefresh?: () => void;
+  onRiderSelect?: (rider: RiderLocation) => void;
+  selectedRiderId?: string;
+  isLive?: boolean;
+  onToggleLive?: () => void;
 }
 
-// Custom hook for map interactions
-const MapController: React.FC<{ center: [number, number]; zoom: number }> = ({
-  center,
-  zoom
+export const MobileLiveTracking: React.FC<MobileLiveTrackingProps> = ({
+  riders = [],
+  onRefresh,
+  onRiderSelect,
+  selectedRiderId,
+  isLive = false,
+  onToggleLive
 }) => {
-  const map = useMap();
+  const [activeRiders, setActiveRiders] = useState<RiderLocation[]>([]);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   useEffect(() => {
-    map.setView(center, zoom);
-  }, [map, center, zoom]);
-
-  return null;
-};
-
-export const MobileLiveTracking: React.FC<MobileLiveTrackingProps> = ({
-  className = ''
-}) => {
-  const [riders, setRiders] = useState<RiderLocation[]>([]);
-  const [selectedRider, setSelectedRider] = useState<RiderLocation | null>(null);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([40.7128, -74.006]);
-  const [mapZoom, setMapZoom] = useState(13);
-  const [panelExpanded, setPanelExpanded] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [autoCenter, setAutoCenter] = useState(true);
-
-  const wsRef = useRef<WebSocket | null>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<Map<string, L.Marker>>(new Map());
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Custom marker icons
-  const createRiderIcon = (status: string, isSelected = false) => {
-    const colors = {
-      active: '#10b981',
-      paused: '#f59e0b',
-      offline: '#6b7280'
-    };
-
-    const size = isSelected ? 40 : 30;
-    const color = colors[status as keyof typeof colors] || colors.offline;
-
-    return L.divIcon({
-      html: `
-        <div style="
-          width: ${size}px;
-          height: ${size}px;
-          background: ${color};
-          border: 3px solid white;
-          border-radius: 50%;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: ${size * 0.4}px;
-          color: white;
-          font-weight: bold;
-        ">
-          ${status === 'active' ? '🚚' : status === 'paused' ? '⏸️' : '📍'}
-        </div>
-      `,
-      className: 'custom-rider-marker',
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2]
-    });
-  };
-
-  // WebSocket connection management
-  const connectWebSocket = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/live-tracking`;
-
-    wsRef.current = new WebSocket(wsUrl);
-
-    wsRef.current.onopen = () => {
-      console.log('WebSocket connected');
-      setError(null);
-
-      // Subscribe to all rider updates
-      wsRef.current?.send(JSON.stringify({ type: 'subscribe_all' }));
-    };
-
-    wsRef.current.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        handleWebSocketMessage(data);
-      } catch (err) {
-        console.error('Failed to parse WebSocket message:', err);
-      }
-    };
-
-    wsRef.current.onclose = () => {
-      console.log('WebSocket disconnected');
-      reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
-    };
-
-    wsRef.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setError('Connection lost. Attempting to reconnect...');
-    };
-  };
-
-  const handleWebSocketMessage = (data: any) => {
-    switch (data.type) {
-      case 'location_update':
-        updateRiderLocation(data);
-        break;
-      case 'rider_status':
-        updateRiderStatus(data);
-        break;
-      case 'riders_list':
-        setRiders(data.riders || []);
-        setLoading(false);
-        break;
-      default:
-        console.log('Unknown message type:', data.type);
-    }
-
+    setActiveRiders(riders);
     setLastUpdate(new Date());
+  }, [riders]);
+
+  const formatTime = (timestamp: string): string => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString();
   };
 
-  const updateRiderLocation = (data: any) => {
-    setRiders((prev) => {
-      const updated = prev.map((rider) =>
-        rider.id === data.employeeId
-          ? {
-            ...rider,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            lastUpdate: data.timestamp,
-            accuracy: data.accuracy,
-            speed: data.speed,
-            status: 'active' as const
-          }
-          : rider
-      );
+  const formatDistance = (lat1: number, lon1: number, lat2: number, lon2: number): string => {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-      if (!updated.find((r) => r.id === data.employeeId)) {
-        updated.push({
-          id: data.employeeId,
-          name: data.employeeId,
-          latitude: data.latitude,
-          longitude: data.longitude,
-          status: 'active',
-          lastUpdate: data.timestamp,
-          accuracy: data.accuracy,
-          speed: data.speed,
-          sessionId: data.sessionId
-        });
-      }
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-      return updated;
-    });
-  };
+    const distance = R * c; // Distance in meters
 
-  const updateRiderStatus = (data: any) => {
-    setRiders((prev) =>
-      prev.map((rider) =>
-        rider.id === data.employeeId
-          ? { ...rider, status: data.status, lastUpdate: data.timestamp }
-          : rider
-      )
-    );
-  };
-
-  // Auto-center map on riders
-  const centerMapOnRiders = () => {
-    if (riders.length === 0) return;
-
-    if (riders.length === 1) {
-      const rider = riders[0];
-      setMapCenter([rider.latitude, rider.longitude]);
-      setMapZoom(15);
-    } else {
-      const lats = riders.map((r) => r.latitude);
-      const lngs = riders.map((r) => r.longitude);
-
-      const minLat = Math.min(...lats);
-      const maxLat = Math.max(...lats);
-      const minLng = Math.min(...lngs);
-      const maxLng = Math.max(...lngs);
-
-      const centerLat = (minLat + maxLat) / 2;
-      const centerLng = (minLng + maxLng) / 2;
-
-      setMapCenter([centerLat, centerLng]);
-
-      const latDiff = maxLat - minLat;
-      const lngDiff = maxLng - minLng;
-      const maxDiff = Math.max(latDiff, lngDiff);
-
-      let zoom = 13;
-      if (maxDiff > 0.1) zoom = 10;
-      else if (maxDiff > 0.05) zoom = 11;
-      else if (maxDiff > 0.01) zoom = 12;
-      else zoom = 14;
-
-      setMapZoom(zoom);
+    if (distance >= 1000) {
+      return `${(distance / 1000).toFixed(2)} km`;
     }
-  };
-
-  const focusOnRider = (rider: RiderLocation) => {
-    setSelectedRider(rider);
-    setMapCenter([rider.latitude, rider.longitude]);
-    setMapZoom(16);
-    setAutoCenter(false);
-    setPanelExpanded(false);
+    return `${distance.toFixed(0)} m`;
   };
 
   const getStatusColor = (status: string): string => {
     switch (status) {
       case 'active':
-        return '#10b981';
-      case 'paused':
-        return '#f59e0b';
+        return 'text-green-600';
+      case 'inactive':
+        return 'text-yellow-600';
       case 'offline':
-        return '#6b7280';
+        return 'text-red-600';
       default:
-        return '#6b7280';
+        return 'text-gray-600';
     }
   };
 
-  const getStatusIcon = (status: string): string => {
+  const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case 'active':
-        return '🟢';
-      case 'paused':
-        return '🟡';
+        return 'default';
+      case 'inactive':
+        return 'secondary';
       case 'offline':
-        return '🔴';
+        return 'destructive';
       default:
-        return '⚪';
+        return 'outline';
     }
   };
 
-  const formatLastUpdate = (timestamp: string): string => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return date.toLocaleDateString();
+  const getBatteryColor = (level: number): string => {
+    if (level > 50) return 'text-green-600';
+    if (level > 20) return 'text-yellow-600';
+    return 'text-red-600';
   };
 
-  // Initialize WebSocket connection
-  useEffect(() => {
-    connectWebSocket();
+  const getSpeedColor = (speed: number): string => {
+    if (speed > 50) return 'text-red-600';
+    if (speed > 30) return 'text-yellow-600';
+    return 'text-green-600';
+  };
 
-    return () => {
-      if (wsRef.current) wsRef.current.close();
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-      if (updateIntervalRef.current) clearInterval(updateIntervalRef.current);
-    };
-  }, []);
-
-  // Auto-center when riders change
-  useEffect(() => {
-    if (autoCenter && riders.length > 0) centerMapOnRiders();
-  }, [riders, autoCenter]);
-
-  // Periodic status updates
-  useEffect(() => {
-    updateIntervalRef.current = setInterval(() => {
-      setRiders((prev) =>
-        prev.map((rider) => {
-          const lastUpdateTime = new Date(rider.lastUpdate).getTime();
-          const now = Date.now();
-          const diffMins = (now - lastUpdateTime) / 60000;
-
-          return {
-            ...rider,
-            status: diffMins > 5 ? 'offline' : rider.status
-          };
-        })
-      );
-    }, 30000);
-
-    return () => {
-      if (updateIntervalRef.current) clearInterval(updateIntervalRef.current);
-    };
-  }, []);
-
-  if (loading) {
-    return (
-      <div className={`live-tracking-container ${className}`}>
-        <div className="loading-container">
-          <div className="loading-spinner" />
-          <p>Connecting to live tracking...</p>
-        </div>
-      </div>
-    );
-  }
+  const isRiderOnline = (lastUpdate: string): boolean => {
+    const updateTime = new Date(lastUpdate);
+    const now = new Date();
+    const diffMinutes = (now.getTime() - updateTime.getTime()) / (1000 * 60);
+    return diffMinutes < 5; // Consider online if updated within 5 minutes
+  };
 
   return (
-    <div className={`live-tracking-container ${className}`}>
+    <div className="space-y-4 p-4">
       {/* Header */}
-      <div className="tracking-header">
-        <div className="header-content">
-          <h2>Live Tracking</h2>
-          <div className="header-controls">
-            <div className="status-indicator">
-              <span className={`connection-dot ${error ? 'offline' : 'online'}`} />
-              <span className="rider-count">{riders.length} riders</span>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Navigation className="h-5 w-5" />
+              Live Tracking
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {onToggleLive && (
+                <Button
+                  variant={isLive ? "default" : "outline"}
+                  size="sm"
+                  onClick={onToggleLive}
+                >
+                  {isLive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                </Button>
+              )}
+              {onRefresh && (
+                <Button variant="outline" size="sm" onClick={onRefresh}>
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              )}
             </div>
-            <button
-              className="center-btn"
-              onClick={() => {
-                setAutoCenter(true);
-                centerMapOnRiders();
-              }}
-            >
-              🎯
-            </button>
           </div>
-        </div>
-
-        {error && <div className="error-banner">{error}</div>}
-
-        <div className="last-update">
-          Last update: {lastUpdate.toLocaleTimeString()}
-        </div>
-      </div>
-
-      {/* Map */}
-      <div className="tracking-map">
-        <MapContainer
-          center={mapCenter}
-          zoom={mapZoom}
-          style={{ height: '100%', width: '100%' }}
-          ref={mapRef}
-          zoomControl
-          attributionControl={false}
-        >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          />
-
-          <MapController center={mapCenter} zoom={mapZoom} />
-
-          {riders.map((rider) => (
-            <Marker
-              key={rider.id}
-              position={[rider.latitude, rider.longitude]}
-              icon={createRiderIcon(rider.status, selectedRider?.id === rider.id)}
-              eventHandlers={{ click: () => focusOnRider(rider) }}
-            >
-              <Popup>
-                <div className="rider-popup">
-                  <h4>{rider.name}</h4>
-                  <div className="popup-status">
-                    {getStatusIcon(rider.status)} {rider.status}
-                  </div>
-                  <div className="popup-details">
-                    <div>Last update: {formatLastUpdate(rider.lastUpdate)}</div>
-                    {rider.speed && (
-                      <div>Speed: {Math.round(rider.speed * 3.6)} km/h</div>
-                    )}
-                    {rider.accuracy && (
-                      <div>Accuracy: {Math.round(rider.accuracy)}m</div>
-                    )}
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
-      </div>
-
-      {/* Rider Panel */}
-      <div className={`rider-panel ${panelExpanded ? 'expanded' : ''}`}>
-        <div
-          className="panel-handle"
-          onClick={() => setPanelExpanded(!panelExpanded)}
-        />
-        <div className="panel-header">
-          <h3>Active Riders ({riders.filter((r) => r.status === 'active').length})</h3>
-        </div>
-
-        <div className="rider-list">
-          {riders.map((rider) => (
-            <div
-              key={rider.id}
-              className={`rider-item ${selectedRider?.id === rider.id ? 'selected' : ''}`}
-              onClick={() => focusOnRider(rider)}
-            >
-              <div className="rider-avatar">{rider.name.charAt(0).toUpperCase()}</div>
-
-              <div className="rider-info">
-                <div className="rider-name">{rider.name}</div>
-                <div className="rider-status">
-                  <span
-                    className="status-dot"
-                    style={{ backgroundColor: getStatusColor(rider.status) }}
-                  />
-                  {rider.status} • {formatLastUpdate(rider.lastUpdate)}
-                </div>
-                {rider.speed && (
-                  <div className="rider-speed">
-                    {Math.round(rider.speed * 3.6)} km/h
-                  </div>
-                )}
+        </CardHeader>
+        <CardContent>
+          {/* Status Summary */}
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {activeRiders.filter(r => r.status === 'active').length}
               </div>
-
-              <button
-                className="rider-location-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  focusOnRider(rider);
-                }}
-              >
-                📍
-              </button>
+              <div className="text-xs text-muted-foreground">Active</div>
             </div>
-          ))}
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600">
+                {activeRiders.filter(r => r.status === 'inactive').length}
+              </div>
+              <div className="text-xs text-muted-foreground">Inactive</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">
+                {activeRiders.filter(r => r.status === 'offline').length}
+              </div>
+              <div className="text-xs text-muted-foreground">Offline</div>
+            </div>
+          </div>
 
-          {riders.length === 0 && (
-            <div className="empty-riders">
-              <div className="empty-icon">🚚</div>
-              <p>No active riders</p>
+          {/* Last Update */}
+          {lastUpdate && (
+            <div className="text-xs text-muted-foreground text-center mb-4">
+              Last updated: {lastUpdate.toLocaleTimeString()}
             </div>
           )}
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* Riders List */}
+      <div className="space-y-3">
+        {activeRiders.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center">
+              <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+              <div className="text-muted-foreground">No riders available</div>
+            </CardContent>
+          </Card>
+        ) : (
+          activeRiders.map((rider) => (
+            <Card
+              key={rider.id}
+              className={`cursor-pointer transition-colors ${selectedRiderId === rider.id ? 'ring-2 ring-blue-500' : ''
+                }`}
+              onClick={() => onRiderSelect?.(rider)}
+            >
+              <CardContent className="p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                      <div className="rider-avatar">{rider.name.charAt(0).toUpperCase()}</div>
+                    </div>
+                    <div>
+                      <div className="font-medium">{rider.name}</div>
+                      <div className="text-xs text-muted-foreground">ID: {rider.id}</div>
+                    </div>
+                  </div>
+                  <Badge variant={getStatusBadgeVariant(rider.status)}>
+                    {rider.status}
+                  </Badge>
+                </div>
+
+                {/* Location Info */}
+                <div className="grid grid-cols-2 gap-2 text-sm mb-2">
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-muted-foreground">Lat:</span>
+                    <span className="font-mono text-xs">{rider.latitude.toFixed(4)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-muted-foreground">Lng:</span>
+                    <span className="font-mono text-xs">{rider.longitude.toFixed(4)}</span>
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <div className="text-muted-foreground">Speed</div>
+                    <div className={`font-medium ${getSpeedColor(rider.speed)}`}>
+                      {rider.speed.toFixed(1)} km/h
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Battery</div>
+                    <div className={`font-medium ${getBatteryColor(rider.batteryLevel)}`}>
+                      {rider.batteryLevel}%
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Accuracy</div>
+                    <div className="font-medium">±{rider.accuracy.toFixed(0)}m</div>
+                  </div>
+                </div>
+
+                {/* Last Update */}
+                <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    <span>Updated: {formatTime(rider.lastUpdate)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {isRiderOnline(rider.lastUpdate) ? (
+                      <CheckCircle className="h-3 w-3 text-green-600" />
+                    ) : (
+                      <AlertCircle className="h-3 w-3 text-red-600" />
+                    )}
+                    <span>{isRiderOnline(rider.lastUpdate) ? 'Online' : 'Offline'}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
+
+      {/* No Data Alert */}
+      {activeRiders.length === 0 && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No rider data available. Make sure the tracking service is running.
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 };
 
-export default MobileLiveTracking;
+export default withComponentErrorBoundary(MobileLiveTracking, {
+  componentVariant: 'mobile',
+  componentName: 'MobileLiveTracking'
+});

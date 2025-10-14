@@ -1,4 +1,3 @@
-import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/ApiClient";
@@ -11,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
 function AdminPage() {
-  const { user } = useAuth();
+  // Auth removed - no user context needed
   const [, setLocation] = useLocation();
   const [showFuelSettings, setShowFuelSettings] = useState(false);
   const [payloadInput, setPayloadInput] = useState<string>('');

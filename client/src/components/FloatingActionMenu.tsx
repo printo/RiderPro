@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
-import type { User } from "@/types/Auth";
+// Auth types removed
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -25,7 +24,7 @@ function FloatingActionMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const { theme, toggleTheme } = useTheme();
-  const { user, logout } = useAuth();
+  // Auth removed - no user context needed
 
   const menuItems = [
     {

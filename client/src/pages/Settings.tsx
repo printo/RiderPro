@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/hooks/useAuth';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import SyncStatusPanel from '@/components/sync/SyncStatusPanel';
 import {
@@ -17,28 +16,14 @@ import {
 } from 'lucide-react';
 
 function Settings() {
-  const { user, logout, permissions } = useAuth();
+  // Auth removed - no user context needed
 
   const handleLogout = async () => {
-    try {
-      await logout();
-      window.location.href = '/login';
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
+    // Auth removed - no logout needed
+    console.log('Logout functionality removed');
   };
 
-  if (!user) {
-    return (
-      <div className="container mx-auto p-4">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <p className="text-muted-foreground">Please log in to access settings.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Auth removed - always show settings
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
