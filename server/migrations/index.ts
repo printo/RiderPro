@@ -348,6 +348,66 @@ class MigrationManager {
       }
     });
 
+    // Migration 005: Add external integration fields to shipments table
+    this.migrations.push({
+      id: '005_shipments_external_integration',
+      version: 5,
+      description: 'Add missing fields for external system integration to shipments table',
+      createdAt: '2024-01-05T00:00:00Z',
+      up: (db: Database) => {
+        // Check which columns already exist to avoid errors
+        const tableInfo = db.prepare("PRAGMA table_info(shipments)").all();
+        const existingColumns = new Set(tableInfo.map((col: any) => col.name));
+
+        // Add missing columns one by one
+        if (!existingColumns.has('priority')) {
+          db.exec('ALTER TABLE shipments ADD COLUMN priority TEXT');
+        }
+
+        if (!existingColumns.has('pickupAddress')) {
+          db.exec('ALTER TABLE shipments ADD COLUMN pickupAddress TEXT');
+        }
+
+        if (!existingColumns.has('weight')) {
+          db.exec('ALTER TABLE shipments ADD COLUMN weight REAL');
+        }
+
+        if (!existingColumns.has('dimensions')) {
+          db.exec('ALTER TABLE shipments ADD COLUMN dimensions TEXT');
+        }
+
+        if (!existingColumns.has('specialInstructions')) {
+          db.exec('ALTER TABLE shipments ADD COLUMN specialInstructions TEXT');
+        }
+
+        if (!existingColumns.has('actualDeliveryTime')) {
+          db.exec('ALTER TABLE shipments ADD COLUMN actualDeliveryTime TEXT');
+        }
+
+        // Create indexes for external integration fields
+        db.exec(`
+          CREATE INDEX IF NOT EXISTS idx_shipments_priority ON shipments(priority);
+          CREATE INDEX IF NOT EXISTS idx_shipments_pickup_address ON shipments(pickupAddress);
+          CREATE INDEX IF NOT EXISTS idx_shipments_weight ON shipments(weight);
+          CREATE INDEX IF NOT EXISTS idx_shipments_actual_delivery ON shipments(actualDeliveryTime);
+        `);
+      },
+      down: (db: Database) => {
+        // SQLite doesn't support DROP COLUMN, so we would need to recreate the table
+        // For now, we'll just drop the indexes in the rollback
+        db.exec(`
+          DROP INDEX IF EXISTS idx_shipments_actual_delivery;
+          DROP INDEX IF EXISTS idx_shipments_weight;
+          DROP INDEX IF EXISTS idx_shipments_pickup_address;
+          DROP INDEX IF EXISTS idx_shipments_priority;
+        `);
+
+        // Note: In a production environment, you would recreate the table without these columns
+        // This is a simplified rollback that only removes indexes
+        console.log('Warning: Column removal not implemented in rollback. Only indexes were dropped.');
+      }
+    });
+
     // Sort migrations by version
     this.migrations.sort((a, b) => a.version - b.version);
   }
@@ -504,6 +564,12 @@ class MigrationManager {
       latest: executed.length > 0 ? Math.max(...executed.map(m => m.version)) : null,
       migrations
     };
+  }
+
+  public initializeDefaultData(): void {
+    // This method can be used to initialize default data after migrations
+    // Currently no default data is needed for the shipments table
+    console.log('✅ Default data initialization completed');
   }
 }
 

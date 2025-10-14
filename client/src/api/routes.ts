@@ -256,11 +256,12 @@ export const routeAPI = {
   },
 
   /**
-   * Check if route tracking API is available
+   * Check if route tracking API is available (cached for performance)
    */
   checkAPIHealth: async (): Promise<boolean> => {
     try {
-      const response = await apiClient.get('/api/routes/analytics?limit=1');
+      // Use a lighter endpoint for health checks
+      const response = await apiClient.get('/api/health');
       return response.ok;
     } catch (error) {
       return false;

@@ -17,6 +17,9 @@ import {
 import { upload, getFileUrl, saveBase64File } from "./utils/fileUpload.js";
 import { externalSync } from "./services/externalSync.js";
 import { apiTokenService } from "./services/ApiTokenService.js";
+import { fieldMappingService } from "./services/FieldMappingService.js";
+import { payloadValidationService } from "./services/PayloadValidationService.js";
+import { webhookAuth, webhookSecurity, webhookLogger, webhookRateLimit, webhookPayloadLimit } from "./middleware/webhookAuth.js";
 import { authenticateEither, getAuthenticatedUser, ApiTokenRequest, requireApiTokenPermission } from "./middleware/apiTokenAuth.js";
 import { apiTokenDbInitializer } from "./db/apiTokenInit.js";
 import { apiTokenErrorHandler, ApiTokenErrorHandler, ApiTokenErrorCode } from "./utils/apiTokenErrorHandler.js";
@@ -90,9 +93,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.use(ApiTokenErrorHandler.errorMiddleware());
   };
 
-  // Health check endpoint for connectivity monitoring
+  // Health check endpoint for connectivity monitoring with caching and rate limiting
+  let healthCheckCache: { data: any; timestamp: number } | null = null;
+  const HEALTH_CHECK_CACHE_TTL = 10000; // 10 seconds cache
+  const healthCheckRateLimit = new Map<string, { count: number; resetTime: number }>();
+  const HEALTH_CHECK_RATE_LIMIT = 10; // 10 requests per minute per IP
+  const HEALTH_CHECK_RATE_WINDOW = 60000; // 1 minute window
+
   app.get('/api/health', (req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+    const now = Date.now();
+    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+
+    // Rate limiting check
+    const rateLimitKey = `health_${clientIP}`;
+    const rateLimitData = healthCheckRateLimit.get(rateLimitKey);
+
+    if (rateLimitData) {
+      if (now > rateLimitData.resetTime) {
+        // Reset the counter
+        healthCheckRateLimit.set(rateLimitKey, { count: 1, resetTime: now + HEALTH_CHECK_RATE_WINDOW });
+      } else if (rateLimitData.count >= HEALTH_CHECK_RATE_LIMIT) {
+        // Rate limit exceeded
+        res.set('Retry-After', Math.ceil((rateLimitData.resetTime - now) / 1000).toString());
+        return res.status(429).json({
+          error: 'Rate limit exceeded',
+          message: 'Too many health check requests. Please slow down.',
+          retryAfter: Math.ceil((rateLimitData.resetTime - now) / 1000)
+        });
+      } else {
+        // Increment counter
+        rateLimitData.count++;
+      }
+    } else {
+      // First request from this IP
+      healthCheckRateLimit.set(rateLimitKey, { count: 1, resetTime: now + HEALTH_CHECK_RATE_WINDOW });
+    }
+
+    // Return cached response if still valid
+    if (healthCheckCache && (now - healthCheckCache.timestamp) < HEALTH_CHECK_CACHE_TTL) {
+      res.set('Cache-Control', 'public, max-age=10');
+      res.set('X-Health-Cache', 'HIT');
+      return res.status(200).json({ ...healthCheckCache.data, cached: true });
+    }
+
+    // Generate new response and cache it
+    const healthData = {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      cached: false
+    };
+
+    healthCheckCache = {
+      data: healthData,
+      timestamp: now
+    };
+
+    res.set('Cache-Control', 'public, max-age=10');
+    res.set('X-Health-Cache', 'MISS');
+    res.status(200).json(healthData);
   });
 
   // Auth endpoints
@@ -1080,6 +1139,271 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Receive external shipment data (for external system integration)
+  app.post('/api/shipments/receive',
+    webhookSecurity,
+    webhookRateLimit,
+    webhookPayloadLimit,
+    webhookAuth,
+    webhookLogger,
+    async (req, res) => {
+      try {
+        // Additional security validations
+        const payload = req.body;
+
+        // Validate content type
+        if (!req.is('application/json')) {
+          return res.status(400).json({
+            success: false,
+            message: 'Content-Type must be application/json',
+            error: 'INVALID_CONTENT_TYPE',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Validate payload exists
+        if (!payload || typeof payload !== 'object') {
+          return res.status(400).json({
+            success: false,
+            message: 'Request body must be a valid JSON object',
+            error: 'INVALID_PAYLOAD',
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Determine if this is a single shipment or batch
+        const isBatch = payload.shipments && Array.isArray(payload.shipments);
+
+        if (isBatch) {
+          // Handle batch shipments
+          const batchValidation = payloadValidationService.validateBatchShipments(payload);
+
+          if (!batchValidation.isValid) {
+            return res.status(400).json({
+              success: false,
+              message: 'Batch validation failed',
+              errors: batchValidation.errors,
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          const results = {
+            total: payload.shipments.length,
+            created: 0,
+            updated: 0,
+            failed: 0,
+            duplicates: 0
+          };
+
+          const processedShipments = [];
+
+          // Process each shipment in the batch
+          for (let i = 0; i < payload.shipments.length; i++) {
+            const externalShipment = payload.shipments[i];
+
+            try {
+              // Map external payload to internal format
+              const internalShipment = fieldMappingService.mapExternalToInternal(externalShipment);
+
+              // Check for existing shipment by piashipmentid
+              const existingShipment = await storage.getShipmentByExternalId(externalShipment.id);
+
+              if (existingShipment) {
+                // Update existing shipment
+                const updatedShipment = await storage.updateShipment(existingShipment.id, {
+                  id: existingShipment.id,
+                  status: internalShipment.status,
+                  priority: internalShipment.priority,
+                  customerName: internalShipment.customerName,
+                  customerMobile: internalShipment.customerMobile,
+                  address: internalShipment.address,
+                  latitude: internalShipment.latitude,
+                  longitude: internalShipment.longitude,
+                  cost: internalShipment.cost,
+                  deliveryTime: internalShipment.deliveryTime,
+                  routeName: internalShipment.routeName,
+                  employeeId: internalShipment.employeeId,
+                  pickupAddress: internalShipment.pickupAddress,
+                  weight: internalShipment.weight,
+                  dimensions: internalShipment.dimensions,
+                  specialInstructions: internalShipment.specialInstructions
+                });
+
+                results.updated++;
+                processedShipments.push({
+                  piashipmentid: externalShipment.id,
+                  internalId: existingShipment.id,
+                  status: 'updated',
+                  message: 'Shipment updated successfully'
+                });
+              } else {
+                // Create new shipment
+                const newShipment = await storage.createShipment({
+                  trackingNumber: internalShipment.piashipmentid || internalShipment.id,
+                  type: internalShipment.type,
+                  customerName: internalShipment.customerName,
+                  customerMobile: internalShipment.customerMobile,
+                  address: internalShipment.address,
+                  latitude: internalShipment.latitude,
+                  longitude: internalShipment.longitude,
+                  cost: internalShipment.cost,
+                  deliveryTime: internalShipment.deliveryTime,
+                  routeName: internalShipment.routeName,
+                  employeeId: internalShipment.employeeId,
+                  status: internalShipment.status,
+                  priority: internalShipment.priority || 'medium',
+                  pickupAddress: internalShipment.pickupAddress || '',
+                  deliveryAddress: internalShipment.address,
+                  recipientName: internalShipment.customerName,
+                  recipientPhone: internalShipment.customerMobile,
+                  weight: internalShipment.weight || 0,
+                  dimensions: internalShipment.dimensions || '',
+                  specialInstructions: internalShipment.specialInstructions,
+                  estimatedDeliveryTime: internalShipment.deliveryTime
+                });
+
+                results.created++;
+                processedShipments.push({
+                  piashipmentid: externalShipment.id,
+                  internalId: newShipment.id,
+                  status: 'created',
+                  message: 'Shipment created successfully'
+                });
+              }
+            } catch (error: any) {
+              results.failed++;
+              processedShipments.push({
+                piashipmentid: externalShipment.id,
+                internalId: null,
+                status: 'failed',
+                message: error.message
+              });
+            }
+          }
+
+          return res.status(200).json({
+            success: true,
+            message: `Batch processing completed: ${results.created} created, ${results.updated} updated, ${results.failed} failed`,
+            results,
+            processedShipments,
+            timestamp: new Date().toISOString()
+          });
+
+        } else {
+          // Handle single shipment
+          const singleValidation = payloadValidationService.validateSingleShipment(payload);
+
+          if (!singleValidation.isValid) {
+            return res.status(400).json({
+              success: false,
+              message: 'Validation failed',
+              errors: singleValidation.errors,
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          // Map external payload to internal format
+          const internalShipment = fieldMappingService.mapExternalToInternal(payload);
+
+          // Check for existing shipment by piashipmentid
+          const existingShipment = await storage.getShipmentByExternalId(payload.id);
+
+          if (existingShipment) {
+            // Update existing shipment
+            const updatedShipment = await storage.updateShipment(existingShipment.id, {
+              id: existingShipment.id,
+              status: internalShipment.status,
+              priority: internalShipment.priority,
+              customerName: internalShipment.customerName,
+              customerMobile: internalShipment.customerMobile,
+              address: internalShipment.address,
+              latitude: internalShipment.latitude,
+              longitude: internalShipment.longitude,
+              cost: internalShipment.cost,
+              deliveryTime: internalShipment.deliveryTime,
+              routeName: internalShipment.routeName,
+              employeeId: internalShipment.employeeId,
+              pickupAddress: internalShipment.pickupAddress,
+              weight: internalShipment.weight,
+              dimensions: internalShipment.dimensions,
+              specialInstructions: internalShipment.specialInstructions
+            });
+
+            return res.status(200).json({
+              success: true,
+              message: 'Shipment updated successfully',
+              results: {
+                total: 1,
+                created: 0,
+                updated: 1,
+                failed: 0,
+                duplicates: 0
+              },
+              processedShipments: [{
+                piashipmentid: payload.id,
+                internalId: existingShipment.id,
+                status: 'updated',
+                message: 'Shipment updated successfully'
+              }],
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            // Create new shipment
+            const newShipment = await storage.createShipment({
+              trackingNumber: internalShipment.piashipmentid || internalShipment.id,
+              type: internalShipment.type,
+              customerName: internalShipment.customerName,
+              customerMobile: internalShipment.customerMobile,
+              address: internalShipment.address,
+              latitude: internalShipment.latitude,
+              longitude: internalShipment.longitude,
+              cost: internalShipment.cost,
+              deliveryTime: internalShipment.deliveryTime,
+              routeName: internalShipment.routeName,
+              employeeId: internalShipment.employeeId,
+              status: internalShipment.status,
+              priority: internalShipment.priority || 'medium',
+              pickupAddress: internalShipment.pickupAddress || '',
+              deliveryAddress: internalShipment.address,
+              recipientName: internalShipment.customerName,
+              recipientPhone: internalShipment.customerMobile,
+              weight: internalShipment.weight || 0,
+              dimensions: internalShipment.dimensions || '',
+              specialInstructions: internalShipment.specialInstructions,
+              estimatedDeliveryTime: internalShipment.deliveryTime
+            });
+
+            return res.status(201).json({
+              success: true,
+              message: 'Shipment created successfully',
+              results: {
+                total: 1,
+                created: 1,
+                updated: 0,
+                failed: 0,
+                duplicates: 0
+              },
+              processedShipments: [{
+                piashipmentid: payload.id,
+                internalId: newShipment.id,
+                status: 'created',
+                message: 'Shipment created successfully'
+              }],
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+      } catch (error: any) {
+        console.error('Error processing external shipment data:', error);
+        return res.status(500).json({
+          success: false,
+          message: 'Internal server error while processing shipment data',
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
   // Update single shipment status
   app.patch('/api/shipments/:id', authenticateEither, async (req: ApiTokenRequest, res) => {
     try {
@@ -1383,6 +1707,215 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: error.message });
     }
   });
+
+  // External Update Sending API Implementation
+
+  // Send single shipment update to external system
+  app.post('/api/shipments/update/external',
+    webhookAuth,
+    webhookSecurity,
+    webhookRateLimit,
+    async (req: ApiTokenRequest, res) => {
+      try {
+        const { shipmentId, additionalData } = req.body;
+
+        if (!shipmentId) {
+          return res.status(400).json({
+            success: false,
+            message: 'Shipment ID is required',
+            code: 'MISSING_SHIPMENT_ID'
+          });
+        }
+
+        // Get shipment from database
+        const shipment = await storage.getShipment(shipmentId);
+        if (!shipment) {
+          return res.status(404).json({
+            success: false,
+            message: 'Shipment not found',
+            code: 'SHIPMENT_NOT_FOUND'
+          });
+        }
+
+        // Convert shipment to internal format for mapping
+        const internalShipment = {
+          id: shipment.id,
+          type: shipment.type || 'delivery',
+          customerName: shipment.customerName || shipment.recipientName,
+          customerMobile: shipment.customerMobile || shipment.recipientPhone,
+          address: shipment.address || shipment.deliveryAddress,
+          deliveryTime: shipment.deliveryTime || shipment.estimatedDeliveryTime || new Date().toISOString(),
+          cost: shipment.cost || 0,
+          routeName: shipment.routeName || 'default',
+          employeeId: shipment.employeeId || 'unknown',
+          status: shipment.status,
+          createdAt: shipment.createdAt,
+          updatedAt: shipment.updatedAt,
+          priority: shipment.priority,
+          pickupAddress: shipment.pickupAddress,
+          weight: shipment.weight,
+          dimensions: shipment.dimensions,
+          specialInstructions: shipment.specialInstructions,
+          actualDeliveryTime: shipment.actualDeliveryTime,
+          latitude: shipment.latitude,
+          longitude: shipment.longitude,
+          piashipmentid: shipment.trackingNumber
+        };
+
+        // Map internal shipment to external update format
+        const externalUpdate = fieldMappingService.mapInternalToExternal(internalShipment, additionalData);
+
+        // Send update to external system via webhook
+        const deliveryResult = await externalSync.sendUpdateToExternal(externalUpdate);
+
+        if (deliveryResult.success) {
+          res.json({
+            success: true,
+            message: 'Shipment update sent successfully',
+            data: {
+              shipmentId: shipment.id,
+              externalId: externalUpdate.id,
+              status: externalUpdate.status,
+              attempts: deliveryResult.attempts,
+              webhookUrl: deliveryResult.webhookUrl,
+              deliveredAt: deliveryResult.deliveredAt,
+              sentAt: new Date().toISOString()
+            }
+          });
+        } else {
+          res.status(500).json({
+            success: false,
+            message: 'Failed to send update to external system',
+            code: 'EXTERNAL_SYNC_FAILED',
+            data: {
+              shipmentId: shipment.id,
+              externalId: externalUpdate.id,
+              attempts: deliveryResult.attempts,
+              lastError: deliveryResult.lastError,
+              webhookUrl: deliveryResult.webhookUrl
+            }
+          });
+        }
+      } catch (error: any) {
+        console.error('Error sending external update:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Internal server error while sending update',
+          code: 'INTERNAL_ERROR',
+          error: error.message
+        });
+      }
+    });
+
+  // Send batch shipment updates to external system
+  app.post('/api/shipments/update/external/batch',
+    webhookAuth,
+    webhookSecurity,
+    webhookRateLimit,
+    async (req: ApiTokenRequest, res) => {
+      try {
+        const { shipmentIds, updates, metadata } = req.body;
+
+        if (!shipmentIds && !updates) {
+          return res.status(400).json({
+            success: false,
+            message: 'Either shipmentIds array or updates array is required',
+            code: 'MISSING_BATCH_DATA'
+          });
+        }
+
+        let updatePayloads: any[] = [];
+
+        if (updates && Array.isArray(updates)) {
+          // Direct updates provided
+          updatePayloads = updates;
+        } else if (shipmentIds && Array.isArray(shipmentIds)) {
+          // Get shipments by IDs and convert to update format
+          const shipments = await Promise.all(
+            shipmentIds.map(async (id: string) => {
+              try {
+                return await storage.getShipment(id);
+              } catch (error) {
+                console.error(`Error fetching shipment ${id}:`, error);
+                return null;
+              }
+            })
+          );
+
+          const validShipments = shipments.filter((s): s is NonNullable<typeof s> => s !== null && s !== undefined);
+          if (validShipments.length === 0) {
+            return res.status(404).json({
+              success: false,
+              message: 'No valid shipments found',
+              code: 'NO_SHIPMENTS_FOUND'
+            });
+          }
+
+          // Convert shipments to external update format
+          updatePayloads = validShipments.map(shipment => {
+            const internalShipment = {
+              id: shipment.id,
+              type: shipment.type || 'delivery',
+              customerName: shipment.customerName || shipment.recipientName,
+              customerMobile: shipment.customerMobile || shipment.recipientPhone,
+              address: shipment.address || shipment.deliveryAddress,
+              deliveryTime: shipment.deliveryTime || shipment.estimatedDeliveryTime || new Date().toISOString(),
+              cost: shipment.cost || 0,
+              routeName: shipment.routeName || 'default',
+              employeeId: shipment.employeeId || 'unknown',
+              status: shipment.status,
+              createdAt: shipment.createdAt,
+              updatedAt: shipment.updatedAt,
+              priority: shipment.priority,
+              pickupAddress: shipment.pickupAddress,
+              weight: shipment.weight,
+              dimensions: shipment.dimensions,
+              specialInstructions: shipment.specialInstructions,
+              actualDeliveryTime: shipment.actualDeliveryTime,
+              latitude: shipment.latitude,
+              longitude: shipment.longitude,
+              piashipmentid: shipment.trackingNumber
+            };
+            return fieldMappingService.mapInternalToExternal(internalShipment, metadata?.additionalData);
+          });
+        }
+
+        if (updatePayloads.length === 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'No updates to process',
+            code: 'EMPTY_BATCH'
+          });
+        }
+
+        // Send batch updates to external system
+        const batchResult = await externalSync.sendBatchUpdatesToExternal(updatePayloads);
+
+        res.json({
+          success: true,
+          message: `Batch update completed: ${batchResult.success} successful, ${batchResult.failed} failed`,
+          data: {
+            total: updatePayloads.length,
+            successful: batchResult.success,
+            failed: batchResult.failed,
+            results: batchResult.results,
+            metadata: {
+              ...metadata,
+              processedAt: new Date().toISOString(),
+              batchId: metadata?.batchId || `batch_${Date.now()}`
+            }
+          }
+        });
+      } catch (error: any) {
+        console.error('Error processing batch external update:', error);
+        res.status(500).json({
+          success: false,
+          message: 'Internal server error while processing batch update',
+          code: 'BATCH_PROCESSING_ERROR',
+          error: error.message
+        });
+      }
+    });
 
   // Route Tracking Endpoints
 

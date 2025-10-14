@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import MigrationManager from '../migrations/index.js';
 
 const dbDir = path.join(process.cwd(), 'server/db');
 
@@ -113,11 +114,33 @@ const migrateDatabase = (db: Database.Database) => {
   }
 };
 
-initTables(liveDb);
-initTables(replicaDb);
+// Initialize tables and run migrations
+const initializeDatabase = async (db: Database.Database, dbName: string) => {
+  try {
+    console.log(`Initializing ${dbName} database...`);
 
-// Run migrations on both databases
-migrateDatabase(liveDb);
-migrateDatabase(replicaDb);
+    // Initialize basic tables first
+    initTables(db);
+
+    // Run legacy migration for latitude/longitude (for backward compatibility)
+    migrateDatabase(db);
+
+    // Run new migration system
+    const migrationManager = new MigrationManager(db);
+    const result = await migrationManager.runMigrations();
+
+    if (result.success) {
+      console.log(`✅ ${result.executed} migrations executed successfully for ${dbName}`);
+    } else {
+      console.error(`❌ Migration failed for ${dbName}:`, result.errors);
+    }
+  } catch (error) {
+    console.error(`❌ Database initialization failed for ${dbName}:`, error);
+  }
+};
+
+// Initialize both databases
+initializeDatabase(liveDb, 'live');
+initializeDatabase(replicaDb, 'replica');
 
 export { initTables, migrateDatabase };

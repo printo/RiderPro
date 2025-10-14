@@ -10,9 +10,16 @@ export interface IStorage {
   // Shipment operations
   getShipments(filters?: ShipmentFilters): Promise<PaginatedResponse<Shipment>>;
   getShipment(id: string): Promise<Shipment | undefined>;
+  getShipmentByExternalId(externalId: string): Promise<Shipment | undefined>;
   createShipment(shipment: InsertShipment): Promise<Shipment>;
   updateShipment(id: string, updates: UpdateShipment): Promise<Shipment | undefined>;
   batchUpdateShipments(updates: BatchUpdate): Promise<number>;
+  batchCreateOrUpdateShipments(shipments: Array<{ external: any, internal: any }>): Promise<Array<{
+    piashipmentid: string;
+    internalId: string | null;
+    status: 'created' | 'updated' | 'failed';
+    message: string;
+  }>>;
 
 
 
@@ -58,6 +65,11 @@ export class SqliteStorage implements IStorage {
     return shipment || undefined;
   }
 
+  async getShipmentByExternalId(externalId: string): Promise<Shipment | undefined> {
+    const shipment = this.liveQueries.getShipmentByExternalId(externalId);
+    return shipment || undefined;
+  }
+
   async createShipment(shipment: InsertShipment): Promise<Shipment> {
     return this.liveQueries.createShipment(shipment);
   }
@@ -69,6 +81,15 @@ export class SqliteStorage implements IStorage {
 
   async batchUpdateShipments(updates: BatchUpdate): Promise<number> {
     return this.liveQueries.batchUpdateShipments(updates.updates);
+  }
+
+  async batchCreateOrUpdateShipments(shipments: Array<{ external: any, internal: any }>): Promise<Array<{
+    piashipmentid: string;
+    internalId: string | null;
+    status: 'created' | 'updated' | 'failed';
+    message: string;
+  }>> {
+    return this.liveQueries.batchCreateOrUpdateShipments(shipments);
   }
 
   async createAcknowledgment(acknowledgment: InsertAcknowledgment): Promise<Acknowledgment> {

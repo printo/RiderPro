@@ -226,21 +226,32 @@ export function useOfflineSync() {
 }
 
 /**
- * Hook for API health checking
+ * Hook for API health checking with optimization
  */
 export function useAPIHealth() {
   const [isHealthy, setIsHealthy] = useState<boolean | null>(null);
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
+  const [responseTime, setResponseTime] = useState<number | null>(null);
 
   const checkHealth = useCallback(async () => {
     try {
-      const healthy = await routeAPI.checkAPIHealth();
-      setIsHealthy(healthy);
-      setLastCheck(new Date());
-      return healthy;
+      // Import the optimizer dynamically to avoid circular dependencies
+      const { healthCheckOptimizer } = await import('../services/HealthCheckOptimizer');
+
+      const result = await healthCheckOptimizer.performHealthCheck(
+        'route-api',
+        () => routeAPI.checkAPIHealth()
+      );
+
+      setIsHealthy(result.isHealthy);
+      setLastCheck(new Date(result.timestamp));
+      setResponseTime(result.responseTime || null);
+
+      return result.isHealthy;
     } catch (error) {
       setIsHealthy(false);
       setLastCheck(new Date());
+      setResponseTime(null);
       return false;
     }
   }, []);
@@ -248,6 +259,7 @@ export function useAPIHealth() {
   return {
     isHealthy,
     lastCheck,
+    responseTime,
     checkHealth
   };
 }

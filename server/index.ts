@@ -50,9 +50,36 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint
+// Health check endpoint with caching
+let mainHealthCache: { data: any; timestamp: number } | null = null;
+const MAIN_HEALTH_CACHE_TTL = 10000; // 10 seconds cache
+
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  const now = Date.now();
+
+  // Return cached response if still valid
+  if (mainHealthCache && (now - mainHealthCache.timestamp) < MAIN_HEALTH_CACHE_TTL) {
+    res.set('Cache-Control', 'public, max-age=10');
+    res.set('X-Health-Cache', 'HIT');
+    return res.json({ ...mainHealthCache.data, cached: true });
+  }
+
+  // Generate new response and cache it
+  const healthData = {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    cached: false
+  };
+
+  mainHealthCache = {
+    data: healthData,
+    timestamp: now
+  };
+
+  res.set('Cache-Control', 'public, max-age=10');
+  res.set('X-Health-Cache', 'MISS');
+  res.json(healthData);
 });
 
 // API status endpoint for debugging

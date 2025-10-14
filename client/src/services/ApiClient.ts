@@ -828,7 +828,16 @@ export class ApiClient {
    * Start periodic connectivity checks for better offline detection
    */
   private startConnectivityChecks(): void {
-    // Check connectivity every 30 seconds
+    // Use configurable interval, default to 2 minutes to reduce server load
+    const connectivityCheckInterval = parseInt(
+      localStorage.getItem('connectivity_check_interval') || '120000'
+    );
+
+    // Minimum interval of 30 seconds to prevent excessive polling
+    const safeInterval = Math.max(connectivityCheckInterval, 30000);
+
+    console.log(`[ApiClient] Starting connectivity checks every ${safeInterval / 1000} seconds`);
+
     setInterval(async () => {
       if (!this.offlineDetectionEnabled) return;
 
@@ -840,13 +849,25 @@ export class ApiClient {
           this.handleOffline();
         }
       }
-    }, 30000);
+    }, safeInterval);
   }
 
+  // Connectivity check caching
+  private lastConnectivityCheck: { result: boolean; timestamp: number } | null = null;
+  private readonly CONNECTIVITY_CACHE_TTL = 15000; // 15 seconds cache
+
   /**
-   * Check actual connectivity by making a lightweight request
+   * Check actual connectivity by making a lightweight request with caching
    */
   private async checkConnectivity(): Promise<boolean> {
+    const now = Date.now();
+
+    // Return cached result if still valid
+    if (this.lastConnectivityCheck &&
+      (now - this.lastConnectivityCheck.timestamp) < this.CONNECTIVITY_CACHE_TTL) {
+      return this.lastConnectivityCheck.result;
+    }
+
     try {
       // Try to fetch a small resource with a short timeout
       const controller = new AbortController();
@@ -855,12 +876,26 @@ export class ApiClient {
       const response = await fetch('/api/health', {
         method: 'HEAD',
         signal: controller.signal,
-        cache: 'no-cache'
+        cache: 'force-cache' // Use browser cache when possible
       });
 
       clearTimeout(timeoutId);
-      return response.ok;
+      const isOnline = response.ok;
+
+      // Cache the result
+      this.lastConnectivityCheck = {
+        result: isOnline,
+        timestamp: now
+      };
+
+      return isOnline;
     } catch (error) {
+      // Cache negative result as well
+      this.lastConnectivityCheck = {
+        result: false,
+        timestamp: now
+      };
+
       // Silently handle connectivity check failures
       // This is expected when server is offline or endpoint doesn't exist
       return false;
@@ -1118,9 +1153,12 @@ export class ApiClient {
   }
 
   /**
-   * Force a connectivity check
+   * Force a connectivity check (bypasses cache)
    */
   public async forceConnectivityCheck(): Promise<boolean> {
+    // Clear cache to force fresh check
+    this.lastConnectivityCheck = null;
+
     const isOnline = await this.checkConnectivity();
 
     if (isOnline !== !this.isOffline) {
@@ -1132,6 +1170,31 @@ export class ApiClient {
     }
 
     return isOnline;
+  }
+
+  /**
+   * Configure connectivity check interval
+   */
+  public setConnectivityCheckInterval(intervalMs: number): void {
+    const safeInterval = Math.max(intervalMs, 30000); // Minimum 30 seconds
+    localStorage.setItem('connectivity_check_interval', safeInterval.toString());
+    console.log(`[ApiClient] Connectivity check interval updated to ${safeInterval / 1000} seconds`);
+  }
+
+  /**
+   * Disable connectivity checks to reduce server load
+   */
+  public disableConnectivityChecks(): void {
+    this.offlineDetectionEnabled = false;
+    console.log('[ApiClient] Connectivity checks disabled');
+  }
+
+  /**
+   * Enable connectivity checks
+   */
+  public enableConnectivityChecks(): void {
+    this.offlineDetectionEnabled = true;
+    console.log('[ApiClient] Connectivity checks enabled');
   }
 
   /**

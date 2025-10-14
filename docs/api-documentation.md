@@ -47,12 +47,12 @@ POST /api/auth/login
 **Request Body:**
 ```json
 {
-  "email": "employee_id_or_email",
-  "password": "user_password"
+  "email": "user@company.com",
+  "password": "userpassword"
 }
 ```
 
-**Response (Success):**
+**Response:**
 ```json
 {
   "success": true,
@@ -61,20 +61,12 @@ POST /api/auth/login
     "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "user": {
       "id": "EMP001",
-      "email": "employee@company.com",
+      "email": "user@company.com",
       "name": "John Doe",
-      "role": "driver|ops_team|admin|super_admin",
+      "role": "ops_team",
       "employeeId": "EMP001"
     }
   }
-}
-```
-
-**Response (Error):**
-```json
-{
-  "success": false,
-  "message": "Invalid credentials"
 }
 ```
 
@@ -86,30 +78,9 @@ POST /api/auth/refresh
 **Request Body:**
 ```json
 {
-  "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "userId": "EMP001"
+  "userId": "EMP001",
+  "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
-```
-
-**Response (Success):**
-```json
-{
-  "success": true,
-  "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
-
-#### Get Current User
-```http
-GET /api/auth/me
-```
-
-**Headers:**
-```http
-Authorization: Bearer <access-token>
 ```
 
 **Response:**
@@ -117,14 +88,23 @@ Authorization: Bearer <access-token>
 {
   "success": true,
   "data": {
-    "user": {
-      "id": "EMP001",
-      "email": "employee@company.com",
-      "name": "John Doe",
-      "role": "ops_team",
-      "employeeId": "EMP001"
-    }
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   }
+}
+```
+
+### Health Check
+
+#### API Health
+```http
+GET /api/health
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-15T10:00:00.000Z"
 }
 ```
 
@@ -143,84 +123,46 @@ GET /api/shipments
 - `employeeId` (string): Filter by employee (admin only)
 - `routeName` (string): Filter by route name
 - `date` (string): Filter by date (YYYY-MM-DD)
+- `search` (string): Search in customer names and addresses
 - `sortField` (string): Field to sort by
 - `sortOrder` (string): ASC or DESC
 
-**Sample Request URL:**
-```
-GET /api/shipments?page=1&limit=10&status=pending&type=delivery&routeName=Route%20A&sortField=createdAt&sortOrder=DESC
-```
-
-**Sample Query Payload (as URL parameters):**
-```json
-{
-  "page": 1,
-  "limit": 10,
-  "status": "pending",
-  "type": "delivery",
-  "routeName": "Route A",
-  "employeeId": "EMP001",
-  "date": "2024-01-15",
-  "sortField": "createdAt",
-  "sortOrder": "DESC"
-}
+**Example Request:**
+```http
+GET /api/shipments?page=1&limit=20&status=pending&type=delivery&routeName=Route%20A
 ```
 
-**Sample Response:**
+**Response:**
 ```json
 {
   "data": [
     {
-      "id": "SHIP001",
-      "trackingNumber": "TRK123456789",
-      "status": "pending",
+      "id": "TRK1760428242357azj0q",
+      "customerName": "Rajesh Kumar",
+      "customerMobile": "+91-9876543210",
+      "address": "456 Brigade Road, Bangalore, Karnataka 560025",
+      "status": "delivered",
       "priority": "high",
       "type": "delivery",
-      "pickupAddress": "123 Warehouse St, New York, NY 10001",
-      "deliveryAddress": "456 Customer Ave, New York, NY 10002",
-      "recipientName": "John Doe",
-      "recipientPhone": "+1234567890",
+      "routeName": "Bangalore Central",
+      "employeeId": "EMP001",
       "weight": 2.5,
       "dimensions": "30x20x15 cm",
-      "specialInstructions": "Handle with care - fragile electronics",
-      "estimatedDeliveryTime": "2024-01-15T14:30:00Z",
-      "actualDeliveryTime": null,
-      "latitude": 40.7128,
-      "longitude": -74.0060,
-      "routeName": "Route A",
-      "employeeId": "EMP001",
-      "cost": 25.50,
-      "createdAt": "2024-01-15T10:00:00Z",
-      "updatedAt": "2024-01-15T10:00:00Z"
-    },
-    {
-      "id": "SHIP002",
-      "trackingNumber": "TRK123456790",
-      "status": "pending",
-      "priority": "medium",
-      "type": "delivery",
-      "pickupAddress": "123 Warehouse St, New York, NY 10001",
-      "deliveryAddress": "789 Business Blvd, New York, NY 10003",
-      "recipientName": "Jane Smith",
-      "recipientPhone": "+1234567891",
-      "weight": 1.8,
-      "dimensions": "25x15x10 cm",
-      "specialInstructions": "Call before delivery",
-      "estimatedDeliveryTime": "2024-01-15T16:00:00Z",
-      "actualDeliveryTime": null,
-      "latitude": 40.7589,
-      "longitude": -73.9851,
-      "routeName": "Route A",
-      "employeeId": "EMP001",
-      "cost": 18.75,
-      "createdAt": "2024-01-15T10:15:00Z",
-      "updatedAt": "2024-01-15T10:15:00Z"
+      "cost": 150.00,
+      "deliveryTime": "2024-01-15T14:30:00.000Z",
+      "actualDeliveryTime": "2024-01-15T15:45:00.000Z",
+      "latitude": 12.9716,
+      "longitude": 77.5946,
+      "pickupAddress": "Printo Store, 123 MG Road, Bangalore, Karnataka 560001",
+      "specialInstructions": "Ring doorbell twice, deliver to security",
+      "createdAt": "2024-01-15T08:00:00.000Z",
+      "updatedAt": "2024-01-15T15:45:00.000Z"
     }
   ],
   "total": 150,
   "page": 1,
-  "limit": 10,
-  "totalPages": 15,
+  "limit": 20,
+  "totalPages": 8,
   "hasNextPage": true,
   "hasPreviousPage": false
 }
@@ -234,36 +176,35 @@ GET /api/shipments/:id
 **Response:**
 ```json
 {
-  "success": true,
-  "data": {
-    "shipment": {
-      "id": "SHIP001",
-      "trackingNumber": "TRK123456789",
-      "status": "delivered",
-      "priority": "high",
-      "type": "delivery",
-      "pickupAddress": "123 Warehouse St, City",
-      "deliveryAddress": "456 Customer Ave, City",
-      "recipientName": "John Doe",
-      "recipientPhone": "+1234567890",
-      "weight": 2.5,
-      "dimensions": "30x20x15 cm",
-      "latitude": 40.7128,
-      "longitude": -74.0060,
-      "actualDeliveryTime": "2024-01-15T15:45:00Z",
-      "createdAt": "2024-01-15T10:00:00Z",
-      "updatedAt": "2024-01-15T15:45:00Z"
-    },
-    "acknowledgment": {
-      "id": "ACK001",
-      "shipmentId": "SHIP001",
-      "recipientName": "John Doe",
-      "signature": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-      "photo": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD...",
-      "timestamp": "2024-01-15T15:45:00Z",
-      "location": "40.7128,-74.0060",
-      "notes": "Package delivered to recipient"
-    }
+  "shipment": {
+    "id": "TRK1760428242357azj0q",
+    "customerName": "Rajesh Kumar",
+    "customerMobile": "+91-9876543210",
+    "address": "456 Brigade Road, Bangalore, Karnataka 560025",
+    "status": "delivered",
+    "priority": "high",
+    "type": "delivery",
+    "routeName": "Bangalore Central",
+    "employeeId": "EMP001",
+    "weight": 2.5,
+    "dimensions": "30x20x15 cm",
+    "cost": 150.00,
+    "deliveryTime": "2024-01-15T14:30:00.000Z",
+    "actualDeliveryTime": "2024-01-15T15:45:00.000Z",
+    "latitude": 12.9716,
+    "longitude": 77.5946,
+    "pickupAddress": "Printo Store, 123 MG Road, Bangalore, Karnataka 560001",
+    "specialInstructions": "Ring doorbell twice, deliver to security"
+  },
+  "acknowledgment": {
+    "id": "ack_001",
+    "shipmentId": "TRK1760428242357azj0q",
+    "recipientName": "Rajesh Kumar",
+    "signature": "/uploads/signatures/sig_001.png",
+    "photo": "/uploads/photos/photo_001.jpg",
+    "timestamp": "2024-01-15T15:45:00.000Z",
+    "location": "12.9716,77.5946",
+    "notes": "Package delivered to security guard as requested"
   }
 }
 ```
@@ -273,59 +214,36 @@ GET /api/shipments/:id
 POST /api/shipments
 ```
 
-**Sample Request Payload:**
+**Request Body:**
 ```json
 {
-  "trackingNumber": "TRK123456791",
+  "id": "TRK1760428242358bzk1r",
+  "customerName": "Priya Sharma",
+  "customerMobile": "+91-8765432109",
+  "address": "789 Koramangala, Bangalore, Karnataka 560034",
   "status": "pending",
-  "priority": "high",
-  "type": "delivery",
-  "pickupAddress": "123 Warehouse St, New York, NY 10001",
-  "deliveryAddress": "456 Customer Ave, New York, NY 10002",
-  "recipientName": "John Doe",
-  "recipientPhone": "+1234567890",
-  "weight": 2.5,
-  "dimensions": "30x20x15 cm",
-  "specialInstructions": "Handle with care - fragile electronics. Call recipient before delivery.",
-  "estimatedDeliveryTime": "2024-01-15T14:30:00Z",
-  "latitude": 40.7128,
-  "longitude": -74.0060,
-  "routeName": "Route A",
-  "employeeId": "EMP001",
-  "cost": 25.50,
-  "customerName": "John Doe",
-  "customerMobile": "+1234567890",
-  "address": "456 Customer Ave, New York, NY 10002"
+  "priority": "medium",
+  "type": "pickup",
+  "weight": 1.8,
+  "dimensions": "25x15x10 cm",
+  "deliveryTime": "2024-01-16T10:00:00.000Z",
+  "specialInstructions": "Call before pickup",
+  "routeName": "Bangalore South",
+  "employeeId": "EMP002",
+  "latitude": 12.9352,
+  "longitude": 77.6245,
+  "cost": 80.00,
+  "pickupAddress": "789 Koramangala, Bangalore, Karnataka 560034"
 }
 ```
 
-**Sample Response:**
+**Response:**
 ```json
 {
-  "success": true,
-  "message": "Shipment created successfully",
-  "data": {
-    "id": "SHIP003",
-    "trackingNumber": "TRK123456791",
-    "status": "pending",
-    "priority": "high",
-    "type": "delivery",
-    "pickupAddress": "123 Warehouse St, New York, NY 10001",
-    "deliveryAddress": "456 Customer Ave, New York, NY 10002",
-    "recipientName": "John Doe",
-    "recipientPhone": "+1234567890",
-    "weight": 2.5,
-    "dimensions": "30x20x15 cm",
-    "specialInstructions": "Handle with care - fragile electronics. Call recipient before delivery.",
-    "estimatedDeliveryTime": "2024-01-15T14:30:00Z",
-    "latitude": 40.7128,
-    "longitude": -74.0060,
-    "routeName": "Route A",
-    "employeeId": "EMP001",
-    "cost": 25.50,
-    "createdAt": "2024-01-15T10:30:00Z",
-    "updatedAt": "2024-01-15T10:30:00Z"
-  }
+  "id": "TRK1760428242358bzk1r",
+  "status": "pending",
+  "createdAt": "2024-01-15T11:00:00.000Z",
+  "message": "Shipment created successfully"
 }
 ```
 
@@ -334,56 +252,24 @@ POST /api/shipments
 PATCH /api/shipments/:id
 ```
 
-**Sample Request URL:**
-```
-PATCH /api/shipments/SHIP001
-```
-
-**Sample Request Payload:**
+**Request Body:**
 ```json
 {
   "status": "in_transit",
-  "actualDeliveryTime": "2024-01-15T15:45:00Z",
-  "latitude": 40.7130,
-  "longitude": -74.0062,
-  "specialInstructions": "Updated delivery instructions - recipient will be available after 3 PM",
-  "employeeId": "EMP001",
-  "routeName": "Route A",
-  "priority": "high",
-  "recipientPhone": "+1234567890",
-  "weight": 2.5,
-  "dimensions": "30x20x15 cm"
+  "latitude": 40.7505,
+  "longitude": -73.9934,
+  "actualDeliveryTime": "2024-01-15T16:30:00.000Z",
+  "specialInstructions": "Updated delivery instructions"
 }
 ```
 
-**Sample Response:**
+**Response:**
 ```json
 {
-  "success": true,
-  "message": "Shipment updated successfully",
-  "data": {
-    "id": "SHIP001",
-    "trackingNumber": "TRK123456789",
-    "status": "in_transit",
-    "priority": "high",
-    "type": "delivery",
-    "pickupAddress": "123 Warehouse St, New York, NY 10001",
-    "deliveryAddress": "456 Customer Ave, New York, NY 10002",
-    "recipientName": "John Doe",
-    "recipientPhone": "+1234567890",
-    "weight": 2.5,
-    "dimensions": "30x20x15 cm",
-    "specialInstructions": "Updated delivery instructions - recipient will be available after 3 PM",
-    "estimatedDeliveryTime": "2024-01-15T14:30:00Z",
-    "actualDeliveryTime": "2024-01-15T15:45:00Z",
-    "latitude": 40.7130,
-    "longitude": -74.0062,
-    "routeName": "Route A",
-    "employeeId": "EMP001",
-    "cost": 25.50,
-    "createdAt": "2024-01-15T10:00:00Z",
-    "updatedAt": "2024-01-15T15:45:00Z"
-  }
+  "id": "ship_001",
+  "status": "in_transit",
+  "updatedAt": "2024-01-15T12:00:00.000Z",
+  "message": "Shipment updated successfully"
 }
 ```
 
@@ -392,87 +278,28 @@ PATCH /api/shipments/SHIP001
 PATCH /api/shipments/batch
 ```
 
-**Sample Request Payload:**
+**Request Body:**
 ```json
 {
   "updates": [
     {
-      "id": "SHIP001",
-      "status": "in_transit",
-      "employeeId": "EMP001",
-      "routeName": "Route A",
-      "latitude": 40.7130,
-      "longitude": -74.0062,
-      "specialInstructions": "Out for delivery",
-      "updatedBy": "EMP001"
+      "id": "ship_001",
+      "status": "in_transit"
     },
     {
-      "id": "SHIP002", 
+      "id": "ship_002",
       "status": "delivered",
-      "actualDeliveryTime": "2024-01-15T16:00:00Z",
-      "latitude": 40.7589,
-      "longitude": -73.9851,
-      "employeeId": "EMP001",
-      "specialInstructions": "Package delivered to recipient",
-      "updatedBy": "EMP001"
-    },
-    {
-      "id": "SHIP003",
-      "status": "picked_up",
-      "actualDeliveryTime": "2024-01-15T15:30:00Z",
-      "latitude": 40.7505,
-      "longitude": -73.9934,
-      "employeeId": "EMP001",
-      "specialInstructions": "Package picked up from sender",
-      "updatedBy": "EMP001"
+      "actualDeliveryTime": "2024-01-15T17:00:00.000Z"
     }
-  ],
-  "batchMetadata": {
-    "batchId": "BATCH_001",
-    "routeSession": "SESSION_001",
-    "timestamp": "2024-01-15T16:00:00Z",
-    "source": "mobile_app"
-  }
+  ]
 }
 ```
 
-**Sample Response:**
+**Response:**
 ```json
 {
-  "success": true,
-  "message": "Batch update completed successfully",
-  "data": {
-    "batchId": "BATCH_001",
-    "updatedCount": 3,
-    "failedCount": 0,
-    "results": [
-      {
-        "id": "SHIP001",
-        "success": true,
-        "status": "in_transit",
-        "updatedAt": "2024-01-15T16:00:00Z"
-      },
-      {
-        "id": "SHIP002",
-        "success": true,
-        "status": "delivered",
-        "updatedAt": "2024-01-15T16:00:00Z"
-      },
-      {
-        "id": "SHIP003",
-        "success": true,
-        "status": "picked_up",
-        "updatedAt": "2024-01-15T16:00:00Z"
-      }
-    ],
-    "summary": {
-      "totalRequested": 3,
-      "successful": 3,
-      "failed": 0,
-      "processedAt": "2024-01-15T16:00:00Z",
-      "processingTime": 245
-    }
-  }
+  "updatedCount": 2,
+  "message": "Batch update completed successfully"
 }
 ```
 
@@ -483,56 +310,61 @@ PATCH /api/shipments/batch
 POST /api/routes/start
 ```
 
-**Sample Request Payload:**
+**Request Body:**
 ```json
 {
   "employeeId": "EMP001",
   "latitude": 40.7128,
-  "longitude": -74.0060,
-  "routeId": "ROUTE_A_001",
-  "driverId": "EMP001",
-  "vehicleId": "VEH001",
-  "plannedRoute": "Route A",
-  "estimatedDuration": 28800,
-  "estimatedDistance": 120.0,
-  "startAddress": "123 Warehouse St, New York, NY 10001",
-  "deviceInfo": {
-    "deviceId": "DEVICE_001",
-    "platform": "mobile",
-    "appVersion": "1.0.0",
-    "gpsAccuracy": 5.0
-  }
+  "longitude": -74.0060
 }
 ```
 
-**Sample Response:**
+**Response:**
 ```json
 {
   "success": true,
   "message": "Route session started successfully",
   "session": {
-    "id": "SESSION_20240115_001",
+    "id": "session_001",
     "employeeId": "EMP001",
-    "startTime": "2024-01-15T08:00:00Z",
-    "endTime": null,
     "status": "active",
+    "startTime": "2024-01-15T08:00:00.000Z",
     "startLatitude": 40.7128,
     "startLongitude": -74.0060,
-    "endLatitude": null,
-    "endLongitude": null,
-    "totalDistance": 0,
-    "totalTime": 0,
-    "routeId": "ROUTE_A_001",
-    "vehicleId": "VEH001",
-    "plannedRoute": "Route A",
-    "createdAt": "2024-01-15T08:00:00Z",
-    "updatedAt": "2024-01-15T08:00:00Z"
-  },
-  "tracking": {
-    "sessionToken": "TRK_SESSION_TOKEN_001",
-    "updateInterval": 30000,
-    "accuracyThreshold": 10.0,
-    "batteryOptimization": true
+    "createdAt": "2024-01-15T08:00:00.000Z"
+  }
+}
+```
+
+#### Stop Route Session
+```http
+POST /api/routes/stop
+```
+
+**Request Body:**
+```json
+{
+  "sessionId": "session_001",
+  "latitude": 40.7128,
+  "longitude": -74.0060
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Route session stopped successfully",
+  "session": {
+    "id": "session_001",
+    "employeeId": "EMP001",
+    "status": "completed",
+    "startTime": "2024-01-15T08:00:00.000Z",
+    "endTime": "2024-01-15T17:00:00.000Z",
+    "totalDistance": 45.2,
+    "totalTime": 32400,
+    "endLatitude": 40.7128,
+    "endLongitude": -74.0060
   }
 }
 ```
@@ -542,34 +374,22 @@ POST /api/routes/start
 GET /api/routes/active/:employeeId
 ```
 
-**Response (Active Session Found):**
+**Response:**
 ```json
 {
   "success": true,
   "session": {
-    "id": "SESSION_001",
+    "id": "session_001",
     "employeeId": "EMP001",
-    "startTime": "2024-01-15T08:00:00Z",
     "status": "active",
+    "startTime": "2024-01-15T08:00:00.000Z",
     "startLatitude": 40.7128,
-    "startLongitude": -74.0060,
-    "totalDistance": 15.2,
-    "totalTime": 3600,
-    "createdAt": "2024-01-15T08:00:00Z",
-    "updatedAt": "2024-01-15T09:00:00Z"
+    "startLongitude": -74.0060
   }
 }
 ```
 
-**Response (No Active Session):**
-```json
-{
-  "success": false,
-  "message": "No active session found"
-}
-```
-
-#### Record GPS Coordinates
+#### Submit GPS Coordinates
 ```http
 POST /api/routes/coordinates
 ```
@@ -577,13 +397,15 @@ POST /api/routes/coordinates
 **Request Body (Single Coordinate):**
 ```json
 {
-  "sessionId": "SESSION_001",
-  "latitude": 40.7130,
-  "longitude": -74.0062,
-  "timestamp": "2024-01-15T08:15:00Z",
-  "accuracy": 5.0,
+  "sessionId": "session_001",
+  "employeeId": "EMP001",
+  "latitude": 40.7589,
+  "longitude": -73.9851,
+  "timestamp": "2024-01-15T09:15:00.000Z",
+  "accuracy": 5.2,
   "speed": 25.5,
-  "heading": 180.0
+  "heading": 180.0,
+  "date": "2024-01-15"
 }
 ```
 
@@ -591,18 +413,16 @@ POST /api/routes/coordinates
 ```json
 {
   "success": true,
-  "message": "GPS coordinate recorded successfully",
+  "message": "GPS coordinates recorded successfully",
   "record": {
-    "id": "GPS_001",
-    "sessionId": "SESSION_001",
+    "id": "gps_001",
+    "sessionId": "session_001",
     "employeeId": "EMP001",
-    "latitude": 40.7130,
-    "longitude": -74.0062,
-    "timestamp": "2024-01-15T08:15:00Z",
-    "accuracy": 5.0,
-    "speed": 25.5,
-    "eventType": "gps",
-    "date": "2024-01-15"
+    "latitude": 40.7589,
+    "longitude": -73.9851,
+    "timestamp": "2024-01-15T09:15:00.000Z",
+    "accuracy": 5.2,
+    "speed": 25.5
   }
 }
 ```
@@ -612,23 +432,25 @@ POST /api/routes/coordinates
 POST /api/routes/coordinates/batch
 ```
 
-**Request Body:**
+**Request Body (Array of Coordinates):**
 ```json
 {
   "coordinates": [
     {
-      "sessionId": "SESSION_001",
-      "latitude": 40.7130,
-      "longitude": -74.0062,
-      "timestamp": "2024-01-15T08:15:00Z",
-      "accuracy": 5.0,
+      "sessionId": "session_001",
+      "employeeId": "EMP001",
+      "latitude": 40.7589,
+      "longitude": -73.9851,
+      "timestamp": "2024-01-15T09:15:00.000Z",
+      "accuracy": 5.2,
       "speed": 25.5
     },
     {
-      "sessionId": "SESSION_001",
-      "latitude": 40.7135,
-      "longitude": -74.0065,
-      "timestamp": "2024-01-15T08:16:00Z",
+      "sessionId": "session_001",
+      "employeeId": "EMP001",
+      "latitude": 40.7505,
+      "longitude": -73.9934,
+      "timestamp": "2024-01-15T09:16:00.000Z",
       "accuracy": 4.8,
       "speed": 28.2
     }
@@ -645,21 +467,19 @@ POST /api/routes/coordinates/batch
     {
       "success": true,
       "record": {
-        "id": "GPS_001",
-        "sessionId": "SESSION_001",
-        "latitude": 40.7130,
-        "longitude": -74.0062,
-        "timestamp": "2024-01-15T08:15:00Z"
+        "id": "gps_001",
+        "sessionId": "session_001",
+        "latitude": 40.7589,
+        "longitude": -73.9851
       }
     },
     {
       "success": true,
       "record": {
-        "id": "GPS_002",
-        "sessionId": "SESSION_001",
-        "latitude": 40.7135,
-        "longitude": -74.0065,
-        "timestamp": "2024-01-15T08:16:00Z"
+        "id": "gps_002",
+        "sessionId": "session_001",
+        "latitude": 40.7505,
+        "longitude": -73.9934
       }
     }
   ],
@@ -679,42 +499,9 @@ POST /api/routes/shipment-event
 **Request Body:**
 ```json
 {
-  "sessionId": "SESSION_001",
-  "shipmentId": "SHIP001",
-  "eventType": "pickup",
-  "latitude": 40.7140,
-  "longitude": -74.0070
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Shipment event recorded successfully",
-  "record": {
-    "id": "EVENT_001",
-    "sessionId": "SESSION_001",
-    "employeeId": "EMP001",
-    "latitude": 40.7140,
-    "longitude": -74.0070,
-    "timestamp": "2024-01-15T08:30:00Z",
-    "eventType": "pickup",
-    "shipmentId": "SHIP001",
-    "date": "2024-01-15"
-  }
-}
-```
-
-#### Stop Route Session
-```http
-POST /api/routes/stop
-```
-
-**Request Body:**
-```json
-{
-  "sessionId": "SESSION_001",
+  "sessionId": "session_001",
+  "shipmentId": "ship_001",
+  "eventType": "delivery",
   "latitude": 40.7128,
   "longitude": -74.0060
 }
@@ -724,71 +511,15 @@ POST /api/routes/stop
 ```json
 {
   "success": true,
-  "message": "Route session stopped successfully",
-  "session": {
-    "id": "SESSION_001",
-    "employeeId": "EMP001",
-    "startTime": "2024-01-15T08:00:00Z",
-    "endTime": "2024-01-15T16:00:00Z",
-    "status": "completed",
-    "startLatitude": 40.7128,
-    "startLongitude": -74.0060,
-    "endLatitude": 40.7128,
-    "endLongitude": -74.0060,
-    "totalDistance": 125.5,
-    "totalTime": 28800,
-    "createdAt": "2024-01-15T08:00:00Z",
-    "updatedAt": "2024-01-15T16:00:00Z"
-  }
-}
-```
-
-#### Get Session Coordinates
-```http
-GET /api/routes/session/:sessionId
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "coordinates": [
-    {
-      "id": "GPS_001",
-      "sessionId": "SESSION_001",
-      "employeeId": "EMP001",
-      "latitude": 40.7130,
-      "longitude": -74.0062,
-      "timestamp": "2024-01-15T08:15:00Z",
-      "accuracy": 5.0,
-      "speed": 25.5,
-      "eventType": "gps",
-      "date": "2024-01-15"
-    }
-  ],
-  "count": 1
-}
-```
-
-#### Get Session Summary
-```http
-GET /api/routes/session/:sessionId/summary
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "summary": {
-    "sessionId": "SESSION_001",
-    "employeeId": "EMP001",
-    "startTime": "2024-01-15T08:00:00Z",
-    "endTime": "2024-01-15T16:00:00Z",
-    "totalDistance": 125.5,
-    "totalTimeSeconds": 28800,
-    "averageSpeed": 15.7,
-    "coordinateCount": 960,
-    "status": "completed"
+  "message": "Shipment event recorded successfully",
+  "record": {
+    "id": "event_001",
+    "sessionId": "session_001",
+    "shipmentId": "ship_001",
+    "eventType": "delivery",
+    "latitude": 40.7128,
+    "longitude": -74.0060,
+    "timestamp": "2024-01-15T15:30:00.000Z"
   }
 }
 ```
@@ -801,11 +532,16 @@ GET /api/routes/analytics
 ```
 
 **Query Parameters:**
-- `startDate` (string): Start date (YYYY-MM-DD)
-- `endDate` (string): End date (YYYY-MM-DD)
 - `employeeId` (string): Filter by employee
-- `date` (string): Specific date (YYYY-MM-DD)
+- `date` (string): Filter by specific date (YYYY-MM-DD)
+- `startDate` (string): Start date for range (YYYY-MM-DD)
+- `endDate` (string): End date for range (YYYY-MM-DD)
 - `sessionStatus` (string): Filter by session status
+
+**Example Request:**
+```http
+GET /api/routes/analytics?employeeId=EMP001&startDate=2024-01-01&endDate=2024-01-31
+```
 
 **Response:**
 ```json
@@ -813,82 +549,21 @@ GET /api/routes/analytics
   "success": true,
   "analytics": [
     {
-      "routeId": "ROUTE_001",
+      "routeId": "route_001",
       "employeeId": "EMP001",
-      "totalDistance": 125.5,
-      "totalTime": 28800,
-      "averageSpeed": 15.7,
-      "fuelConsumption": 12.5,
-      "fuelConsumed": 12.5,
-      "fuelCost": 18.75,
+      "date": "2024-01-15",
+      "totalDistance": 45.2,
+      "totalTime": 32400,
+      "averageSpeed": 28.5,
+      "fuelConsumption": 4.2,
+      "fuelConsumed": 4.2,
+      "fuelCost": 6.30,
       "stops": 8,
-      "efficiency": 85.2,
-      "shipmentsCompleted": 12,
-      "date": "2024-01-15"
-    },
-    {
-      "routeId": "ROUTE_002",
-      "employeeId": "EMP002",
-      "totalDistance": 98.3,
-      "totalTime": 25200,
-      "averageSpeed": 14.1,
-      "fuelConsumption": 9.8,
-      "fuelConsumed": 9.8,
-      "fuelCost": 14.70,
-      "stops": 6,
-      "efficiency": 78.9,
-      "shipmentsCompleted": 9,
-      "date": "2024-01-15"
+      "efficiency": 85.5,
+      "shipmentsCompleted": 12
     }
   ],
-  "count": 2
-}
-```
-
-#### Get Performance Metrics
-```http
-GET /api/analytics/performance
-```
-
-**Query Parameters:**
-- `dateRange[start]` (string): Start date
-- `dateRange[end]` (string): End date
-- `employeeId` (string): Filter by employee
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "date": "2024-01-15",
-      "averageSpeed": 15.7,
-      "efficiency": 85.2,
-      "deliveryTime": 1800,
-      "customerSatisfaction": 4.8
-    }
-  ]
-}
-```
-
-#### Get Fuel Analytics
-```http
-GET /api/analytics/fuel
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "date": "2024-01-15",
-      "consumption": 22.3,
-      "cost": 33.45,
-      "efficiency": 10.1,
-      "distance": 223.8
-    }
-  ]
+  "count": 1
 }
 ```
 
@@ -902,52 +577,43 @@ GET /api/dashboard
 **Response:**
 ```json
 {
-  "success": true,
-  "data": {
-    "totalShipments": 150,
-    "completed": 85,
-    "inProgress": 32,
-    "pending": 28,
-    "pendingShipments": 28,
-    "deliveredShipments": 75,
-    "inTransitShipments": 32,
-    "averageDeliveryTime": 1800,
-    "onTimeDeliveryRate": 92.5,
-    "statusBreakdown": {
-      "pending": 28,
-      "assigned": 15,
-      "in_transit": 32,
-      "delivered": 65,
-      "picked_up": 20,
-      "cancelled": 8,
-      "returned": 2
+  "totalShipments": 150,
+  "completed": 120,
+  "inProgress": 25,
+  "pending": 5,
+  "deliveredShipments": 115,
+  "inTransitShipments": 25,
+  "pendingShipments": 10,
+  "averageDeliveryTime": 45.5,
+  "onTimeDeliveryRate": 92.3,
+  "statusBreakdown": {
+    "delivered": 115,
+    "picked_up": 5,
+    "in_transit": 25,
+    "pending": 5,
+    "cancelled": 0,
+    "returned": 0
+  },
+  "typeBreakdown": {
+    "delivery": 130,
+    "pickup": 20
+  },
+  "routeBreakdown": {
+    "Route A": {
+      "total": 50,
+      "delivered": 45,
+      "pending": 5
     },
-    "typeBreakdown": {
-      "delivery": 120,
-      "pickup": 30
-    },
-    "routeBreakdown": {
-      "Route A": {
-        "total": 45,
-        "completed": 38,
-        "pending": 7
-      },
-      "Route B": {
-        "total": 35,
-        "completed": 28,
-        "pending": 7
-      },
-      "Route C": {
-        "total": 70,
-        "completed": 55,
-        "pending": 15
-      }
+    "Route B": {
+      "total": 40,
+      "delivered": 35,
+      "pending": 5
     }
   }
 }
 ```
 
-### Acknowledgments & File Uploads
+### File Upload (Acknowledgments)
 
 #### Create Acknowledgment with Files
 ```http
@@ -957,30 +623,26 @@ Content-Type: multipart/form-data
 
 **Request Body (multipart/form-data):**
 ```
-shipmentId: SHIP001
-recipientName: John Doe
-timestamp: 2024-01-15T15:45:00Z
+shipmentId: ship_001
+recipientName: John Smith
+timestamp: 2024-01-15T15:45:00.000Z
 location: 40.7128,-74.0060
 notes: Package delivered successfully
-signature: [File: signature.png]
-photo: [File: delivery_photo.jpg]
+signature: [file: signature.png]
+photo: [file: delivery_photo.jpg]
 ```
 
 **Response:**
 ```json
 {
-  "success": true,
-  "data": {
-    "id": "ACK001",
-    "shipmentId": "SHIP001",
-    "recipientName": "John Doe",
-    "signature": "https://storage.example.com/signatures/ACK001_signature.png",
-    "photo": "https://storage.example.com/photos/ACK001_photo.jpg",
-    "timestamp": "2024-01-15T15:45:00Z",
-    "location": "40.7128,-74.0060",
-    "notes": "Package delivered successfully",
-    "createdAt": "2024-01-15T15:45:00Z"
-  }
+  "id": "ack_001",
+  "shipmentId": "ship_001",
+  "recipientName": "John Smith",
+  "signature": "/uploads/signatures/sig_001.png",
+  "photo": "/uploads/photos/photo_001.jpg",
+  "timestamp": "2024-01-15T15:45:00.000Z",
+  "location": "40.7128,-74.0060",
+  "notes": "Package delivered successfully"
 }
 ```
 
@@ -991,129 +653,25 @@ GET /api/acknowledgments/:shipmentId
 
 **Response:**
 ```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "ACK001",
-      "shipmentId": "SHIP001",
-      "recipientName": "John Doe",
-      "signature": "https://storage.example.com/signatures/ACK001_signature.png",
-      "photo": "https://storage.example.com/photos/ACK001_photo.jpg",
-      "timestamp": "2024-01-15T15:45:00Z",
-      "location": "40.7128,-74.0060",
-      "notes": "Package delivered successfully"
-    }
-  ]
-}
-```
-
-### Sync Status
-
-#### Get Sync Status
-```http
-GET /api/sync/status
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "isOnline": true,
-    "lastSync": "2024-01-15T15:45:00Z",
-    "pendingUploads": 5,
-    "failedUploads": 2,
-    "syncInProgress": false,
-    "queueStatus": {
-      "gpsPoints": {
-        "pending": 150,
-        "failed": 5,
-        "lastSync": "2024-01-15T15:40:00Z"
-      },
-      "shipmentEvents": {
-        "pending": 3,
-        "failed": 1,
-        "lastSync": "2024-01-15T15:42:00Z"
-      },
-      "acknowledgments": {
-        "pending": 2,
-        "failed": 1,
-        "lastSync": "2024-01-15T15:43:00Z"
-      }
-    },
-    "recentFailures": [
-      {
-        "type": "gps_point",
-        "id": "GPS_001",
-        "error": "Network timeout",
-        "attempts": 3,
-        "lastAttempt": "2024-01-15T15:30:00Z",
-        "nextRetry": "2024-01-15T15:50:00Z"
-      }
-    ]
+[
+  {
+    "id": "ack_001",
+    "shipmentId": "ship_001",
+    "recipientName": "John Smith",
+    "signature": "/uploads/signatures/sig_001.png",
+    "photo": "/uploads/photos/photo_001.jpg",
+    "timestamp": "2024-01-15T15:45:00.000Z",
+    "location": "40.7128,-74.0060",
+    "notes": "Package delivered successfully"
   }
-}
+]
 ```
 
-#### Trigger Manual Sync
-```http
-POST /api/sync/trigger
-```
+## External API Integration
 
-**Request Body:**
-```json
-{
-  "syncTypes": ["gps_points", "shipment_events", "acknowledgments"],
-  "force": false,
-  "maxRetries": 3
-}
-```
+### Printo Authentication Service
 
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "syncId": "SYNC_001",
-    "status": "started",
-    "queuedItems": 155,
-    "estimatedDuration": 30,
-    "startedAt": "2024-01-15T15:45:00Z"
-  }
-}
-```
-
-#### Get Sync Progress
-```http
-GET /api/sync/progress/:syncId
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "data": {
-    "syncId": "SYNC_001",
-    "status": "in_progress",
-    "progress": {
-      "total": 155,
-      "completed": 120,
-      "failed": 5,
-      "remaining": 30,
-      "percentage": 77.4
-    },
-    "currentOperation": "Syncing GPS points",
-    "estimatedTimeRemaining": 8,
-    "startedAt": "2024-01-15T15:45:00Z",
-    "lastUpdate": "2024-01-15T15:47:00Z"
-  }
-}
-```
-
-### External API Integration
-
-#### Printo Authentication Service
+#### Login to Printo API
 ```http
 POST https://pia.printo.in/api/v1/auth/
 ```
@@ -1121,38 +679,31 @@ POST https://pia.printo.in/api/v1/auth/
 **Request Body:**
 ```json
 {
-  "email": "employee@company.com",
-  "password": "user_password"
+  "email": "user@company.com",
+  "password": "userpassword"
 }
 ```
 
-**Response (Success):**
+**Response:**
 ```json
 {
-  "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "full_name": "John Doe",
-  "is_ops_team": true,
-  "user": {
-    "id": "EMP001",
-    "email": "employee@company.com",
-    "employee_id": "EMP001",
-    "is_admin": false,
-    "is_super_admin": false,
-    "role": "ops_team"
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "user": {
+      "id": "12345",
+      "email": "user@company.com",
+      "name": "John Doe",
+      "role": "ops_team",
+      "is_admin": false,
+      "is_ops_team": true,
+      "employee_id": "EMP001"
+    }
   }
 }
 ```
 
-**Response (Error):**
-```json
-{
-  "detail": "Invalid credentials",
-  "code": "authentication_failed"
-}
-```
-
-#### Token Refresh
+#### Refresh Printo Token
 ```http
 POST https://pia.printo.in/api/v1/auth/refresh/
 ```
@@ -1164,79 +715,720 @@ POST https://pia.printo.in/api/v1/auth/refresh/
 }
 ```
 
-**Response (Success):**
+**Response:**
 ```json
 {
-  "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-**Response (Error):**
+## External System Integration
+
+### Receiving Shipment Data from External Systems
+
+#### Receive Single Shipment
+```http
+POST /api/shipments/receive
+```
+
+**Request Body (Single Shipment):**
 ```json
 {
-  "detail": "Token is invalid or expired",
-  "code": "token_not_valid"
+  "id": "TRK1760428242357azj0q",
+  "status": "pending",
+  "priority": "high",
+  "type": "delivery",
+  "pickupAddress": "Printo Store, 123 MG Road, Bangalore, Karnataka 560001",
+  "deliveryAddress": "456 Brigade Road, Bangalore, Karnataka 560025",
+  "recipientName": "Rajesh Kumar",
+  "recipientPhone": "+91-9876543210",
+  "customerName": "Rajesh Kumar",
+  "customerMobile": "+91-9876543210",
+  "address": "456 Brigade Road, Bangalore, Karnataka 560025",
+  "weight": 2.5,
+  "dimensions": "30x20x15 cm",
+  "specialInstructions": "Ring doorbell twice, deliver to security",
+  "estimatedDeliveryTime": "2024-01-15T14:30:00.000Z",
+  "deliveryTime": "2024-01-15T14:30:00.000Z",
+  "latitude": 12.9716,
+  "longitude": 77.5946,
+  "cost": 150.00,
+  "routeName": "Bangalore Central",
+  "employeeId": "EMP001"
 }
 ```
 
-#### User Profile Verification
-```http
-GET https://pia.printo.in/api/v1/auth/me/
-```
-
-**Headers:**
-```http
-Authorization: Bearer <access-token>
+**Request Body (Batch Shipments):**
+```json
+{
+  "shipments": [
+    {
+      "id": "TRK1760428242357azj0q",
+      "status": "pending",
+      "priority": "high",
+      "type": "delivery",
+      "pickupAddress": "Printo Store, 123 MG Road, Bangalore, Karnataka 560001",
+      "deliveryAddress": "456 Brigade Road, Bangalore, Karnataka 560025",
+      "recipientName": "Rajesh Kumar",
+      "recipientPhone": "+91-9876543210",
+      "customerName": "Rajesh Kumar",
+      "customerMobile": "+91-9876543210",
+      "address": "456 Brigade Road, Bangalore, Karnataka 560025",
+      "weight": 2.5,
+      "dimensions": "30x20x15 cm",
+      "specialInstructions": "Ring doorbell twice",
+      "estimatedDeliveryTime": "2024-01-15T14:30:00.000Z",
+      "deliveryTime": "2024-01-15T14:30:00.000Z",
+      "latitude": 12.9716,
+      "longitude": 77.5946,
+      "cost": 150.00,
+      "routeName": "Bangalore Central",
+      "employeeId": "EMP001"
+    },
+    {
+      "id": "TRK1760428242358bzk1r",
+      "status": "pending",
+      "priority": "medium",
+      "type": "pickup",
+      "pickupAddress": "789 Koramangala, Bangalore, Karnataka 560034",
+      "deliveryAddress": "Printo Store, 123 MG Road, Bangalore, Karnataka 560001",
+      "recipientName": "Priya Sharma",
+      "recipientPhone": "+91-8765432109",
+      "customerName": "Priya Sharma",
+      "customerMobile": "+91-8765432109",
+      "address": "789 Koramangala, Bangalore, Karnataka 560034",
+      "weight": 1.2,
+      "dimensions": "25x15x10 cm",
+      "specialInstructions": "Call before pickup",
+      "estimatedDeliveryTime": "2024-01-15T16:00:00.000Z",
+      "deliveryTime": "2024-01-15T16:00:00.000Z",
+      "latitude": 12.9352,
+      "longitude": 77.6245,
+      "cost": 80.00,
+      "routeName": "Bangalore South",
+      "employeeId": "EMP002"
+    }
+  ],
+  "metadata": {
+    "source": "printo_system",
+    "batchId": "batch_20240115_001",
+    "timestamp": "2024-01-15T10:00:00.000Z"
+  }
+}
 ```
 
 **Response:**
 ```json
 {
-  "id": "EMP001",
-  "email": "employee@company.com",
-  "full_name": "John Doe",
-  "employee_id": "EMP001",
-  "is_ops_team": true,
-  "is_admin": false,
-  "is_super_admin": false,
-  "role": "ops_team",
-  "is_active": true,
-  "last_login": "2024-01-15T08:00:00Z"
+  "success": true,
+  "message": "Shipments processed successfully",
+  "results": {
+    "total": 2,
+    "created": 2,
+    "updated": 0,
+    "failed": 0,
+    "duplicates": 0
+  },
+  "processedShipments": [
+    {
+      "externalId": "TRK1760428242357azj0q",
+      "internalId": "ship_001",
+      "status": "created",
+      "message": "Shipment created successfully"
+    },
+    {
+      "externalId": "TRK1760428242358bzk1r",
+      "internalId": "ship_002",
+      "status": "created",
+      "message": "Shipment created successfully"
+    }
+  ],
+  "timestamp": "2024-01-15T10:00:30.000Z"
 }
 ```
 
-## GPS Data Synchronization
+### Sending Updates to External Systems
 
-### Offline Storage
-- GPS points stored locally in IndexedDB
-- Automatic sync when connection restored
-- Conflict resolution for duplicate data
-- Battery optimization for mobile devices
+#### Send Single Update to External System
+```http
+POST /api/shipments/update/external
+```
 
-### Real-time Updates
-- Automatic retry with exponential backoff
-- Background sync for better performance
-- Smart route completion detection
+**Request Body:**
+```json
+{
+  "externalId": "TRK1760428242357azj0q",
+  "webhookUrl": "https://external-system.com/webhook/shipment-updates"
+}
+```
 
-### Data Flow
-1. **GPS Collection**: Points collected every 30 seconds during active session
-2. **Local Storage**: Points stored in IndexedDB immediately
-3. **Background Sync**: Automatic upload when online
-4. **Conflict Resolution**: Server handles duplicate points gracefully
+**Payload Sent to External System:**
+```json
+{
+  "externalId": "TRK1760428242357azj0q",
+  "status": "delivered",
+  "statusTimestamp": "2024-01-15T15:45:00.000Z",
+  "location": {
+    "latitude": 12.9716,
+    "longitude": 77.5946,
+    "accuracy": 5.0
+  },
+  "employeeId": "EMP001",
+  "employeeName": "Ravi Patel",
+  "deliveryDetails": {
+    "actualDeliveryTime": "2024-01-15T15:45:00.000Z",
+    "recipientName": "Rajesh Kumar",
+    "deliveryNotes": "Delivered to security guard",
+    "signature": "/uploads/signatures/sig_001.png",
+    "photo": "/uploads/photos/delivery_001.jpg"
+  },
+  "routeInfo": {
+    "routeName": "Bangalore Central",
+    "sessionId": "session_001",
+    "totalDistance": 12.5,
+    "travelTime": 1800
+  }
+}
+```
+
+#### Send Batch Updates to External System
+```http
+POST /api/shipments/update/external/batch
+```
+
+**Request Body:**
+```json
+{
+  "updates": [
+    {
+      "externalId": "TRK1760428242357azj0q",
+      "status": "delivered"
+    },
+    {
+      "externalId": "TRK1760428242358bzk1r",
+      "status": "in_transit"
+    }
+  ],
+  "webhookUrl": "https://external-system.com/webhook/batch-updates"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Batch updates sent successfully",
+  "results": {
+    "total": 2,
+    "successful": 2,
+    "failed": 0
+  },
+  "updates": [
+    {
+      "externalId": "TRK1760428242357azj0q",
+      "status": "sent",
+      "message": "Update sent successfully"
+    },
+    {
+      "externalId": "TRK1760428242358bzk1r",
+      "status": "sent",
+      "message": "Update sent successfully"
+    }
+  ],
+  "timestamp": "2024-01-15T16:00:00.000Z"
+}
+```
+
+### Field Mapping Documentation
+
+#### External to Internal Field Mapping
+
+When receiving shipment data from external systems, the following field mapping is applied:
+
+| External Field | Internal Database Field | Description | Required |
+|---|---|---|---|
+| `id` | `id` | External tracking ID used as primary key | Yes |
+| `recipientName` | `customerName` | Customer/recipient name | Yes |
+| `recipientPhone` | `customerMobile` | Customer/recipient phone number | Yes |
+| `deliveryAddress` | `address` | Primary delivery address | Yes |
+| `estimatedDeliveryTime` | `deliveryTime` | Scheduled delivery time | Yes |
+| `customerName` | `customerName` | Alias for recipientName | Yes |
+| `customerMobile` | `customerMobile` | Alias for recipientPhone | Yes |
+| `address` | `address` | Alias for deliveryAddress | Yes |
+| `deliveryTime` | `deliveryTime` | Alias for estimatedDeliveryTime | Yes |
+| `status` | `status` | Shipment status | Yes |
+| `priority` | `priority` | Delivery priority (high/medium/low) | Yes |
+| `type` | `type` | Shipment type (delivery/pickup) | Yes |
+| `pickupAddress` | `pickupAddress` | Pickup location address | Yes |
+| `weight` | `weight` | Package weight in kg | No |
+| `dimensions` | `dimensions` | Package dimensions (LxWxH) | No |
+| `specialInstructions` | `specialInstructions` | Delivery instructions | No |
+| `latitude` | `latitude` | Delivery location latitude | No |
+| `longitude` | `longitude` | Delivery location longitude | No |
+| `cost` | `cost` | Delivery cost in INR | Yes |
+| `routeName` | `routeName` | Assigned route name | Yes |
+| `employeeId` | `employeeId` | Assigned employee ID | Yes |
+
+#### Internal to External Field Mapping
+
+When sending updates to external systems, the following fields are included:
+
+| Internal Field | External Field | Description |
+|---|---|---|
+| `id` | `externalId` | Original external tracking ID |
+| `status` | `status` | Current shipment status |
+| `updatedAt` | `statusTimestamp` | Last update timestamp |
+| `latitude` | `location.latitude` | Current/delivery latitude |
+| `longitude` | `location.longitude` | Current/delivery longitude |
+| `employeeId` | `employeeId` | Assigned employee ID |
+| `actualDeliveryTime` | `deliveryDetails.actualDeliveryTime` | Actual delivery time |
+| `customerName` | `deliveryDetails.recipientName` | Recipient name |
+| `routeName` | `routeInfo.routeName` | Route name |
+
+### Complete Field Reference
+
+#### Database Schema Fields
+
+The RiderPro database uses the following schema for shipments:
+
+```sql
+CREATE TABLE shipments (
+  id TEXT PRIMARY KEY,                    -- External tracking ID
+  type TEXT NOT NULL,                     -- delivery, pickup
+  customerName TEXT NOT NULL,             -- Customer/recipient name
+  customerMobile TEXT NOT NULL,           -- Customer phone number
+  address TEXT NOT NULL,                  -- Delivery address
+  latitude REAL,                          -- Delivery location latitude
+  longitude REAL,                         -- Delivery location longitude
+  cost REAL NOT NULL,                     -- Delivery cost in INR
+  deliveryTime TEXT NOT NULL,             -- Estimated delivery time
+  routeName TEXT NOT NULL,                -- Assigned route name
+  employeeId TEXT NOT NULL,               -- Assigned employee ID
+  status TEXT NOT NULL DEFAULT 'pending', -- Shipment status
+  priority TEXT,                          -- Delivery priority
+  pickupAddress TEXT,                     -- Pickup location
+  weight REAL,                            -- Package weight in kg
+  dimensions TEXT,                        -- Package dimensions
+  specialInstructions TEXT,               -- Delivery instructions
+  actualDeliveryTime TEXT,                -- Actual delivery timestamp
+  createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+  updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+#### Valid Field Values
+
+**Status Values:**
+- `pending` - Shipment created, not yet assigned
+- `assigned` - Assigned to employee and route
+- `picked_up` - Package picked up from origin
+- `in_transit` - Package in transit to destination
+- `out_for_delivery` - Package out for final delivery
+- `delivered` - Package successfully delivered
+- `failed_delivery` - Delivery attempt failed
+- `returned` - Package returned to sender
+- `cancelled` - Shipment cancelled
+
+**Priority Values:**
+- `high` - High priority delivery
+- `medium` - Medium priority delivery
+- `low` - Low priority delivery
+
+**Type Values:**
+- `delivery` - Delivery from pickup to destination
+- `pickup` - Pickup from customer location
+
+**Indian Address Format Examples:**
+```json
+{
+  "address": "456 Brigade Road, Bangalore, Karnataka 560025",
+  "pickupAddress": "Printo Store, 123 MG Road, Bangalore, Karnataka 560001"
+}
+```
+
+**Indian Phone Number Format:**
+```json
+{
+  "customerMobile": "+91-9876543210"
+}
+```
+
+**Currency Format (INR):**
+```json
+{
+  "cost": 150.00
+}
+```
+
+**Coordinate Ranges for India:**
+```json
+{
+  "latitude": 12.9716,    // Range: 8.0 to 37.0
+  "longitude": 77.5946    // Range: 68.0 to 97.0
+}
+```
+
+### Webhook Authentication
+
+#### Authentication Methods
+
+**API Token Authentication:**
+```http
+Authorization: Bearer <webhook-token>
+```
+
+**Request Headers:**
+```http
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+X-Webhook-Source: riderpro
+X-Webhook-Timestamp: 1642248000
+X-Webhook-Signature: sha256=abc123...
+```
+
+#### Webhook Security
+
+1. **Token Validation**: All webhook requests must include valid Bearer token
+2. **Signature Verification**: Request body signed with HMAC-SHA256
+3. **Timestamp Validation**: Requests older than 5 minutes are rejected
+4. **Rate Limiting**: Maximum 100 requests per minute per webhook endpoint
+5. **Retry Logic**: Failed webhooks are retried up to 3 times with exponential backoff
+
+#### Webhook Configuration
+
+```json
+{
+  "webhookConfig": {
+    "url": "https://external-system.com/webhook/shipment-updates",
+    "token": "webhook_token_here",
+    "secret": "webhook_secret_for_signing",
+    "retryAttempts": 3,
+    "timeoutSeconds": 30,
+    "enabledEvents": ["status_update", "delivery_complete", "pickup_complete"]
+  }
+}
+```
+
+### External System Integration Error Handling
+
+#### Validation Errors for Shipment Reception
+
+**Invalid Field Format:**
+```json
+{
+  "success": false,
+  "message": "Validation failed for shipment data",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "recipientPhone",
+        "value": "invalid-phone",
+        "message": "Phone number must be in format +91-XXXXXXXXXX"
+      },
+      {
+        "field": "latitude",
+        "value": "91.5",
+        "message": "Latitude must be between -90 and 90"
+      }
+    ],
+    "timestamp": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+**Missing Required Fields:**
+```json
+{
+  "success": false,
+  "message": "Missing required fields",
+  "error": {
+    "code": "MISSING_FIELDS",
+    "details": {
+      "missingFields": ["customerName", "deliveryAddress", "employeeId"],
+      "receivedFields": ["id", "status", "type"]
+    },
+    "timestamp": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+**Duplicate Shipment:**
+```json
+{
+  "success": false,
+  "message": "Shipment with this ID already exists",
+  "error": {
+    "code": "DUPLICATE_SHIPMENT",
+    "details": {
+      "existingId": "TRK1760428242357azj0q",
+      "existingStatus": "in_transit",
+      "createdAt": "2024-01-15T08:00:00.000Z"
+    },
+    "timestamp": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+#### Webhook Communication Errors
+
+**External System Unavailable:**
+```json
+{
+  "success": false,
+  "message": "Failed to send update to external system",
+  "error": {
+    "code": "WEBHOOK_FAILED",
+    "details": {
+      "webhookUrl": "https://external-system.com/webhook",
+      "httpStatus": 503,
+      "retryAttempt": 2,
+      "nextRetryAt": "2024-01-15T10:05:00.000Z"
+    },
+    "timestamp": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+**Authentication Failed:**
+```json
+{
+  "success": false,
+  "message": "Webhook authentication failed",
+  "error": {
+    "code": "WEBHOOK_AUTH_FAILED",
+    "details": {
+      "reason": "Invalid or expired webhook token",
+      "webhookUrl": "https://external-system.com/webhook"
+    },
+    "timestamp": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+#### Rate Limiting for External Endpoints
+
+**Rate Limit Headers:**
+```http
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 95
+X-RateLimit-Reset: 1642248000
+X-RateLimit-Window: 900
+```
+
+**Rate Limit Exceeded:**
+```json
+{
+  "success": false,
+  "message": "Rate limit exceeded",
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "details": {
+      "limit": 100,
+      "window": 900,
+      "resetAt": "2024-01-15T10:15:00.000Z"
+    },
+    "timestamp": "2024-01-15T10:00:00.000Z"
+  }
+}
+```
+
+### External System Integration Examples
+
+#### Complete Integration Example
+
+**Step 1: External System Sends Shipment Data**
+```bash
+curl -X POST https://riderpro-api.com/api/shipments/receive \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -d '{
+    "id": "TRK1760428242357azj0q",
+    "status": "pending",
+    "priority": "high",
+    "type": "delivery",
+    "pickupAddress": "Printo Store, 123 MG Road, Bangalore, Karnataka 560001",
+    "deliveryAddress": "456 Brigade Road, Bangalore, Karnataka 560025",
+    "recipientName": "Rajesh Kumar",
+    "recipientPhone": "+91-9876543210",
+    "customerName": "Rajesh Kumar",
+    "customerMobile": "+91-9876543210",
+    "address": "456 Brigade Road, Bangalore, Karnataka 560025",
+    "weight": 2.5,
+    "dimensions": "30x20x15 cm",
+    "specialInstructions": "Ring doorbell twice",
+    "estimatedDeliveryTime": "2024-01-15T14:30:00.000Z",
+    "deliveryTime": "2024-01-15T14:30:00.000Z",
+    "latitude": 12.9716,
+    "longitude": 77.5946,
+    "cost": 150.00,
+    "routeName": "Bangalore Central",
+    "employeeId": "EMP001"
+  }'
+```
+
+**Step 2: RiderPro Processes and Responds**
+```json
+{
+  "success": true,
+  "message": "Shipment created successfully",
+  "results": {
+    "total": 1,
+    "created": 1,
+    "updated": 0,
+    "failed": 0,
+    "duplicates": 0
+  },
+  "processedShipments": [
+    {
+      "externalId": "TRK1760428242357azj0q",
+      "internalId": "ship_001",
+      "status": "created",
+      "message": "Shipment created and assigned to route"
+    }
+  ],
+  "timestamp": "2024-01-15T10:00:30.000Z"
+}
+```
+
+**Step 3: RiderPro Sends Status Updates via Webhook**
+```json
+{
+  "externalId": "TRK1760428242357azj0q",
+  "status": "picked_up",
+  "statusTimestamp": "2024-01-15T11:30:00.000Z",
+  "location": {
+    "latitude": 12.9716,
+    "longitude": 77.5946,
+    "accuracy": 5.0
+  },
+  "employeeId": "EMP001",
+  "employeeName": "Ravi Patel",
+  "routeInfo": {
+    "routeName": "Bangalore Central",
+    "sessionId": "session_001"
+  }
+}
+```
+
+**Step 4: Final Delivery Update**
+```json
+{
+  "externalId": "TRK1760428242357azj0q",
+  "status": "delivered",
+  "statusTimestamp": "2024-01-15T15:45:00.000Z",
+  "location": {
+    "latitude": 12.9716,
+    "longitude": 77.5946,
+    "accuracy": 3.0
+  },
+  "employeeId": "EMP001",
+  "employeeName": "Ravi Patel",
+  "deliveryDetails": {
+    "actualDeliveryTime": "2024-01-15T15:45:00.000Z",
+    "recipientName": "Rajesh Kumar",
+    "deliveryNotes": "Delivered to security guard as requested",
+    "signature": "/uploads/signatures/sig_001.png",
+    "photo": "/uploads/photos/delivery_001.jpg"
+  },
+  "routeInfo": {
+    "routeName": "Bangalore Central",
+    "sessionId": "session_001",
+    "totalDistance": 12.5,
+    "travelTime": 1800
+  }
+}
+```
+
+### Integration Flow Diagram
+
+```
+External System          RiderPro API              Database
+      |                       |                       |
+      |  POST /shipments/     |                       |
+      |  receive              |                       |
+      |---------------------->|                       |
+      |                       |  Field Mapping &     |
+      |                       |  Validation           |
+      |                       |---------------------->|
+      |                       |                       |
+      |  Success Response     |  Store Shipment      |
+      |<----------------------|<----------------------|
+      |                       |                       |
+      |                       |  Status Update       |
+      |                       |<----------------------|
+      |                       |                       |
+      |  Webhook Update       |  POST /update/        |
+      |<----------------------|  external             |
+      |                       |                       |
+```
+
+### GPS Tracking Data Export
+
+#### Route Session with GPS Points
+```json
+{
+  "routeSession": {
+    "id": "session_001",
+    "employeeId": "EMP001",
+    "startTime": "2024-01-15T08:00:00.000Z",
+    "endTime": "2024-01-15T17:00:00.000Z",
+    "totalDistance": 45.2,
+    "totalDuration": 32400,
+    "averageSpeed": 28.5,
+    "gpsPoints": [
+      {
+        "latitude": 40.7128,
+        "longitude": -74.0060,
+        "timestamp": "2024-01-15T08:00:00.000Z",
+        "accuracy": 5.0,
+        "speed": 0.0
+      },
+      {
+        "latitude": 40.7589,
+        "longitude": -73.9851,
+        "timestamp": "2024-01-15T09:15:00.000Z",
+        "accuracy": 4.8,
+        "speed": 25.5
+      }
+    ],
+    "shipmentEvents": [
+      {
+        "shipmentId": "ship_001",
+        "eventType": "pickup",
+        "latitude": 40.7589,
+        "longitude": -73.9851,
+        "timestamp": "2024-01-15T09:30:00.000Z"
+      },
+      {
+        "shipmentId": "ship_001",
+        "eventType": "delivery",
+        "latitude": 40.7128,
+        "longitude": -74.0060,
+        "timestamp": "2024-01-15T15:45:00.000Z"
+      }
+    ]
+  }
+}
+```
 
 ## Error Handling
 
-### Error Response Format
+### Standard Error Response Format
 
 ```json
 {
   "success": false,
+  "message": "Human readable error message",
   "error": {
     "code": "ERROR_CODE",
-    "message": "Human readable error message",
-    "details": {},
-    "timestamp": "ISO-8601-datetime"
+    "details": {
+      "field": "fieldName",
+      "value": "invalidValue",
+      "constraint": "validation rule"
+    },
+    "timestamp": "2024-01-15T10:00:00.000Z",
+    "requestId": "req_12345"
   }
 }
 ```
@@ -1251,7 +1443,25 @@ Authorization: Bearer <access-token>
 - `SESSION_ERROR` (409): Route session conflict
 - `SYNC_ERROR` (500): Data synchronization failed
 - `EXTERNAL_API_ERROR` (502): Printo API unavailable
+- `RATE_LIMIT_EXCEEDED` (429): Too many requests
 - `INTERNAL_ERROR` (500): Server error
+
+### Validation Error Example
+
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": {
+      "field": "latitude",
+      "value": "91.5",
+      "constraint": "Latitude must be between -90 and 90"
+    }
+  }
+}
+```
 
 ## Rate Limiting
 
@@ -1260,608 +1470,27 @@ Authorization: Bearer <access-token>
 - **GPS Points**: 1000 points per hour per session
 - **File Uploads**: 10 requests per minute per user
 
-**Headers:**
+**Rate Limit Headers:**
 ```http
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
 X-RateLimit-Reset: 1642248000
+X-RateLimit-Window: 900
 ```
 
 ## Pagination
 
-All list endpoints support pagination:
+All list endpoints support pagination with consistent format:
 
 ```json
 {
   "data": [...],
-  "total": 100,
+  "total": 150,
   "page": 1,
   "limit": 20,
-  "totalPages": 5,
+  "totalPages": 8,
   "hasNextPage": true,
   "hasPreviousPage": false
-}
-```
-
-## Data Integration Formats
-
-### Sending Data to External Systems
-
-#### Shipment Status Updates (Webhook Format)
-When sending shipment updates to external systems, use this format:
-
-**Single Shipment Update:**
-```json
-{
-  "event": "shipment_status_updated",
-  "timestamp": "2024-01-15T15:45:00Z",
-  "source": "riderpro",
-  "data": {
-    "shipment": {
-      "id": "SHIP001",
-      "trackingNumber": "TRK123456789",
-      "status": "delivered",
-      "previousStatus": "in_transit",
-      "updatedBy": "EMP001",
-      "updatedAt": "2024-01-15T15:45:00Z",
-      "location": {
-        "latitude": 40.7128,
-        "longitude": -74.0060,
-        "accuracy": 5.0,
-        "address": "456 Customer Ave, City"
-      },
-      "deliveryDetails": {
-        "actualDeliveryTime": "2024-01-15T15:45:00Z",
-        "recipientName": "John Doe",
-        "signature": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-        "photo": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD...",
-        "notes": "Package delivered successfully"
-      }
-    }
-  }
-}
-```
-
-**Batch Shipment Updates:**
-```json
-{
-  "event": "batch_shipment_updates",
-  "timestamp": "2024-01-15T16:00:00Z",
-  "source": "riderpro",
-  "batchId": "BATCH_001",
-  "data": {
-    "shipments": [
-      {
-        "id": "SHIP001",
-        "trackingNumber": "TRK123456789",
-        "status": "delivered",
-        "previousStatus": "in_transit",
-        "updatedBy": "EMP001",
-        "updatedAt": "2024-01-15T15:45:00Z",
-        "location": {
-          "latitude": 40.7128,
-          "longitude": -74.0060,
-          "accuracy": 5.0
-        }
-      },
-      {
-        "id": "SHIP002",
-        "trackingNumber": "TRK123456790",
-        "status": "picked_up",
-        "previousStatus": "assigned",
-        "updatedBy": "EMP001",
-        "updatedAt": "2024-01-15T15:50:00Z",
-        "location": {
-          "latitude": 40.7130,
-          "longitude": -74.0062,
-          "accuracy": 4.8
-        }
-      }
-    ],
-    "summary": {
-      "totalUpdated": 2,
-      "employeeId": "EMP001",
-      "routeSession": "SESSION_001"
-    }
-  }
-}
-```
-
-#### GPS Tracking Data Export
-For sending GPS tracking data to external analytics systems:
-
-**Route Session Summary:**
-```json
-{
-  "event": "route_session_completed",
-  "timestamp": "2024-01-15T16:00:00Z",
-  "source": "riderpro",
-  "data": {
-    "session": {
-      "id": "SESSION_001",
-      "employeeId": "EMP001",
-      "employeeName": "John Smith",
-      "startTime": "2024-01-15T08:00:00Z",
-      "endTime": "2024-01-15T16:00:00Z",
-      "duration": 28800,
-      "route": {
-        "startLocation": {
-          "latitude": 40.7128,
-          "longitude": -74.0060,
-          "address": "Warehouse District"
-        },
-        "endLocation": {
-          "latitude": 40.7128,
-          "longitude": -74.0060,
-          "address": "Warehouse District"
-        },
-        "totalDistance": 125.5,
-        "averageSpeed": 15.7,
-        "maxSpeed": 45.2,
-        "coordinateCount": 960
-      },
-      "performance": {
-        "shipmentsCompleted": 12,
-        "deliveries": 8,
-        "pickups": 4,
-        "fuelConsumed": 12.5,
-        "fuelCost": 18.75,
-        "efficiency": 85.2,
-        "onTimeDeliveries": 11,
-        "onTimeRate": 91.7
-      },
-      "gpsPoints": [
-        {
-          "latitude": 40.7130,
-          "longitude": -74.0062,
-          "timestamp": "2024-01-15T08:15:00Z",
-          "accuracy": 5.0,
-          "speed": 25.5,
-          "heading": 180.0,
-          "eventType": "gps"
-        },
-        {
-          "latitude": 40.7140,
-          "longitude": -74.0070,
-          "timestamp": "2024-01-15T08:30:00Z",
-          "accuracy": 4.8,
-          "speed": 0.0,
-          "heading": null,
-          "eventType": "pickup",
-          "shipmentId": "SHIP001"
-        }
-      ]
-    }
-  }
-}
-```
-
-### Receiving Data from External Systems
-
-#### Shipment Import Format
-When receiving shipment data from external systems:
-
-**Single Shipment:**
-```json
-{
-  "trackingNumber": "TRK123456789",
-  "status": "pending",
-  "priority": "high",
-  "type": "delivery",
-  "customer": {
-    "name": "John Doe",
-    "phone": "+1234567890",
-    "email": "john.doe@email.com"
-  },
-  "addresses": {
-    "pickup": {
-      "street": "123 Warehouse St",
-      "city": "New York",
-      "state": "NY",
-      "zipCode": "10001",
-      "country": "USA",
-      "coordinates": {
-        "latitude": 40.7589,
-        "longitude": -73.9851
-      }
-    },
-    "delivery": {
-      "street": "456 Customer Ave",
-      "city": "New York", 
-      "state": "NY",
-      "zipCode": "10002",
-      "country": "USA",
-      "coordinates": {
-        "latitude": 40.7128,
-        "longitude": -74.0060
-      }
-    }
-  },
-  "package": {
-    "weight": 2.5,
-    "dimensions": {
-      "length": 30,
-      "width": 20,
-      "height": 15,
-      "unit": "cm"
-    },
-    "value": 150.00,
-    "currency": "USD",
-    "description": "Electronics package"
-  },
-  "scheduling": {
-    "estimatedPickupTime": "2024-01-15T10:00:00Z",
-    "estimatedDeliveryTime": "2024-01-15T14:30:00Z",
-    "deliveryWindow": {
-      "start": "2024-01-15T13:00:00Z",
-      "end": "2024-01-15T17:00:00Z"
-    }
-  },
-  "assignment": {
-    "routeName": "Route A",
-    "employeeId": "EMP001",
-    "vehicleId": "VEH001",
-    "priority": 1
-  },
-  "specialInstructions": "Handle with care - fragile electronics",
-  "metadata": {
-    "externalId": "EXT_12345",
-    "source": "external_system",
-    "createdBy": "api_integration",
-    "tags": ["electronics", "fragile", "high_value"]
-  }
-}
-```
-
-**Batch Shipment Import:**
-```json
-{
-  "batchId": "BATCH_IMPORT_001",
-  "source": "external_system",
-  "timestamp": "2024-01-15T09:00:00Z",
-  "shipments": [
-    {
-      "trackingNumber": "TRK123456789",
-      "status": "pending",
-      "type": "delivery",
-      "customer": {
-        "name": "John Doe",
-        "phone": "+1234567890"
-      },
-      "addresses": {
-        "pickup": {
-          "street": "123 Warehouse St",
-          "coordinates": {
-            "latitude": 40.7589,
-            "longitude": -73.9851
-          }
-        },
-        "delivery": {
-          "street": "456 Customer Ave",
-          "coordinates": {
-            "latitude": 40.7128,
-            "longitude": -74.0060
-          }
-        }
-      },
-      "package": {
-        "weight": 2.5,
-        "dimensions": "30x20x15 cm"
-      },
-      "scheduling": {
-        "estimatedDeliveryTime": "2024-01-15T14:30:00Z"
-      }
-    }
-  ],
-  "validation": {
-    "validateAddresses": true,
-    "validateCoordinates": true,
-    "allowDuplicates": false
-  }
-}
-```
-
-## WebSocket Events (Future)
-
-### Connection
-```javascript
-const ws = new WebSocket('ws://localhost:5000/ws');
-```
-
-### Real-time GPS Updates
-```json
-{
-  "type": "gps_update",
-  "sessionId": "SESSION_001",
-  "employeeId": "EMP001",
-  "latitude": 40.7130,
-  "longitude": -74.0062,
-  "timestamp": "2024-01-15T08:15:00Z",
-  "accuracy": 5.0,
-  "speed": 25.5,
-  "heading": 180.0
-}
-```
-
-### Shipment Status Events
-```json
-{
-  "type": "shipment_status_update",
-  "shipmentId": "SHIP001",
-  "status": "delivered",
-  "previousStatus": "in_transit",
-  "updatedBy": "EMP001",
-  "timestamp": "2024-01-15T15:45:00Z",
-  "location": {
-    "latitude": 40.7128,
-    "longitude": -74.0060,
-    "accuracy": 5.0
-  }
-}
-```
-
-### Route Session Events
-```json
-{
-  "type": "route_session_update",
-  "sessionId": "SESSION_001",
-  "employeeId": "EMP001",
-  "event": "session_started|session_paused|session_resumed|session_completed",
-  "timestamp": "2024-01-15T08:00:00Z",
-  "data": {
-    "totalDistance": 125.5,
-    "totalTime": 28800,
-    "shipmentsCompleted": 12,
-    "currentLocation": {
-      "latitude": 40.7128,
-      "longitude": -74.0060
-    }
-  }
-}
-```
-
-## Data Validation Rules
-
-### GPS Coordinates Validation
-```json
-{
-  "latitude": {
-    "type": "number",
-    "minimum": -90,
-    "maximum": 90,
-    "required": true
-  },
-  "longitude": {
-    "type": "number", 
-    "minimum": -180,
-    "maximum": 180,
-    "required": true
-  },
-  "accuracy": {
-    "type": "number",
-    "minimum": 0,
-    "maximum": 1000,
-    "optional": true
-  },
-  "speed": {
-    "type": "number",
-    "minimum": 0,
-    "maximum": 200,
-    "optional": true
-  }
-}
-```
-
-### Shipment Data Validation
-```json
-{
-  "trackingNumber": {
-    "type": "string",
-    "minLength": 5,
-    "maxLength": 50,
-    "pattern": "^[A-Z0-9]+$",
-    "required": true
-  },
-  "weight": {
-    "type": "number",
-    "minimum": 0.1,
-    "maximum": 1000,
-    "required": true
-  },
-  "recipientPhone": {
-    "type": "string",
-    "pattern": "^\\+?[1-9]\\d{1,14}$",
-    "required": true
-  },
-  "status": {
-    "type": "string",
-    "enum": ["pending", "assigned", "in_transit", "delivered", "picked_up", "cancelled", "returned"],
-    "required": true
-  }
-}
-```
-
-### Validation Error Response
-```json
-{
-  "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Request validation failed",
-    "details": {
-      "field": "latitude",
-      "value": 95.0,
-      "constraint": "must be between -90 and 90",
-      "received": "number",
-      "expected": "number in range [-90, 90]"
-    },
-    "validationErrors": [
-      {
-        "field": "latitude",
-        "message": "Latitude must be between -90 and 90",
-        "value": 95.0
-      },
-      {
-        "field": "recipientPhone",
-        "message": "Phone number format is invalid",
-        "value": "invalid-phone"
-      }
-    ]
-  },
-  "timestamp": "2024-01-15T15:45:00Z"
-}
-```
-
-## Complete Error Response Examples
-
-### Authentication Errors
-```json
-{
-  "success": false,
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Invalid or expired access token",
-    "details": {
-      "tokenExpiry": "2024-01-15T14:00:00Z",
-      "currentTime": "2024-01-15T15:45:00Z"
-    }
-  },
-  "timestamp": "2024-01-15T15:45:00Z"
-}
-```
-
-### Permission Errors
-```json
-{
-  "success": false,
-  "error": {
-    "code": "FORBIDDEN",
-    "message": "Insufficient permissions to access this resource",
-    "details": {
-      "requiredRole": "ops_team",
-      "userRole": "driver",
-      "resource": "/api/analytics/performance"
-    }
-  },
-  "timestamp": "2024-01-15T15:45:00Z"
-}
-```
-
-### Resource Not Found
-```json
-{
-  "success": false,
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "Shipment not found",
-    "details": {
-      "resource": "shipment",
-      "id": "SHIP999",
-      "searchedIn": "active_shipments"
-    }
-  },
-  "timestamp": "2024-01-15T15:45:00Z"
-}
-```
-
-### GPS/Location Errors
-```json
-{
-  "success": false,
-  "error": {
-    "code": "GPS_ERROR",
-    "message": "Invalid GPS coordinates provided",
-    "details": {
-      "latitude": 95.0,
-      "longitude": -200.0,
-      "errors": [
-        "Latitude must be between -90 and 90",
-        "Longitude must be between -180 and 180"
-      ]
-    }
-  },
-  "timestamp": "2024-01-15T15:45:00Z"
-}
-```
-
-### Route Session Errors
-```json
-{
-  "success": false,
-  "error": {
-    "code": "SESSION_ERROR",
-    "message": "Cannot start route session: active session already exists",
-    "details": {
-      "employeeId": "EMP001",
-      "activeSessionId": "SESSION_001",
-      "activeSessionStartTime": "2024-01-15T08:00:00Z"
-    }
-  },
-  "timestamp": "2024-01-15T15:45:00Z"
-}
-```
-
-### Sync Errors
-```json
-{
-  "success": false,
-  "error": {
-    "code": "SYNC_ERROR",
-    "message": "Failed to sync GPS data to server",
-    "details": {
-      "batchSize": 50,
-      "successful": 35,
-      "failed": 15,
-      "failureReasons": [
-        "Network timeout",
-        "Invalid session ID",
-        "Duplicate coordinates"
-      ]
-    }
-  },
-  "timestamp": "2024-01-15T15:45:00Z"
-}
-```
-
-### External API Errors
-```json
-{
-  "success": false,
-  "error": {
-    "code": "EXTERNAL_API_ERROR",
-    "message": "Printo authentication service unavailable",
-    "details": {
-      "service": "printo_auth",
-      "endpoint": "https://pia.printo.in/api/v1/auth/",
-      "httpStatus": 503,
-      "retryAfter": 30,
-      "fallbackAvailable": false
-    }
-  },
-  "timestamp": "2024-01-15T15:45:00Z"
-}
-```
-
-### Rate Limit Errors
-```json
-{
-  "success": false,
-  "error": {
-    "code": "RATE_LIMIT_EXCEEDED",
-    "message": "Too many requests. Please try again later.",
-    "details": {
-      "limit": 100,
-      "window": 900,
-      "remaining": 0,
-      "resetTime": "2024-01-15T16:00:00Z"
-    }
-  },
-  "timestamp": "2024-01-15T15:45:00Z",
-  "headers": {
-    "X-RateLimit-Limit": "100",
-    "X-RateLimit-Remaining": "0", 
-    "X-RateLimit-Reset": "1642248000"
-  }
 }
 ```
 
@@ -1874,7 +1503,5 @@ const ws = new WebSocket('ws://localhost:5000/ws');
 - Input validation on all endpoints
 - CORS configured for production domains
 - No hardcoded credentials or super admin accounts
-- File uploads scanned for malware
-- Sensitive data (signatures, photos) stored securely
-- API request/response logging for audit trails
-- Automatic token refresh prevents session hijacking
+- File uploads are validated and sanitized
+- SQL injection protection through parameterized queries

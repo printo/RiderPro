@@ -8,12 +8,15 @@ import { Package, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
+type AuthMethod = 'pia' | 'rider';
+
 function Login() {
   const [employeeId, setEmployeeId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('pia');
   const [, setLocation] = useLocation();
 
   // Use the new authentication context
@@ -27,10 +30,11 @@ function Login() {
     setIsLoading(true);
 
     try {
-      console.log('[Login] Attempting login for:', employeeId);
+      console.log(`[Login] Attempting ${authMethod} login for:`, employeeId);
       console.log('[Login] About to call login function...');
 
-      const result = await login(employeeId, password);
+      // Pass the auth method to the login function
+      const result = await login(employeeId, password, authMethod);
 
       console.log('[Login] Login result received:', result);
 
@@ -62,15 +66,43 @@ function Login() {
             <Package className="h-12 w-12 text-primary" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">RiderPro</h1>
-          <p className="text-sm text-muted-foreground">Sign in to your account using PIA Access</p>
+          <p className="text-sm text-muted-foreground">
+            Sign in to your account
+          </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
+            {/* Auth Method Toggle */}
+            <div className="flex gap-2 p-1.5 bg-gray-100 rounded-lg border border-gray-200">
+              <button
+                type="button"
+                onClick={() => setAuthMethod('pia')}
+                disabled={isLoading}
+                className={`flex-1 py-2.5 px-4 rounded-md text-sm font-semibold transition-all duration-200 ${authMethod === 'pia'
+                    ? 'bg-primary text-primary-foreground shadow-md scale-[1.02]'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+              >
+                PIA Access
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthMethod('rider')}
+                disabled={isLoading}
+                className={`flex-1 py-2.5 px-4 rounded-md text-sm font-semibold transition-all duration-200 ${authMethod === 'rider'
+                    ? 'bg-primary text-primary-foreground shadow-md scale-[1.02]'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+              >
+                Rider ID
+              </button>
+            </div>
+
             <div className="space-y-2">
               <Input
                 id="employeeId"
                 type="text"
-                placeholder="Employee ID"
+                placeholder={authMethod === 'pia' ? 'Employee ID' : 'Rider ID'}
                 value={employeeId}
                 onChange={(e) => setEmployeeId(e.target.value)}
                 disabled={isLoading}
@@ -127,9 +159,25 @@ function Login() {
                 "Sign In"
               )}
             </Button>
+
+            {authMethod === 'rider' && (
+              <div className="text-center text-sm text-muted-foreground">
+                Don't have a Rider ID?{' '}
+                <button
+                  type="button"
+                  onClick={() => setLocation('/signup')}
+                  className="text-primary font-semibold hover:underline focus:outline-none"
+                  disabled={isLoading}
+                >
+                  Sign up here
+                </button>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>
     </div>
   );
-} export default withPageErrorBoundary(Login, 'Login');
+}
+
+export default withPageErrorBoundary(Login, 'Login');

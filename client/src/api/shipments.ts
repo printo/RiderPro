@@ -1,5 +1,17 @@
 import { apiRequest } from "@/lib/queryClient";
-import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, ShipmentFilters, DashboardMetrics } from "@shared/schema";
+import {
+  Shipment,
+  InsertShipment,
+  UpdateShipment,
+  BatchUpdate,
+  ShipmentFilters,
+  DashboardMetrics,
+  ExternalShipmentPayload,
+  ExternalShipmentBatch,
+  ExternalUpdatePayload,
+  ShipmentReceptionResponse,
+  BatchSyncResult
+} from "@shared/schema";
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -19,9 +31,17 @@ export const shipmentsApi = {
 
     // Add filter parameters
     if (filters.status) params.append('status', filters.status);
+    if (filters.priority) params.append('priority', filters.priority);
     if (filters.type) params.append('type', filters.type);
     if (filters.routeName) params.append('routeName', filters.routeName);
     if (filters.date) params.append('date', filters.date);
+    if (filters.search) params.append('search', filters.search);
+    if (filters.employeeId) params.append('employeeId', filters.employeeId);
+
+    // Add date range if provided
+    if (filters.dateRange) {
+      params.append('dateRange', JSON.stringify(filters.dateRange));
+    }
 
     // Add pagination parameters
     if (filters.page) params.append('page', String(filters.page));
@@ -31,55 +51,15 @@ export const shipmentsApi = {
     if (filters.sortField) params.append('sortField', filters.sortField);
     if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
 
-    // For now, return mock data to test the shipments page
-    console.log('🧪 Using mock shipments data for testing');
+    const url = `/api/shipments${params.toString() ? `?${params.toString()}` : ''}`;
+    console.log('📡 Making API request to:', url);
 
-    // Create mock shipments data
-    const mockShipments = [
-      {
-        id: '1',
-        customerName: 'Test Customer 1',
-        address: '123 Test Street',
-        status: 'pending',
-        type: 'delivery',
-        routeName: 'Route A',
-        employeeId: 'EMP001',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      },
-      {
-        id: '2',
-        customerName: 'Test Customer 2',
-        address: '456 Demo Avenue',
-        status: 'in_progress',
-        type: 'pickup',
-        routeName: 'Route B',
-        employeeId: 'EMP002',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }
-    ];
+    const response = await apiRequest("GET", url);
 
-    // Create a mock Response object
-    const response = new Response(JSON.stringify(mockShipments), {
-      status: 200,
-      statusText: 'OK',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Total-Count': '2',
-        'X-Total-Pages': '1',
-        'X-Current-Page': '1',
-        'X-Per-Page': '20',
-        'X-Has-Next-Page': 'false',
-        'X-Has-Previous-Page': 'false'
-      }
-    });
-
-    console.log('📥 Mock shipments API response:', {
+    console.log('📥 Shipments API response:', {
       status: response.status,
       statusText: response.statusText,
-      ok: response.ok,
-      dataLength: mockShipments.length
+      ok: response.ok
     });
 
     // Extract pagination headers
@@ -132,6 +112,22 @@ export const shipmentsApi = {
 
   getDashboardMetrics: async (): Promise<DashboardMetrics> => {
     const response = await apiRequest("GET", '/api/dashboard');
+    return response.json();
+  },
+
+  // External integration endpoints
+  receiveExternalShipment: async (payload: ExternalShipmentPayload | ExternalShipmentBatch): Promise<ShipmentReceptionResponse> => {
+    const response = await apiRequest("POST", "/api/shipments/receive", payload);
+    return response.json();
+  },
+
+  sendExternalUpdate: async (payload: ExternalUpdatePayload): Promise<{ success: boolean; message: string }> => {
+    const response = await apiRequest("POST", "/api/shipments/update/external", payload);
+    return response.json();
+  },
+
+  sendExternalBatchUpdate: async (payload: ExternalUpdatePayload[]): Promise<BatchSyncResult> => {
+    const response = await apiRequest("POST", "/api/shipments/update/external/batch", payload);
     return response.json();
   },
 };

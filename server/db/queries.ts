@@ -36,6 +36,13 @@ export class ShipmentQueries {
       params.push(filters.status);
     }
 
+    if (filters.priority) {
+      const condition = ` AND priority = ?`;
+      countQuery += condition;
+      dataQuery += condition;
+      params.push(filters.priority);
+    }
+
     if (filters.type) {
       const condition = ` AND type = ?`;
       countQuery += condition;
@@ -62,6 +69,14 @@ export class ShipmentQueries {
       countQuery += condition;
       dataQuery += condition;
       params.push(filters.employeeId);
+    }
+
+    if (filters.search) {
+      const condition = ` AND (customerName LIKE ? OR address LIKE ? OR id LIKE ?)`;
+      countQuery += condition;
+      dataQuery += condition;
+      const searchTerm = `%${filters.search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
     }
 
     // Apply sorting (default to newest first)
@@ -91,6 +106,22 @@ export class ShipmentQueries {
     return this.db.prepare('SELECT * FROM shipments WHERE id = ?').get(id) || null;
   }
 
+  getShipmentByExternalId(externalId: string): Shipment | null {
+    // Try to find by trackingNumber first (which stores external ID)
+    let shipment = this.db.prepare('SELECT * FROM shipments WHERE trackingNumber = ?').get(externalId);
+
+    // If not found and we have a piashipmentid column, try that too
+    if (!shipment) {
+      try {
+        shipment = this.db.prepare('SELECT * FROM shipments WHERE piashipmentid = ?').get(externalId);
+      } catch (error) {
+        // piashipmentid column might not exist yet, ignore error
+      }
+    }
+
+    return shipment || null;
+  }
+
   createShipment(shipment: InsertShipment): Shipment {
     const id = randomUUID();
     const now = new Date().toISOString();
@@ -99,8 +130,9 @@ export class ShipmentQueries {
       INSERT INTO shipments (
         id, type, customerName, customerMobile, address, 
         latitude, longitude, cost, deliveryTime, routeName, 
-        employeeId, status, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        employeeId, status, priority, pickupAddress, weight, 
+        dimensions, specialInstructions, actualDeliveryTime, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // Map schema fields to database fields
@@ -111,30 +143,38 @@ export class ShipmentQueries {
     const deliveryTime = shipment.deliveryTime || shipment.estimatedDeliveryTime || now;
     const routeName = shipment.routeName || 'Default Route';
     const employeeId = shipment.employeeId || 'default';
+    const priority = shipment.priority || 'medium';
+    const pickupAddress = shipment.pickupAddress || '';
+    const weight = shipment.weight || 0;
+    const dimensions = shipment.dimensions || '';
 
     stmt.run(
       id, shipment.type, customerName, customerMobile,
       address, shipment.latitude || null, shipment.longitude || null,
       cost, deliveryTime, routeName,
-      employeeId, shipment.status || 'Assigned', now, now
+      employeeId, shipment.status || 'Assigned', priority, pickupAddress,
+      weight, dimensions, shipment.specialInstructions || null,
+      shipment.actualDeliveryTime || null, now, now
     );
 
     // Also insert into replica
     if (this.db === liveDb) {
-      const replicaQueries = new ShipmentQueries(true);
       const replicaStmt = replicaDb.prepare(`
         INSERT INTO shipments (
           id, type, customerName, customerMobile, address, 
           latitude, longitude, cost, deliveryTime, routeName, 
-          employeeId, status, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          employeeId, status, priority, pickupAddress, weight, 
+          dimensions, specialInstructions, actualDeliveryTime, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       replicaStmt.run(
         id, shipment.type, customerName, customerMobile,
         address, shipment.latitude || null, shipment.longitude || null,
         cost, deliveryTime, routeName,
-        employeeId, shipment.status || 'Assigned', now, now
+        employeeId, shipment.status || 'Assigned', priority, pickupAddress,
+        weight, dimensions, shipment.specialInstructions || null,
+        shipment.actualDeliveryTime || null, now, now
       );
     }
 
@@ -153,6 +193,61 @@ export class ShipmentQueries {
       updateValues.push(updates.status);
     }
 
+    if (updates.priority !== undefined) {
+      updateFields.push('priority = ?');
+      updateValues.push(updates.priority);
+    }
+
+    if (updates.type !== undefined) {
+      updateFields.push('type = ?');
+      updateValues.push(updates.type);
+    }
+
+    if (updates.pickupAddress !== undefined) {
+      updateFields.push('pickupAddress = ?');
+      updateValues.push(updates.pickupAddress);
+    }
+
+    if (updates.deliveryAddress !== undefined || updates.address !== undefined) {
+      updateFields.push('address = ?');
+      updateValues.push(updates.deliveryAddress || updates.address);
+    }
+
+    if (updates.recipientName !== undefined || updates.customerName !== undefined) {
+      updateFields.push('customerName = ?');
+      updateValues.push(updates.recipientName || updates.customerName);
+    }
+
+    if (updates.recipientPhone !== undefined || updates.customerMobile !== undefined) {
+      updateFields.push('customerMobile = ?');
+      updateValues.push(updates.recipientPhone || updates.customerMobile);
+    }
+
+    if (updates.weight !== undefined) {
+      updateFields.push('weight = ?');
+      updateValues.push(updates.weight);
+    }
+
+    if (updates.dimensions !== undefined) {
+      updateFields.push('dimensions = ?');
+      updateValues.push(updates.dimensions);
+    }
+
+    if (updates.specialInstructions !== undefined) {
+      updateFields.push('specialInstructions = ?');
+      updateValues.push(updates.specialInstructions);
+    }
+
+    if (updates.estimatedDeliveryTime !== undefined || updates.deliveryTime !== undefined) {
+      updateFields.push('deliveryTime = ?');
+      updateValues.push(updates.estimatedDeliveryTime || updates.deliveryTime);
+    }
+
+    if (updates.actualDeliveryTime !== undefined) {
+      updateFields.push('actualDeliveryTime = ?');
+      updateValues.push(updates.actualDeliveryTime);
+    }
+
     if (updates.latitude !== undefined) {
       updateFields.push('latitude = ?');
       updateValues.push(updates.latitude);
@@ -163,19 +258,19 @@ export class ShipmentQueries {
       updateValues.push(updates.longitude);
     }
 
-    if (updates.address !== undefined) {
-      updateFields.push('address = ?');
-      updateValues.push(updates.address);
+    if (updates.cost !== undefined) {
+      updateFields.push('cost = ?');
+      updateValues.push(updates.cost);
     }
 
-    if (updates.customerName !== undefined) {
-      updateFields.push('customerName = ?');
-      updateValues.push(updates.customerName);
+    if (updates.routeName !== undefined) {
+      updateFields.push('routeName = ?');
+      updateValues.push(updates.routeName);
     }
 
-    if (updates.customerMobile !== undefined) {
-      updateFields.push('customerMobile = ?');
-      updateValues.push(updates.customerMobile);
+    if (updates.employeeId !== undefined) {
+      updateFields.push('employeeId = ?');
+      updateValues.push(updates.employeeId);
     }
 
     // Always update the updatedAt field
@@ -381,6 +476,107 @@ export class ShipmentQueries {
 
     this.db.prepare('DELETE FROM acknowledgments WHERE timestamp < ?').run(cutoffIso);
     this.db.prepare('DELETE FROM shipments WHERE createdAt < ?').run(cutoffIso);
+  }
+
+  /**
+   * Execute multiple operations in a single transaction for batch processing
+   * Provides atomicity for batch shipment operations
+   */
+  executeBatchTransaction<T>(operations: () => T): T {
+    const transaction = this.db.transaction(operations);
+    return transaction();
+  }
+
+  /**
+   * Batch create or update shipments with transaction support
+   * Returns results for each shipment operation
+   */
+  batchCreateOrUpdateShipments(shipments: Array<{ external: any, internal: any }>): Array<{
+    piashipmentid: string;
+    internalId: string | null;
+    status: 'created' | 'updated' | 'failed';
+    message: string;
+  }> {
+    return this.executeBatchTransaction(() => {
+      const results = [];
+
+      for (const { external, internal } of shipments) {
+        try {
+          // Check for existing shipment
+          const existing = this.getShipmentByExternalId(external.id);
+
+          if (existing) {
+            // Update existing shipment
+            this.updateShipment(existing.id, {
+              id: existing.id,
+              status: internal.status,
+              priority: internal.priority,
+              customerName: internal.customerName,
+              customerMobile: internal.customerMobile,
+              address: internal.address,
+              latitude: internal.latitude,
+              longitude: internal.longitude,
+              cost: internal.cost,
+              deliveryTime: internal.deliveryTime,
+              routeName: internal.routeName,
+              employeeId: internal.employeeId,
+              pickupAddress: internal.pickupAddress,
+              weight: internal.weight,
+              dimensions: internal.dimensions,
+              specialInstructions: internal.specialInstructions
+            });
+
+            results.push({
+              piashipmentid: external.id,
+              internalId: existing.id,
+              status: 'updated' as const,
+              message: 'Shipment updated successfully'
+            });
+          } else {
+            // Create new shipment
+            const newShipment = this.createShipment({
+              trackingNumber: internal.piashipmentid || internal.id,
+              type: internal.type,
+              customerName: internal.customerName,
+              customerMobile: internal.customerMobile,
+              address: internal.address,
+              latitude: internal.latitude,
+              longitude: internal.longitude,
+              cost: internal.cost,
+              deliveryTime: internal.deliveryTime,
+              routeName: internal.routeName,
+              employeeId: internal.employeeId,
+              status: internal.status,
+              priority: internal.priority || 'medium',
+              pickupAddress: internal.pickupAddress || '',
+              deliveryAddress: internal.address,
+              recipientName: internal.customerName,
+              recipientPhone: internal.customerMobile,
+              weight: internal.weight || 0,
+              dimensions: internal.dimensions || '',
+              specialInstructions: internal.specialInstructions,
+              estimatedDeliveryTime: internal.deliveryTime
+            });
+
+            results.push({
+              piashipmentid: external.id,
+              internalId: newShipment.id,
+              status: 'created' as const,
+              message: 'Shipment created successfully'
+            });
+          }
+        } catch (error: any) {
+          results.push({
+            piashipmentid: external.id,
+            internalId: null,
+            status: 'failed' as const,
+            message: error.message
+          });
+        }
+      }
+
+      return results;
+    });
   }
 
 
