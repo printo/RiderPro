@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { shipmentsApi, type PaginatedResponse } from '@/api/shipments';
+import { shipmentsApi, type PaginatedResponse } from '@/apiClient/shipments';
 import { Shipment } from '@shared/schema';
 import { Skeleton } from '@/components/ui/skeleton';
 import ShipmentCardWithTracking from './ShipmentCardWithTracking';

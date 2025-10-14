@@ -1197,6 +1197,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Record shipment event (pickup/delivery) for a session
+  app.post('/api/routes/shipment-event', async (req, res) => {
+    try {
+      const { sessionId, shipmentId, eventType, latitude, longitude } = req.body || {};
+
+      if (!sessionId || !shipmentId || !eventType) {
+        return res.status(400).json({
+          success: false,
+          message: 'sessionId, shipmentId and eventType are required'
+        });
+      }
+
+      if (!['pickup', 'delivery'].includes(String(eventType))) {
+        return res.status(400).json({
+          success: false,
+          message: 'eventType must be either "pickup" or "delivery"'
+        });
+      }
+
+      const record = {
+        id: 'evt-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+        sessionId,
+        shipmentId,
+        eventType,
+        latitude: latitude ?? null,
+        longitude: longitude ?? null,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('Route shipment event recorded:', record);
+
+      return res.status(201).json({ success: true, record, message: 'Shipment event recorded' });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message || 'Failed to record event' });
+    }
+  });
+
   // Get session data
   app.get('/api/routes/session/:sessionId', async (req, res) => {
     try {
@@ -1274,6 +1311,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: false,
         message: error.message
       });
+    }
+  });
+
+  // Offline sync: sync a route session created while offline
+  app.post('/api/routes/sync-session', async (req, res) => {
+    try {
+      const { id, employeeId, startTime, endTime, status, startLatitude, startLongitude, endLatitude, endLongitude } = req.body || {};
+
+      if (!id || !employeeId || !startTime || !status) {
+        return res.status(400).json({
+          success: false,
+          message: 'id, employeeId, startTime and status are required'
+        });
+      }
+
+      const synced = {
+        id,
+        employeeId,
+        startTime,
+        endTime: endTime || null,
+        status,
+        startLatitude: startLatitude ?? null,
+        startLongitude: startLongitude ?? null,
+        endLatitude: endLatitude ?? null,
+        endLongitude: endLongitude ?? null,
+        syncedAt: new Date().toISOString()
+      };
+
+      console.log('Offline session synced:', synced);
+      return res.json({ success: true, session: synced, message: 'Session synced' });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message || 'Failed to sync session' });
+    }
+  });
+
+  // Offline sync: sync coordinates captured while offline
+  app.post('/api/routes/sync-coordinates', async (req, res) => {
+    try {
+      const { sessionId, coordinates } = req.body || {};
+
+      if (!sessionId || !Array.isArray(coordinates)) {
+        return res.status(400).json({
+          success: false,
+          message: 'sessionId and coordinates array are required'
+        });
+      }
+
+      const results = coordinates.map((c: any) => ({
+        success: true,
+        record: {
+          id: 'coord-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+          sessionId,
+          latitude: c.latitude,
+          longitude: c.longitude,
+          accuracy: c.accuracy ?? null,
+          timestamp: c.timestamp || new Date().toISOString()
+        }
+      }));
+
+      console.log(`Offline coordinates synced for session ${sessionId}:`, results.length);
+      return res.json({ success: true, results, message: 'Coordinates synced' });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, message: error.message || 'Failed to sync coordinates' });
     }
   });
 

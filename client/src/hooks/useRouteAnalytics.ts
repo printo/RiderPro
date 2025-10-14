@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { routeAPI } from '@/api/routes';
+import { routeAPI } from '@/apiClient/routes';
 import { RouteAnalyzer, DailyRouteSummary, WeeklyRouteSummary, MonthlyRouteSummary, FuelSettings } from '../services/RouteAnalyzer';
 import { FuelCalculator, VehicleType, FuelPrice } from '../services/FuelCalculator';
 import { DistanceCalculator } from '../services/DistanceCalculator';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { shipmentsApi, type PaginatedResponse } from "@/api/shipments";
+import { shipmentsApi, type PaginatedResponse } from "@/apiClient/shipments";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";

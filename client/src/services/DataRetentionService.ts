@@ -1,4 +1,4 @@
-import { routeAPI } from '@/api/routes';
+import { routeAPI } from '@/apiClient/routes';
 
 export interface RetentionPolicy {
   routeDataDays: number;

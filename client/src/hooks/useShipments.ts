@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { shipmentsApi } from "@/api/shipments";
+import { shipmentsApi } from "@/apiClient/shipments";
 import { ShipmentFilters } from "@shared/schema";
 
 export function useShipments(filters: ShipmentFilters = {}) {

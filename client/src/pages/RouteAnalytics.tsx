@@ -32,7 +32,7 @@ import EmployeePerformanceTable from '@/components/analytics/EmployeePerformance
 import RouteComparisonChart from '@/components/analytics/RouteComparisonChart';
 import ExportDialog from '@/components/ExportDialog';
 
-import { routeAPI } from '@/api/routes';
+import { routeAPI } from '@/apiClient/routes';
 
 interface AnalyticsFilters {
   dateRange: DateRange | undefined;

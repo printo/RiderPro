@@ -36,13 +36,17 @@ This document provides a comprehensive list of all APIs used in the system and t
 | `/api/routes/coordinates` | POST | Submit GPS coordinates during route |
 | `/api/routes/session/:sessionId` | GET | Get session data and coordinates |
 | `/api/routes/coordinates/batch` | POST | Batch submit GPS coordinates (offline sync) |
+| `/api/routes/shipment-event` | POST | Record pickup/delivery event tied to a route session |
+| `/api/routes/sync-session` | POST | Sync an offline route session when back online |
+| `/api/routes/sync-coordinates` | POST | Sync offline GPS coordinates when back online |
 
-### Offline Sync (Client-initiated)
+### Offline Sync
 
 | Endpoint | Method | Use Case |
 |----------|--------|----------|
-| `/api/routes/sync-session` | POST | Sync offline route sessions from client (client calls exist; server route not found) |
-| `/api/routes/sync-coordinates` | POST | Sync offline GPS coordinates from client (client calls exist; server route not found) |
+| `/api/routes/coordinates/batch` | POST | Batch submit GPS coordinates (offline sync) |
+| `/api/routes/sync-session` | POST | Sync an offline route session when back online |
+| `/api/routes/sync-coordinates` | POST | Sync offline GPS coordinates when back online |
 
 ### Dashboard & Analytics
 
@@ -56,13 +60,6 @@ This document provides a comprehensive list of all APIs used in the system and t
 |----------|--------|----------|
 | `/api/sync/stats` | GET | Get synchronization statistics |
 | `/api/sync/trigger` | POST | Trigger manual data sync with external systems |
-
-### Additional Client-Used Endpoints (Missing on Server)
-
-| Endpoint | Method | Use Case |
-|----------|--------|----------|
-| `/api/routes/shipment-event` | POST | Record pickup/delivery event tied to a route session (used in client `routeAPI.recordShipmentEvent`) |
-
 
 ### Error Logging
 

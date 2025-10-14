@@ -4,7 +4,7 @@ import {
   StartRouteSession, StopRouteSession, GPSCoordinate,
   RouteFilters, RouteSession
 } from '@shared/schema';
-import { routeAPI } from '@/api/routes';
+import { routeAPI } from '@/apiClient/routes';
 
 // Query keys for React Query
 export const routeQueryKeys = {
