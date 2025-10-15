@@ -24,6 +24,8 @@ The server uses three separate SQLite databases for different purposes:
 - **Purpose**: User profiles and local authentication
 - **Tables**: rider_accounts, user_preferences
 - **Security**: Isolated from operational data
+- **Authentication**: Role-based permissions using existing `role` column
+- **Token Management**: No database token storage (localStorage only)
 
 ### Client-Side Storage (IndexedDB)
 
@@ -180,15 +182,19 @@ CREATE TABLE rider_accounts (
   password_hash TEXT NOT NULL,
   full_name TEXT NOT NULL,
   is_approved BOOLEAN DEFAULT 0,
-  is_super_user BOOLEAN DEFAULT 0,
-  is_ops_team BOOLEAN DEFAULT 0,
-  is_staff BOOLEAN DEFAULT 0,
+  is_active BOOLEAN DEFAULT 1,
   role TEXT DEFAULT 'driver',
   last_login_at TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );
 ```
+
+**Key Changes:**
+- **Simplified Schema**: Removed `is_super_user`, `is_ops_team`, `is_staff` columns
+- **Role-Based Permissions**: Uses single `role` column for all permissions
+- **No Token Storage**: Tokens stored in localStorage only
+- **Efficient Design**: Eliminates unnecessary boolean columns
 
 #### User Preferences Table
 ```sql

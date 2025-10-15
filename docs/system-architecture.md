@@ -12,35 +12,40 @@ graph TB
         A[React Frontend]
         B[Service Worker]
         C[IndexedDB]
+        D[localStorage<br/>Auth Tokens]
     end
     
     subgraph "API Layer"
-        D[Node.js Server]
-        E[Express Router]
-        F[Middleware]
+        E[Node.js Server]
+        F[Express Router]
+        G[Auth Middleware]
+        H[Role-Based Access Control]
     end
     
     subgraph "External Services"
-        G[Printo API]
-        H[GPS Services]
+        I[Printo API]
+        J[GPS Services]
     end
     
     subgraph "Data Layer"
-        I[Main Database<br/>main.db]
-        J[Replica Database<br/>replica.db]
-        K[User Data Database<br/>userdata.db]
-        L[IndexedDB<br/>Offline Storage]
+        K[Main Database<br/>main.db<br/>Shipments & Routes]
+        L[Replica Database<br/>replica.db<br/>Development Data]
+        M[User Data Database<br/>userdata.db<br/>Authentication Only]
+        N[IndexedDB<br/>Offline Storage]
     end
     
+    A --> E
+    A --> N
     A --> D
-    A --> L
-    B --> L
-    D --> I
-    D --> J
-    D --> K
-    D --> G
-    E --> F
-    A --> H
+    B --> N
+    E --> K
+    E --> L
+    E --> M
+    E --> I
+    F --> G
+    G --> H
+    A --> J
+    D -.->|Token Validation| M
 ```
 
 ## Frontend Architecture
@@ -177,6 +182,45 @@ interface OfflineStorage {
 - **Tab Navigation**: Mobile-responsive tabs that stack vertically on small screens
 - **Touch Interactions**: Optimized button sizes and spacing for mobile devices
 - **Performance**: Lazy loading and efficient rendering for mobile performance
+
+## Authentication Architecture
+
+### Simplified Token-Based Authentication
+
+RiderPro uses a streamlined authentication system that eliminates unnecessary database complexity:
+
+#### Token Management
+- **Token Format**: `local_<timestamp>_<userId>` (embedded user ID)
+- **Storage**: localStorage only (no database token storage)
+- **Validation**: Extract user ID from token and validate against `rider_accounts` table
+- **Role-Based Permissions**: Derived from `role` column in database
+
+#### Authentication Flow
+```mermaid
+sequenceDiagram
+    participant Client
+    participant AuthMiddleware
+    participant UserDataDB
+    
+    Client->>AuthMiddleware: Request with Bearer token
+    AuthMiddleware->>AuthMiddleware: Extract user ID from token
+    AuthMiddleware->>UserDataDB: Validate user by ID
+    UserDataDB-->>AuthMiddleware: User data with role
+    AuthMiddleware->>AuthMiddleware: Derive permissions from role
+    AuthMiddleware-->>Client: Authenticated request with user context
+```
+
+#### Role-Based Access Control
+- **Super User**: `role = 'super_user'` or `'admin'` → Full system access
+- **Ops Team**: `role = 'ops_team'` → Management-level access
+- **Staff**: `role = 'staff'` → Limited management access
+- **Driver**: `role = 'driver'` or default → Basic driver access
+
+#### Database Efficiency
+- **No Token Storage**: Tokens stored only in localStorage
+- **Single Source of Truth**: User data in `userdata.db` only
+- **Role-Based Permissions**: No additional boolean columns needed
+- **Simplified Schema**: Uses existing `role` column for all permissions
 
 ## Backend Architecture
 

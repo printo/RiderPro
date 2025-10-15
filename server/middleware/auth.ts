@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
+import Database from 'better-sqlite3';
 
 // User roles for role-based access control
 export enum UserRole {
@@ -181,17 +182,27 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     const accessToken = authHeader.substring(7);
 
-    // Find user by access token in rider_accounts table (for local auth)
-    const userDataDb = require('better-sqlite3')('data/userdata.db');
+    // For local auth, extract user ID from token and validate against rider_accounts
+    const userDataDb = new Database('data/userdata.db');
+
+    // Extract user ID from token (format: local_timestamp_userId)
+    const tokenParts = accessToken.split('_');
+    if (tokenParts.length < 3 || tokenParts[0] !== 'local') {
+      return res.status(401).json({ success: false, message: 'Invalid token format', code: 'INVALID_TOKEN' });
+    }
+
+    // Get the last part as userId (in case there are underscores in the userId)
+    const userId = tokenParts.slice(2).join('_');
+
     const userRow = userDataDb
       .prepare(`
         SELECT id, rider_id as username, rider_id as email, role, rider_id as employee_id, full_name, 
-               access_token, '' as refresh_token, is_active, last_login_at as last_login, 
+               '' as access_token, '' as refresh_token, is_active, last_login_at as last_login, 
                created_at, updated_at
         FROM rider_accounts 
-        WHERE access_token = ? AND is_active = 1
+        WHERE id = ? AND is_active = 1
       `)
-      .get(accessToken) as any;
+      .get(userId) as any;
 
     if (!userRow) {
       return res.status(401).json({ success: false, message: 'Invalid or expired token', code: 'INVALID_TOKEN' });

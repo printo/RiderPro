@@ -208,16 +208,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Generate simple tokens (in production use JWT)
-      const accessToken = 'local_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
+      // Generate simple tokens with user ID embedded (in production use JWT)
+      const accessToken = 'local_' + Date.now() + '_' + user.id;
       const refreshToken = 'refresh_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
 
-      // Update last login and store access token
+      // Update last login
       userDataDb.prepare(`
         UPDATE rider_accounts 
-        SET last_login_at = datetime('now'), updated_at = datetime('now'), access_token = ?
+        SET last_login_at = datetime('now'), updated_at = datetime('now')
         WHERE id = ?
-      `).run(accessToken, user.id);
+      `).run(user.id);
 
       // For local auth, we store the token directly in rider_accounts table
 

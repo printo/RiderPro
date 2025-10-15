@@ -2,7 +2,7 @@
 
 ## Overview
 
-RiderPro implements a secure local authentication system with role-based access control. The system has been simplified to use local database authentication with bcrypt password hashing and comprehensive user management features.
+RiderPro implements a simplified local authentication system with role-based access control. The system uses local database authentication with bcrypt password hashing, role-based permissions, and efficient token management without unnecessary database storage.
 
 ## Architecture
 
@@ -13,9 +13,9 @@ RiderPro implements a secure local authentication system with role-based access 
 - **Registration**: Users register with `rider_id`, `password`, `full_name`, `email`
 - **Approval Workflow**: Admin approval required before login
 - **Password Security**: bcrypt hashing with 12 salt rounds
-- **Token Generation**: JWT-based authentication
-- **Role Assignment**: Configurable roles (Super User, Ops Team, Staff, Driver)
-- **Storage**: User data stored in `userdata.db` with localStorage for session management
+- **Token Generation**: Simple token-based authentication with embedded user ID
+- **Role Assignment**: Role-based permissions using existing `role` column
+- **Storage**: User data stored in `userdata.db`, tokens stored in localStorage only
 
 ### Authentication Flow
 
@@ -32,27 +32,28 @@ sequenceDiagram
     UserData DB-->>RiderPro API: {user data}
     RiderPro API->>RiderPro API: bcrypt.compare(password, hash)
     alt Valid Credentials
-        RiderPro API->>RiderPro API: Generate JWT token
+        RiderPro API->>RiderPro API: Generate token with embedded user ID
         RiderPro API-->>Client: {success, accessToken, user}
     else Invalid Credentials
         RiderPro API-->>Client: {error: "Invalid credentials"}
     end
     
-    Note over Client: Store authentication data in localStorage
+    Note over Client: Store token in localStorage (no database storage)
     
     Client->>RiderPro API: GET /shipments (with Bearer token)
+    RiderPro API->>RiderPro API: Extract user ID from token
+    RiderPro API->>UserData DB: Validate user by ID
     RiderPro API-->>Client: Shipments data
 ```
 
 ## User Roles and Permissions
 
-### Internal Role Structure
+### Role-Based Permission System
 
-The system now uses a simplified internal role structure with two roles:
+The system uses a simplified role-based approach using the existing `role` column in the `rider_accounts` table:
 
-#### 1. **Super User** (`is_super_user: true`)
-- **Source**: `is_super_user: true` from PIA API
-- **Internal Mapping**: `is_super_user: true` → `is_super_user: true`
+#### 1. **Super User** (`role: 'super_user'` or `role: 'admin'`)
+- **Database**: `role` column set to `'super_user'` or `'admin'`
 - **Permissions**:
   - Full system access
   - Admin page access
@@ -61,10 +62,10 @@ The system now uses a simplified internal role structure with two roles:
   - All shipment and route operations
   - Analytics and reporting
   - Health check settings
+  - Access to all users endpoint
 
-#### 2. **Rider** (`is_rider: true`)
-- **Source**: `is_ops_team: true` OR `is_staff: true` from PIA API
-- **Internal Mapping**: `is_ops_team: true` OR `is_staff: true` → `is_rider: true`
+#### 2. **Ops Team** (`role: 'ops_team'`)
+- **Database**: `role` column set to `'ops_team'`
 - **Permissions**:
   - Edit access to shipments
   - View all shipments
@@ -75,9 +76,16 @@ The system now uses a simplified internal role structure with two roles:
   - Batch operations
   - Upload acknowledgments
 
-#### 3. **Driver** (default, no special flags)
-- **Source**: Default role when no PIA elevated roles are present
-- **Internal Mapping**: All non-elevated users default to driver
+#### 3. **Staff** (`role: 'staff'`)
+- **Database**: `role` column set to `'staff'`
+- **Permissions**:
+  - View all shipments
+  - Basic route management
+  - Access analytics and reports
+  - Upload acknowledgments
+
+#### 4. **Driver** (`role: 'driver'` or default)
+- **Database**: `role` column set to `'driver'` or default
 - **Permissions**:
   - View own shipments only
   - Update shipment status
@@ -147,17 +155,12 @@ const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
 ### Token Management
 
-#### External API Tokens
-- **Access Token**: Short-lived token for API requests
-- **Refresh Token**: Long-lived token for token renewal
-- **Storage**: localStorage for persistence
+#### Simplified Token System
+- **Access Token**: `local_<timestamp>_<userId>` (embedded user ID)
+- **Refresh Token**: `refresh_<timestamp>_<random>` (for future use)
+- **Storage**: localStorage only (no database storage)
 - **Usage**: Bearer token in Authorization header
-
-#### Local Database Tokens
-- **Format**: `local_<timestamp>_<random>`
-- **Refresh Format**: `refresh_<timestamp>_<random>`
-- **Storage**: localStorage for persistence
-- **Usage**: Simple token-based authentication
+- **Validation**: Extract user ID from token and validate against database
 
 ### Data Storage
 

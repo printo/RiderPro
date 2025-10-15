@@ -57,12 +57,30 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```json
   {
     "success": true,
-    "accessToken": "string",
-    "refreshToken": "string",
+    "message": "Login successful",
+    "accessToken": "local_<timestamp>_<userId>",
+    "refreshToken": "refresh_<timestamp>_<random>",
     "fullName": "string",
     "isApproved": boolean
   }
   ```
+- **Security**: bcrypt password verification
+- **Token Format**: Access token contains embedded user ID for validation
+- **Storage**: Tokens stored in localStorage only (no database storage)
+
+### Authentication Architecture
+
+#### Token-Based Authentication
+- **Token Format**: `local_<timestamp>_<userId>` (embedded user ID)
+- **Validation**: Extract user ID from token and validate against `rider_accounts` table
+- **Role-Based Permissions**: Derived from `role` column in database
+- **No Database Token Storage**: Tokens stored only in localStorage for efficiency
+
+#### Role-Based Access Control
+- **Super User**: `role = 'super_user'` or `'admin'` → Full system access
+- **Ops Team**: `role = 'ops_team'` → Management-level access  
+- **Staff**: `role = 'staff'` → Limited management access
+- **Driver**: `role = 'driver'` or default → Basic driver access
 
 ### Admin User Management
 
