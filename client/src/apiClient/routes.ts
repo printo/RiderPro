@@ -256,7 +256,7 @@ export const routeAPI = {
   },
 
   /**
-   * Check if route tracking API is available (cached for performance)
+   * Check if npm run dev API is available (cached for performance)
    */
   checkAPIHealth: async (): Promise<boolean> => {
     try {

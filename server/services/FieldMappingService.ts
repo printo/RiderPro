@@ -130,7 +130,7 @@ export class FieldMappingService {
 
       // Map fields with proper conversions
       const internal: InternalShipment = {
-        id: internalId,
+        shipment_id: internalId,
         type: this.sanitizeString(external.type),
         customerName: this.sanitizeString(external.recipientName),     // recipientName -> customerName
         customerMobile: this.sanitizePhoneNumber(external.recipientPhone), // recipientPhone -> customerMobile
@@ -168,10 +168,10 @@ export class FieldMappingService {
    */
   mapInternalToExternal(internal: InternalShipment, additionalData?: any): ExternalUpdatePayload {
     try {
-      log(`Mapping internal shipment ${internal.id} to external update format`, 'field-mapping');
+      log(`Mapping internal shipment ${internal.shipment_id} to external update format`, 'field-mapping');
 
       const external: ExternalUpdatePayload = {
-        id: internal.piashipmentid || internal.id, // Use external ID if available, fallback to internal
+        id: internal.piashipmentid || internal.shipment_id, // Use external ID if available, fallback to internal
         status: internal.status,
         statusTimestamp: internal.updatedAt || new Date().toISOString(),
         employeeId: internal.employeeId,
@@ -204,11 +204,11 @@ export class FieldMappingService {
         travelTime: additionalData?.travelTime,
       };
 
-      log(`Successfully mapped internal shipment ${internal.id} to external update`, 'field-mapping');
+      log(`Successfully mapped internal shipment ${internal.shipment_id} to external update`, 'field-mapping');
       return external;
 
     } catch (error: any) {
-      log(`Error mapping internal to external for shipment ${internal.id}: ${error.message}`, 'field-mapping');
+      log(`Error mapping internal to external for shipment ${internal.shipment_id}: ${error.message}`, 'field-mapping');
       throw new Error(`Field mapping failed: ${error.message}`);
     }
   }

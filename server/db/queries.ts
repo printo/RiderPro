@@ -450,11 +450,11 @@ export class ShipmentQueries {
 
       for (const update of updates) {
         if (update.status) { // Only update if status is provided
-          const result = stmt.run(update.status, now, update.id);
+          const result = stmt.run(update.status, now, update.shipment_id);
           if (result.changes > 0) {
             totalUpdated++;
             // Also update replica
-            replicaStmt.run(update.status, now, update.id);
+            replicaStmt.run(update.status, now, update.shipment_id);
           }
         }
       }
@@ -646,8 +646,8 @@ export class ShipmentQueries {
 
           if (existing) {
             // Update existing shipment
-            this.updateShipment(existing.id, {
-              id: existing.id,
+            this.updateShipment(existing.shipment_id, {
+              shipment_id: existing.shipment_id,
               status: internal.status,
               priority: internal.priority,
               customerName: internal.customerName,
@@ -667,13 +667,14 @@ export class ShipmentQueries {
 
             results.push({
               piashipmentid: external.id,
-              internalId: existing.id,
+              internalId: existing.shipment_id,
               status: 'updated' as const,
               message: 'Shipment updated successfully'
             });
           } else {
             // Create new shipment
             const newShipment = this.createShipment({
+              shipment_id: internal.piashipmentid || internal.id,
               trackingNumber: internal.piashipmentid || internal.id,
               type: internal.type,
               customerName: internal.customerName,
@@ -699,7 +700,7 @@ export class ShipmentQueries {
 
             results.push({
               piashipmentid: external.id,
-              internalId: newShipment.id,
+              internalId: newShipment.shipment_id,
               status: 'created' as const,
               message: 'Shipment created successfully'
             });

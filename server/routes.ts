@@ -217,6 +217,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE id = ?
       `).run(user.id);
 
+      // Create/update user in the users table for authentication middleware
+      const userId = user.id;
+      const username = user.rider_id;
+      const email = `${user.rider_id}@local.riderpro.com`;
+      const role = 'driver'; // Default role for local users
+      const employeeId = user.rider_id;
+      const fullName = user.full_name;
+      const isActive = user.is_active;
+      const now = new Date().toISOString();
+
+      // Check if user exists in users table
+      const existingUser = storage.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+
+      if (existingUser) {
+        // Update existing user
+        storage.prepare(`
+          UPDATE users 
+          SET username = ?, email = ?, role = ?, employee_id = ?, full_name = ?, 
+              access_token = ?, refresh_token = ?, last_login = ?, updated_at = ?
+          WHERE id = ?
+        `).run(username, email, role, employeeId, fullName, accessToken, refreshToken, now, now, userId);
+      } else {
+        // Create new user
+        storage.prepare(`
+          INSERT INTO users (id, username, email, role, employee_id, full_name, access_token, refresh_token, is_active, last_login, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(userId, username, email, role, employeeId, fullName, accessToken, refreshToken, isActive, now, now, now);
+      }
+
+      // Create session with access token (24 hour expiry)
+      const sessionId = 'session-' + Date.now() + '-' + Math.random().toString(36).substring(2, 11);
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+      storage.prepare(`
+        INSERT OR REPLACE INTO user_sessions (id, user_id, access_token, expires_at)
+        VALUES (?, ?, ?, ?)
+      `).run(sessionId, userId, accessToken, expiresAt);
+
       res.json({
         success: true,
         message: 'Login successful',
@@ -300,7 +338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = userDataDb
         .prepare(`
           UPDATE rider_accounts 
-          SET is_active = 0, updated_at = datetime('now')
+          SET is_active = 0, is_approved = 0, updated_at = datetime('now')
           WHERE id = ?
         `)
         .run(userId);
@@ -1378,11 +1416,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Create acknowledgment record with user tracking
         const acknowledgment = await storage.createAcknowledgment({
-          shipmentId,
-          signature: signatureUrl,
-          photo: photoUrl,
-          timestamp: new Date().toISOString(),
-          recipientName: req.body.recipientName || 'Unknown',
+          shipment_id: shipmentId,
+          signatureUrl: signatureUrl,
+          photoUrl: photoUrl,
+          capturedAt: new Date().toISOString(),
           capturedBy: req.user?.employeeId || req.user?.id || 'unknown', // Track who captured the acknowledgment (employee ID or user ID)
         });
 

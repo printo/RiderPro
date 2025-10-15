@@ -193,6 +193,13 @@ export interface InsertShipment {
   routeName?: string;
   employeeId?: string;
 
+  // Tracking fields
+  start_latitude?: number;
+  start_longitude?: number;
+  stop_latitude?: number;
+  stop_longitude?: number;
+  km_travelled?: number;
+
   // Acknowledgment fields
   signatureUrl?: string;
   photoUrl?: string;
@@ -257,7 +264,25 @@ export interface BatchUpdate {
   updates: UpdateShipment[];
 }
 
-// Acknowledgment interfaces removed - functionality consolidated into Shipment table
+// Acknowledgment interfaces (for backward compatibility)
+export interface Acknowledgment {
+  id: string;
+  shipment_id: string;
+  signatureUrl?: string;
+  photoUrl?: string;
+  capturedAt: string;
+  capturedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InsertAcknowledgment {
+  shipment_id: string;
+  signatureUrl?: string;
+  photoUrl?: string;
+  capturedAt: string;
+  capturedBy?: string;
+}
 
 export interface DashboardMetrics {
   totalShipments: number;

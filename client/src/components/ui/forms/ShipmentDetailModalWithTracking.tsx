@@ -65,7 +65,7 @@ function ShipmentDetailModalWithTracking({
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ status }: { status: string }) => {
-      const response = await apiRequest("PATCH", `/api/shipments/${shipment.id}`, { status });
+      const response = await apiRequest("PATCH", `/api/shipments/${shipment.shipment_id}`, { status });
       return response.json();
     },
     onSuccess: () => {
@@ -87,7 +87,7 @@ function ShipmentDetailModalWithTracking({
 
   const acknowledgmentMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      const response = await apiClient.upload(`/api/shipments/${shipment.id}/acknowledgement`, formData);
+      const response = await apiClient.upload(`/api/shipments/${shipment.shipment_id}/acknowledgement`, formData);
       if (!response.ok) {
         const error = await response.text();
         throw new Error(error || "Failed to save acknowledgment");
@@ -128,7 +128,7 @@ function ShipmentDetailModalWithTracking({
 
         // Record the shipment event with GPS coordinates
         await recordShipmentEvent(
-          shipment.id,
+          shipment.shipment_id,
           eventType,
           position.latitude,
           position.longitude
@@ -273,7 +273,7 @@ function ShipmentDetailModalWithTracking({
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Shipment ID:</span>
-                  <p className="font-medium">#{shipment.id.slice(-8)}</p>
+                  <p className="font-medium">#{shipment.shipment_id.slice(-8)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Type:</span>
@@ -436,11 +436,11 @@ function ShipmentDetailModalWithTracking({
             </Card>
 
             {/* Action Buttons */}
-            {shipment.status === "Assigned" && (
+            {(shipment.status === "Assigned" || shipment.status === "In Transit") && (
               <div className="space-y-3">
                 <h4 className="font-medium">Update Status</h4>
                 <div className="grid grid-cols-1 gap-2">
-                  {shipment.type === "delivery" && (
+                  {shipment.type === "delivery" && shipment.status !== "Delivered" && (
                     <Button
                       onClick={() => handleStatusUpdateWithGPS("Delivered")}
                       disabled={isProcessing}
@@ -458,7 +458,7 @@ function ShipmentDetailModalWithTracking({
                     </Button>
                   )}
 
-                  {shipment.type === "pickup" && (
+                  {shipment.type === "pickup" && shipment.status !== "Picked Up" && (
                     <Button
                       onClick={() => handleStatusUpdateWithGPS("Picked Up")}
                       disabled={isProcessing}
@@ -476,25 +476,29 @@ function ShipmentDetailModalWithTracking({
                     </Button>
                   )}
 
-                  <Button
-                    variant="outline"
-                    onClick={() => handleStatusUpdateWithGPS("Cancelled")}
-                    disabled={isProcessing}
-                    className="w-full justify-start"
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Cancel Shipment
-                  </Button>
+                  {shipment.status !== "Cancelled" && shipment.status !== "Returned" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleStatusUpdateWithGPS("Cancelled")}
+                      disabled={isProcessing}
+                      className="w-full justify-start"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Cancel Shipment
+                    </Button>
+                  )}
 
-                  <Button
-                    variant="outline"
-                    onClick={() => handleStatusUpdateWithGPS("Returned")}
-                    disabled={isProcessing}
-                    className="w-full justify-start"
-                  >
-                    <Undo className="h-4 w-4 mr-2" />
-                    Mark as Returned
-                  </Button>
+                  {shipment.status !== "Returned" && shipment.status !== "Cancelled" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleStatusUpdateWithGPS("Returned")}
+                      disabled={isProcessing}
+                      className="w-full justify-start"
+                    >
+                      <Undo className="h-4 w-4 mr-2" />
+                      Mark as Returned
+                    </Button>
+                  )}
                 </div>
 
                 {isRecordingLocation && (
@@ -552,7 +556,7 @@ function ShipmentDetailModalWithTracking({
         <RemarksModal
           isOpen={showRemarksModal}
           onClose={() => setShowRemarksModal(false)}
-          shipmentId={shipment.id}
+          shipmentId={shipment.shipment_id}
           status={remarksStatus}
         />
       )}

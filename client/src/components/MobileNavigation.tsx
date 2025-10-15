@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
 import { useAuth } from '../hooks/useAuth';
-import { UserRole } from '../types/Auth';
+import { UserRole } from '@/types/User';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import '../styles/mobile.css';
 
@@ -100,16 +100,10 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   const handleLogout = async () => {
     console.log('Logout button clicked');
     try {
-      const success = await logout();
-      if (success) {
-        console.log('Redirecting to login page...');
-        // Use window.location to ensure a full page reload
-        window.location.href = '/login';
-      } else {
-        console.warn('Logout completed but server response was not successful');
-        // Still redirect to login page even if server logout failed
-        window.location.href = '/login';
-      }
+      logout();
+      console.log('Redirecting to login page...');
+      // Use window.location to ensure a full page reload
+      window.location.href = '/login';
     } catch (error) {
       console.error('Logout error:', error);
       // In case of any error, still try to redirect to login page

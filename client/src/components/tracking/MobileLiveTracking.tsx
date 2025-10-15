@@ -288,6 +288,6 @@ export const MobileLiveTracking: React.FC<MobileLiveTrackingProps> = ({
 };
 
 export default withComponentErrorBoundary(MobileLiveTracking, {
-  componentVariant: 'mobile',
+  componentVariant: 'card',
   componentName: 'MobileLiveTracking'
 });

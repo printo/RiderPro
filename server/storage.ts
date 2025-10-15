@@ -1,5 +1,5 @@
 import { ShipmentQueries } from './db/queries.js';
-import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType } from '@shared/schema';
+import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType, Acknowledgment, InsertAcknowledgment } from '@shared/schema';
 
 export interface PaginatedResponse<T> {
   data: T[];

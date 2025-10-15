@@ -901,13 +901,13 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
                 <p>Loading users...</p>
               </div>
             ) : (() => {
-              const filteredUsers = allUsers.filter(user => 
-                !userFilter || 
+              const filteredUsers = allUsers.filter(user =>
+                !userFilter ||
                 user.full_name?.toLowerCase().includes(userFilter.toLowerCase()) ||
                 user.rider_id?.toLowerCase().includes(userFilter.toLowerCase()) ||
                 user.email?.toLowerCase().includes(userFilter.toLowerCase())
               );
-              
+
               return filteredUsers.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -974,8 +974,9 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
                       </div>
                     </div>
                   ))}
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>

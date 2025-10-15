@@ -93,12 +93,12 @@ function ShipmentCardWithTracking({
       const position = await getCurrentPosition();
 
       // Record the shipment event with GPS coordinates
-      if (!shipment?.id) {
+      if (!shipment?.shipment_id) {
         throw new Error('Shipment ID is missing');
       }
 
       await recordShipmentEvent(
-        shipment.id,
+        shipment.shipment_id,
         eventType,
         position.latitude,
         position.longitude
@@ -153,7 +153,7 @@ function ShipmentCardWithTracking({
   return (
     <Card
       className="hover:shadow-md transition-shadow cursor-pointer"
-      data-testid={`card-shipment-${shipment?.id}`}
+      data-testid={`card-shipment-${shipment?.shipment_id}`}
       onClick={onViewDetails}
     >
       <CardContent className="p-4">
@@ -163,7 +163,7 @@ function ShipmentCardWithTracking({
               checked={selected}
               onCheckedChange={(checked) => onSelect(!!checked)}
               className="mt-1"
-              data-testid={`checkbox-select-${shipment?.id}`}
+              data-testid={`checkbox-select-${shipment?.shipment_id}`}
               onClick={(e) => e.stopPropagation()}
             />
             <div className="flex-1">
@@ -176,7 +176,7 @@ function ShipmentCardWithTracking({
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-foreground" data-testid={`text-customer-name-${shipment?.id}`}>
+                    <h3 className="font-semibold text-foreground" data-testid={`text-customer-name-${shipment?.shipment_id}`}>
                       {shipment?.customerName || shipment?.recipientName || 'Unknown Customer'}
                     </h3>
                     <div className="flex items-center gap-2">
@@ -191,15 +191,15 @@ function ShipmentCardWithTracking({
                                     shipment?.status === 'Returned' ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" :
                                       "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
                         )}
-                        data-testid={`text-status-${shipment?.id}`}
+                        data-testid={`text-status-${shipment?.shipment_id}`}
                       >
                         {shipment?.status || 'Unknown'}
                       </span>
                       {getTrackingStatusBadge()}
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground" data-testid={`text-shipment-id-${shipment?.id}`}>
-                    #{shipment?.id?.slice?.(-8) || 'Unknown ID'}
+                  <p className="text-sm text-muted-foreground" data-testid={`text-shipment-id-${shipment?.shipment_id}`}>
+                    #{shipment?.shipment_id?.slice?.(-8) || 'Unknown ID'}
                   </p>
                 </div>
               </div>
@@ -210,32 +210,32 @@ function ShipmentCardWithTracking({
                   <span
                     className="truncate"
                     title={shipment?.address || shipment?.deliveryAddress || 'No address'}
-                    data-testid={`text-address-${shipment?.id}`}
+                    data-testid={`text-address-${shipment?.shipment_id}`}
                   >
                     {shipment?.address || shipment?.deliveryAddress || 'No address'}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Phone className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-mobile-${shipment?.id}`}>
+                  <span data-testid={`text-mobile-${shipment?.shipment_id}`}>
                     {shipment?.customerMobile || shipment?.recipientPhone || 'No phone'}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Route className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-route-${shipment?.id}`}>
+                  <span data-testid={`text-route-${shipment?.shipment_id}`}>
                     {shipment?.routeName || 'Not assigned'}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-delivery-time-${shipment?.id}`}>
+                  <span data-testid={`text-delivery-time-${shipment?.shipment_id}`}>
                     {formatTime(shipment?.deliveryTime || shipment?.estimatedDeliveryTime)}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Navigation className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-location-${shipment?.id}`}>
+                  <span data-testid={`text-location-${shipment?.shipment_id}`}>
                     {shipment?.latitude && shipment?.longitude ? (
                       <span className="text-green-600 dark:text-green-400">
                         GPS Available
@@ -264,7 +264,7 @@ function ShipmentCardWithTracking({
                       }}
                       disabled={isRecordingEvent || isGettingLocation || isSubmitting}
                       className="h-7 px-2 text-xs"
-                      data-testid={`btn-record-pickup-${shipment?.id}`}
+                      data-testid={`btn-record-pickup-${shipment?.shipment_id}`}
                     >
                       <Navigation className="h-3 w-3 mr-1" />
                       Record Pickup
@@ -281,7 +281,7 @@ function ShipmentCardWithTracking({
                       }}
                       disabled={isRecordingEvent || isGettingLocation || isSubmitting}
                       className="h-7 px-2 text-xs"
-                      data-testid={`btn-record-delivery-${shipment?.id}`}
+                      data-testid={`btn-record-delivery-${shipment?.shipment_id}`}
                     >
                       <Navigation className="h-3 w-3 mr-1" />
                       Record Delivery

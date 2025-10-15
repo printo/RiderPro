@@ -76,7 +76,7 @@ export class ExternalApiService {
   prepareSyncData(shipment: Shipment): ExternalSyncData {
     // Clean and optimize the data structure
     const syncData: ExternalSyncData = {
-      shipment_id: shipment.shipment_id || shipment.trackingNumber || shipment.id,
+      shipment_id: shipment.shipment_id || shipment.trackingNumber || 'unknown',
       status: shipment.status,
       tracking: {},
       updated_at: shipment.updatedAt
@@ -100,8 +100,8 @@ export class ExternalApiService {
     }
 
     // Include delivery time if available
-    if (shipment.actualDeliveryTime) {
-      syncData.delivery_time = shipment.actualDeliveryTime;
+    if (shipment.expectedDeliveryTime) {
+      syncData.delivery_time = shipment.expectedDeliveryTime;
     } else if (shipment.deliveryTime) {
       syncData.delivery_time = shipment.deliveryTime;
     }

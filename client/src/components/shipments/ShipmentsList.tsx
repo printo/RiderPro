@@ -105,12 +105,12 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
 
       <div className="grid gap-4">
         {shipments?.map?.((shipment: Shipment) =>
-          shipment?.id ? (
-            <ErrorBoundary key={shipment.id} variant="listItem" componentName="ShipmentCard">
+          shipment?.shipment_id ? (
+            <ErrorBoundary key={shipment.shipment_id} variant="listItem" componentName="ShipmentCard">
               <ShipmentCardWithTracking
                 shipment={shipment}
-                selected={selectedShipmentIds?.includes?.(shipment.id) || false}
-                onSelect={(selected) => onSelectShipment(shipment.id, selected)}
+                selected={selectedShipmentIds?.includes?.(shipment.shipment_id) || false}
+                onSelect={(selected) => onSelectShipment(shipment.shipment_id, selected)}
                 onViewDetails={() => onShipmentSelect(shipment)}
                 employeeId={employeeId || ''}
                 showTrackingControls={true}

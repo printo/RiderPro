@@ -2,6 +2,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { initializeAuth } from "./middleware/auth";
 import cors from 'cors';
 
 const app = express();
@@ -90,6 +91,9 @@ app.get("/api-status", (req, res) => {
 });
 
 (async () => {
+  // Initialize authentication tables
+  initializeAuth();
+
   const server = await registerRoutes(app);
 
   // Error handling middleware

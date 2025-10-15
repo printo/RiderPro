@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MapPin, Clock, Zap, Navigation, User } from 'lucide-react';
-import { RiderLocation } from './LiveTrackingMap';
+import { RiderLocation } from '@/components/tracking/LiveTrackingMap';
 
 interface RiderStatusPanelProps {
   riders: RiderLocation[];

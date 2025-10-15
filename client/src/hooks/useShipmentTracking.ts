@@ -55,7 +55,7 @@ export function useShipmentTracking(options: ShipmentTrackingOptions) {
     }
 
     // Prevent duplicate recordings for the same shipment
-    const recordingKey = `${shipment.id}-${eventType}`;
+    const recordingKey = `${shipment.shipment_id}-${eventType}`;
     if (recordingRef.current.has(recordingKey)) {
       return null;
     }
@@ -68,7 +68,7 @@ export function useShipmentTracking(options: ShipmentTrackingOptions) {
 
       // Record the shipment event with GPS coordinates
       await recordShipmentEvent(
-        shipment.id,
+        shipment.shipment_id,
         eventType,
         position.latitude,
         position.longitude
@@ -82,12 +82,12 @@ export function useShipmentTracking(options: ShipmentTrackingOptions) {
       if (showNotifications) {
         toast({
           title: "Location Recorded",
-          description: `GPS coordinates recorded for ${eventType} of shipment #${shipment.id.slice(-8)}.`,
+          description: `GPS coordinates recorded for ${eventType} of shipment #${shipment.shipment_id.slice(-8)}.`,
         });
       }
 
       // Call success callback
-      onLocationRecorded?.(shipment.id, eventType, coordinates);
+      onLocationRecorded?.(shipment.shipment_id, eventType, coordinates);
 
       return coordinates;
 
@@ -105,7 +105,7 @@ export function useShipmentTracking(options: ShipmentTrackingOptions) {
       }
 
       // Call error callback
-      onLocationError?.(shipment.id, errorObj);
+      onLocationError?.(shipment.shipment_id, errorObj);
 
       return null;
     } finally {
@@ -233,7 +233,7 @@ export function useMultipleShipmentTracking(
     newStatus: string,
     oldStatus?: string
   ) => {
-    const shipment = shipments.find(s => s.id === shipmentId);
+    const shipment = shipments.find(s => s.shipment_id === shipmentId);
     if (!shipment) {
       console.warn(`Shipment ${shipmentId} not found in tracking list`);
       return null;
@@ -249,7 +249,7 @@ export function useMultipleShipmentTracking(
     shipmentId: string,
     eventType: 'pickup' | 'delivery'
   ) => {
-    const shipment = shipments.find(s => s.id === shipmentId);
+    const shipment = shipments.find(s => s.shipment_id === shipmentId);
     if (!shipment) {
       throw new Error(`Shipment ${shipmentId} not found in tracking list`);
     }

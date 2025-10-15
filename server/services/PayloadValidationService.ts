@@ -174,15 +174,15 @@ export class PayloadValidationService {
 
         // Check for duplicate IDs within batch
         if (shipment?.id) {
-          if (shipmentIds.has(shipment.id)) {
+          if (shipmentIds.has(shipment.shipment_id)) {
             errors.push({
               field: `shipments[${index}].id`,
-              value: shipment.id,
-              message: `Duplicate shipment ID '${shipment.id}' found in batch`,
+              value: shipment.shipment_id,
+              message: `Duplicate shipment ID '${shipment.shipment_id}' found in batch`,
               code: 'DUPLICATE_SHIPMENT_ID'
             });
           } else {
-            shipmentIds.add(shipment.id);
+            shipmentIds.add(shipment.shipment_id);
           }
         }
       });

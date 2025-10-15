@@ -231,17 +231,16 @@ class ExternalSyncService {
     acknowledgment?: Acknowledgment | null
   ): Promise<boolean> {
     const payload: ExternalSyncPayload = {
-      shipmentId: shipment.id,
+      shipmentId: shipment.shipment_id,
       status: shipment.status,
       syncedAt: new Date().toISOString(),
     };
 
     if (acknowledgment) {
       payload.acknowledgement = {
-        signatureUrl: acknowledgment.signature,
-        photoUrl: acknowledgment.photo,
-        capturedAt: acknowledgment.timestamp,
-        capturedBy: acknowledgment.capturedBy,
+        signatureUrl: acknowledgment.signatureUrl,
+        photoUrl: acknowledgment.photoUrl,
+        capturedAt: acknowledgment.capturedAt,
       };
     }
 
@@ -1072,7 +1071,7 @@ class ExternalSyncService {
         try {
           // Determine content type for tracking
           const payload = {
-            shipmentId: shipment.id,
+            shipmentId: shipment.shipment_id,
             status: shipment.status,
             syncedAt: new Date().toISOString(),
           };
@@ -1087,7 +1086,7 @@ class ExternalSyncService {
           }
           return 'failed';
         } catch (error: any) {
-          log(`Batch sync error for shipment ${shipment.id}: ${error.message}`, 'external-sync');
+          log(`Batch sync error for shipment ${shipment.shipment_id}: ${error.message}`, 'external-sync');
           return 'failed';
         }
       });
