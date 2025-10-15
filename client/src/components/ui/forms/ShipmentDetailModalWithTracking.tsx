@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CheckCircle, Package, Undo, XCircle, Truck, Navigation,
-  MapPin, Clock, AlertCircle, Loader2, Copy
+  MapPin, Clock, AlertCircle, Loader2, Copy, ArrowLeft
 } from "lucide-react";
 import { apiClient } from "@/services/ApiClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -88,76 +88,12 @@ function ShipmentDetailModalWithTracking({
     },
   });
 
-  const acknowledgmentMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
-      const response = await apiClient.upload(`/api/shipments/${shipment.shipment_id}/acknowledgement`, formData);
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || "Failed to save acknowledgment");
-      }
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shipments/fetch"] });
-      toast({
-        title: "Acknowledgment Saved",
-        description: "Photo and signature have been saved successfully.",
-      });
-      setShowAcknowledgment(false);
-      onClose();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Save Failed",
-        description: error.message || "Failed to save acknowledgment.",
-        variant: "destructive",
-      });
-    },
-  });
 
   const handleStatusUpdateWithGPS = async (status: string) => {
-    // Record GPS coordinates if we have an active session
-    if (hasActiveSession && (status === "Delivered" || status === "Picked Up")) {
-      setIsRecordingLocation(true);
-
-      try {
-        // Get current GPS position
-        const position = await getCurrentPosition();
-
-        // Determine event type based on status and shipment type
-        const eventType = (status === "Picked Up" ||
-          (status === "Delivered" && shipment.type === "pickup"))
-          ? 'pickup' : 'delivery';
-
-        // Record the shipment event with GPS coordinates
-        await recordShipmentEvent(
-          shipment.shipment_id,
-          eventType,
-          position.latitude,
-          position.longitude
-        );
-
-        toast({
-          title: "Location Recorded",
-          description: `GPS coordinates have been recorded for this ${eventType}.`,
-        });
-
-      } catch (error) {
-        console.error('Failed to record GPS location:', error);
-        toast({
-          title: "GPS Recording Failed",
-          description: "Failed to record GPS location, but status will still be updated.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsRecordingLocation(false);
-      }
-    }
-
     // Proceed with normal status update
     if (status === "Delivered" || status === "Picked Up") {
       setShowAcknowledgment(true);
-      updateStatusMutation.mutate({ status });
+      // Don't update status yet - wait for acknowledgment to be saved
     } else if (status === "Cancelled" || status === "Returned") {
       setRemarksStatus(status as "Cancelled" | "Returned");
       setShowRemarksModal(true);
@@ -175,19 +111,76 @@ function ShipmentDetailModalWithTracking({
     if (data.signature) {
       formData.append('signature', data.signature);
     }
-    acknowledgmentMutation.mutate(formData);
+
+    // First save the acknowledgment
+    try {
+      const response = await apiClient.upload(`/api/shipments/${shipment.shipment_id}/acknowledgement`, formData);
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || "Failed to save acknowledgment");
+      }
+
+      // Record GPS coordinates if we have an active session
+      if (hasActiveSession) {
+        setIsRecordingLocation(true);
+        try {
+          // Get current GPS position
+          const position = await getCurrentPosition();
+
+          // Determine event type based on shipment type
+          const eventType = shipment.type === "pickup" ? 'pickup' : 'delivery';
+
+          // Record the shipment event with GPS coordinates
+          await recordShipmentEvent(
+            shipment.shipment_id,
+            eventType,
+            position.latitude,
+            position.longitude
+          );
+
+          toast({
+            title: "Location Recorded",
+            description: `GPS coordinates have been recorded for this ${eventType}.`,
+          });
+
+        } catch (error) {
+          console.error('Failed to record GPS location:', error);
+          toast({
+            title: "GPS Recording Failed",
+            description: "Failed to record GPS location, but acknowledgment was saved.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsRecordingLocation(false);
+        }
+      }
+
+      // Now update the shipment status
+      const targetStatus = shipment.type === "delivery" ? "Delivered" : "Picked Up";
+      await updateStatusMutation.mutateAsync({ status: targetStatus });
+
+      // Close the acknowledgment modal
+      setShowAcknowledgment(false);
+      onClose();
+
+    } catch (error) {
+      toast({
+        title: "Save Failed",
+        description: (error as Error).message || "Failed to save acknowledgment.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleRevertStatus = async () => {
     try {
       // Determine the previous status based on shipment type
       const previousStatus = shipment.type === "delivery" ? "In Transit" : "Assigned";
-      
-      await updateStatusMutation.mutateAsync({ 
-        status: previousStatus,
-        remarks: "Status reverted by driver"
+
+      await updateStatusMutation.mutateAsync({
+        status: previousStatus
       });
-      
+
       setShowRevertConfirm(false);
       onClose(); // Close the modal after successful revert
     } catch (error) {
@@ -227,7 +220,6 @@ function ShipmentDetailModalWithTracking({
   };
 
   const isProcessing = updateStatusMutation.isPending ||
-    acknowledgmentMutation.isPending ||
     isRecordingLocation ||
     isGettingLocation ||
     isRecordingEvent;
@@ -237,14 +229,25 @@ function ShipmentDetailModalWithTracking({
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              {shipment.type === "delivery" ? (
-                <Truck className="h-5 w-5 text-blue-600" />
-              ) : (
-                <Package className="h-5 w-5 text-orange-600" />
-              )}
-              Shipment Details
-            </SheetTitle>
+            <div className="flex items-center justify-between">
+              <SheetTitle className="flex items-center gap-2">
+                {shipment.type === "delivery" ? (
+                  <Truck className="h-5 w-5 text-blue-600" />
+                ) : (
+                  <Package className="h-5 w-5 text-orange-600" />
+                )}
+                Shipment Details
+              </SheetTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onClose}
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            </div>
           </SheetHeader>
 
           <div className="mt-6 space-y-6">
@@ -497,7 +500,7 @@ function ShipmentDetailModalWithTracking({
               <div className="space-y-3">
                 <h4 className="font-medium text-center">Update Status</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  {shipment.type === "delivery" && shipment.status !== "Delivered" && (
+                  {shipment.type === "delivery" && canUpdateStatus("Delivered") && (
                     <Button
                       onClick={() => handleStatusUpdateWithGPS("Delivered")}
                       disabled={isProcessing}
@@ -515,7 +518,7 @@ function ShipmentDetailModalWithTracking({
                     </Button>
                   )}
 
-                  {shipment.type === "pickup" && shipment.status !== "Picked Up" && (
+                  {shipment.type === "pickup" && canUpdateStatus("Picked Up") && (
                     <Button
                       onClick={() => handleStatusUpdateWithGPS("Picked Up")}
                       disabled={isProcessing}
@@ -533,7 +536,7 @@ function ShipmentDetailModalWithTracking({
                     </Button>
                   )}
 
-                  {shipment.status !== "Cancelled" && shipment.status !== "Returned" && (
+                  {canUpdateStatus("Cancelled") && (
                     <Button
                       variant="outline"
                       onClick={() => handleStatusUpdateWithGPS("Cancelled")}
@@ -545,7 +548,7 @@ function ShipmentDetailModalWithTracking({
                     </Button>
                   )}
 
-                  {shipment.status !== "Returned" && shipment.status !== "Cancelled" && (
+                  {canUpdateStatus("Returned") && (
                     <Button
                       variant="outline"
                       onClick={() => handleStatusUpdateWithGPS("Returned")}
@@ -596,7 +599,7 @@ function ShipmentDetailModalWithTracking({
         <AcknowledgmentCapture
           onClose={() => setShowAcknowledgment(false)}
           onSubmit={handleAcknowledgmentSave}
-          isSubmitting={acknowledgmentMutation.isPending}
+          isSubmitting={isProcessing}
         />
       )}
 

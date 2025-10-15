@@ -51,7 +51,7 @@ export interface ExternalUpdatePayload {
     deliveryNotes?: string;
     signature?: string;
     photo?: string;
-    capturedBy?: string;
+    acknowledgment_captured_by?: string;
   };
   routeInfo?: {
     routeName: string;
@@ -150,8 +150,8 @@ export interface Shipment {
   // Acknowledgment fields (merged from acknowledgments table)
   signatureUrl?: string;
   photoUrl?: string;
-  capturedAt?: string;
-  capturedBy?: string;
+  acknowledgment_captured_at?: string;
+  acknowledgment_captured_by?: string;
 
   // Sync tracking fields (merged from sync_status table)
   synced_to_external?: boolean;
@@ -203,8 +203,8 @@ export interface InsertShipment {
   // Acknowledgment fields
   signatureUrl?: string;
   photoUrl?: string;
-  capturedAt?: string;
-  capturedBy?: string;
+  acknowledgment_captured_at?: string;
+  acknowledgment_captured_by?: string;
 
   // Sync tracking fields
   synced_to_external?: boolean;
@@ -270,8 +270,8 @@ export interface Acknowledgment {
   shipment_id: string;
   signatureUrl?: string;
   photoUrl?: string;
-  capturedAt: string;
-  capturedBy?: string;
+  acknowledgment_captured_at: string;
+  acknowledgment_captured_by?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -280,8 +280,8 @@ export interface InsertAcknowledgment {
   shipment_id: string;
   signatureUrl?: string;
   photoUrl?: string;
-  capturedAt: string;
-  capturedBy?: string;
+  acknowledgment_captured_at: string;
+  acknowledgment_captured_by?: string;
 }
 
 export interface DashboardMetrics {
@@ -863,6 +863,39 @@ export interface UpdateVehicleType {
   icon?: string;
   fuel_type?: string;
   co2_emissions?: number;
+}
+
+export interface FuelSetting {
+  id: string;
+  fuel_type: string;
+  price_per_liter: number;
+  currency: string;
+  region?: string;
+  effective_date: string;
+  is_active: boolean;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InsertFuelSetting {
+  id?: string;
+  fuel_type: string;
+  price_per_liter: number;
+  currency?: string;
+  region?: string;
+  effective_date: string;
+  is_active?: boolean;
+  created_by?: string;
+}
+
+export interface UpdateFuelSetting {
+  fuel_type?: string;
+  price_per_liter?: number;
+  currency?: string;
+  region?: string;
+  effective_date?: string;
+  is_active?: boolean;
 }
 
 export interface DashboardStats {

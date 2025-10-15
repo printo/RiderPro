@@ -156,7 +156,7 @@ class MigrationManager {
             -- Acknowledgment fields (merged from acknowledgments table)
             signatureUrl TEXT,
             photoUrl TEXT,
-            capturedAt TEXT,
+            acknowledgment_captured_at TEXT,
             -- Sync tracking fields (merged from sync_status table)
             synced_to_external BOOLEAN DEFAULT 0,
             last_sync_attempt TEXT,
@@ -221,7 +221,7 @@ class MigrationManager {
           CREATE INDEX IF NOT EXISTS idx_shipments_date ON shipments(deliveryTime);
           CREATE INDEX IF NOT EXISTS idx_shipments_employee ON shipments(employeeId);
           CREATE INDEX IF NOT EXISTS idx_shipments_synced ON shipments(synced_to_external);
-          CREATE INDEX IF NOT EXISTS idx_shipments_captured ON shipments(capturedAt);
+          CREATE INDEX IF NOT EXISTS idx_shipments_captured ON shipments(acknowledgment_captured_at);
 
           -- System monitoring indexes
           CREATE INDEX IF NOT EXISTS idx_health_metrics_name ON system_health_metrics(metric_name);

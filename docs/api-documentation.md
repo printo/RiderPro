@@ -9,12 +9,13 @@ This document provides comprehensive documentation for all API endpoints in the 
 3. [Shipment Management](#shipment-management)
 4. [Route Tracking & GPS](#route-tracking--gps)
 5. [Vehicle Types Management](#vehicle-types-management)
-6. [External System Integration](#external-system-integration)
-7. [File Upload & Acknowledgments](#file-upload--acknowledgments)
-8. [Dashboard & Analytics](#dashboard--analytics)
-9. [Error Handling](#error-handling)
-10. [Data Models](#data-models)
-11. [Rate Limiting & Security](#rate-limiting--security)
+6. [Fuel Settings Management](#fuel-settings-management)
+7. [External System Integration](#external-system-integration)
+8. [File Upload & Acknowledgments](#file-upload--acknowledgments)
+9. [Dashboard & Analytics](#dashboard--analytics)
+10. [Error Handling](#error-handling)
+11. [Data Models](#data-models)
+12. [Rate Limiting & Security](#rate-limiting--security)
 
 ## Authentication & User Management
 
@@ -88,6 +89,15 @@ This document provides comprehensive documentation for all API endpoints in the 
 - **GET** `/api/auth/pending-approvals`
 - **Purpose**: Get list of users awaiting approval
 - **Authentication**: Admin required
+
+#### User Management UI Features
+- **Conditional Pending Section**: Shows pending user approvals only when users are awaiting approval
+- **Separate Management Sections**: 
+  - "Pending User Approvals" section with orange color coding
+  - "All Users Management" section with integrated refresh functionality
+- **Enhanced Refresh Button**: Located in All Users Management section with loading states
+- **Visual Hierarchy**: Color-coded sections (orange for pending, standard for all users)
+- **Improved Loading States**: Better feedback for data loading operations
 - **Response**:
   ```json
   {
@@ -511,6 +521,79 @@ This document provides comprehensive documentation for all API endpoints in the 
 - **DELETE** `/api/vehicle-types/:id`
 - **Purpose**: Delete a vehicle type
 - **Authentication**: Admin required
+
+## Fuel Settings Management
+
+### Get Fuel Settings
+- **GET** `/api/fuel-settings`
+- **Purpose**: Get all fuel price settings
+- **Authentication**: None required
+- **Response**:
+  ```json
+  [
+    {
+      "id": "string",
+      "fuel_type": "petrol|diesel|electric|hybrid",
+      "price_per_liter": 100.0,
+      "currency": "INR",
+      "region": "Bangalore|Chennai|Gurgaon|Hyderabad|Pune",
+      "effective_date": "2024-01-01",
+      "is_active": true,
+      "created_by": "string",
+      "created_at": "string",
+      "updated_at": "string"
+    }
+  ]
+  ```
+
+### Get Fuel Setting by ID
+- **GET** `/api/fuel-settings/:id`
+- **Purpose**: Get a specific fuel setting
+- **Authentication**: None required
+
+### Create Fuel Setting
+- **POST** `/api/fuel-settings`
+- **Purpose**: Create a new fuel price setting
+- **Authentication**: Admin required
+- **Request Body**:
+  ```json
+  {
+    "fuel_type": "petrol",
+    "price_per_liter": 100.0,
+    "currency": "INR",
+    "region": "Bangalore",
+    "effective_date": "2024-01-01",
+    "is_active": true,
+    "created_by": "admin"
+  }
+  ```
+
+### Update Fuel Setting
+- **PUT** `/api/fuel-settings/:id`
+- **Purpose**: Update a fuel price setting
+- **Authentication**: Admin required
+- **Request Body**:
+  ```json
+  {
+    "fuel_type": "petrol",
+    "price_per_liter": 105.0,
+    "currency": "INR",
+    "region": "Bangalore",
+    "effective_date": "2024-02-01",
+    "is_active": true
+  }
+  ```
+
+### Delete Fuel Setting
+- **DELETE** `/api/fuel-settings/:id`
+- **Purpose**: Delete a fuel price setting
+- **Authentication**: Admin required
+
+#### Fuel Settings UI Features
+- **Current Settings Display**: Shows active fuel prices with automatic refresh
+- **Error Handling**: Retry functionality for failed API calls
+- **Loading States**: Proper loading indicators and error messages
+- **Real-time Updates**: Automatic data refresh with 5-minute cache
 
 ## External System Integration
 

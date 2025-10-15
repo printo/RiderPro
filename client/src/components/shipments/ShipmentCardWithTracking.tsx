@@ -138,14 +138,14 @@ function ShipmentCardWithTracking({
     if (hasActiveSession) {
       return (
         <div className="flex items-center" title="GPS tracking active">
-          <MapPin className="h-4 w-4 text-green-600" />
+          <Satellite className="h-4 w-4 text-green-600" />
         </div>
       );
     }
 
     return (
       <div className="flex items-center" title="No GPS tracking">
-        <MapPin className="h-4 w-4 text-gray-400" />
+        <Satellite className="h-4 w-4 text-gray-400" />
       </div>
     );
   };
@@ -296,11 +296,6 @@ function ShipmentCardWithTracking({
                 </div>
               )}
             </div>
-          </div>
-
-          {/* GPS Status Indicator */}
-          <div className="flex-shrink-0">
-            {getTrackingStatusBadge()}
           </div>
         </div>
       </CardContent>

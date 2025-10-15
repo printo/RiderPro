@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
+import FuelSettingsModal from "@/components/ui/forms/FuelSettingsModal";
+import CurrentFuelSettings from "@/components/ui/forms/CurrentFuelSettings";
 
 interface PendingUser {
   id: string;
@@ -201,6 +203,7 @@ function AdminPage() {
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Partial<VehicleType> | null>(null);
   const [loadingVehicleTypes, setLoadingVehicleTypes] = useState(false);
+  const [showFuelSettingsModal, setShowFuelSettingsModal] = useState(false);
   const [accessTokens, setAccessTokens] = useState<Array<{
     id: string;
     name: string;
@@ -526,64 +529,115 @@ function AdminPage() {
     setValidationError(null);
 
     try {
-      // Generate sample shipment data in proper JSON format
+      // Generate sample shipment data with all database fields
       const sampleShipments = [
         {
           shipment_id: 'SHP001',
           type: 'delivery',
+          customerName: 'John Smith',
+          customerMobile: '+1234567890',
+          address: '123 Main Street, Downtown',
+          latitude: 40.7128,
+          longitude: -74.0060,
+          cost: 25.00,
+          deliveryTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+          routeName: 'Route-001',
+          employeeId: 'EMP001',
           status: 'Assigned',
           priority: 'medium',
           pickupAddress: 'Warehouse A, Industrial Area',
-          deliveryAddress: '123 Main Street, Downtown',
-          recipientName: 'John Smith',
-          recipientPhone: '+1234567890',
           weight: 2.5,
           dimensions: '30x20x15 cm',
-          cost: 25.00,
-          deliveryTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
-          routeName: 'Route-001',
-          employeeId: 'EMP001',
           specialInstructions: 'Handle with care - fragile items',
-          latitude: 40.7128,
-          longitude: -74.0060
+          actualDeliveryTime: null,
+          start_latitude: null,
+          start_longitude: null,
+          stop_latitude: null,
+          stop_longitude: null,
+          km_travelled: 0,
+          synced_to_external: false,
+          last_sync_attempt: null,
+          sync_error: null,
+          sync_status: 'pending',
+          sync_attempts: 0,
+          signature_url: null,
+          photo_url: null,
+          acknowledgment_captured_at: null,
+          acknowledgment_captured_by: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         },
         {
           shipment_id: 'SHP002',
           type: 'pickup',
+          customerName: 'Sarah Johnson',
+          customerMobile: '+1234567891',
+          address: 'Warehouse B, Industrial Area',
+          latitude: 40.7589,
+          longitude: -73.9851,
+          cost: 18.50,
+          deliveryTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+          routeName: 'Route-002',
+          employeeId: 'EMP002',
           status: 'Assigned',
           priority: 'high',
           pickupAddress: '456 Oak Avenue, Midtown',
-          deliveryAddress: 'Warehouse B, Industrial Area',
-          recipientName: 'Sarah Johnson',
-          recipientPhone: '+1234567891',
           weight: 1.8,
           dimensions: '25x18x12 cm',
-          cost: 18.50,
-          deliveryTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), // 4 hours from now
-          routeName: 'Route-002',
-          employeeId: 'EMP002',
           specialInstructions: 'Urgent pickup required',
-          latitude: 40.7589,
-          longitude: -73.9851
+          actualDeliveryTime: null,
+          start_latitude: null,
+          start_longitude: null,
+          stop_latitude: null,
+          stop_longitude: null,
+          km_travelled: 0,
+          synced_to_external: false,
+          last_sync_attempt: null,
+          sync_error: null,
+          sync_status: 'pending',
+          sync_attempts: 0,
+          signature_url: null,
+          photo_url: null,
+          acknowledgment_captured_at: null,
+          acknowledgment_captured_by: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         },
         {
           shipment_id: 'SHP003',
           type: 'delivery',
+          customerName: 'Mike Davis',
+          customerMobile: '+1234567892',
+          address: '789 Pine Street, Residential',
+          latitude: 40.7505,
+          longitude: -73.9934,
+          cost: 32.00,
+          deliveryTime: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+          routeName: 'Route-003',
+          employeeId: 'EMP003',
           status: 'Assigned',
           priority: 'low',
           pickupAddress: 'Warehouse C, Suburbs',
-          deliveryAddress: '789 Pine Street, Residential',
-          recipientName: 'Mike Davis',
-          recipientPhone: '+1234567892',
           weight: 3.2,
           dimensions: '35x25x20 cm',
-          cost: 32.00,
-          deliveryTime: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(), // 6 hours from now
-          routeName: 'Route-003',
-          employeeId: 'EMP003',
           specialInstructions: 'Delivery after 5 PM',
-          latitude: 40.7505,
-          longitude: -73.9934
+          actualDeliveryTime: null,
+          start_latitude: null,
+          start_longitude: null,
+          stop_latitude: null,
+          stop_longitude: null,
+          km_travelled: 0,
+          synced_to_external: false,
+          last_sync_attempt: null,
+          sync_error: null,
+          sync_status: 'pending',
+          sync_attempts: 0,
+          signature_url: null,
+          photo_url: null,
+          acknowledgment_captured_at: null,
+          acknowledgment_captured_by: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         }
       ];
 
@@ -591,7 +645,7 @@ function AdminPage() {
 
       toast({
         title: "Sample Data Generated",
-        description: "Sample shipment data in JSON format has been added to the input field",
+        description: "Complete sample shipment data with all database fields has been added",
       });
     } catch (error) {
       console.error('Failed to generate sample data:', error);
@@ -752,40 +806,37 @@ function AdminPage() {
               Configure fuel pricing and vehicle settings for accurate cost calculations
             </p>
 
-            {/* Default Vehicle Type */}
+            {/* Default Vehicle Type and Fuel Price - Responsive Layout */}
+
+            {/* Fuel Settings */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Default Vehicle Type</Label>
-              <select className="w-full px-3 py-2 border rounded-md bg-background">
-                <option value="bike">Bike</option>
-                <option value="scooter">Scooter</option>
-                <option value="car">Car</option>
-                <option value="van">Van</option>
-              </select>
+              <Label className="text-sm font-medium">Fuel Price Settings</Label>
+              <div className="border rounded-lg p-4 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Fuel Price Management</p>
+                    <p className="text-xs text-muted-foreground">
+                      Configure fuel prices for different fuel types and regions
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowFuelSettingsModal(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <Fuel className="h-4 w-4" />
+                    Manage Fuel Prices
+                  </Button>
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground">
-                The default vehicle type for new fuel entries
+                Set current fuel prices for accurate route cost calculations and analytics
               </p>
             </div>
 
-            {/* Fuel Price */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Fuel Price per Liter</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  placeholder="100"
-                  defaultValue="100"
-                  className="flex-1"
-                />
-                <select className="px-3 py-2 border rounded-md bg-background min-w-[100px]">
-                  <option value="INR">INR (₹)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                </select>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Current fuel price used for cost calculations
-              </p>
-            </div>
+            {/* Current Fuel Settings Display */}
+            <CurrentFuelSettings className="mt-4" />
 
             {/* Vehicle Types */}
             <div className="space-y-2">
@@ -863,33 +914,8 @@ function AdminPage() {
               </p>
             </div>
 
-            {/* Data Retention */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Data Retention Period</Label>
-              <div className="flex gap-2 items-center">
-                <Input
-                  type="number"
-                  placeholder="30"
-                  defaultValue="30"
-                  className="w-32"
-                />
-                <span className="text-sm text-muted-foreground">days</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                How long to keep fuel tracking data before archiving
-              </p>
-            </div>
 
-            {/* Save Button */}
-            <div className="flex gap-3 pt-4 border-t">
-              <Button className="flex-1 sm:flex-initial">
-                <Settings className="h-4 w-4 mr-2" />
-                Save Settings
-              </Button>
-              <Button variant="outline" className="flex-1 sm:flex-initial">
-                Reset to Defaults
-              </Button>
-            </div>
+
           </div>
         </CardContent>
       </Card>
@@ -903,33 +929,24 @@ function AdminPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">User Management</h3>
-              <Button
-                onClick={loadPendingUsers}
-                disabled={loadingUsers}
-                variant="outline"
-                size="sm"
-              >
-                {loadingUsers ? 'Loading...' : 'Refresh'}
-              </Button>
-            </div>
-
-            {/* Pending User Approvals - Only show if there are pending users */}
+          <div className="space-y-6">
+            {/* Pending User Approvals Section - Only show if there are pending users */}
             {pendingUsers.length > 0 && (
               <div className="space-y-4">
-                <h4 className="text-md font-medium text-orange-600 dark:text-orange-400">
-                  Manage user registrations and approvals
-                </h4>
+                <h3 className="text-lg font-medium text-orange-600 dark:text-orange-400">
+                  Pending User Approvals ({pendingUsers.length})
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  New user registrations awaiting approval
+                </p>
                 <div className="space-y-3">
                   {pendingUsers.map((user) => (
-                    <div key={user.id} className="border rounded-lg p-4">
+                    <div key={user.id} className="border rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                              <Users className="h-5 w-5 text-primary" />
+                            <div className="w-10 h-10 bg-orange-100 dark:bg-orange-800 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Users className="h-5 w-5 text-orange-600" />
                             </div>
                             <div className="min-w-0 flex-1">
                               <h3 className="font-medium truncate">{user.full_name}</h3>
@@ -976,9 +993,32 @@ function AdminPage() {
               </div>
             )}
 
-            {/* All Users Management */}
+            {/* All Users Management Section */}
             <div className="space-y-4">
-              <h4 className="text-md font-medium">All Users Management</h4>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium">All Users Management</h3>
+                <Button
+                  onClick={() => {
+                    loadPendingUsers();
+                    loadAllUsers();
+                  }}
+                  disabled={loadingUsers || loadingAllUsers}
+                  variant="outline"
+                  size="sm"
+                >
+                  {(loadingUsers || loadingAllUsers) ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                      Refresh
+                    </>
+                  )}
+                </Button>
+              </div>
 
               {/* Search */}
               <div className="relative">
@@ -1208,6 +1248,12 @@ function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Fuel Settings Modal */}
+      <FuelSettingsModal
+        isOpen={showFuelSettingsModal}
+        onClose={() => setShowFuelSettingsModal(false)}
+      />
     </div>
   );
 }

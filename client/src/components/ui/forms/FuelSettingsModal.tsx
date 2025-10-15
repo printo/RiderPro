@@ -1,504 +1,387 @@
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { withModalErrorBoundary } from '@/components/ErrorBoundary';
-import { useVehicleTypes, useCreateVehicleType, useUpdateVehicleType, useDeleteVehicleType } from '@/hooks/useVehicleTypes';
-import { VehicleType as DbVehicleType } from '@shared/schema';
+import { useState, useEffect } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Fuel,
-  Settings,
-  Plus,
-  Trash2,
-  Save,
-  RotateCcw,
-  Car,
-  Truck,
-  AlertTriangle
-} from 'lucide-react';
-
-export interface VehicleType {
-  id: string;
-  name: string;
-  fuelEfficiency: number; // km per liter
-  description?: string;
-  icon?: string;
-}
-
-export interface FuelSettings {
-  defaultVehicleType: string;
-  fuelPrice: number; // price per liter
-  currency: string;
-  vehicleTypes: VehicleType[];
-  dataRetentionDays: number;
-}
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { FuelSetting, InsertFuelSetting, UpdateFuelSetting } from "@shared/schema";
+import { Plus, Edit, Trash2, Fuel, Save, X } from "lucide-react";
+import { withModalErrorBoundary } from "@/components/ErrorBoundary";
 
 interface FuelSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (settings: FuelSettings) => Promise<void>;
-  currentSettings: FuelSettings;
 }
 
-const DEFAULT_VEHICLE_TYPES: VehicleType[] = [
-  {
-    id: 'standard-van',
-    name: 'Standard Van',
-    fuelEfficiency: 15.0,
-    description: 'Standard delivery van',
-    icon: 'truck'
-  },
-  {
-    id: 'compact-car',
-    name: 'Compact Car',
-    fuelEfficiency: 20.0,
-    description: 'Small car for light deliveries',
-    icon: 'car'
-  },
-  {
-    id: 'large-truck',
-    name: 'Large Truck',
-    fuelEfficiency: 8.0,
-    description: 'Heavy-duty truck for large shipments',
-    icon: 'truck'
-  },
-  {
-    id: 'motorcycle',
-    name: 'Motorcycle',
-    fuelEfficiency: 35.0,
-    description: 'Motorcycle for quick deliveries',
-    icon: 'car'
-  }
-];
+function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<InsertFuelSetting>({
+    fuel_type: 'petrol',
+    price_per_liter: 0,
+    currency: 'USD',
+    region: '',
+    effective_date: new Date().toISOString().split('T')[0],
+    is_active: true,
+  });
 
-function FuelSettingsModal({
-  isOpen,
-  onClose,
-  onSave,
-  currentSettings
-}: FuelSettingsModalProps) {
-  const [settings, setSettings] = useState<FuelSettings>(currentSettings);
-  const [newVehicleType, setNewVehicleType] = useState<Partial<VehicleType>>({});
-  const [isAddingVehicle, setIsAddingVehicle] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  // Database hooks
-  const { data: dbVehicleTypes, isLoading: isLoadingVehicleTypes } = useVehicleTypes();
-  const createVehicleTypeMutation = useCreateVehicleType();
-  const updateVehicleTypeMutation = useUpdateVehicleType();
-  const deleteVehicleTypeMutation = useDeleteVehicleType();
+  // Fetch fuel settings
+  const { data: fuelSettings = [], isLoading, refetch } = useQuery({
+    queryKey: ['/api/fuel-settings'],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/fuel-settings");
+      return response.json();
+    },
+    enabled: isOpen,
+  });
 
-  useEffect(() => {
-    setSettings(currentSettings);
-    setErrors({});
-  }, [currentSettings, isOpen]);
+  // Create fuel setting mutation
+  const createMutation = useMutation({
+    mutationFn: async (data: InsertFuelSetting) => {
+      const response = await apiRequest("POST", "/api/fuel-settings", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/fuel-settings'] });
+      toast({
+        title: "Fuel Setting Added",
+        description: "New fuel setting has been added successfully.",
+      });
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Add Fuel Setting",
+        description: error.message || "Failed to add fuel setting.",
+        variant: "destructive",
+      });
+    },
+  });
 
-  // Convert database vehicle types to local format
-  const vehicleTypes: VehicleType[] = dbVehicleTypes?.map((vt: DbVehicleType) => ({
-    id: vt.id,
-    name: vt.name,
-    fuelEfficiency: vt.fuel_efficiency,
-    description: vt.description,
-    icon: vt.icon
-  })) || [];
+  // Update fuel setting mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: UpdateFuelSetting }) => {
+      const response = await apiRequest("PUT", `/api/fuel-settings/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/fuel-settings'] });
+      toast({
+        title: "Fuel Setting Updated",
+        description: "Fuel setting has been updated successfully.",
+      });
+      resetForm();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Update Fuel Setting",
+        description: error.message || "Failed to update fuel setting.",
+        variant: "destructive",
+      });
+    },
+  });
 
-  const validateSettings = (): boolean => {
-    const newErrors: Record<string, string> = {};
+  // Delete fuel setting mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/fuel-settings/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/fuel-settings'] });
+      toast({
+        title: "Fuel Setting Deleted",
+        description: "Fuel setting has been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Delete Fuel Setting",
+        description: error.message || "Failed to delete fuel setting.",
+        variant: "destructive",
+      });
+    },
+  });
 
-    if (settings.fuelPrice <= 0) {
-      newErrors.fuelPrice = 'Fuel price must be greater than 0';
-    }
-
-    if (settings.dataRetentionDays < 1) {
-      newErrors.dataRetentionDays = 'Data retention must be at least 1 day';
-    }
-
-    if (vehicleTypes.length === 0) {
-      newErrors.vehicleTypes = 'At least one vehicle type is required';
-    }
-
-    if (!vehicleTypes.find(v => v.id === settings.defaultVehicleType)) {
-      newErrors.defaultVehicleType = 'Default vehicle type must be selected from available types';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSave = async () => {
-    if (!validateSettings()) {
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      // Create a settings object without vehicleTypes since they're now in the database
-      const settingsToSave = {
-        ...settings,
-        vehicleTypes: vehicleTypes // Use database vehicle types
-      };
-      await onSave(settingsToSave);
-      onClose();
-    } catch (error) {
-      console.error('Failed to save fuel settings:', error);
-      setErrors({ general: 'Failed to save settings. Please try again.' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleReset = () => {
-    setSettings({
-      ...currentSettings,
-      vehicleTypes: DEFAULT_VEHICLE_TYPES
+  const resetForm = () => {
+    setFormData({
+      fuel_type: 'petrol',
+      price_per_liter: 0,
+      currency: 'USD',
+      region: '',
+      effective_date: new Date().toISOString().split('T')[0],
+      is_active: true,
     });
-    setErrors({});
+    setIsEditing(false);
+    setEditingId(null);
   };
 
-  const addVehicleType = async () => {
-    if (!newVehicleType.name || !newVehicleType.fuelEfficiency) {
-      setErrors({ newVehicle: 'Name and fuel efficiency are required' });
+  const handleEdit = (setting: FuelSetting) => {
+    setFormData({
+      fuel_type: setting.fuel_type,
+      price_per_liter: setting.price_per_liter,
+      currency: setting.currency,
+      region: setting.region || '',
+      effective_date: setting.effective_date,
+      is_active: setting.is_active,
+    });
+    setIsEditing(true);
+    setEditingId(setting.id);
+  };
+
+  const handleSubmit = () => {
+    if (!formData.fuel_type || formData.price_per_liter <= 0) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields with valid values.",
+        variant: "destructive",
+      });
       return;
     }
 
-    if (newVehicleType.fuelEfficiency <= 0) {
-      setErrors({ newVehicle: 'Fuel efficiency must be greater than 0' });
-      return;
-    }
-
-    const vehicleTypeData = {
-      id: `vt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      name: newVehicleType.name!,
-      fuel_efficiency: newVehicleType.fuelEfficiency!,
-      description: newVehicleType.description || '',
-      icon: 'car',
-      fuel_type: 'petrol'
-    };
-
-    try {
-      await createVehicleTypeMutation.mutateAsync(vehicleTypeData);
-      setNewVehicleType({});
-      setIsAddingVehicle(false);
-      setErrors({});
-    } catch (error) {
-      console.error('Failed to create vehicle type:', error);
+    if (isEditing && editingId) {
+      updateMutation.mutate({
+        id: editingId,
+        data: formData as UpdateFuelSetting,
+      });
+    } else {
+      createMutation.mutate(formData);
     }
   };
 
-  const removeVehicleType = async (id: string) => {
-    try {
-      await deleteVehicleTypeMutation.mutateAsync(id);
-      // Update default vehicle type if needed
-      if (settings.defaultVehicleType === id) {
-        const remainingTypes = vehicleTypes.filter(v => v.id !== id);
-        if (remainingTypes.length > 0) {
-          setSettings(prev => ({
-            ...prev,
-            defaultVehicleType: remainingTypes[0].id
-          }));
-        }
-      }
-    } catch (error) {
-      console.error('Failed to delete vehicle type:', error);
+  const handleDelete = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this fuel setting?")) {
+      deleteMutation.mutate(id);
     }
   };
 
-  const getVehicleIcon = (iconType: string) => {
-    switch (iconType) {
-      case 'truck':
-        return <Truck className="h-4 w-4" />;
-      case 'car':
-      default:
-        return <Car className="h-4 w-4" />;
-    }
-  };
+  const isProcessing = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
-            Fuel Settings Configuration
+            <Fuel className="h-5 w-5 text-blue-600" />
+            Fuel Settings Management
           </DialogTitle>
-          <DialogDescription>
-            Configure fuel calculation settings including rates, efficiency metrics, and cost parameters.
-          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
-          {errors.general && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{errors.general}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* General Settings */}
+          {/* Add/Edit Form */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Fuel className="h-5 w-5" />
-                General Settings
+              <CardTitle className="text-lg">
+                {isEditing ? "Edit Fuel Setting" : "Add New Fuel Setting"}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fuelPrice">
-                    Fuel Price ({settings.currency}/L)
-                  </Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="fuel_type">Fuel Type *</Label>
+                  <Select
+                    value={formData.fuel_type}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, fuel_type: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select fuel type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="petrol">Petrol</SelectItem>
+                      <SelectItem value="diesel">Diesel</SelectItem>
+                      <SelectItem value="electric">Electric</SelectItem>
+                      <SelectItem value="hybrid">Hybrid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="price_per_liter">Price per Liter *</Label>
                   <Input
-                    id="fuelPrice"
+                    id="price_per_liter"
                     type="number"
                     step="0.01"
                     min="0"
-                    value={settings.fuelPrice}
-                    onChange={(e) => setSettings(prev => ({
-                      ...prev,
-                      fuelPrice: parseFloat(e.target.value) || 0
-                    }))}
-                    className={errors.fuelPrice ? 'border-red-500' : ''}
+                    value={formData.price_per_liter}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        price_per_liter: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="0.00"
                   />
-                  {errors.fuelPrice && (
-                    <p className="text-sm text-red-500">{errors.fuelPrice}</p>
-                  )}
                 </div>
 
-                <div className="space-y-2">
+                <div>
                   <Label htmlFor="currency">Currency</Label>
+                  <input
+                    id="currency"
+                    type="text"
+                    value="INR"
+                    readOnly
+                    className="w-full px-3 py-2 border rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="region">Region</Label>
                   <Select
-                    value={settings.currency}
-                    onValueChange={(value) => setSettings(prev => ({
-                      ...prev,
-                      currency: value
-                    }))}
+                    value={formData.region}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, region: value })
+                    }
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select region" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="INR">INR (₹)</SelectItem>
-                      <SelectItem value="USD">USD ($)</SelectItem>
-                      <SelectItem value="EUR">EUR (€)</SelectItem>
+                      <SelectItem value="Bangalore">Bangalore</SelectItem>
+                      <SelectItem value="Chennai">Chennai</SelectItem>
+                      <SelectItem value="Gurgaon">Gurgaon</SelectItem>
+                      <SelectItem value="Hyderbad">Hyderbad</SelectItem>
+                      <SelectItem value="Pune">Pune</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="dataRetention">Data Retention (days)</Label>
+
+                <div>
+                  <Label htmlFor="effective_date">Effective Date *</Label>
                   <Input
-                    id="dataRetention"
-                    type="number"
-                    min="1"
-                    value={settings.dataRetentionDays}
-                    onChange={(e) => setSettings(prev => ({
-                      ...prev,
-                      dataRetentionDays: parseInt(e.target.value) || 30
-                    }))}
-                    className={errors.dataRetentionDays ? 'border-red-500' : ''}
+                    id="effective_date"
+                    type="date"
+                    value={formData.effective_date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, effective_date: e.target.value })
+                    }
                   />
-                  {errors.dataRetentionDays && (
-                    <p className="text-sm text-red-500">{errors.dataRetentionDays}</p>
-                  )}
-                  <p className="text-xs text-gray-500">
-                    Route data older than this will be automatically cleaned up
-                  </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="defaultVehicle">Default Vehicle Type</Label>
-                  <Select
-                    value={settings.defaultVehicleType}
-                    onValueChange={(value) => setSettings(prev => ({
-                      ...prev,
-                      defaultVehicleType: value
-                    }))}
-                  >
-                    <SelectTrigger className={errors.defaultVehicleType ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Select default vehicle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicleTypes.map((vehicle) => (
-                        <SelectItem key={vehicle.id} value={vehicle.id}>
-                          <div className="flex items-center gap-2">
-                            {getVehicleIcon(vehicle.icon || 'car')}
-                            {vehicle.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {errors.defaultVehicleType && (
-                    <p className="text-sm text-red-500">{errors.defaultVehicleType}</p>
-                  )}
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    checked={formData.is_active}
+                    onChange={(e) =>
+                      setFormData({ ...formData, is_active: e.target.checked })
+                    }
+                    className="rounded"
+                  />
+                  <Label htmlFor="is_active">Active</Label>
                 </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSubmit}
+                  disabled={isProcessing}
+                  className="flex items-center gap-2"
+                >
+                  <Save className="h-4 w-4" />
+                  {isEditing ? "Update" : "Add"} Fuel Setting
+                </Button>
+                {isEditing && (
+                  <Button
+                    variant="outline"
+                    onClick={resetForm}
+                    disabled={isProcessing}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Vehicle Types */}
+          {/* Fuel Settings List */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Car className="h-5 w-5" />
-                  Vehicle Types
-                </CardTitle>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleReset}
-                  >
-                    <RotateCcw className="h-4 w-4 mr-1" />
-                    Reset to Defaults
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsAddingVehicle(true)}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Vehicle Type
-                  </Button>
-                </div>
-              </div>
+              <CardTitle className="text-lg">Current Fuel Settings</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {errors.vehicleTypes && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>{errors.vehicleTypes}</AlertDescription>
-                </Alert>
-              )}
-
-              {/* Add New Vehicle Type */}
-              {isAddingVehicle && (
-                <Card className="border-dashed">
-                  <CardContent className="pt-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>Vehicle Name</Label>
-                        <Input
-                          placeholder="e.g., Electric Van"
-                          value={newVehicleType.name || ''}
-                          onChange={(e) => setNewVehicleType(prev => ({
-                            ...prev,
-                            name: e.target.value
-                          }))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Fuel Efficiency (km/L)</Label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          placeholder="e.g., 18.5"
-                          value={newVehicleType.fuelEfficiency || ''}
-                          onChange={(e) => setNewVehicleType(prev => ({
-                            ...prev,
-                            fuelEfficiency: parseFloat(e.target.value) || 0
-                          }))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Description (optional)</Label>
-                        <Input
-                          placeholder="e.g., Eco-friendly delivery vehicle"
-                          value={newVehicleType.description || ''}
-                          onChange={(e) => setNewVehicleType(prev => ({
-                            ...prev,
-                            description: e.target.value
-                          }))}
-                        />
-                      </div>
-                    </div>
-                    {errors.newVehicle && (
-                      <p className="text-sm text-red-500 mt-2">{errors.newVehicle}</p>
-                    )}
-                    <div className="flex gap-2 mt-4">
-                      <Button size="sm" onClick={addVehicleType}>
-                        <Save className="h-4 w-4 mr-1" />
-                        Add Vehicle
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setIsAddingVehicle(false);
-                          setNewVehicleType({});
-                          setErrors({});
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Existing Vehicle Types */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {vehicleTypes.map((vehicle) => (
-                  <Card key={vehicle.id} className="relative">
-                    <CardContent className="pt-4">
-                      <div className="flex items-start justify-between">
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-4">Loading fuel settings...</div>
+              ) : fuelSettings.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  No fuel settings found. Add your first fuel setting above.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {fuelSettings.map((setting: FuelSetting) => (
+                    <div
+                      key={setting.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2">
-                          {getVehicleIcon(vehicle.icon || 'car')}
-                          <div>
-                            <h4 className="font-medium">{vehicle.name}</h4>
-                            <p className="text-sm text-gray-500">
-                              {vehicle.fuelEfficiency} km/L
-                            </p>
-                            {vehicle.description && (
-                              <p className="text-xs text-gray-400 mt-1">
-                                {vehicle.description}
-                              </p>
-                            )}
-                          </div>
+                          <Fuel className="h-4 w-4 text-blue-600" />
+                          <span className="font-medium capitalize">
+                            {setting.fuel_type}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {settings.defaultVehicleType === vehicle.id && (
-                            <Badge variant="default">Default</Badge>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeVehicleType(vehicle.id)}
-                            disabled={vehicleTypes.length <= 1}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <div className="text-sm text-muted-foreground">
+                          {setting.price_per_liter} {setting.currency}/liter
+                        </div>
+                        {setting.region && (
+                          <Badge variant="secondary">{setting.region}</Badge>
+                        )}
+                        <Badge
+                          variant={setting.is_active ? "default" : "secondary"}
+                        >
+                          {setting.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        <div className="text-xs text-muted-foreground">
+                          Effective: {new Date(setting.effective_date).toLocaleDateString()}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(setting)}
+                          disabled={isProcessing}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(setting.id)}
+                          disabled={isProcessing}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Settings'}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
-} export default withModalErrorBoundary(FuelSettingsModal, {
+}
+
+export default withModalErrorBoundary(FuelSettingsModal, {
   componentName: 'FuelSettingsModal'
 });

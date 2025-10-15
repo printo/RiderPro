@@ -1,5 +1,5 @@
 import { liveDb, replicaDb } from './connection.js';
-import { Shipment, InsertShipment, UpdateShipment, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType } from '@shared/schema';
+import { Shipment, InsertShipment, UpdateShipment, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType, FuelSetting, InsertFuelSetting, UpdateFuelSetting } from '@shared/schema';
 import { randomUUID } from 'crypto';
 
 export class ShipmentQueries {
@@ -160,12 +160,12 @@ export class ShipmentQueries {
       shipment.start_latitude || null, shipment.start_longitude || null,
       shipment.stop_latitude || null, shipment.stop_longitude || null,
       shipment.km_travelled || 0,
-      shipment.signatureUrl || null, shipment.photoUrl || null, shipment.capturedAt || null,
+      shipment.signatureUrl || null, shipment.photoUrl || null, shipment.acknowledgment_captured_at || null,
       false, // synced_to_external
       null,  // last_sync_attempt
       null,  // sync_error
       0,     // sync_attempts
-      shipment.capturedBy || null, // acknowledgment_captured_by
+      shipment.acknowledgment_captured_by || null, // acknowledgment_captured_by
       now, now
     );
 
@@ -193,12 +193,12 @@ export class ShipmentQueries {
         shipment.start_latitude || null, shipment.start_longitude || null,
         shipment.stop_latitude || null, shipment.stop_longitude || null,
         shipment.km_travelled || 0,
-        shipment.signatureUrl || null, shipment.photoUrl || null, shipment.capturedAt || null,
+        shipment.signatureUrl || null, shipment.photoUrl || null, shipment.acknowledgment_captured_at || null,
         false, // synced_to_external
         null,  // last_sync_attempt
         null,  // sync_error
         0,     // sync_attempts
-        shipment.capturedBy || null, // acknowledgment_captured_by
+        shipment.acknowledgment_captured_by || null, // acknowledgment_captured_by
         now, now
       );
     }
@@ -849,5 +849,141 @@ export class ShipmentQueries {
     return result.changes > 0;
   }
 
+  // Fuel Settings CRUD operations
+  getAllFuelSettings(): FuelSetting[] {
+    const stmt = this.db.prepare('SELECT * FROM fuel_settings ORDER BY effective_date DESC, fuel_type');
+    return stmt.all();
+  }
+
+  getFuelSettingById(id: string): FuelSetting | null {
+    const stmt = this.db.prepare('SELECT * FROM fuel_settings WHERE id = ?');
+    const fuelSetting = stmt.get(id);
+    return fuelSetting || null;
+  }
+
+  createFuelSetting(fuelSetting: InsertFuelSetting): FuelSetting {
+    const now = new Date().toISOString();
+
+    const stmt = this.db.prepare(`
+      INSERT INTO fuel_settings (
+        id, fuel_type, price_per_liter, currency, region, effective_date, is_active, created_by, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      fuelSetting.id,
+      fuelSetting.fuel_type,
+      fuelSetting.price_per_liter,
+      fuelSetting.currency || 'USD',
+      fuelSetting.region || null,
+      fuelSetting.effective_date,
+      fuelSetting.is_active !== undefined ? fuelSetting.is_active : true,
+      fuelSetting.created_by || null,
+      now,
+      now
+    );
+
+    // Also insert into replica
+    if (this.db === liveDb) {
+      const replicaStmt = replicaDb.prepare(`
+        INSERT INTO fuel_settings (
+          id, fuel_type, price_per_liter, currency, region, effective_date, is_active, created_by, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      replicaStmt.run(
+        fuelSetting.id,
+        fuelSetting.fuel_type,
+        fuelSetting.price_per_liter,
+        fuelSetting.currency || 'USD',
+        fuelSetting.region || null,
+        fuelSetting.effective_date,
+        fuelSetting.is_active !== undefined ? fuelSetting.is_active : true,
+        fuelSetting.created_by || null,
+        now,
+        now
+      );
+    }
+
+    return this.getFuelSettingById(fuelSetting.id!)!;
+  }
+
+  updateFuelSetting(id: string, updates: UpdateFuelSetting): FuelSetting | null {
+    const now = new Date().toISOString();
+
+    const updateFields = [];
+    const values = [];
+
+    if (updates.fuel_type !== undefined) {
+      updateFields.push('fuel_type = ?');
+      values.push(updates.fuel_type);
+    }
+
+    if (updates.price_per_liter !== undefined) {
+      updateFields.push('price_per_liter = ?');
+      values.push(updates.price_per_liter);
+    }
+
+    if (updates.currency !== undefined) {
+      updateFields.push('currency = ?');
+      values.push(updates.currency);
+    }
+
+    if (updates.region !== undefined) {
+      updateFields.push('region = ?');
+      values.push(updates.region);
+    }
+
+    if (updates.effective_date !== undefined) {
+      updateFields.push('effective_date = ?');
+      values.push(updates.effective_date);
+    }
+
+    if (updates.is_active !== undefined) {
+      updateFields.push('is_active = ?');
+      values.push(updates.is_active);
+    }
+
+    if (updateFields.length === 0) {
+      return this.getFuelSettingById(id);
+    }
+
+    updateFields.push('updated_at = ?');
+    values.push(now);
+    values.push(id);
+
+    const stmt = this.db.prepare(`
+      UPDATE fuel_settings
+      SET ${updateFields.join(', ')}
+      WHERE id = ?
+    `);
+
+    stmt.run(...values);
+
+    // Also update replica
+    if (this.db === liveDb) {
+      const replicaStmt = replicaDb.prepare(`
+        UPDATE fuel_settings
+        SET ${updateFields.join(', ')}
+        WHERE id = ?
+      `);
+      replicaStmt.run(...values);
+    }
+
+    return this.getFuelSettingById(id);
+  }
+
+  deleteFuelSetting(id: string): boolean {
+    const stmt = this.db.prepare('DELETE FROM fuel_settings WHERE id = ?');
+    const result = stmt.run(id);
+
+    // Also delete from replica
+    if (this.db === liveDb) {
+      const replicaStmt = replicaDb.prepare('DELETE FROM fuel_settings WHERE id = ?');
+      replicaStmt.run(id);
+    }
+
+    return result.changes > 0;
+  }
 
 }

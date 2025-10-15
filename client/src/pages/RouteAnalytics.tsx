@@ -8,6 +8,7 @@ import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   BarChart3,
   TrendingUp,
@@ -50,7 +51,7 @@ function RouteAnalytics() {
     viewType: 'daily'
   });
 
-  const { isMobile } = useMobileOptimization();
+  const isMobile = useIsMobile();
 
   const [activeTab, setActiveTab] = useState('overview');
   const [showExportDialog, setShowExportDialog] = useState(false);

@@ -222,6 +222,33 @@ sequenceDiagram
 - **Role-Based Permissions**: No additional boolean columns needed
 - **Simplified Schema**: Uses existing `role` column for all permissions
 
+### Fuel Settings Management
+
+RiderPro includes a comprehensive fuel price management system for accurate route cost calculations:
+
+#### Fuel Settings Features
+- **Multi-Fuel Support**: Petrol, diesel, electric, and hybrid fuel types
+- **Regional Pricing**: Support for different pricing by region (Bangalore, Chennai, Gurgaon, Hyderabad, Pune)
+- **Currency Support**: INR currency with fixed pricing (USD support available)
+- **Price History**: Effective date tracking for price changes over time
+- **Active Management**: Enable/disable pricing settings without deletion
+
+#### Admin Interface
+- **Fuel Settings Modal**: Complete CRUD operations for fuel pricing
+- **Current Settings Display**: Real-time view of active fuel prices with retry functionality
+- **Regional Management**: Easy switching between different regional pricing
+- **Price Validation**: Input validation for price and date fields
+- **Enhanced User Management**: 
+  - Conditional display of pending user approvals section
+  - Separate "All Users Management" section with integrated refresh functionality
+  - Improved visual hierarchy with color-coded sections
+  - Better loading states and error handling
+
+#### Integration with Route Analytics
+- **Cost Calculations**: Automatic fuel cost calculations for route analysis
+- **Vehicle Integration**: Links with vehicle types for accurate fuel efficiency calculations
+- **Analytics Enhancement**: Provides accurate cost data for route optimization
+
 ## Backend Architecture
 
 ### Server Structure

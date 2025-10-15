@@ -150,7 +150,24 @@ export const up = (db: Database) => {
     );
   `);
 
-  // 8. Create all indexes for performance
+  // 8. Fuel settings table
+  db.exec(`
+    -- Fuel settings table for route analysis
+    CREATE TABLE IF NOT EXISTS fuel_settings (
+      id TEXT PRIMARY KEY,
+      fuel_type TEXT NOT NULL DEFAULT 'petrol',
+      price_per_liter REAL NOT NULL,
+      currency TEXT DEFAULT 'USD',
+      region TEXT,
+      effective_date TEXT NOT NULL,
+      is_active BOOLEAN DEFAULT 1,
+      created_by TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  // 9. Create all indexes for performance
   db.exec(`
     -- Route tracking indexes
     CREATE INDEX IF NOT EXISTS idx_route_sessions_employee ON route_sessions(employee_id);
@@ -168,6 +185,11 @@ export const up = (db: Database) => {
     -- Vehicle types indexes
     CREATE INDEX IF NOT EXISTS idx_vehicle_types_name ON vehicle_types(name);
     CREATE INDEX IF NOT EXISTS idx_vehicle_types_fuel_type ON vehicle_types(fuel_type);
+
+    -- Fuel settings indexes
+    CREATE INDEX IF NOT EXISTS idx_fuel_settings_fuel_type ON fuel_settings(fuel_type);
+    CREATE INDEX IF NOT EXISTS idx_fuel_settings_effective_date ON fuel_settings(effective_date);
+    CREATE INDEX IF NOT EXISTS idx_fuel_settings_active ON fuel_settings(is_active);
 
     -- Shipments indexes
     CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(status);
@@ -209,6 +231,12 @@ export const up = (db: Database) => {
     ('vt_002', 'Small Car', 20.0, 'Small delivery car', 'car', 'petrol', 0.15),
     ('vt_003', 'Motorcycle', 35.0, 'Delivery motorcycle', 'car', 'petrol', 0.1),
     ('vt_004', 'Electric Van', 25.0, 'Electric delivery van', 'truck', 'electric', 0.0);
+
+    -- Insert default fuel settings
+    INSERT OR IGNORE INTO fuel_settings (id, fuel_type, price_per_liter, currency, region, effective_date, is_active, created_by) VALUES
+    ('fs_001', 'petrol', 1.5, 'USD', 'default', datetime('now'), 1, 'system'),
+    ('fs_002', 'diesel', 1.3, 'USD', 'default', datetime('now'), 1, 'system'),
+    ('fs_003', 'electric', 0.8, 'USD', 'default', datetime('now'), 1, 'system');
   `);
 
   console.log('✅ Complete database schema created successfully');
@@ -232,6 +260,9 @@ export const down = (db: Database) => {
     DROP INDEX IF EXISTS idx_shipments_route;
     DROP INDEX IF EXISTS idx_shipments_type;
     DROP INDEX IF EXISTS idx_shipments_status;
+    DROP INDEX IF EXISTS idx_fuel_settings_active;
+    DROP INDEX IF EXISTS idx_fuel_settings_effective_date;
+    DROP INDEX IF EXISTS idx_fuel_settings_fuel_type;
     DROP INDEX IF EXISTS idx_rider_accounts_approved;
     DROP INDEX IF EXISTS idx_rider_accounts_rider_id;
     DROP INDEX IF EXISTS idx_route_tracking_timestamp;
@@ -250,6 +281,7 @@ export const down = (db: Database) => {
     DROP TABLE IF EXISTS system_health_metrics;
     DROP TABLE IF EXISTS shipments;
     DROP TABLE IF EXISTS vehicle_types;
+    DROP TABLE IF EXISTS fuel_settings;
     DROP TABLE IF EXISTS rider_accounts;
     DROP TABLE IF EXISTS route_tracking;
     DROP TABLE IF EXISTS route_sessions;

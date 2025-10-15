@@ -12,7 +12,7 @@ interface ExternalSyncPayload {
   acknowledgement?: {
     signatureUrl?: string;
     photoUrl?: string;
-    capturedAt: string;
+    acknowledgment_captured_at: string;
   };
 }
 
@@ -240,7 +240,7 @@ class ExternalSyncService {
       payload.acknowledgement = {
         signatureUrl: acknowledgment.signatureUrl,
         photoUrl: acknowledgment.photoUrl,
-        capturedAt: acknowledgment.capturedAt,
+        acknowledgment_captured_at: acknowledgment.acknowledgment_captured_at,
       };
     }
 
@@ -573,7 +573,7 @@ class ExternalSyncService {
 
       // Process acknowledgement data and files
       if (payload.acknowledgement) {
-        formData.append('acknowledgementCapturedAt', payload.acknowledgement.capturedAt);
+        formData.append('acknowledgementCapturedAt', payload.acknowledgement.acknowledgment_captured_at);
 
         // Process signature file if present
         if (payload.acknowledgement.signatureUrl) {
@@ -709,7 +709,7 @@ class ExternalSyncService {
         syncPayload.acknowledgement = {
           signatureUrl: updatePayload.deliveryDetails.signature,
           photoUrl: updatePayload.deliveryDetails.photo,
-          capturedAt: updatePayload.deliveryDetails.actualDeliveryTime || updatePayload.statusTimestamp || new Date().toISOString(),
+          acknowledgment_captured_at: updatePayload.deliveryDetails.actualDeliveryTime || updatePayload.statusTimestamp || new Date().toISOString(),
         };
       }
 
@@ -838,7 +838,7 @@ class ExternalSyncService {
 
     // Process files if present
     if (payload.acknowledgement) {
-      formData.append('acknowledgementCapturedAt', payload.acknowledgement.capturedAt);
+      formData.append('acknowledgementCapturedAt', payload.acknowledgement.acknowledgment_captured_at);
 
       if (payload.acknowledgement.signatureUrl) {
         const signatureBuffer = await this.processFileForUpload(payload.acknowledgement.signatureUrl, 'signature');

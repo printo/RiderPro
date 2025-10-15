@@ -61,7 +61,7 @@ async function runMigrations() {
         shipmentId TEXT NOT NULL,
         signatureUrl TEXT,
         photoUrl TEXT,
-        capturedAt TEXT NOT NULL,
+        acknowledgment_captured_at TEXT NOT NULL,
         FOREIGN KEY (shipmentId) REFERENCES shipments (id)
       )
     `);

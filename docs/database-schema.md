@@ -137,6 +137,31 @@ CREATE TABLE vehicle_types (
 );
 ```
 
+#### Fuel Settings Table
+```sql
+CREATE TABLE fuel_settings (
+  id TEXT PRIMARY KEY,
+  fuel_type TEXT NOT NULL DEFAULT 'petrol',
+  price_per_liter REAL NOT NULL,
+  currency TEXT DEFAULT 'USD',
+  region TEXT,
+  effective_date TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT 1,
+  created_by TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+```
+
+**Purpose**: Stores fuel price settings for different fuel types and regions to enable accurate route cost calculations and analytics.
+
+**Key Features**:
+- Supports multiple fuel types (petrol, diesel, electric, hybrid)
+- Regional pricing support for different markets
+- Effective date tracking for price history
+- Active/inactive status for price management
+- Currency support (defaults to USD, configurable to INR)
+
 #### System Health Metrics Table
 ```sql
 CREATE TABLE system_health_metrics (
@@ -242,6 +267,11 @@ CREATE INDEX idx_system_config_key ON system_config(config_key);
 -- Vehicle types indexes
 CREATE INDEX idx_vehicle_types_name ON vehicle_types(name);
 CREATE INDEX idx_vehicle_types_fuel_type ON vehicle_types(fuel_type);
+
+-- Fuel settings indexes
+CREATE INDEX idx_fuel_settings_fuel_type ON fuel_settings(fuel_type);
+CREATE INDEX idx_fuel_settings_effective_date ON fuel_settings(effective_date);
+CREATE INDEX idx_fuel_settings_active ON fuel_settings(is_active);
 ```
 
 #### User Data Database Indexes

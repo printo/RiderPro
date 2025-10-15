@@ -461,6 +461,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Fuel Settings CRUD endpoints
+  app.get('/api/fuel-settings', async (req, res) => {
+    try {
+      const fuelSettings = await storage.getFuelSettings();
+      res.json(fuelSettings);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get('/api/fuel-settings/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const fuelSetting = await storage.getFuelSetting(id);
+      if (!fuelSetting) {
+        return res.status(404).json({ message: 'Fuel setting not found' });
+      }
+      res.json(fuelSetting);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/fuel-settings', async (req, res) => {
+    try {
+      const fuelSettingData = req.body;
+
+      // Generate ID if not provided
+      if (!fuelSettingData.id) {
+        fuelSettingData.id = `fs_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      }
+
+      const fuelSetting = await storage.createFuelSetting(fuelSettingData);
+      res.status(201).json(fuelSetting);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put('/api/fuel-settings/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const fuelSetting = await storage.updateFuelSetting(id, updates);
+      if (!fuelSetting) {
+        return res.status(404).json({ message: 'Fuel setting not found' });
+      }
+      res.json(fuelSetting);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.delete('/api/fuel-settings/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const deleted = await storage.deleteFuelSetting(id);
+      if (!deleted) {
+        return res.status(404).json({ message: 'Fuel setting not found' });
+      }
+      res.json({ message: 'Fuel setting deleted successfully' });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // Get shipments with optional filters, pagination, and sorting
   app.get('/api/shipments/fetch', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
@@ -1385,8 +1452,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           shipment_id: shipmentId,
           signatureUrl: signatureUrl,
           photoUrl: photoUrl,
-          capturedAt: new Date().toISOString(),
-          capturedBy: req.user?.employeeId || req.user?.id || 'unknown', // Track who captured the acknowledgment (employee ID or user ID)
+          acknowledgment_captured_at: new Date().toISOString(),
+          acknowledgment_captured_by: req.user?.employeeId || req.user?.id || 'unknown', // Track who captured the acknowledgment (employee ID or user ID)
         });
 
         // Sync to external API with acknowledgment

@@ -1,5 +1,5 @@
 import { ShipmentQueries } from './db/queries.js';
-import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType, Acknowledgment, InsertAcknowledgment } from '@shared/schema';
+import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType, FuelSetting, InsertFuelSetting, UpdateFuelSetting, Acknowledgment, InsertAcknowledgment } from '@shared/schema';
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -36,6 +36,13 @@ export interface IStorage {
   createVehicleType(vehicleType: InsertVehicleType): Promise<VehicleType>;
   updateVehicleType(id: string, updates: UpdateVehicleType): Promise<VehicleType | undefined>;
   deleteVehicleType(id: string): Promise<boolean>;
+
+  // Fuel Settings operations
+  getFuelSettings(): Promise<FuelSetting[]>;
+  getFuelSetting(id: string): Promise<FuelSetting | undefined>;
+  createFuelSetting(fuelSetting: InsertFuelSetting): Promise<FuelSetting>;
+  updateFuelSetting(id: string, updates: UpdateFuelSetting): Promise<FuelSetting | undefined>;
+  deleteFuelSetting(id: string): Promise<boolean>;
 }
 
 export class SqliteStorage implements IStorage {
@@ -135,6 +142,28 @@ export class SqliteStorage implements IStorage {
     return this.liveQueries.deleteVehicleType(id);
   }
 
+  // Fuel Settings operations
+  async getFuelSettings(): Promise<FuelSetting[]> {
+    return this.liveQueries.getAllFuelSettings();
+  }
+
+  async getFuelSetting(id: string): Promise<FuelSetting | undefined> {
+    const fuelSetting = this.liveQueries.getFuelSettingById(id);
+    return fuelSetting || undefined;
+  }
+
+  async createFuelSetting(fuelSetting: InsertFuelSetting): Promise<FuelSetting> {
+    return this.liveQueries.createFuelSetting(fuelSetting);
+  }
+
+  async updateFuelSetting(id: string, updates: UpdateFuelSetting): Promise<FuelSetting | undefined> {
+    const fuelSetting = this.liveQueries.updateFuelSetting(id, updates);
+    return fuelSetting || undefined;
+  }
+
+  async deleteFuelSetting(id: string): Promise<boolean> {
+    return this.liveQueries.deleteFuelSetting(id);
+  }
 
 }
 
