@@ -175,13 +175,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Find user
       const user = userDataDb
         .prepare(`
-          SELECT id, rider_id, full_name, password_hash, is_active, is_approved
+          SELECT id, rider_id, full_name, password_hash, is_active, is_approved, role
           FROM rider_accounts 
           WHERE rider_id = ? AND is_active = 1
         `)
         .get(riderId) as any;
 
       if (!user) {
+        console.log('User not found for riderId:', riderId);
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials'
@@ -191,6 +192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check password using bcrypt
       const isValidPassword = await bcrypt.compare(password, user.password_hash);
       if (!isValidPassword) {
+        console.log('Invalid password for riderId:', riderId);
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials'
@@ -210,50 +212,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const accessToken = 'local_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
       const refreshToken = 'refresh_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
 
-      // Update last login
+      // Update last login and store access token
       userDataDb.prepare(`
         UPDATE rider_accounts 
-        SET last_login_at = datetime('now'), updated_at = datetime('now')
+        SET last_login_at = datetime('now'), updated_at = datetime('now'), access_token = ?
         WHERE id = ?
-      `).run(user.id);
+      `).run(accessToken, user.id);
 
-      // Create/update user in the users table for authentication middleware
-      const userId = user.id;
-      const username = user.rider_id;
-      const email = `${user.rider_id}@local.riderpro.com`;
-      const role = 'driver'; // Default role for local users
-      const employeeId = user.rider_id;
-      const fullName = user.full_name;
-      const isActive = user.is_active;
-      const now = new Date().toISOString();
-
-      // Check if user exists in users table
-      const existingUser = storage.prepare('SELECT id FROM users WHERE id = ?').get(userId);
-
-      if (existingUser) {
-        // Update existing user
-        storage.prepare(`
-          UPDATE users 
-          SET username = ?, email = ?, role = ?, employee_id = ?, full_name = ?, 
-              access_token = ?, refresh_token = ?, last_login = ?, updated_at = ?
-          WHERE id = ?
-        `).run(username, email, role, employeeId, fullName, accessToken, refreshToken, now, now, userId);
-      } else {
-        // Create new user
-        storage.prepare(`
-          INSERT INTO users (id, username, email, role, employee_id, full_name, access_token, refresh_token, is_active, last_login, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(userId, username, email, role, employeeId, fullName, accessToken, refreshToken, isActive, now, now, now);
-      }
-
-      // Create session with access token (24 hour expiry)
-      const sessionId = 'session-' + Date.now() + '-' + Math.random().toString(36).substring(2, 11);
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-      storage.prepare(`
-        INSERT OR REPLACE INTO user_sessions (id, user_id, access_token, expires_at)
-        VALUES (?, ?, ?, ?)
-      `).run(sessionId, userId, accessToken, expiresAt);
+      // For local auth, we store the token directly in rider_accounts table
 
       res.json({
         success: true,
@@ -2079,8 +2045,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const users = storage.getDatabase().prepare(`
-        SELECT id, rider_id, full_name, email, is_active, is_approved, role, 
+      const users = userDataDb.prepare(`
+        SELECT id, rider_id, full_name, is_active, is_approved, role, 
                last_login_at, created_at, updated_at
         FROM rider_accounts 
         ORDER BY created_at DESC
@@ -2090,7 +2056,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         users: users
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch all users:', error);
       res.status(500).json({
         success: false,

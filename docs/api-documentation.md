@@ -11,9 +11,10 @@ This document provides comprehensive documentation for all API endpoints in the 
 5. [Vehicle Types Management](#vehicle-types-management)
 6. [External System Integration](#external-system-integration)
 7. [File Upload & Acknowledgments](#file-upload--acknowledgments)
-8. [Error Handling](#error-handling)
-9. [Data Models](#data-models)
-10. [Rate Limiting & Security](#rate-limiting--security)
+8. [Dashboard & Analytics](#dashboard--analytics)
+9. [Error Handling](#error-handling)
+10. [Data Models](#data-models)
+11. [Rate Limiting & Security](#rate-limiting--security)
 
 ## Authentication & User Management
 
@@ -650,6 +651,67 @@ This document provides comprehensive documentation for all API endpoints in the 
     "syncId": "string"
   }
   ```
+
+## Dashboard & Analytics
+
+### Dashboard Metrics
+- **GET** `/api/dashboard`
+- **Purpose**: Get real-time dashboard metrics and analytics data
+- **Authentication**: Required (Bearer token)
+- **Response**:
+  ```json
+  {
+    "totalShipments": 150,
+    "deliveredCount": 120,
+    "pendingCount": 20,
+    "cancelledCount": 10,
+    "statusBreakdown": {
+      "Delivered": 120,
+      "In Transit": 15,
+      "Assigned": 5,
+      "Cancelled": 10
+    },
+    "routeBreakdown": {
+      "Route A": {
+        "total": 50,
+        "delivered": 45,
+        "pickedUp": 0,
+        "pending": 5,
+        "cancelled": 0
+      },
+      "Route B": {
+        "total": 60,
+        "delivered": 50,
+        "pickedUp": 5,
+        "pending": 3,
+        "cancelled": 2
+      }
+    }
+  }
+  ```
+
+### Status Distribution Analytics
+- **Purpose**: Power pie chart visualizations with real-time data
+- **Data Source**: Aggregated from shipments table
+- **Features**:
+  - Color-coded status indicators
+  - Percentage calculations
+  - Hover effects and interactions
+  - Empty state handling
+
+### Route Performance Analytics
+- **Purpose**: Route-specific performance metrics
+- **Features**:
+  - Dynamic route loading from database
+  - Performance comparison charts
+  - Completion rate calculations
+  - Responsive grid layouts
+
+### Mobile-Responsive Design
+- **Breakpoints**: `sm:`, `lg:`, `xl:` responsive breakpoints
+- **Tab Navigation**: Mobile-optimized tab layouts
+- **Touch Interactions**: 44px minimum touch targets
+- **Performance**: Optimized rendering for mobile devices
 
 ## Error Handling
 

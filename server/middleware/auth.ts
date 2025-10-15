@@ -181,11 +181,14 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     const accessToken = authHeader.substring(7);
 
-    // Find user by access token
-    const userRow = storage
+    // Find user by access token in rider_accounts table (for local auth)
+    const userDataDb = require('better-sqlite3')('data/userdata.db');
+    const userRow = userDataDb
       .prepare(`
-        SELECT id, username, email, role, employee_id, full_name, access_token, refresh_token, is_active, last_login, created_at, updated_at
-        FROM users
+        SELECT id, rider_id as username, rider_id as email, role, rider_id as employee_id, full_name, 
+               access_token, '' as refresh_token, is_active, last_login_at as last_login, 
+               created_at, updated_at
+        FROM rider_accounts 
         WHERE access_token = ? AND is_active = 1
       `)
       .get(accessToken) as any;
@@ -194,19 +197,14 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return res.status(401).json({ success: false, message: 'Invalid or expired token', code: 'INVALID_TOKEN' });
     }
 
-    // Check if session exists and is valid
-    const session = storage
-      .prepare(`
-        SELECT id FROM user_sessions
-        WHERE user_id = ? AND access_token = ? AND expires_at > datetime('now')
-      `)
-      .get(userRow.id, accessToken);
-
-    if (!session) {
-      return res.status(401).json({ success: false, message: 'Session expired', code: 'SESSION_EXPIRED' });
-    }
+    // For local auth, we don't need session validation since we store the token directly
 
     // Map database columns to interface properties
+    // Derive permissions from role
+    const isSuperUser = userRow.role === 'super_user' || userRow.role === 'admin';
+    const isOpsTeam = userRow.role === 'ops_team' || userRow.role === 'admin';
+    const isStaff = userRow.role === 'staff' || userRow.role === 'admin';
+
     const user: User = {
       id: userRow.id,
       username: userRow.username,
@@ -217,6 +215,9 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       accessToken: userRow.access_token,
       refreshToken: userRow.refresh_token,
       isActive: Boolean(userRow.is_active),
+      isSuperUser,
+      isOpsTeam,
+      isStaff,
       lastLogin: userRow.last_login,
       createdAt: userRow.created_at,
       updatedAt: userRow.updated_at

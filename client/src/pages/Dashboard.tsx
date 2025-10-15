@@ -137,14 +137,14 @@ function Dashboard() {
       {/* Route Tracking & Sync Status */}
       <Card className="mb-6">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 min-w-0">
             {/* Route Tracking Section */}
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 mb-3">
                 <Navigation className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 <h3 className="text-lg font-semibold">Route Tracking</h3>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-4 min-w-0">
                 <RouteSessionControls
                   employeeId={employeeId}
                   onSessionStart={() => console.log("Route session started")}
@@ -174,12 +174,12 @@ function Dashboard() {
             </div>
 
             {/* Sync Status Section */}
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 mb-3">
                 <Wifi className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 <h3 className="text-lg font-semibold">Sync Status</h3>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-4 min-w-0">
                 {/* External Sync Status */}
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-2">External Sync</h4>

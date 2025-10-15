@@ -98,7 +98,7 @@ class MigrationManager {
         // User authentication table (simplified - no API tokens)
         db.exec(`
           -- Users table
-          CREATE TABLE users (
+          CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             email TEXT UNIQUE NOT NULL,
@@ -106,26 +106,29 @@ class MigrationManager {
             role TEXT NOT NULL DEFAULT 'viewer',
             employee_id TEXT,
             is_active BOOLEAN DEFAULT 1,
+            is_super_user BOOLEAN DEFAULT 0,
+            is_ops_team BOOLEAN DEFAULT 0,
             last_login TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
           );
         `);
 
-        // Drop existing tables first (if they exist)
-        db.exec(`
-          DROP TABLE IF EXISTS sync_status;
-          DROP TABLE IF EXISTS acknowledgments;
-          DROP TABLE IF EXISTS shipments;
-          DROP TABLE IF EXISTS api_tokens;
-          DROP TABLE IF EXISTS users;
-          DROP TABLE IF EXISTS route_tracking;
-          DROP TABLE IF EXISTS route_sessions;
-        `);
+        // Add missing columns to existing tables (ignore if they already exist)
+        try {
+          db.exec(`ALTER TABLE users ADD COLUMN is_super_user BOOLEAN DEFAULT 0;`);
+        } catch (e) {
+          // Column already exists, ignore
+        }
+        try {
+          db.exec(`ALTER TABLE users ADD COLUMN is_ops_team BOOLEAN DEFAULT 0;`);
+        } catch (e) {
+          // Column already exists, ignore
+        }
 
         // Create consolidated shipments table with all fields
         db.exec(`
-          CREATE TABLE shipments (
+          CREATE TABLE IF NOT EXISTS shipments (
             shipment_id TEXT PRIMARY KEY,
             type TEXT NOT NULL CHECK(type IN ('delivery', 'pickup')),
             customerName TEXT NOT NULL,
