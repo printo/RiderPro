@@ -57,12 +57,12 @@ class AuthService {
       const refreshToken = localStorage.getItem('refresh_token');
       const fullName = localStorage.getItem('full_name');
       const employeeId = localStorage.getItem('employee_id');
-      const isStaff = localStorage.getItem('is_staff') === 'true';
+      const isRider = localStorage.getItem('is_rider') === 'true';
       const isSuperUser = localStorage.getItem('is_super_user') === 'true';
-      const isOpsTeam = localStorage.getItem('is_ops_team') === 'true';
 
       if (accessToken && fullName && employeeId) {
-        const role = this.determineRole(isStaff, isSuperUser, isOpsTeam);
+        // Use new role determination logic
+        const role = isSuperUser ? UserRole.ADMIN : (isRider ? UserRole.MANAGER : UserRole.DRIVER);
 
         this.state = {
           user: {
@@ -73,9 +73,8 @@ class AuthService {
             employeeId,
             fullName,
             isActive: true,
-            isOpsTeam,
+            isRider,
             isSuperUser,
-            isSuperAdmin: isSuperUser,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -105,18 +104,47 @@ class AuthService {
     }
   }
 
-  // Determine role based on API response flags (any one may be present)
+  // Determine role based on API response flags from PIA
+  // PIA sends: is_ops_team, is_super_user, is_staff
+  // We map to internal roles: is_rider, is_super_user
   private determineRole(isStaff?: boolean, isSuperUser?: boolean, isOpsTeam?: boolean): UserRole {
+    // Map PIA roles to UI roles
     if (isSuperUser === true) {
-      return UserRole.ADMIN;
+      return UserRole.ADMIN; // Only super users get admin access
     }
-    if (isOpsTeam === true) {
-      return UserRole.MANAGER;
+    if (isOpsTeam === true || isStaff === true) {
+      return UserRole.MANAGER; // Ops team and staff get manager access
     }
-    if (isStaff === true) {
-      return UserRole.VIEWER;
-    }
+    // Default to DRIVER for anything else
     return UserRole.DRIVER;
+  }
+
+  // Helper method to map PIA response to internal role flags
+  private mapPIARolesToInternal(isStaff?: boolean, isSuperUser?: boolean, isOpsTeam?: boolean): {
+    is_rider: boolean;
+    is_super_user: boolean;
+  } {
+    // is_super_user: true → is_super_user: true
+    if (isSuperUser === true) {
+      return {
+        is_rider: false,
+        is_super_user: true
+      };
+    }
+
+    // is_ops_team: true OR is_staff: true → is_rider: true
+    if (isOpsTeam === true || isStaff === true) {
+      return {
+        is_rider: true,
+        is_super_user: false
+      };
+    }
+
+    // Everything else → is_driver (default, no special flags)
+    return {
+      is_rider: false,
+      is_super_user: false
+    };
   }
 
   // Method A: External API Authentication
@@ -143,14 +171,16 @@ class AuthService {
       const data: ExternalAuthResponse = await response.json();
       console.log('[AuthService] PIA API response:', data);
 
+      // Map PIA roles to internal role structure
+      const internalRoles = this.mapPIARolesToInternal(data.is_staff, data.is_super_user, data.is_ops_team);
+
       // Save to localStorage with all user details
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
       localStorage.setItem('full_name', data.full_name);
       localStorage.setItem('employee_id', employeeId);  // Use the original employee ID
-      localStorage.setItem('is_staff', (data.is_staff || false).toString());
-      localStorage.setItem('is_super_user', (data.is_super_user || false).toString());
-      localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
+      localStorage.setItem('is_rider', internalRoles.is_rider.toString());
+      localStorage.setItem('is_super_user', internalRoles.is_super_user.toString());
 
       const role = this.determineRole(data.is_staff, data.is_super_user, data.is_ops_team);
 
@@ -163,9 +193,8 @@ class AuthService {
           employeeId: employeeId,
           fullName: data.full_name,
           isActive: true,
-          isOpsTeam: data.is_ops_team || false,
-          isSuperUser: data.is_super_user || false,
-          isSuperAdmin: data.is_super_user || false,
+          isRider: internalRoles.is_rider,
+          isSuperUser: internalRoles.is_super_user,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
@@ -216,9 +245,8 @@ class AuthService {
       localStorage.setItem('refresh_token', data.refreshToken);
       localStorage.setItem('full_name', data.fullName);
       localStorage.setItem('employee_id', riderId);
-      localStorage.setItem('is_staff', 'false');
-      localStorage.setItem('is_super_user', 'false');
-      localStorage.setItem('is_ops_team', 'false'); // Local users are drivers by default
+      localStorage.setItem('is_rider', 'false');
+      localStorage.setItem('is_super_user', 'false'); // Local users are drivers by default
 
       this.setState({
         user: {
@@ -229,9 +257,8 @@ class AuthService {
           employeeId: riderId,
           fullName: data.fullName,
           isActive: true,
-          isOpsTeam: false,
-          isSuperUser: false,
-          isSuperAdmin: false,
+          isRider: false,
+          isSuperUser: false, // Local users are drivers by default
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },

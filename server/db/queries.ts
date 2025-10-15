@@ -561,32 +561,50 @@ export class ShipmentQueries {
     }
   }
 
-  createAcknowledgment(acknowledgment: InsertAcknowledgment): Acknowledgment {
-    const id = randomUUID();
-
+  createAcknowledgment(acknowledgment: any): any {
+    // Update the shipment record with acknowledgment data
     const stmt = this.db.prepare(`
-      INSERT INTO acknowledgments (
-        id, shipmentId, signature, photo, timestamp
-      ) VALUES (?, ?, ?, ?, ?)
+      UPDATE shipments SET 
+        signature_url = ?,
+        photo_url = ?,
+        acknowledgment_captured_at = ?,
+        acknowledgment_captured_by = ?
+      WHERE shipment_id = ?
     `);
 
     stmt.run(
-      id,
-      acknowledgment.shipmentId,
       acknowledgment.signature || null,
       acknowledgment.photo || null,
-      acknowledgment.timestamp
+      acknowledgment.timestamp,
+      acknowledgment.capturedBy || null,
+      acknowledgment.shipmentId
     );
 
-    return this.db.prepare('SELECT * FROM acknowledgments WHERE id = ?').get(id);
+    // Return the updated shipment
+    return this.db.prepare('SELECT * FROM shipments WHERE shipment_id = ?').get(acknowledgment.shipmentId);
   }
 
-  getAcknowledmentByShipmentId(shipmentId: string): Acknowledgment | null {
-    return this.db.prepare('SELECT * FROM acknowledgments WHERE shipmentId = ?').get(shipmentId) || null;
+  getAcknowledmentByShipmentId(shipmentId: string): any | null {
+    // Get acknowledgment data from shipments table
+    const shipment = this.db.prepare(`
+      SELECT signature_url, photo_url, acknowledgment_captured_at, acknowledgment_captured_by 
+      FROM shipments 
+      WHERE shipment_id = ?
+    `).get(shipmentId);
+
+    if (!shipment || !shipment.acknowledgment_captured_at) {
+      return null;
+    }
+
+    return {
+      signature: shipment.signature_url,
+      photo: shipment.photo_url,
+      timestamp: shipment.acknowledgment_captured_at,
+      capturedBy: shipment.acknowledgment_captured_by
+    };
   }
 
   resetDatabase(): void {
-    this.db.exec('DELETE FROM acknowledgments');
     this.db.exec('DELETE FROM shipments');
   }
 

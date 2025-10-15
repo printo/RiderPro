@@ -526,14 +526,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Apply role-based filtering according to requirements:
-      // - admin, super_admin: can see all shipments
-      // - driver: can only see their own shipments  
-      // - everyone else (ops_team): can see all shipments
-      if (userRole === 'driver') {
-        // Only drivers/delivery personnel see filtered results
+      // - isSuperUser: can see all shipments
+      // - isRider: can see all shipments
+      // - is_driver: can only see their own shipments
+      if (userRole === 'driver' && !req.user?.isRider && !req.user?.isSuperUser) {
+        // Only regular drivers see filtered results
         filters.employeeId = employeeId;
       }
-      // For admin, super_admin, ops_team, and other roles: no filtering (see all shipments)
+      // For isSuperUser, isRider, and other elevated roles: no filtering (see all shipments)
 
       // Set cache control headers (5 minutes)
       res.set('Cache-Control', 'public, max-age=300');
@@ -1375,13 +1375,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         }
 
-        // Create acknowledgment record
+        // Create acknowledgment record with user tracking
         const acknowledgment = await storage.createAcknowledgment({
           shipmentId,
           signature: signatureUrl,
           photo: photoUrl,
           timestamp: new Date().toISOString(),
           recipientName: req.body.recipientName || 'Unknown',
+          capturedBy: (req as any).user?.employeeId || 'unknown', // Track who captured the acknowledgment
         });
 
         // Sync to external API with acknowledgment

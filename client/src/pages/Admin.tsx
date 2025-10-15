@@ -45,8 +45,8 @@ function AdminPage() {
   }>>([]);
   const { toast } = useToast();
 
-  const canAccessAdmin = !!(user?.isSuperUser || user?.isSuperAdmin);
-  const canEdit = !!(user?.isSuperUser || user?.isSuperAdmin);
+  const canAccessAdmin = !!(user?.isSuperUser);
+  const canEdit = !!(user?.isSuperUser);
 
   // Load pending users and access tokens
   useEffect(() => {

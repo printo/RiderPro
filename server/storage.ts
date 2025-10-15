@@ -24,7 +24,8 @@ export interface IStorage {
 
 
   // Acknowledgment operations (now integrated into shipments table)
-  // createAcknowledgment and getAcknowledgmentByShipmentId methods removed
+  createAcknowledgment(acknowledgment: any): Promise<any>;
+  getAcknowledgmentByShipmentId(shipmentId: string): Promise<any | undefined>;
 
   // Dashboard operations
   getDashboardMetrics(): Promise<DashboardMetrics>;

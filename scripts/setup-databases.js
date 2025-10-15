@@ -94,6 +94,7 @@ mainDb.exec(`
     signature_url TEXT,
     photo_url TEXT,
     acknowledgment_captured_at TEXT,
+    acknowledgment_captured_by TEXT,
     -- Timestamps
     createdAt TEXT DEFAULT (datetime('now')),
     updatedAt TEXT DEFAULT (datetime('now'))
@@ -266,6 +267,7 @@ replicaDb.exec(`
     signature_url TEXT,
     photo_url TEXT,
     acknowledgment_captured_at TEXT,
+    acknowledgment_captured_by TEXT,
     -- Timestamps
     createdAt TEXT DEFAULT (datetime('now')),
     updatedAt TEXT DEFAULT (datetime('now'))
@@ -374,6 +376,11 @@ userDataDb.exec(`
     password_hash TEXT NOT NULL,
     is_active BOOLEAN DEFAULT 1,
     is_approved BOOLEAN DEFAULT 0,
+    is_super_user BOOLEAN DEFAULT 0,
+    is_ops_team BOOLEAN DEFAULT 0,
+    is_staff BOOLEAN DEFAULT 0,
+    role TEXT DEFAULT 'driver',
+    last_login_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );

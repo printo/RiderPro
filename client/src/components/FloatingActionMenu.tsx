@@ -54,7 +54,7 @@ function FloatingActionMenu() {
   ];
 
   // Admin menu items - only show for super admin users
-  const adminMenuItems = user?.isSuperAdmin ? [
+  const adminMenuItems = user?.isSuperUser ? [
     {
       href: "/admin",
       icon: Settings,

@@ -51,6 +51,10 @@ export const up = (db: Database) => {
       password_hash TEXT NOT NULL,
       is_active BOOLEAN DEFAULT 1,
       is_approved BOOLEAN DEFAULT 0,
+      is_rider BOOLEAN DEFAULT 0,
+      is_super_user BOOLEAN DEFAULT 0,
+      role TEXT DEFAULT 'is_driver' CHECK(role IN ('is_super_user', 'is_rider', 'is_driver')),
+      last_login_at TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -93,6 +97,7 @@ export const up = (db: Database) => {
       signature_url TEXT,
       photo_url TEXT,
       acknowledgment_captured_at TEXT,
+      acknowledgment_captured_by TEXT,
       -- Timestamps
       createdAt TEXT DEFAULT (datetime('now')),
       updatedAt TEXT DEFAULT (datetime('now'))

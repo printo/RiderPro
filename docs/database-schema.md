@@ -406,7 +406,7 @@ interface User {
   permissions: string[];         // List of permissions
   isOpsTeam: boolean;            // Operations team member flag
   isSuperUser: boolean;          // Super user privileges flag
-  isSuperAdmin: boolean;         // Super admin privileges flag
+  isStaff: boolean;              // Staff privileges flag
   lastLogin?: string;            // Last login timestamp
   createdAt: string;             // Account creation timestamp
   updatedAt: string;             // Last update timestamp
@@ -561,7 +561,7 @@ erDiagram
         boolean isActive
         boolean isOpsTeam
         boolean isSuperUser
-        boolean isSuperAdmin
+        boolean isStaff
     }
     
     Shipment {

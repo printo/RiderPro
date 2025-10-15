@@ -46,38 +46,38 @@ sequenceDiagram
 
 ## User Roles and Permissions
 
-### Role Hierarchy
+### Internal Role Structure
 
-#### 1. **Admin** (`role: "admin"`)
-- **Source**: `is_super_user: true` from external API
+The system now uses a simplified internal role structure with two roles:
+
+#### 1. **Super User** (`is_super_user: true`)
+- **Source**: `is_super_user: true` from PIA API
+- **Internal Mapping**: `is_super_user: true` → `is_super_user: true`
 - **Permissions**:
   - Full system access
+  - Admin page access
   - User management (approve/reject/reset passwords)
   - System configuration
   - All shipment and route operations
   - Analytics and reporting
   - Health check settings
 
-#### 2. **Manager** (`role: "manager"`)
-- **Source**: `is_ops_team: true` from external API
+#### 2. **Rider** (`is_rider: true`)
+- **Source**: `is_ops_team: true` OR `is_staff: true` from PIA API
+- **Internal Mapping**: `is_ops_team: true` OR `is_staff: true` → `is_rider: true`
 - **Permissions**:
+  - Edit access to shipments
   - View all shipments
   - Manage all routes
   - Access analytics and reports
   - Export data
   - View live tracking
   - Batch operations
+  - Upload acknowledgments
 
-#### 3. **Viewer** (`role: "viewer"`)
-- **Source**: `is_staff: true` from external API
-- **Permissions**:
-  - View shipments (read-only)
-  - Access basic dashboard
-  - View analytics (limited)
-  - No modification rights
-
-#### 4. **Driver** (`role: "driver"`)
-- **Source**: Default role for local users or when no flags present
+#### 3. **Driver** (default, no special flags)
+- **Source**: Default role when no PIA elevated roles are present
+- **Internal Mapping**: All non-elevated users default to driver
 - **Permissions**:
   - View own shipments only
   - Update shipment status
@@ -85,22 +85,45 @@ sequenceDiagram
   - Access basic dashboard
   - Upload acknowledgments
 
+### PIA API Role Mapping
+
+The system receives roles from PIA API and maps them to internal roles:
+
+| PIA Response | Internal Role | UI Role | Admin Access | Edit Access |
+|-------------|---------------|---------|--------------|-------------|
+| `is_super_user: true` | `is_super_user: true` | `ADMIN` | ✅ | ✅ |
+| `is_ops_team: true` | `is_rider: true` | `MANAGER` | ❌ | ✅ |
+| `is_staff: true` | `is_rider: true` | `MANAGER` | ❌ | ✅ |
+| Any other combination | Default (no flags) | `DRIVER` | ❌ | ❌ (own data only) |
+
 ### Permission Matrix
 
-| Feature | Driver | Viewer | Manager | Admin |
-|---------|--------|--------|---------|-------|
-| View Own Shipments | ✅ | ✅ | ✅ | ✅ |
-| View All Shipments | ❌ | ✅ | ✅ | ✅ |
-| Create Shipments | ❌ | ❌ | ✅ | ✅ |
-| Update Shipments | ✅ (own) | ❌ | ✅ | ✅ |
-| Delete Shipments | ❌ | ❌ | ❌ | ✅ |
-| GPS Tracking | ✅ | ❌ | ✅ | ✅ |
-| Route Management | ✅ (own) | ❌ | ✅ | ✅ |
-| Analytics | Basic | Limited | Full | Full |
-| User Management | ❌ | ❌ | ❌ | ✅ |
-| System Settings | ❌ | ❌ | ❌ | ✅ |
-| Batch Operations | ❌ | ❌ | ✅ | ✅ |
-| Data Export | ❌ | ❌ | ✅ | ✅ |
+| Feature | Driver | Rider | Super User |
+|---------|--------|-------|------------|
+| View Own Shipments | ✅ | ✅ | ✅ |
+| View All Shipments | ❌ | ✅ | ✅ |
+| Create Shipments | ❌ | ✅ | ✅ |
+| Update Shipments | ✅ (own) | ✅ | ✅ |
+| Delete Shipments | ❌ | ✅ | ✅ |
+| GPS Tracking | ✅ | ❌ | ❌ |
+| Route Management | ✅ (own) | ✅ | ✅ |
+| Analytics | Basic | Full | Full |
+| User Management | ❌ | ❌ | ✅ |
+| System Settings | ❌ | ❌ | ✅ |
+| Admin Page Access | ❌ | ❌ | ✅ |
+| Batch Operations | ❌ | ✅ | ✅ |
+| Data Export | ❌ | ✅ | ✅ |
+| Upload Acknowledgments | ✅ | ✅ | ✅ |
+
+### UI Role Mapping
+
+The system maintains the original UserRole enum for UI purposes:
+
+| Internal Role | UI Role | Description |
+|---------------|---------|-------------|
+| `is_super_user: true` | `ADMIN` | Full administrative access with admin page |
+| `is_rider: true` | `MANAGER` | Management-level access with edit permissions |
+| Default (no flags) | `DRIVER` | Basic driver access |
 
 ## Security Implementation
 

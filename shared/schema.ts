@@ -51,6 +51,7 @@ export interface ExternalUpdatePayload {
     deliveryNotes?: string;
     signature?: string;
     photo?: string;
+    capturedBy?: string;
   };
   routeInfo?: {
     routeName: string;
@@ -150,6 +151,7 @@ export interface Shipment {
   signatureUrl?: string;
   photoUrl?: string;
   capturedAt?: string;
+  capturedBy?: string;
 
   // Sync tracking fields (merged from sync_status table)
   synced_to_external?: boolean;
@@ -195,6 +197,7 @@ export interface InsertShipment {
   signatureUrl?: string;
   photoUrl?: string;
   capturedAt?: string;
+  capturedBy?: string;
 
   // Sync tracking fields
   synced_to_external?: boolean;
@@ -240,6 +243,7 @@ export interface UpdateShipment {
   signature_url?: string;
   photo_url?: string;
   acknowledgment_captured_at?: string;
+  acknowledgment_captured_by?: string;
 
   // Sync tracking fields (consolidated from sync_status table)
   synced_to_external?: boolean;

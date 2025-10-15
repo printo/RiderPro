@@ -61,7 +61,7 @@ function ShipmentsWithTracking() {
     return {
       ...filters,
       ...(currentUser?.role !== "admin" &&
-        !currentUser?.isSuperAdmin &&
+        !currentUser?.isSuperUser &&
         employeeId
         ? { employeeId }
         : {}),

@@ -241,6 +241,7 @@ class ExternalSyncService {
         signatureUrl: acknowledgment.signature,
         photoUrl: acknowledgment.photo,
         capturedAt: acknowledgment.timestamp,
+        capturedBy: acknowledgment.capturedBy,
       };
     }
 
