@@ -2,11 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/ApiClient";
 import { useLocation } from "wouter";
-import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key, Edit } from "lucide-react";
+import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Database, Activity, Target, Monitor, Plus, X } from "lucide-react";
 import { useState, useEffect } from "react";
-import FuelSettingsModal, { FuelSettings } from "@/components/ui/forms/FuelSettingsModal";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
@@ -15,24 +16,180 @@ interface PendingUser {
   id: string;
   rider_id: string;
   full_name: string;
-  email: string;
+  email?: string;
   created_at: string;
+}
+
+interface AllUser {
+  id: string;
+  rider_id: string;
+  full_name: string;
+  email?: string;
+  is_active: number;
+  is_approved: number;
+  role: string;
+  last_login_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface EditingUser {
+  id: string;
+  name: string;
+  email: string;
+  riderId: string;
+  isActive: boolean;
+}
+
+interface VehicleType {
+  id: string;
+  name: string;
+  fuel_efficiency: number;
+  description?: string;
+  icon: string;
+  fuel_type?: string;
+  co2_emissions?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+interface VehicleTypeFormProps {
+  vehicle?: Partial<VehicleType> | null;
+  onSave: (vehicleData: Partial<VehicleType>) => void;
+  onCancel: () => void;
+}
+
+function VehicleTypeForm({ vehicle, onSave, onCancel }: VehicleTypeFormProps) {
+  const [formData, setFormData] = useState({
+    name: vehicle?.name || '',
+    fuel_efficiency: vehicle?.fuel_efficiency || 0,
+    description: vehicle?.description || '',
+    icon: vehicle?.icon || '🚗',
+    fuel_type: vehicle?.fuel_type || 'petrol',
+    co2_emissions: vehicle?.co2_emissions || 0,
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name || formData.fuel_efficiency <= 0) {
+      return;
+    }
+
+    const vehicleData = {
+      ...formData,
+      ...(vehicle?.id && { id: vehicle.id }),
+    };
+
+    onSave(vehicleData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="name">Vehicle Name *</Label>
+        <Input
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          placeholder="e.g., Standard Van"
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="fuel_efficiency">Fuel Efficiency (km/l) *</Label>
+        <Input
+          id="fuel_efficiency"
+          type="number"
+          step="0.1"
+          min="1"
+          value={formData.fuel_efficiency}
+          onChange={(e) => setFormData({ ...formData, fuel_efficiency: parseFloat(e.target.value) || 0 })}
+          placeholder="e.g., 15.0"
+          required
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Input
+          id="description"
+          value={formData.description}
+          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          placeholder="e.g., Standard delivery van"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="icon">Icon</Label>
+        <select
+          id="icon"
+          value={formData.icon}
+          onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
+          className="w-full px-3 py-2 border rounded-md bg-background"
+        >
+          <option value="🚗">🚗 Car</option>
+          <option value="🚐">🚐 Van</option>
+          <option value="🏍️">🏍️ Motorcycle</option>
+          <option value="🚲">🚲 Bicycle</option>
+          <option value="🚛">🚛 Truck</option>
+          <option value="🛵">🛵 Scooter</option>
+        </select>
+      </div>
+
+      <div>
+        <Label htmlFor="fuel_type">Fuel Type</Label>
+        <select
+          id="fuel_type"
+          value={formData.fuel_type}
+          onChange={(e) => setFormData({ ...formData, fuel_type: e.target.value })}
+          className="w-full px-3 py-2 border rounded-md bg-background"
+        >
+          <option value="petrol">Petrol</option>
+          <option value="diesel">Diesel</option>
+          <option value="electric">Electric</option>
+          <option value="hybrid">Hybrid</option>
+        </select>
+      </div>
+
+      <div>
+        <Label htmlFor="co2_emissions">CO2 Emissions (kg/km)</Label>
+        <Input
+          id="co2_emissions"
+          type="number"
+          step="0.01"
+          min="0"
+          value={formData.co2_emissions}
+          onChange={(e) => setFormData({ ...formData, co2_emissions: parseFloat(e.target.value) || 0 })}
+          placeholder="e.g., 0.15"
+        />
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
+          Cancel
+        </Button>
+        <Button type="submit" className="flex-1">
+          {vehicle?.id ? 'Update' : 'Create'}
+        </Button>
+      </div>
+    </form>
+  );
 }
 
 function AdminPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [showFuelSettings, setShowFuelSettings] = useState(false);
   const [payloadInput, setPayloadInput] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Array<{ index: number, success: boolean, trackingNumber?: string, error?: string }>>([]);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<AllUser[]>([]);
   const [loadingAllUsers, setLoadingAllUsers] = useState(false);
   const [userFilter, setUserFilter] = useState('');
-  const [editingUser, setEditingUser] = useState<{ id: string; name: string; email: string; riderId: string; isActive: boolean } | null>(null);
+  const [editingUser, setEditingUser] = useState<EditingUser | null>(null);
   const [resetPasswordModal, setResetPasswordModal] = useState<{ isOpen: boolean; userId: string; userName: string }>({
     isOpen: false,
     userId: '',
@@ -40,6 +197,10 @@ function AdminPage() {
   });
   const [newPassword, setNewPassword] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([]);
+  const [showVehicleModal, setShowVehicleModal] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState<Partial<VehicleType> | null>(null);
+  const [loadingVehicleTypes, setLoadingVehicleTypes] = useState(false);
   const [accessTokens, setAccessTokens] = useState<Array<{
     id: string;
     name: string;
@@ -59,6 +220,7 @@ function AdminPage() {
       loadPendingUsers();
       loadAllUsers();
       loadAccessTokens();
+      loadVehicleTypes();
     }
   }, [canAccessAdmin]);
 
@@ -102,104 +264,94 @@ function AdminPage() {
     }
   };
 
-  const updateUser = async (userId: string, updates: any) => {
-    try {
-      const response = await fetch(`/api/auth/users/${userId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
-      const data = await response.json();
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "User updated successfully",
-        });
-        loadAllUsers(); // Refresh the list
-        setEditingUser(null);
-      } else {
-        toast({
-          title: "Error",
-          description: data.message || "Failed to update user",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Failed to update user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update user",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const resetUserPassword = async (userId: string, newPassword: string) => {
-    try {
-      const response = await fetch(`/api/auth/users/${userId}/reset-password`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ newPassword }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "Password reset successfully",
-        });
-        setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
-        setNewPassword('');
-      } else {
-        toast({
-          title: "Error",
-          description: data.message || "Failed to reset password",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Failed to reset password:', error);
-      toast({
-        title: "Error",
-        description: "Failed to reset password",
-        variant: "destructive",
-      });
-    } finally {
-      setIsResettingPassword(false);
-    }
-  };
-
   const loadAccessTokens = async () => {
     try {
-      const response = await fetch('/api/admin/access-tokens');
-      if (response.ok) {
-        const data = await response.json();
-        setAccessTokens(data.accessTokens || []);
+      const response = await fetch('/api/auth/access-tokens');
+      const data = await response.json();
+      if (data.success) {
+        setAccessTokens(data.tokens);
       }
     } catch (error) {
       console.error('Failed to load access tokens:', error);
-      // Fallback to hardcoded tokens for display
-      setAccessTokens([
-        {
-          id: 'access-token-1',
-          name: 'Access Token 1',
-          token: 'riderpro-access-token-1-abc123def456ghi789',
-          masked: 'rider*******ghi789',
-          description: 'Primary access token for external system integration',
-          status: 'active'
+    }
+  };
+
+  const loadVehicleTypes = async () => {
+    setLoadingVehicleTypes(true);
+    try {
+      const response = await fetch('/api/vehicle-types');
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        setVehicleTypes(data);
+      }
+    } catch (error) {
+      console.error('Failed to load vehicle types:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load vehicle types",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingVehicleTypes(false);
+    }
+  };
+
+  const saveVehicleType = async (vehicleData: Partial<VehicleType>) => {
+    try {
+      const url = editingVehicle?.id ? `/api/vehicle-types/${editingVehicle.id}` : '/api/vehicle-types';
+      const method = editingVehicle?.id ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          id: 'access-token-2',
-          name: 'Access Token 2',
-          token: 'riderpro-access-token-2-xyz789uvw456rst123',
-          masked: 'rider*******rst123',
-          description: 'Secondary access token for external system integration',
-          status: 'active'
-        }
-      ]);
+        body: JSON.stringify(vehicleData),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: `Vehicle type ${editingVehicle?.id ? 'updated' : 'created'} successfully`,
+        });
+        loadVehicleTypes();
+        setShowVehicleModal(false);
+        setEditingVehicle(null);
+      } else {
+        throw new Error('Failed to save vehicle type');
+      }
+    } catch (error) {
+      console.error('Failed to save vehicle type:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save vehicle type",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteVehicleType = async (id: string) => {
+    try {
+      const response = await fetch(`/api/vehicle-types/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Vehicle type deleted successfully",
+        });
+        loadVehicleTypes();
+      } else {
+        throw new Error('Failed to delete vehicle type');
+      }
+    } catch (error) {
+      console.error('Failed to delete vehicle type:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete vehicle type",
+        variant: "destructive",
+      });
     }
   };
 
@@ -209,18 +361,16 @@ function AdminPage() {
         method: 'POST',
       });
       const data = await response.json();
+
       if (data.success) {
         toast({
           title: "Success",
           description: "User approved successfully",
         });
         loadPendingUsers();
+        loadAllUsers();
       } else {
-        toast({
-          title: "Error",
-          description: data.message || "Failed to approve user",
-          variant: "destructive",
-        });
+        throw new Error(data.message);
       }
     } catch (error) {
       console.error('Failed to approve user:', error);
@@ -238,18 +388,16 @@ function AdminPage() {
         method: 'POST',
       });
       const data = await response.json();
+
       if (data.success) {
         toast({
           title: "Success",
           description: "User rejected successfully",
         });
         loadPendingUsers();
+        loadAllUsers();
       } else {
-        toast({
-          title: "Error",
-          description: data.message || "Failed to reject user",
-          variant: "destructive",
-        });
+        throw new Error(data.message);
       }
     } catch (error) {
       console.error('Failed to reject user:', error);
@@ -261,230 +409,215 @@ function AdminPage() {
     }
   };
 
-  const handleResetPassword = async () => {
-    if (!newPassword || newPassword.length < 6) {
+  const updateUser = async (userId: string, updates: any) => {
+    try {
+      const response = await fetch(`/api/auth/users/${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "User updated successfully",
+        });
+        loadAllUsers();
+        setEditingUser(null);
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (error) {
+      console.error('Failed to update user:', error);
       toast({
         title: "Error",
-        description: "Password must be at least 6 characters long",
+        description: "Failed to update user",
         variant: "destructive",
       });
+    }
+  };
+
+  const resetPassword = async (userId: string) => {
+    setIsResettingPassword(true);
+    try {
+      const response = await fetch(`/api/auth/reset-password/${userId}`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Password reset successfully",
+        });
+      } else {
+        throw new Error(data.message);
+      }
+    } catch (error) {
+      console.error('Failed to reset password:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reset password",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
+  const handleTestShipments = async () => {
+    if (!payloadInput.trim()) {
+      setValidationError('Please enter shipment data');
       return;
     }
 
-    await resetUserPassword(resetPasswordModal.userId, newPassword);
-  };
-
-  // Fuel settings state
-  const [fuelSettings, setFuelSettings] = useState<FuelSettings>({
-    defaultVehicleType: 'standard-van',
-    fuelPrice: 1.5,
-    currency: 'INR',
-    vehicleTypes: [
-      {
-        id: 'standard-van',
-        name: 'Standard Van',
-        fuelEfficiency: 15.0,
-        description: 'Standard delivery van'
-      }
-    ],
-    dataRetentionDays: 90
-  });
-
-  const handleFuelSettingsSave = async (newSettings: FuelSettings) => {
-    try {
-      setFuelSettings(newSettings);
-      // Save to localStorage (excluding vehicleTypes since they're now in database)
-      const settingsToSave = {
-        ...newSettings,
-        vehicleTypes: [] // Don't save vehicle types to localStorage
-      };
-      localStorage.setItem('fuelSettings', JSON.stringify(settingsToSave));
-      console.log('Fuel settings saved:', settingsToSave);
-    } catch (error) {
-      console.error('Failed to save fuel settings:', error);
-      throw error;
-    }
-  };
-
-  // JSON validation and payload processing functions
-  const validateJSON = (input: string): { valid: boolean; error?: string } => {
-    if (!input.trim()) return { valid: false, error: "Input cannot be empty" };
-    try {
-      JSON.parse(input);
-      return { valid: true };
-    } catch (error: any) {
-      return { valid: false, error: error.message };
-    }
-  };
-
-  const validateShipmentPayload = (payload: any): { valid: boolean; errors: string[] } => {
-    const errors: string[] = [];
-    const required = ['trackingNumber', 'status', 'priority', 'pickupAddress',
-      'deliveryAddress', 'recipientName', 'recipientPhone', 'weight', 'dimensions'];
-
-    required.forEach(field => {
-      if (!payload[field]) {
-        errors.push(`Missing required field: ${field}`);
-      }
-    });
-
-    if (payload.weight && (typeof payload.weight !== 'number' || payload.weight <= 0)) {
-      errors.push('Weight must be a positive number');
-    }
-
-    return { valid: errors.length === 0, errors };
-  };
-
-  const detectPayloadType = (input: string): 'single' | 'array' | 'invalid' => {
-    try {
-      const parsed = JSON.parse(input);
-      return Array.isArray(parsed) ? 'array' : 'single';
-    } catch {
-      return 'invalid';
-    }
-  };
-
-  const extractPayloads = (input: string): any[] => {
-    const parsed = JSON.parse(input);
-    return Array.isArray(parsed) ? parsed : [parsed];
-  };
-
-  // Generate sample payload with unique tracking number
-  const generateSamplePayload = () => ({
-    trackingNumber: `TRK${Date.now()}${Math.random().toString(36).substr(2, 5)}`,
-    status: "Assigned",
-    priority: "high",
-    type: "delivery",
-    pickupAddress: "123 Pickup Street, Mumbai, Maharashtra",
-    deliveryAddress: "456 Delivery Avenue, Mumbai, Maharashtra",
-    recipientName: "John Doe",
-    recipientPhone: "+91-9876543210",
-    weight: 2.5,
-    dimensions: "30x20x10 cm",
-    specialInstructions: "Handle with care",
-    estimatedDeliveryTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    customerName: "John Doe",
-    customerMobile: "+91-9876543210",
-    address: "456 Delivery Avenue, Mumbai, Maharashtra",
-    latitude: 19.0760 + (Math.random() - 0.5) * 0.02, // Mumbai area with smaller variation for better testing
-    longitude: 72.8777 + (Math.random() - 0.5) * 0.02,
-    cost: 500.00,
-    deliveryTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    routeName: "Route A",
-    employeeId: "EMP123"
-  });
-
-  const handlePayloadChange = (value: string) => {
-    setPayloadInput(value);
-    setTestResults([]);
-
-    // Real-time JSON validation
-    if (value.trim()) {
-      const validation = validateJSON(value);
-      setValidationError(validation.valid ? null : validation.error || 'Invalid JSON');
-    } else {
-      setValidationError(null);
-    }
-  };
-
-  const handleUseSample = () => {
-    const samplePayload = generateSamplePayload();
-    setPayloadInput(JSON.stringify(samplePayload, null, 2));
     setValidationError(null);
-    setTestResults([]);
-  };
-
-  const handleClearAll = () => {
-    setPayloadInput('');
-    setValidationError(null);
-    setTestResults([]);
-  };
-
-  const handleSendShipments = async () => {
-    if (!canEdit || !payloadInput.trim() || validationError) return;
-
     setIsSubmitting(true);
-    let successCount = 0;
-    let errorCount = 0;
-    const results: Array<{ index: number, success: boolean, trackingNumber?: string, error?: string }> = [];
+    setTestResults([]);
 
     try {
-      // Extract payloads (single object or array)
-      const payloads = extractPayloads(payloadInput);
-      console.log(`Processing ${payloads.length} payload(s)...`);
+      const lines = payloadInput.trim().split('\n').filter(line => line.trim());
+      const results = [];
 
-      for (let i = 0; i < payloads.length; i++) {
-        const payload = payloads[i];
-
+      for (let i = 0; i < lines.length; i++) {
         try {
-          // Client-side validation
-          const validation = validateShipmentPayload(payload);
-          if (!validation.valid) {
-            errorCount++;
-            const error = `Validation failed: ${validation.errors.join(', ')}`;
-            results.push({ index: i + 1, success: false, error });
-            console.error(`Payload ${i + 1} validation failed:`, validation.errors);
-            continue;
-          }
+          const response = await apiClient.post('/shipments/test', {
+            trackingNumber: lines[i].trim()
+          });
 
-          const response = await apiClient.post('/api/shipments/create', payload);
-
-          if (response.ok) {
-            const responseData = await response.json();
-            successCount++;
-            results.push({
-              index: i + 1,
-              success: true,
-              trackingNumber: responseData.trackingNumber || payload.trackingNumber
-            });
-            console.log(`✅ Payload ${i + 1} success:`, responseData.trackingNumber);
-          } else {
-            const errorData = await response.json();
-            errorCount++;
-            const error = errorData.message || 'Unknown server error';
-            results.push({ index: i + 1, success: false, error });
-            console.error(`❌ Payload ${i + 1} failed:`, error);
-          }
-        } catch (parseError: any) {
-          errorCount++;
-          const error = parseError.message || 'Processing error';
-          results.push({ index: i + 1, success: false, error });
-          console.error(`❌ Payload ${i + 1} error:`, parseError);
+          results.push({
+            index: i + 1,
+            success: true,
+            trackingNumber: lines[i].trim()
+          });
+        } catch (error: any) {
+          results.push({
+            index: i + 1,
+            success: false,
+            trackingNumber: lines[i].trim(),
+            error: error.message || 'Unknown error'
+          });
         }
       }
 
       setTestResults(results);
-
-      // Enhanced user feedback
-      if (successCount > 0 && errorCount === 0) {
-        toast({
-          title: "Success!",
-          description: `All ${successCount} shipment(s) created successfully`,
-        });
-      } else if (successCount > 0 && errorCount > 0) {
-        toast({
-          title: "Partial Success",
-          description: `${successCount} succeeded, ${errorCount} failed. Check results below.`,
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Failed",
-          description: `All ${errorCount} shipment(s) failed to create. Check results below.`,
-          variant: "destructive"
-        });
-      }
-    } catch (error: any) {
+    } catch (error) {
+      console.error('Test failed:', error);
       toast({
         title: "Error",
-        description: "Failed to process shipments: " + (error.message || 'Unknown error'),
-        variant: "destructive"
+        description: "Failed to test shipments",
+        variant: "destructive",
       });
-      console.error('Send shipments error:', error);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const clearResults = () => {
+    setTestResults([]);
+    setPayloadInput('');
+  };
+
+  const generateSampleData = async () => {
+    setIsSubmitting(true);
+    setValidationError(null);
+
+    try {
+      // Generate sample shipment data in proper JSON format
+      const sampleShipments = [
+        {
+          shipment_id: 'SHP001',
+          type: 'delivery',
+          status: 'Assigned',
+          priority: 'medium',
+          pickupAddress: 'Warehouse A, Industrial Area',
+          deliveryAddress: '123 Main Street, Downtown',
+          recipientName: 'John Smith',
+          recipientPhone: '+1234567890',
+          weight: 2.5,
+          dimensions: '30x20x15 cm',
+          cost: 25.00,
+          deliveryTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
+          routeName: 'Route-001',
+          employeeId: 'EMP001',
+          specialInstructions: 'Handle with care - fragile items',
+          latitude: 40.7128,
+          longitude: -74.0060
+        },
+        {
+          shipment_id: 'SHP002',
+          type: 'pickup',
+          status: 'Assigned',
+          priority: 'high',
+          pickupAddress: '456 Oak Avenue, Midtown',
+          deliveryAddress: 'Warehouse B, Industrial Area',
+          recipientName: 'Sarah Johnson',
+          recipientPhone: '+1234567891',
+          weight: 1.8,
+          dimensions: '25x18x12 cm',
+          cost: 18.50,
+          deliveryTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), // 4 hours from now
+          routeName: 'Route-002',
+          employeeId: 'EMP002',
+          specialInstructions: 'Urgent pickup required',
+          latitude: 40.7589,
+          longitude: -73.9851
+        },
+        {
+          shipment_id: 'SHP003',
+          type: 'delivery',
+          status: 'Assigned',
+          priority: 'low',
+          pickupAddress: 'Warehouse C, Suburbs',
+          deliveryAddress: '789 Pine Street, Residential',
+          recipientName: 'Mike Davis',
+          recipientPhone: '+1234567892',
+          weight: 3.2,
+          dimensions: '35x25x20 cm',
+          cost: 32.00,
+          deliveryTime: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(), // 6 hours from now
+          routeName: 'Route-003',
+          employeeId: 'EMP003',
+          specialInstructions: 'Delivery after 5 PM',
+          latitude: 40.7505,
+          longitude: -73.9934
+        }
+      ];
+
+      setPayloadInput(JSON.stringify(sampleShipments, null, 2));
+
+      toast({
+        title: "Sample Data Generated",
+        description: "Sample shipment data in JSON format has been added to the input field",
+      });
+    } catch (error) {
+      console.error('Failed to generate sample data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate sample data",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied",
+      description: "Text copied to clipboard",
+    });
+  };
+
+  const filteredUsers = allUsers.filter(user =>
+    user.full_name.toLowerCase().includes(userFilter.toLowerCase()) ||
+    user.rider_id.toLowerCase().includes(userFilter.toLowerCase()) ||
+    (user.email && user.email.toLowerCase().includes(userFilter.toLowerCase()))
+  );
 
   if (!canAccessAdmin) {
     return (
@@ -494,7 +627,7 @@ function AdminPage() {
             <h2 className="text-lg font-semibold">Access denied</h2>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">You do not have permission to access the admin dashboard. Only administrators can access this area.</p>
+            <p>You don't have permission to access the admin panel.</p>
           </CardContent>
         </Card>
       </div>
@@ -506,49 +639,10 @@ function AdminPage() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-        <p className="text-muted-foreground">Manage system settings, users, and access route analytics</p>
+        <p className="text-muted-foreground">
+          Manage system settings, users, and test shipments
+        </p>
       </div>
-
-      {/* Quick Actions - Route Management */}
-      {/* <Card className="mb-6">
-        <CardHeader>
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Route Management
-          </h2>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">Access route analytics and visualization tools</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Button
-              onClick={() => setLocation('/route-analytics')}
-              className="h-16 flex items-center justify-start gap-3 p-4"
-            >
-              <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-                <BarChart3 className="h-5 w-5" />
-              </div>
-              <div className="text-left">
-                <div className="font-medium">Route Analytics</div>
-                <div className="text-sm opacity-90">Performance metrics and fuel analytics</div>
-              </div>
-            </Button>
-
-            <Button
-              onClick={() => setLocation('/route-visualization')}
-              variant="secondary"
-              className="h-16 flex items-center justify-start gap-3 p-4"
-            >
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Map className="h-5 w-5 text-primary" />
-              </div>
-              <div className="text-left">
-                <div className="font-medium">Route Visualization</div>
-                <div className="text-sm text-muted-foreground">GPS tracking and route playback</div>
-              </div>
-            </Button>
-          </div>
-        </CardContent>
-      </Card> */}
 
       {/* Shipment Testing Section */}
       <Card className="mb-6">
@@ -559,92 +653,81 @@ function AdminPage() {
           </h2>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Test shipment creation by pasting JSON payloads. Supports single objects or arrays for bulk testing.
-          </p>
-
           <div className="space-y-4">
-            {/* Single Textarea Input */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">
-                  JSON Payload {detectPayloadType(payloadInput) === 'array' && `(${extractPayloads(payloadInput).length} shipments detected)`}
-                </label>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleUseSample}
-                    disabled={!canEdit}
-                  >
-                    <Copy className="h-3 w-3 mr-1" />
-                    Sample
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleClearAll}
-                    disabled={!canEdit || !payloadInput.trim()}
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" />
-                    Clear
-                  </Button>
-                </div>
-              </div>
+              <label className="text-sm font-medium">
+                Enter shipment data (JSON format):
+              </label>
               <Textarea
-                placeholder="Paste your shipment JSON payload here... 
-Examples:
-Single: { &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }
-Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;trackingNumber&quot;: &quot;TRK124&quot;, ... }]"
                 value={payloadInput}
-                onChange={(e) => handlePayloadChange(e.target.value)}
-                className={`min-h-[200px] font-mono text-sm ${validationError ? 'border-red-500' : payloadInput.trim() && !validationError ? 'border-green-500' : ''}`}
-                disabled={!canEdit}
+                onChange={(e) => setPayloadInput(e.target.value)}
+                placeholder="Enter shipment data in JSON format or use 'Generate Sample Data' button..."
+                className="min-h-[200px] font-mono text-sm"
               />
               {validationError && (
-                <p className="text-sm text-red-600">❌ {validationError}</p>
-              )}
-              {payloadInput.trim() && !validationError && (
-                <p className="text-sm text-green-600">✅ Valid JSON format</p>
+                <p className="text-sm text-red-600">{validationError}</p>
               )}
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 items-center">
+            <div className="flex gap-2 flex-wrap">
               <Button
-                onClick={handleSendShipments}
-                disabled={!canEdit || isSubmitting || !payloadInput.trim() || !!validationError}
-                className="bg-primary text-primary-foreground"
+                onClick={handleTestShipments}
+                disabled={isSubmitting}
+                className="flex items-center gap-2"
               >
-                <Send className="h-4 w-4 mr-2" />
-                {isSubmitting ? 'Sending...' :
-                  payloadInput.trim() && !validationError ?
-                    `Send ${detectPayloadType(payloadInput) === 'array' ? extractPayloads(payloadInput).length : 1} Shipment(s)` :
-                    'Send Shipments'}
+                <Send className="h-4 w-4" />
+                {isSubmitting ? 'Testing...' : 'Test Shipments'}
               </Button>
-
               <Button
+                onClick={generateSampleData}
+                disabled={isSubmitting}
                 variant="outline"
-                onClick={() => setLocation('/shipments')}
-                disabled={!canEdit}
+                className="flex items-center gap-2"
               >
-                View Shipments
+                <Database className="h-4 w-4" />
+                Generate Sample Data
+              </Button>
+              <Button
+                onClick={clearResults}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Clear
               </Button>
             </div>
-
-            {!canEdit && <span className="text-xs text-muted-foreground">Admin access required for testing</span>}
 
             {/* Test Results */}
             {testResults.length > 0 && (
               <div className="mt-6 space-y-2">
                 <h4 className="text-sm font-medium">Test Results:</h4>
                 <div className="bg-gray-50 p-4 rounded-lg space-y-2 max-h-60 overflow-y-auto">
-                  {testResults.map((result) => (
-                    <div key={result.index} className={`text-sm p-2 rounded ${result.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {result.success ? (
-                        <span>✅ Payload {result.index}: Success - Tracking: {result.trackingNumber}</span>
-                      ) : (
-                        <span>❌ Payload {result.index}: Failed - {result.error}</span>
+                  {testResults.map((result, index) => (
+                    <div
+                      key={index}
+                      className={`flex items-center justify-between p-2 rounded ${result.success ? 'bg-green-50' : 'bg-red-50'
+                        }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono">
+                          {result.index}. {result.trackingNumber}
+                        </span>
+                        {result.success ? (
+                          <span className="text-green-600 text-xs">✓ Success</span>
+                        ) : (
+                          <span className="text-red-600 text-xs">✗ Failed</span>
+                        )}
+                      </div>
+                      {result.error && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => copyToClipboard(result.error!)}
+                          className="h-6 px-2"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
                       )}
                     </div>
                   ))}
@@ -655,132 +738,164 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
         </CardContent>
       </Card>
 
-      {/* System Management */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* System Settings Section */}
-        {/* <Card>
-          <CardHeader>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              System Settings
-            </h2>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">Configure global system preferences.</p>
-            <div className="flex gap-3">
-              <Button disabled={!canEdit}>Save Settings</Button>
-              {!canEdit && <span className="text-xs text-muted-foreground">Read only access</span>}
-            </div>
-          </CardContent>
-        </Card> */}
-
-        {/* API Token Management Section (removed) */}
-
-        {/* Analytics Settings Section */}
-        <Card>
-          <CardHeader>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Fuel className="h-5 w-5" />
-              Analytics Settings
-            </h2>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">Configure fuel settings and analytics parameters.</p>
-            <div className="flex gap-3">
-              <Button
-                onClick={() => setShowFuelSettings(true)}
-                disabled={!canEdit}
-              >
-                Fuel Settings
-              </Button>
-              <Button variant="outline" disabled={!canEdit}>Export Settings</Button>
-            </div>
-            {!canEdit && <span className="text-xs text-muted-foreground">Read only access</span>}
-          </CardContent>
-        </Card>
-
-        {/* Audit & Monitoring Section */}
-        <Card>
-          <CardHeader>
-            <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Audit & Monitoring
-            </h2>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">Review system activity and health checks.</p>
-            <div className="flex gap-3">
-              <Button variant="outline">View Logs</Button>
-              <Button variant="outline">System Health</Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-
-      {/* Access Tokens Section */}
-      <Card className="mt-6">
+      {/* Fuel Settings Section */}
+      <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Access Tokens
-          </CardTitle>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Fuel className="h-5 w-5" />
+            Fuel Settings
+          </h2>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-6">
             <p className="text-sm text-muted-foreground">
-              Access tokens for external system integration. Use these tokens when sending data to external systems.
+              Configure fuel pricing and vehicle settings for accurate cost calculations
             </p>
-            <div className="grid gap-4">
-              {accessTokens.map((token) => (
-                <div key={token.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/50 gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                      <h4 className="font-medium truncate">{token.name}</h4>
-                      <span className={`px-2 py-1 text-xs rounded-full self-start ${token.status === 'active'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                        }`}>
-                        {token.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2 break-words">{token.description}</p>
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <code className="text-xs sm:text-sm font-mono bg-background px-2 py-1 rounded border truncate min-w-0">
-                        {token.masked}
-                      </code>
-                    </div>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(token.token);
-                        toast({
-                          title: "Copied!",
-                          description: `${token.name} copied to clipboard`,
-                        });
-                      }}
-                      className="text-xs sm:text-sm"
-                    >
-                      <Copy className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                      <span className="hidden sm:inline">Copy Token</span>
-                      <span className="sm:hidden">Copy</span>
-                    </Button>
-                  </div>
-                </div>
-              ))}
+
+            {/* Default Vehicle Type */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Default Vehicle Type</Label>
+              <select className="w-full px-3 py-2 border rounded-md bg-background">
+                <option value="bike">Bike</option>
+                <option value="scooter">Scooter</option>
+                <option value="car">Car</option>
+                <option value="van">Van</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                The default vehicle type for new fuel entries
+              </p>
             </div>
-            <div className="text-xs text-muted-foreground">
-              💡 Use these tokens in the Authorization header: <code>Authorization: Bearer &lt;token&gt;</code>
+
+            {/* Fuel Price */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Fuel Price per Liter</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  placeholder="100"
+                  defaultValue="100"
+                  className="flex-1"
+                />
+                <select className="px-3 py-2 border rounded-md bg-background min-w-[100px]">
+                  <option value="INR">INR (₹)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                </select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Current fuel price used for cost calculations
+              </p>
+            </div>
+
+            {/* Vehicle Types */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Vehicle Types & Mileage</Label>
+              <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+                {loadingVehicleTypes ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-sm text-muted-foreground">Loading vehicle types...</p>
+                  </div>
+                ) : vehicleTypes.length > 0 ? (
+                  <div className="space-y-2">
+                    {vehicleTypes.map((vehicle) => (
+                      <div key={vehicle.id} className="flex items-center justify-between p-3 bg-background rounded-lg border">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                            <span className="text-xs font-semibold">{vehicle.icon}</span>
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{vehicle.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {vehicle.fuel_efficiency} km/l • {vehicle.fuel_type || 'petrol'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingVehicle(vehicle);
+                              setShowVehicleModal(true);
+                            }}
+                            className="h-7 px-2"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete ${vehicle.name}?`)) {
+                                deleteVehicleType(vehicle.id);
+                              }
+                            }}
+                            className="h-7 px-2 text-red-600 hover:text-red-700"
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No vehicle types found</p>
+                  </div>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setEditingVehicle({});
+                    setShowVehicleModal(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Vehicle Type
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Manage vehicle types and their fuel efficiency for accurate cost calculations
+              </p>
+            </div>
+
+            {/* Data Retention */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Data Retention Period</Label>
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="number"
+                  placeholder="30"
+                  defaultValue="30"
+                  className="w-32"
+                />
+                <span className="text-sm text-muted-foreground">days</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                How long to keep fuel tracking data before archiving
+              </p>
+            </div>
+
+            {/* Save Button */}
+            <div className="flex gap-3 pt-4 border-t">
+              <Button className="flex-1 sm:flex-initial">
+                <Settings className="h-4 w-4 mr-2" />
+                Save Settings
+              </Button>
+              <Button variant="outline" className="flex-1 sm:flex-initial">
+                Reset to Defaults
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* User Management Section */}
-      <Card className="mt-6">
+      {/* User Management */}
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -804,7 +919,9 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
             {/* Pending User Approvals - Only show if there are pending users */}
             {pendingUsers.length > 0 && (
               <div className="space-y-4">
-                <h4 className="text-md font-medium text-orange-600 dark:text-orange-400">Manage user registrations and approvals</h4>
+                <h4 className="text-md font-medium text-orange-600 dark:text-orange-400">
+                  Manage user registrations and approvals
+                </h4>
                 <div className="space-y-3">
                   {pendingUsers.map((user) => (
                     <div key={user.id} className="border rounded-lg p-4">
@@ -827,19 +944,28 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
                         </div>
                         <div className="flex gap-2 sm:flex-shrink-0">
                           <Button
-                            onClick={() => approveUser(user.id)}
-                            disabled={!canEdit}
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to approve ${user.full_name}?`)) {
+                                approveUser(user.id);
+                              }
+                            }}
                             size="sm"
-                            className="bg-green-600 hover:bg-green-700"
+                            className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
                           >
+                            <UserCheck className="h-4 w-4 mr-1" />
                             Approve
                           </Button>
                           <Button
-                            onClick={() => rejectUser(user.id)}
-                            disabled={!canEdit}
-                            variant="destructive"
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to reject ${user.full_name}? This action cannot be undone.`)) {
+                                rejectUser(user.id);
+                              }
+                            }}
                             size="sm"
+                            variant="destructive"
+                            className="w-full sm:w-auto"
                           >
+                            <UserX className="h-4 w-4 mr-1" />
                             Reject
                           </Button>
                         </div>
@@ -853,83 +979,27 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
             {/* All Users Management */}
             <div className="space-y-4">
               <h4 className="text-md font-medium">All Users Management</h4>
-              <div className="space-y-3">
-                {pendingUsers.map((user) => (
-                  <div key={user.id} className="border rounded-lg p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                            <Users className="h-5 w-5 text-primary" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-medium truncate">{user.full_name}</h3>
-                            <p className="text-sm text-muted-foreground truncate">
-                              ID: {user.rider_id} • {user.email}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Registered: {new Date(user.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col sm:flex-row gap-2 sm:flex-shrink-0">
-                        <Button
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to approve ${user.full_name}?`)) {
-                              approveUser(user.id);
-                            }
-                          }}
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
-                        >
-                          <UserCheck className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to reject ${user.full_name}? This action cannot be undone.`)) {
-                              rejectUser(user.id);
-                            }
-                          }}
-                          size="sm"
-                          variant="destructive"
-                          className="w-full sm:w-auto"
-                        >
-                          <UserX className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search users..."
+                  value={userFilter}
+                  onChange={(e) => setUserFilter(e.target.value)}
+                  className="pl-10"
+                />
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
-
-            {loadingAllUsers ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                <p>Loading users...</p>
-              </div>
-            ) : (() => {
-              const filteredUsers = allUsers.filter(user =>
-                !userFilter ||
-                user.full_name?.toLowerCase().includes(userFilter.toLowerCase()) ||
-                user.rider_id?.toLowerCase().includes(userFilter.toLowerCase()) ||
-                user.email?.toLowerCase().includes(userFilter.toLowerCase())
-              );
-
-              return filteredUsers.length === 0 ? (
+              {loadingAllUsers ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p>Loading users...</p>
+                </div>
+              ) : filteredUsers.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>{allUsers.length === 0 ? 'No users found' : 'No users match your search'}</p>
-                  {allUsers.length === 0 && (
-                    <p className="text-sm mt-2">Try refreshing the list or check if you have permission to view users.</p>
-                  )}
+                  <p>No users found - Try refreshing the list or check if you have permission to view users.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -938,32 +1008,39 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${user.is_active ? 'bg-green-100' : 'bg-red-100'
-                              }`}>
-                              <Users className={`h-5 w-5 ${user.is_active ? 'text-green-600' : 'text-red-600'
-                                }`} />
+                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Users className="h-5 w-5 text-primary" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h3 className="font-medium truncate">{user.full_name}</h3>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-medium truncate">{user.full_name}</h3>
+                                <Badge variant={user.is_active ? "default" : "secondary"}>
+                                  {user.is_active ? "Active" : "Inactive"}
+                                </Badge>
+                                <Badge variant={user.is_approved ? "default" : "destructive"}>
+                                  {user.is_approved ? "Approved" : "Pending"}
+                                </Badge>
+                                <Badge variant="outline">
+                                  {user.role}
+                                </Badge>
+                              </div>
                               <p className="text-sm text-muted-foreground truncate">
                                 ID: {user.rider_id} • {user.email}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Status: {user.is_approved ? 'Approved' : 'Pending'} •
-                                Active: {user.is_active ? 'Yes' : 'No'} •
-                                Created: {new Date(user.created_at).toLocaleDateString()}
+                                Last Login: {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
                               </p>
                             </div>
                           </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2 sm:flex-shrink-0">
+                        <div className="flex gap-2 sm:flex-shrink-0">
                           <Button
                             onClick={() => setEditingUser({
                               id: user.id,
                               name: user.full_name,
-                              email: user.email,
+                              email: user.email || '',
                               riderId: user.rider_id,
-                              isActive: user.is_active
+                              isActive: Boolean(user.is_active)
                             })}
                             size="sm"
                             variant="outline"
@@ -973,25 +1050,22 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
                             Edit
                           </Button>
                           <Button
-                            onClick={() => setResetPasswordModal({
-                              isOpen: true,
-                              userId: user.id,
-                              userName: user.full_name
-                            })}
+                            onClick={() => resetPassword(user.id)}
                             size="sm"
                             variant="outline"
+                            disabled={isResettingPassword}
                             className="w-full sm:w-auto"
                           >
                             <Key className="h-4 w-4 mr-1" />
-                            Reset Password
+                            {isResettingPassword ? 'Resetting...' : 'Reset Password'}
                           </Button>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              );
-            })()}
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1003,27 +1077,27 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
             <h3 className="text-lg font-semibold mb-4">Edit User</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Full Name</label>
+                <Label className="block text-sm font-medium mb-1">Full Name</Label>
                 <Input
                   value={editingUser.name}
                   onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
+                <Label className="block text-sm font-medium mb-1">Email</Label>
                 <Input
                   value={editingUser.email}
                   onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Rider ID</label>
+                <Label className="block text-sm font-medium mb-1">Rider ID</Label>
                 <Input
                   value={editingUser.riderId}
                   onChange={(e) => setEditingUser({ ...editingUser, riderId: e.target.value })}
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
                   id="isActive"
@@ -1031,10 +1105,17 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
                   onChange={(e) => setEditingUser({ ...editingUser, isActive: e.target.checked })}
                   className="rounded"
                 />
-                <label htmlFor="isActive" className="text-sm font-medium">Active</label>
+                <Label htmlFor="isActive">Active User</Label>
               </div>
             </div>
-            <div className="flex gap-2 mt-6">
+            <div className="flex gap-3 mt-6">
+              <Button
+                onClick={() => setEditingUser(null)}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
               <Button
                 onClick={() => updateUser(editingUser.id, {
                   full_name: editingUser.name,
@@ -1046,68 +1127,85 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
               >
                 Save Changes
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {resetPasswordModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Reset Password</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Reset password for {resetPasswordModal.userName}
+            </p>
+            <div className="space-y-4">
+              <div>
+                <Label className="text-sm font-medium">New Password</Label>
+                <Input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
               <Button
-                onClick={() => setEditingUser(null)}
+                onClick={() => {
+                  setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
+                  setNewPassword('');
+                }}
                 variant="outline"
                 className="flex-1"
               >
                 Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  // Handle password reset logic here
+                  setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
+                  setNewPassword('');
+                }}
+                className="flex-1"
+                disabled={!newPassword.trim()}
+              >
+                Reset Password
               </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Fuel Settings Modal */}
-      <FuelSettingsModal
-        isOpen={showFuelSettings}
-        onClose={() => setShowFuelSettings(false)}
-        onSave={handleFuelSettingsSave}
-        currentSettings={fuelSettings}
-      />
-
-      {/* Password Reset Modal */}
-      {resetPasswordModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle>Reset Password</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Reset password for user: <strong>{resetPasswordModal.userName}</strong>
-              </p>
-              <div>
-                <label className="text-sm font-medium">New Password</label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter new password (min 6 characters)"
-                />
-              </div>
-              <div className="flex gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
-                    setNewPassword('');
-                  }}
-                  disabled={isResettingPassword}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleResetPassword}
-                  disabled={isResettingPassword || !newPassword || newPassword.length < 6}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isResettingPassword ? 'Resetting...' : 'Reset Password'}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      {/* Vehicle Type Modal */}
+      {showVehicleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">
+                {editingVehicle?.id ? 'Edit Vehicle Type' : 'Add Vehicle Type'}
+              </h3>
+              <Button
+                onClick={() => {
+                  setShowVehicleModal(false);
+                  setEditingVehicle(null);
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <VehicleTypeForm
+              vehicle={editingVehicle}
+              onSave={saveVehicleType}
+              onCancel={() => {
+                setShowVehicleModal(false);
+                setEditingVehicle(null);
+              }}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -1115,4 +1213,3 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
 }
 
 export default withPageErrorBoundary(AdminPage, 'Admin Dashboard');
-
