@@ -527,13 +527,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Apply role-based filtering according to requirements:
       // - isSuperUser: can see all shipments
-      // - isRider: can see all shipments
-      // - is_driver: can only see their own shipments
-      if (userRole === 'driver' && !req.user?.isRider && !req.user?.isSuperUser) {
+      // - isOpsTeam: can see all shipments
+      // - isStaff (mapped to isRider): can see all shipments
+      // - Default driver: can only see their own shipments
+      if (!req.user?.isSuperUser && !req.user?.isOpsTeam && !req.user?.isStaff) {
         // Only regular drivers see filtered results
         filters.employeeId = employeeId;
       }
-      // For isSuperUser, isRider, and other elevated roles: no filtering (see all shipments)
+      // For isSuperUser, isOpsTeam, and isStaff: no filtering (see all shipments)
 
       // Set cache control headers (5 minutes)
       res.set('Cache-Control', 'public, max-age=300');
@@ -1329,13 +1330,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Upload acknowledgment with photo and signature
   app.post('/api/shipments/:id/acknowledgement',
+    authenticate, // Enable authentication to track who captured the acknowledgment
     upload.fields([
       { name: 'photo', maxCount: 1 },
       { name: 'signature', maxCount: 1 }
     ]),
-    async (req, res) => {
+    async (req: AuthenticatedRequest, res) => {
       try {
-        // Authentication removed (simplified app)
 
         // Check write permissions
         if (!hasRequiredPermission(req, 'write')) {
@@ -1382,7 +1383,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           photo: photoUrl,
           timestamp: new Date().toISOString(),
           recipientName: req.body.recipientName || 'Unknown',
-          capturedBy: (req as any).user?.employeeId || 'unknown', // Track who captured the acknowledgment
+          capturedBy: req.user?.employeeId || req.user?.id || 'unknown', // Track who captured the acknowledgment (employee ID or user ID)
         });
 
         // Sync to external API with acknowledgment

@@ -87,14 +87,14 @@ The system now uses a simplified internal role structure with two roles:
 
 ### PIA API Role Mapping
 
-The system receives roles from PIA API and maps them to internal roles:
+The system receives roles from PIA API and preserves them for server-side filtering:
 
-| PIA Response | Internal Role | UI Role | Admin Access | Edit Access |
-|-------------|---------------|---------|--------------|-------------|
-| `is_super_user: true` | `is_super_user: true` | `ADMIN` | ✅ | ✅ |
-| `is_ops_team: true` | `is_rider: true` | `MANAGER` | ❌ | ✅ |
-| `is_staff: true` | `is_rider: true` | `MANAGER` | ❌ | ✅ |
-| Any other combination | Default (no flags) | `DRIVER` | ❌ | ❌ (own data only) |
+| PIA Response | Internal Mapping | UI Role | Shipment Access | Admin Access | Edit Access |
+|-------------|------------------|---------|-----------------|--------------|-------------|
+| `is_super_user: true` | `is_super_user: true` | `ADMIN` | All shipments | ✅ | ✅ |
+| `is_ops_team: true` | `is_ops_team: true` | `MANAGER` | All shipments | ❌ | ✅ |
+| `is_staff: true` | `is_staff: true` | `MANAGER` | All shipments | ❌ | ✅ |
+| Any other combination | Default (no flags) | `DRIVER` | Own shipments only | ❌ | ❌ (own data only) |
 
 ### Permission Matrix
 

@@ -59,6 +59,8 @@ class AuthService {
       const employeeId = localStorage.getItem('employee_id');
       const isRider = localStorage.getItem('is_rider') === 'true';
       const isSuperUser = localStorage.getItem('is_super_user') === 'true';
+      const isOpsTeam = localStorage.getItem('is_ops_team') === 'true';
+      const isStaff = localStorage.getItem('is_staff') === 'true';
 
       if (accessToken && fullName && employeeId) {
         // Use new role determination logic
@@ -75,6 +77,9 @@ class AuthService {
             isActive: true,
             isRider,
             isSuperUser,
+            // Original PIA roles for server-side filtering
+            isOpsTeam,
+            isStaff,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -181,6 +186,9 @@ class AuthService {
       localStorage.setItem('employee_id', employeeId);  // Use the original employee ID
       localStorage.setItem('is_rider', internalRoles.is_rider.toString());
       localStorage.setItem('is_super_user', internalRoles.is_super_user.toString());
+      // Also save original PIA roles for server-side filtering
+      localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
+      localStorage.setItem('is_staff', (data.is_staff || false).toString());
 
       const role = this.determineRole(data.is_staff, data.is_super_user, data.is_ops_team);
 
@@ -195,6 +203,9 @@ class AuthService {
           isActive: true,
           isRider: internalRoles.is_rider,
           isSuperUser: internalRoles.is_super_user,
+          // Original PIA roles for server-side filtering
+          isOpsTeam: data.is_ops_team || false,
+          isStaff: data.is_staff || false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },

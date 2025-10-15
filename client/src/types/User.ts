@@ -17,6 +17,9 @@ export interface User {
   // Simplified role structure
   isRider: boolean;
   isSuperUser: boolean;
+  // Original PIA roles for server-side filtering
+  isOpsTeam?: boolean;
+  isStaff?: boolean;
   createdAt: string;
   updatedAt: string;
 }

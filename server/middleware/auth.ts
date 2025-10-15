@@ -53,6 +53,9 @@ export interface User {
   // Simplified role structure
   isRider?: boolean;
   isSuperUser?: boolean;
+  // Original PIA roles for server-side filtering
+  isOpsTeam?: boolean;
+  isStaff?: boolean;
   accessToken?: string;
   refreshToken?: string;
   lastLogin?: string;
@@ -262,11 +265,11 @@ export const authorizeEmployeeAccess = (req: AuthenticatedRequest, res: Response
 
   const requestedEmployeeId = req.params.employeeId || req.query.employeeId || req.body.employeeId;
 
-  if (req.user.isSuperUser || req.user.isRider) {
+  if (req.user.isSuperUser || req.user.isOpsTeam || req.user.isStaff) {
     return next();
   }
 
-  if (req.user.role === UserRole.DRIVER && !req.user.isRider && !req.user.isSuperUser) {
+  if (!req.user.isSuperUser && !req.user.isOpsTeam && !req.user.isStaff) {
     if (requestedEmployeeId && requestedEmployeeId !== req.user.employeeId) {
       return res.status(403).json({
         success: false,
