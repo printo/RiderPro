@@ -206,8 +206,12 @@ export class ApiClient {
 
         // Only logout and redirect if we're not already on the login page
         if (!window.location.pathname.includes('/login')) {
+          console.log('[ApiClient] Session expired, redirecting to login...');
           AuthService.getInstance().logout();
-          window.location.href = '/login';
+          // Add a small delay to prevent immediate redirect
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 500);
         }
 
         const logoutError = this.createApiError(
@@ -539,6 +543,15 @@ export class ApiClient {
     try {
       console.log(`[ApiClient] Performing graceful logout: ${reason}`);
 
+      // Show countdown warning before logout
+      this.showCountdownWarning(reason);
+
+      // Countdown for 3 seconds
+      for (let i = 3; i > 0; i--) {
+        await this.sleep(1000);
+        this.updateCountdownMessage(i);
+      }
+
       // Clear authentication state
       AuthService.getInstance().logout();
 
@@ -549,14 +562,13 @@ export class ApiClient {
       this.refreshInProgress = false;
       this.refreshAttemptTimestamp = 0;
 
-      // Show user-friendly notification if possible
-      this.showLogoutNotification(reason);
+      // Hide countdown notification
+      this.hideCountdownNotification();
 
-      // Small delay to allow notification to show
-      await this.sleep(1000);
-
-      // Redirect to login page
-      window.location.href = '/login';
+      // Only redirect to login page if we're not already on the login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
 
     } catch (error) {
       console.error('[ApiClient] Error during graceful logout:', error);
@@ -591,6 +603,85 @@ export class ApiClient {
       }
     } catch (error) {
       console.error('[ApiClient] Failed to show logout notification:', error);
+    }
+  }
+
+  /**
+   * Show countdown warning notification
+   */
+  private showCountdownWarning(reason: string): void {
+    try {
+      // Create a countdown notification element
+      const notification = document.createElement('div');
+      notification.id = 'logout-countdown-notification';
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #dc2626;
+        color: white;
+        padding: 16px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 9999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        animation: slideIn 0.3s ease-out;
+      `;
+
+      // Add CSS animation
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+
+      notification.innerHTML = `
+        <div style="font-weight: 600; margin-bottom: 4px;">Session Expiring</div>
+        <div style="margin-bottom: 8px;">${reason}</div>
+        <div style="font-size: 12px; opacity: 0.9;">Logging out in <span id="countdown-timer">3</span> seconds...</div>
+      `;
+
+      document.body.appendChild(notification);
+    } catch (error) {
+      console.error('[ApiClient] Failed to show countdown warning:', error);
+    }
+  }
+
+  /**
+   * Update countdown timer
+   */
+  private updateCountdownMessage(seconds: number): void {
+    try {
+      const timerElement = document.getElementById('countdown-timer');
+      if (timerElement) {
+        timerElement.textContent = seconds.toString();
+      }
+    } catch (error) {
+      console.error('[ApiClient] Failed to update countdown message:', error);
+    }
+  }
+
+  /**
+   * Hide countdown notification
+   */
+  private hideCountdownNotification(): void {
+    try {
+      const notification = document.getElementById('logout-countdown-notification');
+      if (notification) {
+        notification.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 300);
+      }
+    } catch (error) {
+      console.error('[ApiClient] Failed to hide countdown notification:', error);
     }
   }
 

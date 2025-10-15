@@ -48,7 +48,6 @@ export const up = (db: Database) => {
       id TEXT PRIMARY KEY,
       rider_id TEXT UNIQUE NOT NULL,
       full_name TEXT NOT NULL,
-      email TEXT,
       password_hash TEXT NOT NULL,
       is_active BOOLEAN DEFAULT 1,
       is_approved BOOLEAN DEFAULT 0,
@@ -159,7 +158,6 @@ export const up = (db: Database) => {
 
     -- User authentication indexes
     CREATE INDEX IF NOT EXISTS idx_rider_accounts_rider_id ON rider_accounts(rider_id);
-    CREATE INDEX IF NOT EXISTS idx_rider_accounts_email ON rider_accounts(email);
     CREATE INDEX IF NOT EXISTS idx_rider_accounts_approved ON rider_accounts(is_approved);
 
     -- Vehicle types indexes
@@ -230,7 +228,6 @@ export const down = (db: Database) => {
     DROP INDEX IF EXISTS idx_shipments_type;
     DROP INDEX IF EXISTS idx_shipments_status;
     DROP INDEX IF EXISTS idx_rider_accounts_approved;
-    DROP INDEX IF EXISTS idx_rider_accounts_email;
     DROP INDEX IF EXISTS idx_rider_accounts_rider_id;
     DROP INDEX IF EXISTS idx_route_tracking_timestamp;
     DROP INDEX IF EXISTS idx_route_tracking_date;

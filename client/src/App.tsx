@@ -19,17 +19,14 @@ import RouteVisualizationPage from "@/pages/RouteVisualizationPage";
 import Settings from "@/pages/Settings";
 import RiderSignupForm from "@/pages/RiderSignupForm";
 import AdminRiderManagement from "@/pages/AdminRiderManagement";
+import { PageLoader } from "@/components/ui/Loader";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
   // Show loading spinner while checking auth
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900"></div>
-      </div>
-    );
+    return <PageLoader text="Loading..." />;
   }
 
   // Show login form if not authenticated
@@ -37,6 +34,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/login" component={LoginForm} />
+        <Route path="/signup" component={RiderSignupForm} />
         <Route path="/approval-pending" component={ApprovalPending} />
         <Route component={LoginForm} />
       </Switch>

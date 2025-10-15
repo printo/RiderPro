@@ -1,5 +1,5 @@
 import { ShipmentQueries } from './db/queries.js';
-import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType } from '@shared/schema';
+import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType } from '@shared/schema';
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -23,9 +23,8 @@ export interface IStorage {
 
 
 
-  // Acknowledgment operations
-  createAcknowledgment(acknowledgment: InsertAcknowledgment): Promise<Acknowledgment>;
-  getAcknowledgmentByShipmentId(shipmentId: string): Promise<Acknowledgment | undefined>;
+  // Acknowledgment operations (now integrated into shipments table)
+  // createAcknowledgment and getAcknowledgmentByShipmentId methods removed
 
   // Dashboard operations
   getDashboardMetrics(): Promise<DashboardMetrics>;

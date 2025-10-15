@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/ApiClient";
 import { useLocation } from "wouter";
-import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2, Users, UserCheck, UserX } from "lucide-react";
+import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key } from "lucide-react";
 import { useState, useEffect } from "react";
 import FuelSettingsModal, { FuelSettings } from "@/components/ui/forms/FuelSettingsModal";
 import { Textarea } from "@/components/ui/textarea";
@@ -673,25 +673,25 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
             </p>
             <div className="grid gap-4">
               {accessTokens.map((token) => (
-                <div key={token.id} className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h4 className="font-medium">{token.name}</h4>
-                      <span className={`px-2 py-1 text-xs rounded-full ${token.status === 'active'
+                <div key={token.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-muted/50 gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
+                      <h4 className="font-medium truncate">{token.name}</h4>
+                      <span className={`px-2 py-1 text-xs rounded-full self-start ${token.status === 'active'
                         ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
                         }`}>
                         {token.status}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">{token.description}</p>
-                    <div className="flex items-center gap-2">
-                      <code className="text-sm font-mono bg-background px-2 py-1 rounded border">
+                    <p className="text-sm text-muted-foreground mb-2 break-words">{token.description}</p>
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <code className="text-xs sm:text-sm font-mono bg-background px-2 py-1 rounded border truncate min-w-0">
                         {token.masked}
                       </code>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     <Button
                       variant="outline"
                       size="sm"
@@ -702,9 +702,11 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
                           description: `${token.name} copied to clipboard`,
                         });
                       }}
+                      className="text-xs sm:text-sm"
                     >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy Token
+                      <Copy className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden sm:inline">Copy Token</span>
+                      <span className="sm:hidden">Copy</span>
                     </Button>
                   </div>
                 </div>

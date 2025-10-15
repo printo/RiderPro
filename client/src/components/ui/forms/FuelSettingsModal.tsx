@@ -222,7 +222,7 @@ function FuelSettingsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" />
@@ -250,7 +250,7 @@ function FuelSettingsModal({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fuelPrice">
                     Fuel Price ({settings.currency}/L)
@@ -447,7 +447,7 @@ function FuelSettingsModal({
               )}
 
               {/* Existing Vehicle Types */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {vehicleTypes.map((vehicle) => (
                   <Card key={vehicle.id} className="relative">
                     <CardContent className="pt-4">

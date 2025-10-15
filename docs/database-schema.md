@@ -179,7 +179,6 @@ CREATE TABLE rider_accounts (
   rider_id TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   full_name TEXT NOT NULL,
-  email TEXT,
   is_approved BOOLEAN DEFAULT 0,
   is_super_user BOOLEAN DEFAULT 0,
   is_ops_team BOOLEAN DEFAULT 0,
@@ -242,7 +241,6 @@ CREATE INDEX idx_vehicle_types_fuel_type ON vehicle_types(fuel_type);
 #### User Data Database Indexes
 ```sql
 CREATE INDEX idx_rider_accounts_rider_id ON rider_accounts(rider_id);
-CREATE INDEX idx_rider_accounts_email ON rider_accounts(email);
 CREATE INDEX idx_rider_accounts_approved ON rider_accounts(is_approved);
 CREATE INDEX idx_user_preferences_rider ON user_preferences(rider_id);
 CREATE INDEX idx_user_preferences_key ON user_preferences(preference_key);

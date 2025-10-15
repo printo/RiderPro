@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import express from "express";
 import bcrypt from "bcrypt";
 import { storage } from "./storage.js";
+import Database from 'better-sqlite3';
+import path from 'path';
 import { authenticate, AuthenticatedRequest } from "./middleware/auth.js";
 import {
   insertShipmentSchema,
@@ -23,7 +25,11 @@ import { externalSync } from "./services/externalSync.js";
 import { fieldMappingService } from "./services/FieldMappingService.js";
 import { payloadValidationService } from "./services/PayloadValidationService.js";
 import { webhookAuth, webhookSecurity, webhookLogger, webhookRateLimit, webhookPayloadLimit } from "./middleware/webhookAuth.js";
-import path from 'path';
+
+
+// Create userdata database connection for authentication
+const userDataDbPath = path.join(process.cwd(), 'data', 'userdata.db');
+const userDataDb = new Database(userDataDbPath);
 
 // Helper function to check if user has required permission level
 // Simplified permission check (can be expanded if needed)
@@ -105,7 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Local user registration
   app.post('/api/auth/register', async (req, res) => {
     try {
-      const { riderId, password, fullName, email } = req.body;
+      const { riderId, password, fullName } = req.body;
 
       if (!riderId || !password || !fullName) {
         return res.status(400).json({
@@ -115,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user already exists
-      const existingUser = storage
+      const existingUser = userDataDb
         .prepare('SELECT id FROM rider_accounts WHERE rider_id = ?')
         .get(riderId);
 
@@ -133,12 +139,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create user account (pending approval)
       const userId = 'rider_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
 
-      storage.prepare(`
+      userDataDb.prepare(`
         INSERT INTO rider_accounts (
-          id, rider_id, full_name, email, password_hash, 
+          id, rider_id, full_name, password_hash, 
           is_active, is_approved, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, 1, 0, datetime('now'), datetime('now'))
-      `).run(userId, riderId, fullName, email || null, passwordHash);
+        ) VALUES (?, ?, ?, ?, 1, 0, datetime('now'), datetime('now'))
+      `).run(userId, riderId, fullName, passwordHash);
 
       res.json({
         success: true,
@@ -167,9 +173,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Find user
-      const user = storage
+      const user = userDataDb
         .prepare(`
-          SELECT id, rider_id, full_name, email, password_hash, is_active, is_approved
+          SELECT id, rider_id, full_name, password_hash, is_active, is_approved
           FROM rider_accounts 
           WHERE rider_id = ? AND is_active = 1
         `)
@@ -205,7 +211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const refreshToken = 'refresh_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
 
       // Update last login
-      storage.prepare(`
+      userDataDb.prepare(`
         UPDATE rider_accounts 
         SET last_login_at = datetime('now'), updated_at = datetime('now')
         WHERE id = ?
@@ -231,9 +237,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get pending approvals (for admin)
   app.get('/api/auth/pending-approvals', async (req, res) => {
     try {
-      const pendingUsers = storage
+      const pendingUsers = userDataDb
         .prepare(`
-          SELECT id, rider_id, full_name, email, created_at
+          SELECT id, rider_id, full_name, created_at
           FROM rider_accounts 
           WHERE is_approved = 0 AND is_active = 1
           ORDER BY created_at DESC
@@ -258,7 +264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userId } = req.params;
 
-      const result = storage
+      const result = userDataDb
         .prepare(`
           UPDATE rider_accounts 
           SET is_approved = 1, updated_at = datetime('now')
@@ -291,7 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userId } = req.params;
 
-      const result = storage
+      const result = userDataDb
         .prepare(`
           UPDATE rider_accounts 
           SET is_active = 0, updated_at = datetime('now')
@@ -336,7 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const saltRounds = 12;
       const passwordHash = await bcrypt.hash(newPassword, saltRounds);
 
-      const result = storage
+      const result = userDataDb
         .prepare(`
           UPDATE rider_accounts 
           SET password_hash = ?, updated_at = datetime('now')

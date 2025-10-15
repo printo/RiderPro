@@ -4,7 +4,8 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Package, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Package, Eye, EyeOff } from "lucide-react";
+import { ButtonLoader } from "@/components/ui/Loader";
 import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -81,28 +82,28 @@ function Login() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             {/* Auth Method Toggle */}
-            <div className="flex gap-2 p-1.5 bg-gray-100 rounded-lg border border-gray-200">
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg border border-gray-200">
               <button
                 type="button"
                 onClick={() => setAuthMethod('pia')}
                 disabled={isLoading}
-                className={`flex-1 py-2.5 px-4 rounded-md text-sm font-semibold transition-all duration-200 ${authMethod === 'pia'
-                  ? 'bg-primary text-primary-foreground shadow-md scale-[1.02]'
+                className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-all duration-200 ${authMethod === 'pia'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
               >
-                Using PIA Access
+                PIA Access
               </button>
               <button
                 type="button"
                 onClick={() => setAuthMethod('rider')}
                 disabled={isLoading}
-                className={`flex-1 py-2.5 px-4 rounded-md text-sm font-semibold transition-all duration-200 ${authMethod === 'rider'
-                  ? 'bg-primary text-primary-foreground shadow-md scale-[1.02]'
+                className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-all duration-200 ${authMethod === 'rider'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
               >
-                Using Rider ID
+                Rider ID
               </button>
             </div>
 
@@ -159,10 +160,7 @@ function Login() {
               disabled={isLoading || !employeeId || !password}
             >
               {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
-                </>
+                <ButtonLoader text="Signing in..." />
               ) : (
                 "Sign In"
               )}

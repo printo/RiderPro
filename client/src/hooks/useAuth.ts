@@ -22,5 +22,6 @@ export const useAuth = () => {
     registerUser: authService.registerUser.bind(authService),
     logout: authService.logout.bind(authService),
     authenticatedFetch: authService.authenticatedFetch.bind(authService),
+    getAuthHeaders: authService.getAuthHeaders.bind(authService),
   };
 };

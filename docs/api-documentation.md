@@ -28,8 +28,7 @@ This document provides comprehensive documentation for all API endpoints in the 
   {
     "riderId": "string",
     "password": "string",
-    "fullName": "string",
-    "email": "string (optional)"
+    "fullName": "string"
   }
   ```
 - **Response**:
@@ -78,7 +77,6 @@ This document provides comprehensive documentation for all API endpoints in the 
         "id": "string",
         "riderId": "string",
         "fullName": "string",
-        "email": "string",
         "createdAt": "string"
       }
     ]

@@ -15,7 +15,6 @@ import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
-import AuthService from "@/services/AuthService";
 
 // Lazy load the shipments list component
 const ShipmentsList = lazy(() => import("@/components/shipments/ShipmentsList"));
@@ -28,13 +27,11 @@ function ShipmentsWithTracking() {
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const { toast } = useToast();
-  const { user: currentUser, isAuthenticated, authenticatedFetch } = useAuth();
-
-  // Get auth headers from AuthService
-  const authHeaders = AuthService.getInstance().getAuthHeaders();
+  const { user: currentUser, isAuthenticated, authenticatedFetch, getAuthHeaders, logout } = useAuth();
 
   // Debug: Log component mount and auth state
   useEffect(() => {
+    const authHeaders = getAuthHeaders();
     console.log('🚢 ShipmentsWithTracking mounted');
     console.log('📊 Current auth state:', {
       isAuthenticated,
@@ -44,17 +41,18 @@ function ShipmentsWithTracking() {
       employeeId: currentUser?.employeeId || currentUser?.username
     });
 
-  }, [isAuthenticated, currentUser, authHeaders]);
+  }, [isAuthenticated, currentUser, getAuthHeaders]);
 
   // Monitor auth state changes
   useEffect(() => {
+    const authHeaders = getAuthHeaders();
     console.log('🔄 Auth state changed in ShipmentsWithTracking:', {
       isAuthenticated,
       hasUser: !!currentUser,
       hasAuthHeaders: !!authHeaders.Authorization,
       timestamp: new Date().toISOString()
     });
-  }, [isAuthenticated, currentUser, authHeaders]);
+  }, [isAuthenticated, currentUser, getAuthHeaders]);
 
   const employeeId = currentUser?.employeeId || currentUser?.username || "";
 
@@ -63,7 +61,7 @@ function ShipmentsWithTracking() {
     return {
       ...filters,
       ...(currentUser?.role !== "admin" &&
-        currentUser?.role !== "super_admin" &&
+        !currentUser?.isSuperAdmin &&
         employeeId
         ? { employeeId }
         : {}),
@@ -196,7 +194,7 @@ function ShipmentsWithTracking() {
 
   const handleSelectAll = (selected: boolean) => {
     if (selected && shipments?.length > 0) {
-      setSelectedShipmentIds(shipments.map((s: Shipment) => s?.id).filter(Boolean));
+      setSelectedShipmentIds(shipments.map((s: Shipment) => s?.shipment_id).filter(Boolean));
     } else {
       setSelectedShipmentIds([]);
     }
@@ -326,9 +324,8 @@ function ShipmentsWithTracking() {
                   ) : (
                     <Button
                       onClick={() => {
-                        logout().finally(() => {
-                          window.location.href = "/login";
-                        });
+                        logout();
+                        window.location.href = "/login";
                       }}
                       variant="destructive"
                       size="sm"
@@ -538,12 +535,12 @@ function ShipmentsWithTracking() {
 
           {/* Shipment Cards */}
           {shipments?.map?.((shipment: Shipment) =>
-            shipment?.id ? (
+            shipment?.shipment_id ? (
               <ShipmentCardWithTracking
-                key={shipment.id}
+                key={shipment.shipment_id}
                 shipment={shipment}
-                selected={selectedShipmentIds.includes(shipment.id)}
-                onSelect={(selected) => handleShipmentSelect(shipment.id, selected)}
+                selected={selectedShipmentIds.includes(shipment.shipment_id)}
+                onSelect={(selected) => handleShipmentSelect(shipment.shipment_id, selected)}
                 onViewDetails={() => setSelectedShipment(shipment)}
                 employeeId={employeeId}
                 showTrackingControls={true}

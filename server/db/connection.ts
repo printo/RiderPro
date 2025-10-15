@@ -119,8 +119,8 @@ const initializeDatabase = async (db: Database.Database, dbName: string) => {
   try {
     console.log(`Initializing ${dbName} database...`);
 
-    // Initialize basic tables first
-    initTables(db);
+    // Skip initTables - let migration system handle schema creation
+    // initTables(db);
 
     // Run legacy migration for latitude/longitude (for backward compatibility)
     migrateDatabase(db);

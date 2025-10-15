@@ -371,7 +371,6 @@ userDataDb.exec(`
     id TEXT PRIMARY KEY,
     rider_id TEXT UNIQUE NOT NULL,
     full_name TEXT NOT NULL,
-    email TEXT,
     password_hash TEXT NOT NULL,
     is_active BOOLEAN DEFAULT 1,
     is_approved BOOLEAN DEFAULT 0,
@@ -392,7 +391,6 @@ userDataDb.exec(`
 
   -- Create indexes
   CREATE INDEX IF NOT EXISTS idx_rider_accounts_rider_id ON rider_accounts(rider_id);
-  CREATE INDEX IF NOT EXISTS idx_rider_accounts_email ON rider_accounts(email);
   CREATE INDEX IF NOT EXISTS idx_rider_accounts_approved ON rider_accounts(is_approved);
   CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON user_preferences(user_id);
   CREATE INDEX IF NOT EXISTS idx_user_preferences_key ON user_preferences(preference_key);
