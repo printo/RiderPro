@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import SyncStatusPanel from "@/components/sync/SyncStatusPanel";
 import SyncStatusIndicator from "@/components/sync/SyncStatusIndicator";
-import StatusDistributionChart from "@/components/analytics/StatusDistributionChart";
+import StatusDistributionPieChart from "@/components/analytics/StatusDistributionPieChart";
 import RoutePerformanceChart from "@/components/analytics/RoutePerformanceChart";
 import RouteSummary from "@/components/routes/RouteSummary";
 import RouteSessionControls from "@/components/routes/RouteSessionControls";
@@ -137,7 +137,7 @@ function Dashboard() {
       {/* Route Tracking & Sync Status */}
       <Card className="mb-6">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {/* Route Tracking Section */}
             <div>
               <div className="flex items-center gap-2 mb-3">
@@ -285,8 +285,8 @@ function Dashboard() {
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <StatusDistributionChart statusBreakdown={metrics.statusBreakdown ?? {}} />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+        <StatusDistributionPieChart statusBreakdown={metrics.statusBreakdown ?? {}} />
         <RoutePerformanceChart routeBreakdown={metrics.routeBreakdown ?? {}} />
       </div>
 

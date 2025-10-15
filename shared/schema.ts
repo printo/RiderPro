@@ -543,6 +543,11 @@ export const insertShipmentSchema = {
 } as any;
 
 export const updateShipmentSchema = {
+  parse: (data: any): UpdateShipment => {
+    // For status-only updates, we don't require shipment_id in body
+    // as it comes from the URL parameter
+    return data as UpdateShipment;
+  },
   validate: (data: any): data is UpdateShipment => true
 } as any;
 

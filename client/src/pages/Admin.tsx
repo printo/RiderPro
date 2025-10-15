@@ -790,9 +790,7 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
         <CardContent>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                Manage user registrations and approvals
-              </p>
+              <h3 className="text-lg font-medium">User Management</h3>
               <Button
                 onClick={loadPendingUsers}
                 disabled={loadingUsers}
@@ -803,12 +801,58 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
               </Button>
             </div>
 
-            {pendingUsers.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No pending user approvals</p>
+            {/* Pending User Approvals - Only show if there are pending users */}
+            {pendingUsers.length > 0 && (
+              <div className="space-y-4">
+                <h4 className="text-md font-medium text-orange-600 dark:text-orange-400">Manage user registrations and approvals</h4>
+                <div className="space-y-3">
+                  {pendingUsers.map((user) => (
+                    <div key={user.id} className="border rounded-lg p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Users className="h-5 w-5 text-primary" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-medium truncate">{user.full_name}</h3>
+                              <p className="text-sm text-muted-foreground truncate">
+                                ID: {user.rider_id} • {user.email}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Registered: {new Date(user.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 sm:flex-shrink-0">
+                          <Button
+                            onClick={() => approveUser(user.id)}
+                            disabled={!canEdit}
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            onClick={() => rejectUser(user.id)}
+                            disabled={!canEdit}
+                            variant="destructive"
+                            size="sm"
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ) : (
+            )}
+
+            {/* All Users Management */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium">All Users Management</h4>
               <div className="space-y-3">
                 {pendingUsers.map((user) => (
                   <div key={user.id} className="border rounded-lg p-4">
@@ -865,35 +909,6 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
         </CardContent>
       </Card>
 
-      {/* All Users Management Section */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            All Users Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex-1">
-                <Input
-                  placeholder="Search users by name, ID, or email..."
-                  value={userFilter}
-                  onChange={(e) => setUserFilter(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-              <Button
-                onClick={loadAllUsers}
-                disabled={loadingAllUsers}
-                variant="outline"
-                size="sm"
-                className="sm:flex-shrink-0"
-              >
-                {loadingAllUsers ? 'Loading...' : 'Refresh'}
-              </Button>
-            </div>
 
             {loadingAllUsers ? (
               <div className="text-center py-8 text-muted-foreground">

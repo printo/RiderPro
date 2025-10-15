@@ -33,6 +33,7 @@ import RouteComparisonChart from '@/components/analytics/RouteComparisonChart';
 import ExportDialog from '@/components/ui/forms/ExportDialog';
 
 import { routeAPI } from '@/apiClient/routes';
+import { useMobileOptimization } from '../hooks/useMobileOptimization';
 
 interface AnalyticsFilters {
   dateRange: DateRange | undefined;
@@ -48,6 +49,8 @@ function RouteAnalytics() {
     },
     viewType: 'daily'
   });
+
+  const { isMobile } = useMobileOptimization();
 
   const [activeTab, setActiveTab] = useState('overview');
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -302,28 +305,28 @@ function RouteAnalytics() {
           <CardContent className="p-0">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <div className="border-b">
-                <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto bg-transparent rounded-none">
+                <TabsList className={`${isMobile ? 'flex flex-col w-full h-auto p-1 bg-muted' : 'grid w-full grid-cols-2 sm:grid-cols-4 h-auto bg-transparent rounded-none'}`}>
                   <TabsTrigger
                     value="overview"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent"
+                    className={`${isMobile ? 'w-full min-h-[44px] justify-start px-4 py-3 mb-1' : 'rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent'}`}
                   >
                     Overview
                   </TabsTrigger>
                   <TabsTrigger
                     value="performance"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent"
+                    className={`${isMobile ? 'w-full min-h-[44px] justify-start px-4 py-3 mb-1' : 'rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent'}`}
                   >
                     Performance
                   </TabsTrigger>
                   <TabsTrigger
                     value="fuel"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent"
+                    className={`${isMobile ? 'w-full min-h-[44px] justify-start px-4 py-3 mb-1' : 'rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent'}`}
                   >
                     Fuel Analytics
                   </TabsTrigger>
                   <TabsTrigger
                     value="employees"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent"
+                    className={`${isMobile ? 'w-full min-h-[44px] justify-start px-4 py-3' : 'rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent'}`}
                   >
                     Employees
                   </TabsTrigger>

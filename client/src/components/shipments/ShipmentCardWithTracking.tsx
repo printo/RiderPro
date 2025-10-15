@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Truck, Package, MapPin, Phone, Route, Clock, ChevronRight,
-  Navigation, Play, Square, AlertCircle
+  Navigation, Play, Square, AlertCircle, Satellite
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
@@ -234,7 +234,7 @@ function ShipmentCardWithTracking({
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
-                  <Navigation className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <Satellite className={`h-4 w-4 mr-2 flex-shrink-0 ${shipment?.latitude && shipment?.longitude ? 'animate-pulse text-green-600' : 'text-gray-500'}`} />
                   <span data-testid={`text-location-${shipment?.shipment_id}`}>
                     {shipment?.latitude && shipment?.longitude ? (
                       <span className="text-green-600 dark:text-green-400">

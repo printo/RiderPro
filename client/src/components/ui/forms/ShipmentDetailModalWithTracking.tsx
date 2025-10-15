@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { useGPSTracking } from "@/hooks/useGPSTracking";
+import { useAuth } from "@/hooks/useAuth";
 import RemarksModal from "@/components/ui/forms/RemarksModal";
 import AcknowledgmentCapture from "@/components/AcknowledgmentCapture";
 import { cn } from "@/lib/utils";
@@ -47,9 +48,11 @@ function ShipmentDetailModalWithTracking({
   const [showRemarksModal, setShowRemarksModal] = useState(false);
   const [remarksStatus, setRemarksStatus] = useState<"Cancelled" | "Returned" | null>(null);
   const [isRecordingLocation, setIsRecordingLocation] = useState(false);
+  const [showRevertConfirm, setShowRevertConfirm] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
 
   const {
     hasActiveSession,
@@ -173,6 +176,28 @@ function ShipmentDetailModalWithTracking({
       formData.append('signature', data.signature);
     }
     acknowledgmentMutation.mutate(formData);
+  };
+
+  const handleRevertStatus = async () => {
+    try {
+      // Determine the previous status based on shipment type
+      const previousStatus = shipment.type === "delivery" ? "In Transit" : "Assigned";
+      
+      await updateStatusMutation.mutateAsync({ 
+        status: previousStatus,
+        remarks: "Status reverted by driver"
+      });
+      
+      setShowRevertConfirm(false);
+      onClose(); // Close the modal after successful revert
+    } catch (error) {
+      console.error('Failed to revert status:', error);
+      // Don't close the modal on error so user can try again
+    }
+  };
+
+  const getPreviousStatus = () => {
+    return shipment.type === "delivery" ? "In Transit" : "Assigned";
   };
 
   const getStatusColor = (status: string) => {
@@ -435,80 +460,6 @@ function ShipmentDetailModalWithTracking({
               </CardContent>
             </Card>
 
-            {/* Action Buttons */}
-            {(shipment.status === "Assigned" || shipment.status === "In Transit") && (
-              <div className="space-y-3">
-                <h4 className="font-medium">Update Status</h4>
-                <div className="grid grid-cols-1 gap-2">
-                  {shipment.type === "delivery" && shipment.status !== "Delivered" && (
-                    <Button
-                      onClick={() => handleStatusUpdateWithGPS("Delivered")}
-                      disabled={isProcessing}
-                      className="w-full justify-start"
-                    >
-                      {isProcessing ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                      )}
-                      Mark as Delivered
-                      {hasActiveSession && (
-                        <Navigation className="h-3 w-3 ml-auto text-green-500" />
-                      )}
-                    </Button>
-                  )}
-
-                  {shipment.type === "pickup" && shipment.status !== "Picked Up" && (
-                    <Button
-                      onClick={() => handleStatusUpdateWithGPS("Picked Up")}
-                      disabled={isProcessing}
-                      className="w-full justify-start"
-                    >
-                      {isProcessing ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                      )}
-                      Mark as Picked Up
-                      {hasActiveSession && (
-                        <Navigation className="h-3 w-3 ml-auto text-green-500" />
-                      )}
-                    </Button>
-                  )}
-
-                  {shipment.status !== "Cancelled" && shipment.status !== "Returned" && (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleStatusUpdateWithGPS("Cancelled")}
-                      disabled={isProcessing}
-                      className="w-full justify-start"
-                    >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Cancel Shipment
-                    </Button>
-                  )}
-
-                  {shipment.status !== "Returned" && shipment.status !== "Cancelled" && (
-                    <Button
-                      variant="outline"
-                      onClick={() => handleStatusUpdateWithGPS("Returned")}
-                      disabled={isProcessing}
-                      className="w-full justify-start"
-                    >
-                      <Undo className="h-4 w-4 mr-2" />
-                      Mark as Returned
-                    </Button>
-                  )}
-                </div>
-
-                {isRecordingLocation && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Recording GPS location...
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Acknowledgment Display */}
             {shipment.acknowledgment && (
@@ -539,6 +490,104 @@ function ShipmentDetailModalWithTracking({
               </div>
             )}
           </div>
+
+          {/* Status Management Footer */}
+          <div className="border-t border-border bg-muted/30 p-4">
+            {(shipment.status === "Assigned" || shipment.status === "In Transit") && (
+              <div className="space-y-3">
+                <h4 className="font-medium text-center">Update Status</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {shipment.type === "delivery" && shipment.status !== "Delivered" && (
+                    <Button
+                      onClick={() => handleStatusUpdateWithGPS("Delivered")}
+                      disabled={isProcessing}
+                      className="h-12 bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Mark as Delivered
+                      {hasActiveSession && (
+                        <Navigation className="h-3 w-3 ml-1 text-green-200" />
+                      )}
+                    </Button>
+                  )}
+
+                  {shipment.type === "pickup" && shipment.status !== "Picked Up" && (
+                    <Button
+                      onClick={() => handleStatusUpdateWithGPS("Picked Up")}
+                      disabled={isProcessing}
+                      className="h-12 bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Mark as Picked Up
+                      {hasActiveSession && (
+                        <Navigation className="h-3 w-3 ml-1 text-green-200" />
+                      )}
+                    </Button>
+                  )}
+
+                  {shipment.status !== "Cancelled" && shipment.status !== "Returned" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleStatusUpdateWithGPS("Cancelled")}
+                      disabled={isProcessing}
+                      className="h-12 border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/20"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                  )}
+
+                  {shipment.status !== "Returned" && shipment.status !== "Cancelled" && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleStatusUpdateWithGPS("Returned")}
+                      disabled={isProcessing}
+                      className="h-12 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-900/20"
+                    >
+                      <Undo className="h-4 w-4 mr-2" />
+                      Return
+                    </Button>
+                  )}
+                </div>
+
+                {isRecordingLocation && (
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Recording GPS location...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Revert Status for Delivered/Picked Up Shipments - Super Users Only */}
+            {(shipment.status === "Delivered" || shipment.status === "Picked Up") && user?.isSuperUser && (
+              <div className="space-y-3">
+                <h4 className="font-medium text-center text-orange-600 dark:text-orange-400">Status Management</h4>
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowRevertConfirm(true)}
+                    disabled={isProcessing}
+                    className="h-12 px-8 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-900/20"
+                  >
+                    <Undo className="h-4 w-4 mr-2" />
+                    Revert to {getPreviousStatus()}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Use this option if you accidentally marked the shipment as {shipment.status.toLowerCase()}.
+                </p>
+              </div>
+            )}
+          </div>
         </SheetContent>
       </Sheet>
 
@@ -559,6 +608,44 @@ function ShipmentDetailModalWithTracking({
           shipmentId={shipment.shipment_id}
           status={remarksStatus}
         />
+      )}
+
+      {/* Revert Confirmation Dialog */}
+      {showRevertConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Confirm Status Revert</h3>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to revert this shipment from <strong>{shipment.status}</strong> back to <strong>{getPreviousStatus()}</strong>?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowRevertConfirm(false)}
+                disabled={isProcessing}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRevertStatus}
+                disabled={isProcessing}
+                className="bg-orange-600 hover:bg-orange-700"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Reverting...
+                  </>
+                ) : (
+                  <>
+                    <Undo className="h-4 w-4 mr-2" />
+                    Revert Status
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
