@@ -130,11 +130,11 @@ export class ShipmentQueries {
         shipment_id, type, customerName, customerMobile, address, 
         latitude, longitude, cost, deliveryTime, routeName, 
         employeeId, status, priority, pickupAddress, weight, 
-        dimensions, specialInstructions, expectedDeliveryTime,
+        dimensions, specialInstructions,
         start_latitude, start_longitude, stop_latitude, stop_longitude, km_travelled,
-        signatureUrl, photoUrl, capturedAt,
+        signature_url, photo_url, acknowledgment_captured_at,
         synced_to_external, last_sync_attempt, sync_error, sync_attempts,
-        createdAt, updatedAt
+        acknowledgment_captured_by, createdAt, updatedAt
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
@@ -157,7 +157,6 @@ export class ShipmentQueries {
       cost, deliveryTime, routeName,
       employeeId, shipment.status || 'Assigned', priority, pickupAddress,
       weight, dimensions, shipment.specialInstructions || null,
-      shipment.expectedDeliveryTime || null,
       shipment.start_latitude || null, shipment.start_longitude || null,
       shipment.stop_latitude || null, shipment.stop_longitude || null,
       shipment.km_travelled || 0,
@@ -166,6 +165,7 @@ export class ShipmentQueries {
       null,  // last_sync_attempt
       null,  // sync_error
       0,     // sync_attempts
+      shipment.capturedBy || null, // acknowledgment_captured_by
       now, now
     );
 
@@ -176,11 +176,11 @@ export class ShipmentQueries {
           shipment_id, type, customerName, customerMobile, address, 
           latitude, longitude, cost, deliveryTime, routeName, 
           employeeId, status, priority, pickupAddress, weight, 
-          dimensions, specialInstructions, expectedDeliveryTime,
+          dimensions, specialInstructions,
           start_latitude, start_longitude, stop_latitude, stop_longitude, km_travelled,
-          signatureUrl, photoUrl, capturedAt,
+          signature_url, photo_url, acknowledgment_captured_at,
           synced_to_external, last_sync_attempt, sync_error, sync_attempts,
-          createdAt, updatedAt
+          acknowledgment_captured_by, createdAt, updatedAt
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
@@ -190,7 +190,6 @@ export class ShipmentQueries {
         cost, deliveryTime, routeName,
         employeeId, shipment.status || 'Assigned', priority, pickupAddress,
         weight, dimensions, shipment.specialInstructions || null,
-        shipment.expectedDeliveryTime || null,
         shipment.start_latitude || null, shipment.start_longitude || null,
         shipment.stop_latitude || null, shipment.stop_longitude || null,
         shipment.km_travelled || 0,
@@ -199,6 +198,7 @@ export class ShipmentQueries {
         null,  // last_sync_attempt
         null,  // sync_error
         0,     // sync_attempts
+        shipment.capturedBy || null, // acknowledgment_captured_by
         now, now
       );
     }
@@ -245,7 +245,7 @@ export class ShipmentQueries {
       values.push(trackingData.status);
     }
     if (trackingData.expectedDeliveryTime !== undefined) {
-      updateFields.push('expectedDeliveryTime = ?');
+      updateFields.push('deliveryTime = ?');
       values.push(trackingData.expectedDeliveryTime);
     }
 

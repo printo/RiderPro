@@ -75,6 +75,7 @@ class AuthService {
             employeeId,
             fullName,
             isActive: true,
+            isApproved: true, // Assume approved if we have valid tokens
             isRider,
             isSuperUser,
             // Original PIA roles for server-side filtering
@@ -201,6 +202,7 @@ class AuthService {
           employeeId: employeeId,
           fullName: data.full_name,
           isActive: true,
+          isApproved: true, // PIA users are always approved
           isRider: internalRoles.is_rider,
           isSuperUser: internalRoles.is_super_user,
           // Original PIA roles for server-side filtering
@@ -268,6 +270,7 @@ class AuthService {
           employeeId: riderId,
           fullName: data.fullName,
           isActive: true,
+          isApproved: data.isApproved || false, // Use approval status from server
           isRider: false,
           isSuperUser: false, // Local users are drivers by default
           createdAt: new Date().toISOString(),

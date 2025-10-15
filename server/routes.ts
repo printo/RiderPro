@@ -2030,6 +2030,187 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User Management API endpoints
+  app.get('/api/auth/all-users', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      // Only super users can access all users
+      if (!req.user?.isSuperUser) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: Only super users can view all users',
+          code: 'ACCESS_DENIED'
+        });
+      }
+
+      const users = storage.getDatabase().prepare(`
+        SELECT id, rider_id, full_name, email, is_active, is_approved, role, 
+               last_login_at, created_at, updated_at
+        FROM rider_accounts 
+        ORDER BY created_at DESC
+      `).all();
+
+      res.json({
+        success: true,
+        users: users
+      });
+    } catch (error) {
+      console.error('Failed to fetch all users:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to fetch users',
+        code: 'FETCH_USERS_ERROR'
+      });
+    }
+  });
+
+  app.patch('/api/auth/users/:userId', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      // Only super users can update users
+      if (!req.user?.isSuperUser) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: Only super users can update users',
+          code: 'ACCESS_DENIED'
+        });
+      }
+
+      const { userId } = req.params;
+      const updates = req.body;
+
+      // Validate required fields
+      if (!userId) {
+        return res.status(400).json({
+          success: false,
+          message: 'User ID is required',
+          code: 'MISSING_USER_ID'
+        });
+      }
+
+      // Build update query dynamically
+      const updateFields = [];
+      const values = [];
+
+      if (updates.full_name !== undefined) {
+        updateFields.push('full_name = ?');
+        values.push(updates.full_name);
+      }
+      if (updates.email !== undefined) {
+        updateFields.push('email = ?');
+        values.push(updates.email);
+      }
+      if (updates.rider_id !== undefined) {
+        updateFields.push('rider_id = ?');
+        values.push(updates.rider_id);
+      }
+      if (updates.is_active !== undefined) {
+        updateFields.push('is_active = ?');
+        values.push(updates.is_active ? 1 : 0);
+      }
+      if (updates.is_approved !== undefined) {
+        updateFields.push('is_approved = ?');
+        values.push(updates.is_approved ? 1 : 0);
+      }
+
+      if (updateFields.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No valid fields to update',
+          code: 'NO_UPDATES'
+        });
+      }
+
+      updateFields.push('updated_at = ?');
+      values.push(new Date().toISOString());
+      values.push(userId);
+
+      const updateQuery = `
+        UPDATE rider_accounts 
+        SET ${updateFields.join(', ')} 
+        WHERE id = ?
+      `;
+
+      const stmt = storage.getDatabase().prepare(updateQuery);
+      const result = stmt.run(...values);
+
+      if (result.changes === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'User updated successfully'
+      });
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update user',
+        code: 'UPDATE_USER_ERROR'
+      });
+    }
+  });
+
+  app.post('/api/auth/users/:userId/reset-password', authenticate, async (req: AuthenticatedRequest, res) => {
+    try {
+      // Only super users can reset passwords
+      if (!req.user?.isSuperUser) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: Only super users can reset passwords',
+          code: 'ACCESS_DENIED'
+        });
+      }
+
+      const { userId } = req.params;
+      const { newPassword } = req.body;
+
+      if (!userId || !newPassword) {
+        return res.status(400).json({
+          success: false,
+          message: 'User ID and new password are required',
+          code: 'MISSING_PARAMETERS'
+        });
+      }
+
+      // Hash the new password
+      const bcrypt = await import('bcrypt');
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update the password
+      const stmt = storage.getDatabase().prepare(`
+        UPDATE rider_accounts 
+        SET password_hash = ?, updated_at = ? 
+        WHERE id = ?
+      `);
+
+      const result = stmt.run(hashedPassword, new Date().toISOString(), userId);
+
+      if (result.changes === 0) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Password reset successfully'
+      });
+    } catch (error) {
+      console.error('Failed to reset password:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to reset password',
+        code: 'RESET_PASSWORD_ERROR'
+      });
+    }
+  });
+
   // Initialize scheduler (runs the cron jobs)
   await import('./services/scheduler.js');
 

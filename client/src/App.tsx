@@ -41,6 +41,11 @@ function Router() {
     );
   }
 
+  // Check if user needs approval (for local users only)
+  if (user && !user.isApproved && !user.isSuperUser && !user.isOpsTeam && !user.isStaff) {
+    return <ApprovalPending />;
+  }
+
   // Show main app if authenticated
   return (
     <div className="min-h-screen bg-background">

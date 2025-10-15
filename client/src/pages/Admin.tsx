@@ -2,10 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/ApiClient";
 import { useLocation } from "wouter";
-import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key } from "lucide-react";
+import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key, Edit } from "lucide-react";
 import { useState, useEffect } from "react";
 import FuelSettingsModal, { FuelSettings } from "@/components/ui/forms/FuelSettingsModal";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
@@ -28,6 +29,10 @@ function AdminPage() {
   const [testResults, setTestResults] = useState<Array<{ index: number, success: boolean, trackingNumber?: string, error?: string }>>([]);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [loadingAllUsers, setLoadingAllUsers] = useState(false);
+  const [userFilter, setUserFilter] = useState('');
+  const [editingUser, setEditingUser] = useState<{ id: string; name: string; email: string; riderId: string; isActive: boolean } | null>(null);
   const [resetPasswordModal, setResetPasswordModal] = useState<{ isOpen: boolean; userId: string; userName: string }>({
     isOpen: false,
     userId: '',
@@ -52,6 +57,7 @@ function AdminPage() {
   useEffect(() => {
     if (canAccessAdmin) {
       loadPendingUsers();
+      loadAllUsers();
       loadAccessTokens();
     }
   }, [canAccessAdmin]);
@@ -76,6 +82,95 @@ function AdminPage() {
     }
   };
 
+  const loadAllUsers = async () => {
+    setLoadingAllUsers(true);
+    try {
+      const response = await fetch('/api/auth/all-users');
+      const data = await response.json();
+      if (data.success) {
+        setAllUsers(data.users);
+      }
+    } catch (error) {
+      console.error('Failed to load all users:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load users",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingAllUsers(false);
+    }
+  };
+
+  const updateUser = async (userId: string, updates: any) => {
+    try {
+      const response = await fetch(`/api/auth/users/${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updates),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "User updated successfully",
+        });
+        loadAllUsers(); // Refresh the list
+        setEditingUser(null);
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to update user",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update user",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const resetUserPassword = async (userId: string, newPassword: string) => {
+    try {
+      const response = await fetch(`/api/auth/users/${userId}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ newPassword }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Password reset successfully",
+        });
+        setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
+        setNewPassword('');
+      } else {
+        toast({
+          title: "Error",
+          description: data.message || "Failed to reset password",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to reset password:', error);
+      toast({
+        title: "Error",
+        description: "Failed to reset password",
+        variant: "destructive",
+      });
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
 
   const loadAccessTokens = async () => {
     try {
@@ -166,7 +261,7 @@ function AdminPage() {
     }
   };
 
-  const resetUserPassword = async () => {
+  const handleResetPassword = async () => {
     if (!newPassword || newPassword.length < 6) {
       toast({
         title: "Error",
@@ -176,42 +271,7 @@ function AdminPage() {
       return;
     }
 
-    setIsResettingPassword(true);
-    try {
-      const response = await fetch(`/api/auth/reset-password/${resetPasswordModal.userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          newPassword,
-        }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "Password reset successfully",
-        });
-        setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
-        setNewPassword('');
-      } else {
-        toast({
-          title: "Error",
-          description: data.message || "Failed to reset password",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Failed to reset password:', error);
-      toast({
-        title: "Error",
-        description: "Failed to reset password",
-        variant: "destructive",
-      });
-    } finally {
-      setIsResettingPassword(false);
-    }
+    await resetUserPassword(resetPasswordModal.userId, newPassword);
   };
 
   // Fuel settings state
@@ -751,52 +811,51 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
             ) : (
               <div className="space-y-3">
                 {pendingUsers.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                          <Users className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <h3 className="font-medium">{user.full_name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            ID: {user.rider_id} • {user.email}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Registered: {new Date(user.created_at).toLocaleDateString()}
-                          </p>
+                  <div key={user.id} className="border rounded-lg p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                            <Users className="h-5 w-5 text-primary" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-medium truncate">{user.full_name}</h3>
+                            <p className="text-sm text-muted-foreground truncate">
+                              ID: {user.rider_id} • {user.email}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Registered: {new Date(user.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => approveUser(user.id)}
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        <UserCheck className="h-4 w-4 mr-1" />
-                        Approve
-                      </Button>
-                      <Button
-                        onClick={() => rejectUser(user.id)}
-                        size="sm"
-                        variant="destructive"
-                      >
-                        <UserX className="h-4 w-4 mr-1" />
-                        Reject
-                      </Button>
-                      <Button
-                        onClick={() => setResetPasswordModal({
-                          isOpen: true,
-                          userId: user.id,
-                          userName: user.full_name
-                        })}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Key className="h-4 w-4 mr-1" />
-                        Reset Password
-                      </Button>
+                      <div className="flex flex-col sm:flex-row gap-2 sm:flex-shrink-0">
+                        <Button
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to approve ${user.full_name}?`)) {
+                              approveUser(user.id);
+                            }
+                          }}
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
+                        >
+                          <UserCheck className="h-4 w-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to reject ${user.full_name}? This action cannot be undone.`)) {
+                              rejectUser(user.id);
+                            }
+                          }}
+                          size="sm"
+                          variant="destructive"
+                          className="w-full sm:w-auto"
+                        >
+                          <UserX className="h-4 w-4 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -805,6 +864,183 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
           </div>
         </CardContent>
       </Card>
+
+      {/* All Users Management Section */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            All Users Management
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex-1">
+                <Input
+                  placeholder="Search users by name, ID, or email..."
+                  value={userFilter}
+                  onChange={(e) => setUserFilter(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <Button
+                onClick={loadAllUsers}
+                disabled={loadingAllUsers}
+                variant="outline"
+                size="sm"
+                className="sm:flex-shrink-0"
+              >
+                {loadingAllUsers ? 'Loading...' : 'Refresh'}
+              </Button>
+            </div>
+
+            {loadingAllUsers ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p>Loading users...</p>
+              </div>
+            ) : (() => {
+              const filteredUsers = allUsers.filter(user => 
+                !userFilter || 
+                user.full_name?.toLowerCase().includes(userFilter.toLowerCase()) ||
+                user.rider_id?.toLowerCase().includes(userFilter.toLowerCase()) ||
+                user.email?.toLowerCase().includes(userFilter.toLowerCase())
+              );
+              
+              return filteredUsers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>{allUsers.length === 0 ? 'No users found' : 'No users match your search'}</p>
+                  {allUsers.length === 0 && (
+                    <p className="text-sm mt-2">Try refreshing the list or check if you have permission to view users.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredUsers.map((user) => (
+                    <div key={user.id} className="border rounded-lg p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${user.is_active ? 'bg-green-100' : 'bg-red-100'
+                              }`}>
+                              <Users className={`h-5 w-5 ${user.is_active ? 'text-green-600' : 'text-red-600'
+                                }`} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-medium truncate">{user.full_name}</h3>
+                              <p className="text-sm text-muted-foreground truncate">
+                                ID: {user.rider_id} • {user.email}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Status: {user.is_approved ? 'Approved' : 'Pending'} •
+                                Active: {user.is_active ? 'Yes' : 'No'} •
+                                Created: {new Date(user.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2 sm:flex-shrink-0">
+                          <Button
+                            onClick={() => setEditingUser({
+                              id: user.id,
+                              name: user.full_name,
+                              email: user.email,
+                              riderId: user.rider_id,
+                              isActive: user.is_active
+                            })}
+                            size="sm"
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            onClick={() => setResetPasswordModal({
+                              isOpen: true,
+                              userId: user.id,
+                              userName: user.full_name
+                            })}
+                            size="sm"
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                          >
+                            <Key className="h-4 w-4 mr-1" />
+                            Reset Password
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Edit User</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Full Name</label>
+                <Input
+                  value={editingUser.name}
+                  onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <Input
+                  value={editingUser.email}
+                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Rider ID</label>
+                <Input
+                  value={editingUser.riderId}
+                  onChange={(e) => setEditingUser({ ...editingUser, riderId: e.target.value })}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isActive"
+                  checked={editingUser.isActive}
+                  onChange={(e) => setEditingUser({ ...editingUser, isActive: e.target.checked })}
+                  className="rounded"
+                />
+                <label htmlFor="isActive" className="text-sm font-medium">Active</label>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-6">
+              <Button
+                onClick={() => updateUser(editingUser.id, {
+                  full_name: editingUser.name,
+                  email: editingUser.email,
+                  rider_id: editingUser.riderId,
+                  is_active: editingUser.isActive
+                })}
+                className="flex-1"
+              >
+                Save Changes
+              </Button>
+              <Button
+                onClick={() => setEditingUser(null)}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Fuel Settings Modal */}
       <FuelSettingsModal
@@ -847,7 +1083,7 @@ Bulk: [{ &quot;trackingNumber&quot;: &quot;TRK123&quot;, ... }, { &quot;tracking
                   Cancel
                 </Button>
                 <Button
-                  onClick={resetUserPassword}
+                  onClick={handleResetPassword}
                   disabled={isResettingPassword || !newPassword || newPassword.length < 6}
                   className="bg-blue-600 hover:bg-blue-700"
                 >

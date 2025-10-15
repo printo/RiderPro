@@ -14,6 +14,7 @@ export interface User {
   employeeId: string;
   fullName: string;
   isActive: boolean;
+  isApproved: boolean;
   // Simplified role structure
   isRider: boolean;
   isSuperUser: boolean;
