@@ -5,25 +5,22 @@
   "installCommand": "npm install",
   "framework": null,
   "outputDirectory": "dist",
-  "routes": [
-    {
-      "src": "/api/.*",
-      "dest": "/dist/index.js"
-    },
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
-    }
-  ],
   "functions": {
-    "dist/index.js": {
+    "api/index.js": {
       "memory": 1024,
-      "maxDuration": 10
+      "maxDuration": 30
     }
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
 
 
