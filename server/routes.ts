@@ -283,7 +283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Get pending approvals error:', error);
       res.status(500).json({
-          success: false,
+        success: false,
         message: 'Failed to fetch pending approvals'
       });
     }
