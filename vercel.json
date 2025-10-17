@@ -10,12 +10,12 @@
   },
   "build": {
     "env": {
-      "DATABASE_URL": "@database_url",
-      "SUPABASE_URL": "@supabase_url",
-      "SUPABASE_ANON_KEY": "@supabase_anon_key",
-      "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
-      "PRINTO_API_BASE_URL": "@printo_api_base_url",
-      "SESSION_SECRET": "@session_secret"
+      "DATABASE_URL": "@DATABASE_URL",
+      "SUPABASE_URL": "@SUPABASE_URL",
+      "SUPABASE_ANON_KEY": "@SUPABASE_ANON_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY": "@SUPABASE_SERVICE_ROLE_KEY",
+      "PRINTO_API_BASE_URL": "@PRINTO_API_BASE_URL",
+      "SESSION_SECRET": "@SESSION_SECRET"
     }
   },
   "routes": [
