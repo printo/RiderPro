@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRouteSession } from '@/hooks/useRouteSession';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 import RouteCompletionDialog from '@/components/routes/RouteCompletionDialog';
-// import SmartCompletionSettings from '@/components/routes/SmartCompletionSettings';
+import SmartCompletionSettings from '@/components/SmartCompletionSettings';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target, Settings } from 'lucide-react';
 
@@ -323,15 +323,12 @@ function RouteSessionControls({
       {/* Smart Completion Settings */}
       {showSmartSettings && (
         <div className="mt-4">
-          {/* <SmartCompletionSettings
+          <SmartCompletionSettings
             config={smartCompletion.config}
             onConfigChange={smartCompletion.updateConfig}
             isActive={session?.status === 'active'}
             currentDistance={smartCompletion.distanceFromStart}
-          /> */}
-          <div className="text-sm text-muted-foreground">
-            Smart completion settings component not available
-          </div>
+          />
         </div>
       )}
 

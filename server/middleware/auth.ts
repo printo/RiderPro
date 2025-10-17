@@ -70,39 +70,8 @@ export interface AuthenticatedRequest extends Request {
 
 // Initialize users and sessions tables
 export const initializeAuth = () => {
-  try {
-    storage.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        username TEXT UNIQUE NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        role TEXT NOT NULL DEFAULT 'viewer',
-        employee_id TEXT,
-        full_name TEXT,
-        access_token TEXT,
-        refresh_token TEXT,
-        is_active BOOLEAN DEFAULT 1,
-        last_login TEXT,
-        created_at TEXT DEFAULT (datetime('now')),
-        updated_at TEXT DEFAULT (datetime('now'))
-      )
-    `);
-
-    storage.exec(`
-      CREATE TABLE IF NOT EXISTS user_sessions (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        access_token TEXT NOT NULL,
-        expires_at TEXT NOT NULL,
-        created_at TEXT DEFAULT (datetime('now')),
-        FOREIGN KEY (user_id) REFERENCES users (id)
-      )
-    `);
-
-    console.log('✅ Authentication initialized - using Printo API with Bearer tokens');
-  } catch (error) {
-    console.error('Failed to initialize authentication:', error);
-  }
+  // Using external Printo API; no local auth tables required in Postgres
+  console.log('✅ Authentication initialized - using Printo API with Bearer tokens');
 };
 
 // Printo API authentication configuration

@@ -7,6 +7,7 @@ import StatusDistributionPieChart from "@/components/analytics/StatusDistributio
 import RoutePerformanceChart from "@/components/analytics/RoutePerformanceChart";
 import RouteSummary from "@/components/routes/RouteSummary";
 import RouteSessionControls from "@/components/routes/RouteSessionControls";
+import ResponsiveContainer from "@/components/layout/ResponsiveContainer";
 import { Package, CheckCircle, Clock, HourglassIcon, Navigation, Wifi } from "lucide-react";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
@@ -21,7 +22,7 @@ function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <ResponsiveContainer>
         <div className="mb-6">
           <Skeleton className="h-8 w-64 mb-2" />
           <Skeleton className="h-4 w-96" />
@@ -35,7 +36,7 @@ function Dashboard() {
             </Card>
           ))}
         </div>
-      </div>
+      </ResponsiveContainer>
     );
   }
 
@@ -56,7 +57,7 @@ function Dashboard() {
     }
 
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <ResponsiveContainer>
         <div className="bg-red-50 border-l-4 border-red-400 p-4 dark:bg-red-900/20 dark:border-red-800">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -100,24 +101,24 @@ function Dashboard() {
             </div>
           </div>
         </div>
-      </div>
+      </ResponsiveContainer>
     );
   }
 
   if (!metrics) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <ResponsiveContainer>
         <div className="text-center py-12">
           <p className="text-muted-foreground" data-testid="text-no-data">
             No data available
           </p>
         </div>
-      </div>
+      </ResponsiveContainer>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <ResponsiveContainer>
       {/* Real-time Metrics Header */}
       <div className="mb-6">
         <h2
@@ -292,7 +293,7 @@ function Dashboard() {
 
       {/* Route Summary */}
       <RouteSummary routeBreakdown={metrics.routeBreakdown ?? {}} />
-    </div>
+    </ResponsiveContainer>
   );
 }
 export default withPageErrorBoundary(Dashboard, 'Dashboard');

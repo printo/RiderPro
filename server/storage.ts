@@ -45,56 +45,52 @@ export interface IStorage {
   deleteFuelSetting(id: string): Promise<boolean>;
 }
 
-export class SqliteStorage implements IStorage {
-  private liveQueries: ShipmentQueries;
-  private replicaQueries: ShipmentQueries;
+export class PostgresStorage implements IStorage {
+  private queries: ShipmentQueries;
 
   constructor() {
-    // In development mode, primary operations use replica DB
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    this.liveQueries = new ShipmentQueries(isDevelopment);
-    this.replicaQueries = new ShipmentQueries(!isDevelopment);
+    this.queries = new ShipmentQueries();
   }
 
   // Expose database for validation services
   getDatabase() {
-    return this.liveQueries.getDatabase();
+    return this.queries.getDatabase();
   }
 
   // Direct database access methods for compatibility
   prepare(sql: string) {
-    return this.liveQueries.getDatabase().prepare(sql);
+    return this.queries.getDatabase().prepare(sql);
   }
 
   exec(sql: string) {
-    return this.liveQueries.getDatabase().exec(sql);
+    return this.queries.getDatabase().exec(sql);
   }
 
   async getShipments(filters?: ShipmentFilters): Promise<PaginatedResponse<Shipment>> {
-    return this.liveQueries.getAllShipments(filters);
+    return this.queries.getAllShipments(filters);
   }
 
   async getShipment(id: string): Promise<Shipment | undefined> {
-    const shipment = this.liveQueries.getShipmentById(id);
+    const shipment = await this.queries.getShipmentById(id);
     return shipment || undefined;
   }
 
   async getShipmentByExternalId(externalId: string): Promise<Shipment | undefined> {
-    const shipment = this.liveQueries.getShipmentByExternalId(externalId);
+    const shipment = await this.queries.getShipmentByExternalId(externalId);
     return shipment || undefined;
   }
 
   async createShipment(shipment: InsertShipment): Promise<Shipment> {
-    return this.liveQueries.createShipment(shipment);
+    return await this.queries.createShipment(shipment);
   }
 
   async updateShipment(id: string, updates: UpdateShipment): Promise<Shipment | undefined> {
-    const shipment = this.liveQueries.updateShipment(id, updates);
+    const shipment = await this.queries.updateShipment(id, updates);
     return shipment || undefined;
   }
 
   async batchUpdateShipments(updates: BatchUpdate): Promise<number> {
-    return this.liveQueries.batchUpdateShipments(updates.updates);
+    return await this.queries.batchUpdateShipments(updates.updates);
   }
 
   async batchCreateOrUpdateShipments(shipments: Array<{ external: any, internal: any }>): Promise<Array<{
@@ -103,68 +99,68 @@ export class SqliteStorage implements IStorage {
     status: 'created' | 'updated' | 'failed';
     message: string;
   }>> {
-    return this.liveQueries.batchCreateOrUpdateShipments(shipments);
+    return this.queries.batchCreateOrUpdateShipments(shipments);
   }
 
   async createAcknowledgment(acknowledgment: InsertAcknowledgment): Promise<Acknowledgment> {
-    return this.liveQueries.createAcknowledgment(acknowledgment);
+    return this.queries.createAcknowledgment(acknowledgment);
   }
 
   async getAcknowledgmentByShipmentId(shipmentId: string): Promise<Acknowledgment | undefined> {
-    const acknowledgment = this.liveQueries.getAcknowledmentByShipmentId(shipmentId);
+    const acknowledgment = await this.queries.getAcknowledmentByShipmentId(shipmentId);
     return acknowledgment || undefined;
   }
 
   async getDashboardMetrics(): Promise<DashboardMetrics> {
-    return this.liveQueries.getDashboardMetrics();
+    return this.queries.getDashboardMetrics();
   }
 
   // Vehicle Types operations
   async getVehicleTypes(): Promise<VehicleType[]> {
-    return this.liveQueries.getAllVehicleTypes();
+    return this.queries.getAllVehicleTypes();
   }
 
   async getVehicleType(id: string): Promise<VehicleType | undefined> {
-    const vehicleType = this.liveQueries.getVehicleTypeById(id);
+    const vehicleType = await this.queries.getVehicleTypeById(id);
     return vehicleType || undefined;
   }
 
   async createVehicleType(vehicleType: InsertVehicleType): Promise<VehicleType> {
-    return this.liveQueries.createVehicleType(vehicleType);
+    return this.queries.createVehicleType(vehicleType);
   }
 
   async updateVehicleType(id: string, updates: UpdateVehicleType): Promise<VehicleType | undefined> {
-    const vehicleType = this.liveQueries.updateVehicleType(id, updates);
+    const vehicleType = await this.queries.updateVehicleType(id, updates);
     return vehicleType || undefined;
   }
 
   async deleteVehicleType(id: string): Promise<boolean> {
-    return this.liveQueries.deleteVehicleType(id);
+    return this.queries.deleteVehicleType(id);
   }
 
   // Fuel Settings operations
   async getFuelSettings(): Promise<FuelSetting[]> {
-    return this.liveQueries.getAllFuelSettings();
+    return this.queries.getAllFuelSettings();
   }
 
   async getFuelSetting(id: string): Promise<FuelSetting | undefined> {
-    const fuelSetting = this.liveQueries.getFuelSettingById(id);
+    const fuelSetting = await this.queries.getFuelSettingById(id);
     return fuelSetting || undefined;
   }
 
   async createFuelSetting(fuelSetting: InsertFuelSetting): Promise<FuelSetting> {
-    return this.liveQueries.createFuelSetting(fuelSetting);
+    return this.queries.createFuelSetting(fuelSetting);
   }
 
   async updateFuelSetting(id: string, updates: UpdateFuelSetting): Promise<FuelSetting | undefined> {
-    const fuelSetting = this.liveQueries.updateFuelSetting(id, updates);
+    const fuelSetting = await this.queries.updateFuelSetting(id, updates);
     return fuelSetting || undefined;
   }
 
   async deleteFuelSetting(id: string): Promise<boolean> {
-    return this.liveQueries.deleteFuelSetting(id);
+    return this.queries.deleteFuelSetting(id);
   }
 
 }
 
-export const storage = new SqliteStorage();
+export const storage = new PostgresStorage();

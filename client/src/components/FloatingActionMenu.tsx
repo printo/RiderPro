@@ -14,7 +14,7 @@ import {
   Sun,
   Moon,
   LogOut,
-  X
+  X,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,7 @@ function FloatingActionMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const { theme, toggleTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
 
   const menuItems = [
     {
@@ -53,23 +53,29 @@ function FloatingActionMenu() {
     }
   ];
 
-  // Admin menu items - only show for super admin users
-  const adminMenuItems = user?.isSuperUser ? [
+  // Admin menu items - show only for super users and ops team (treat ops as admin)
+  const adminMenuItems = isAdmin ? [
     {
-      href: "/admin",
+      href: "/admin-riders",
       icon: Settings,
-      label: "Admin",
-      testId: "menu-admin"
+      label: "User Management",
+      testId: "menu-user-management"
+    },
+    {
+      href: "/settings",
+      icon: Settings,
+      label: "Settings",
+      testId: "menu-settings"
     }
   ] : [];
 
-  // Settings menu item - available to all users
-  const settingsMenuItem = {
+  // Settings menu item - available to all users (if not admin, still show Settings)
+  const settingsMenuItem = isAdmin ? undefined : {
     href: "/settings",
     icon: Settings,
     label: "Settings",
     testId: "menu-settings"
-  };
+  } as const;
 
   const handleNavigation = (href: string) => {
     setLocation(href);
@@ -145,7 +151,7 @@ function FloatingActionMenu() {
                   Navigation
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
-                  {[...menuItems, ...adminMenuItems, settingsMenuItem].map((item) => {
+                  {[...menuItems, ...adminMenuItems, ...(settingsMenuItem ? [settingsMenuItem] : [])].map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.href);
                     return (

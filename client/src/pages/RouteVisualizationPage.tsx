@@ -15,12 +15,13 @@ import {
   Clock
 } from 'lucide-react';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
+import { apiRequest } from '@/lib/queryClient';
 
 import RouteVisualization from '@/components/routes/RouteVisualization';
 import RouteComparison from '@/components/routes/RouteComparison';
 import RouteOptimizationSuggestions from '@/components/routes/RouteOptimizationSuggestions';
 
-// Mock data interfaces (in real app, these would come from API)
+// Route data interfaces
 interface RoutePoint {
   id: string;
   latitude: number;
@@ -77,107 +78,51 @@ function RouteVisualizationPage() {
     enableNetworkMonitoring: true
   });
 
-  // Mock data generation
   useEffect(() => {
-    const generateMockData = () => {
-      const employees = [
-        { id: '1', name: 'John Smith' },
-        { id: '2', name: 'Sarah Johnson' },
-        { id: '3', name: 'Mike Davis' },
-        { id: '4', name: 'Lisa Wilson' }
-      ];
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        const sessionsResp = await apiRequest('GET', '/api/routes/sessions?limit=100');
+        const sessionsData = await sessionsResp.json();
+        const sessions: RouteSession[] = (sessionsData.data || []).map((s: any) => ({
+          id: s.id,
+          employeeId: s.employee_id,
+          employeeName: s.employee_id,
+          startTime: s.start_time,
+          endTime: s.end_time,
+          status: s.status,
+          totalDistance: Number(s.total_distance || 0),
+          totalTime: Number(s.total_time || 0),
+          averageSpeed: 0,
+          points: [],
+          shipmentsCompleted: 0,
+        }));
 
-      const sessions: RouteSession[] = [];
-      const data: RouteData[] = [];
+        // Derive basic routeData aggregates from sessions (until detailed analytics endpoints are added)
+        const data: RouteData[] = sessions.map(s => ({
+          id: s.id,
+          employeeId: s.employeeId,
+          employeeName: s.employeeName,
+          date: s.startTime?.split('T')[0],
+          distance: s.totalDistance,
+          duration: s.totalTime,
+          shipmentsCompleted: s.shipmentsCompleted,
+          fuelConsumption: 0,
+          averageSpeed: s.totalTime > 0 ? (s.totalDistance / (s.totalTime / 3600)) : 0,
+          efficiency: s.shipmentsCompleted > 0 ? (s.totalDistance / s.shipmentsCompleted) : 0,
+          points: []
+        }));
 
-      employees.forEach((employee, empIndex) => {
-        // Generate 5-10 sessions per employee over the last 30 days
-        const sessionCount = 5 + Math.floor(Math.random() * 6);
-
-        for (let i = 0; i < sessionCount; i++) {
-          const date = new Date();
-          date.setDate(date.getDate() - Math.floor(Math.random() * 30));
-
-          const sessionId = `session_${employee.id}_${i}`;
-          const startTime = new Date(date);
-          startTime.setHours(8 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 60));
-
-          const duration = 3600 + Math.floor(Math.random() * 14400); // 1-5 hours
-          const endTime = new Date(startTime.getTime() + duration * 1000);
-
-          const shipmentsCompleted = 2 + Math.floor(Math.random() * 8);
-          const baseDistance = shipmentsCompleted * (2 + Math.random() * 3); // 2-5 km per shipment
-          const distance = baseDistance + (Math.random() - 0.5) * baseDistance * 0.3; // ±15% variation
-          const averageSpeed = 25 + Math.random() * 15; // 25-40 km/h
-          const fuelConsumption = distance * (0.08 + Math.random() * 0.04); // 8-12L/100km
-
-          // Generate GPS points
-          const points: RoutePoint[] = [];
-          const pointCount = Math.floor(duration / 300); // Point every 5 minutes
-          const startLat = 40.7128 + (Math.random() - 0.5) * 0.1;
-          const startLng = -74.0060 + (Math.random() - 0.5) * 0.1;
-
-          for (let p = 0; p < pointCount; p++) {
-            const pointTime = new Date(startTime.getTime() + (p * 300 * 1000));
-            const lat = startLat + (Math.random() - 0.5) * 0.02;
-            const lng = startLng + (Math.random() - 0.5) * 0.02;
-
-            points.push({
-              id: `point_${sessionId}_${p}`,
-              latitude: lat,
-              longitude: lng,
-              timestamp: pointTime.toISOString(),
-              accuracy: 5 + Math.random() * 15,
-              speed: averageSpeed + (Math.random() - 0.5) * 10,
-              eventType: p % 10 === 0 ? (Math.random() > 0.5 ? 'pickup' : 'delivery') : 'gps'
-            });
-          }
-
-          const session: RouteSession = {
-            id: sessionId,
-            employeeId: employee.id,
-            employeeName: employee.name,
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString(),
-            status: 'completed',
-            totalDistance: distance,
-            totalTime: duration,
-            averageSpeed,
-            points,
-            shipmentsCompleted
-          };
-
-          const routeDataItem: RouteData = {
-            id: sessionId,
-            employeeId: employee.id,
-            employeeName: employee.name,
-            date: date.toISOString().split('T')[0],
-            distance,
-            duration,
-            shipmentsCompleted,
-            fuelConsumption,
-            averageSpeed,
-            efficiency: distance / shipmentsCompleted,
-            points: points.map(p => ({
-              latitude: p.latitude,
-              longitude: p.longitude,
-              timestamp: p.timestamp
-            }))
-          };
-
-          sessions.push(session);
-          data.push(routeDataItem);
-        }
-      });
-
-      setRouteSessions(sessions.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()));
-      setRouteData(data);
-      setIsLoading(false);
-      setLastUpdated(new Date());
+        setRouteSessions(sessions);
+        setRouteData(data);
+        setLastUpdated(new Date());
+      } catch (e) {
+        console.error('Failed to load route sessions:', e);
+      } finally {
+        setIsLoading(false);
+      }
     };
-
-    // Simulate loading delay
-    setTimeout(generateMockData, 1000);
+    load();
   }, []);
 
   const handleRefreshData = () => {
@@ -207,8 +152,29 @@ function RouteVisualizationPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleSessionSelect = (sessionId: string) => {
-    setSelectedSessionId(sessionId);
+  const handleSessionSelect = async (sessionId: string) => {
+    try {
+      setSelectedSessionId(sessionId);
+      const resp = await apiRequest('GET', `/api/routes/session/${sessionId}`);
+      const { data } = await resp.json();
+      const coords = (data?.coordinates || []) as Array<{ latitude: number; longitude: number; timestamp: string; accuracy?: number; speed?: number; event_type?: string; shipment_id?: string; }>;
+
+      setRouteSessions(prev => prev.map(s => s.id === sessionId ? {
+        ...s,
+        points: coords.map((c, idx) => ({
+          id: `${sessionId}_${idx}`,
+          latitude: Number(c.latitude),
+          longitude: Number(c.longitude),
+          timestamp: c.timestamp,
+          accuracy: c.accuracy ? Number(c.accuracy) : undefined,
+          speed: c.speed ? Number(c.speed) : undefined,
+          eventType: (c.event_type as any) || 'gps',
+          shipmentId: (c as any).shipment_id
+        }))
+      } : s));
+    } catch (e) {
+      console.error('Failed to load session details:', e);
+    }
   };
 
   const handleImplementSuggestion = (suggestionId: string) => {

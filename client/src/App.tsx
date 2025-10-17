@@ -22,7 +22,7 @@ import AdminRiderManagement from "@/pages/AdminRiderManagement";
 import { PageLoader } from "@/components/ui/Loader";
 
 function Router() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, isAdmin } = useAuth();
 
   // Show loading spinner while checking auth
   if (isLoading) {
@@ -42,7 +42,7 @@ function Router() {
   }
 
   // Check if user needs approval (for local users only)
-  if (user && !user.isApproved && !user.isSuperUser && !user.isOpsTeam && !user.isStaff) {
+  if (user && !user.isApproved && !isAdmin) {
     return <ApprovalPending />;
   }
 

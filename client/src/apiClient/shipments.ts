@@ -28,8 +28,6 @@ export const shipmentsApi = {
     console.log('📦 shipmentsApi.getShipments called with filters:', filters);
 
     const params = new URLSearchParams();
-
-    // Add filter parameters
     if (filters.status) params.append('status', filters.status);
     if (filters.priority) params.append('priority', filters.priority);
     if (filters.type) params.append('type', filters.type);
@@ -46,8 +44,6 @@ export const shipmentsApi = {
     // Add pagination parameters
     if (filters.page) params.append('page', String(filters.page));
     if (filters.limit) params.append('limit', String(filters.limit));
-
-    // Add sorting parameters
     if (filters.sortField) params.append('sortField', filters.sortField);
     if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
 
@@ -63,31 +59,15 @@ export const shipmentsApi = {
     });
 
     // Extract pagination headers
-    const total = parseInt(response.headers.get('X-Total-Count') || '0', 10);
-    const totalPages = parseInt(response.headers.get('X-Total-Pages') || '1', 10);
-    const currentPage = parseInt(response.headers.get('X-Current-Page') || '1', 10);
-    const perPage = parseInt(response.headers.get('X-Per-Page') || '20', 10);
-    const hasNextPage = response.headers.get('X-Has-Next-Page') === 'true';
-    const hasPreviousPage = response.headers.get('X-Has-Previous-Page') === 'true';
+    const total = parseInt(resp.headers.get('X-Total-Count') || '0', 10);
+    const totalPages = parseInt(resp.headers.get('X-Total-Pages') || '1', 10);
+    const currentPage = parseInt(resp.headers.get('X-Current-Page') || '1', 10);
+    const perPage = parseInt(resp.headers.get('X-Per-Page') || '20', 10);
+    const hasNextPage = resp.headers.get('X-Has-Next-Page') === 'true';
+    const hasPreviousPage = resp.headers.get('X-Has-Previous-Page') === 'true';
 
-    const data = await response.json();
-
-    console.log('📊 Parsed shipments data:', {
-      dataLength: data?.length,
-      total,
-      currentPage,
-      totalPages
-    });
-
-    return {
-      data,
-      total,
-      page: currentPage,
-      limit: perPage,
-      totalPages,
-      hasNextPage,
-      hasPreviousPage,
-    };
+    const data = await resp.json();
+    return { data, total, page: currentPage, limit: perPage, totalPages, hasNextPage, hasPreviousPage };
   },
 
   getShipment: async (id: string): Promise<{ shipment: Shipment; acknowledgment?: any }> => {

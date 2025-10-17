@@ -1,144 +1,93 @@
-import { liveDb, replicaDb } from './connection.js';
+import { db } from './pg-connection.js';
 import { Shipment, InsertShipment, UpdateShipment, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType, FuelSetting, InsertFuelSetting, UpdateFuelSetting } from '@shared/schema';
 import { randomUUID } from 'crypto';
 
 export class ShipmentQueries {
-  private db: any;
-
-  constructor(useReplica = false) {
-    this.db = useReplica ? replicaDb : liveDb;
-  }
+  constructor(_useReplica = false) {}
 
   getDatabase() {
-    return this.db;
+    return db;
   }
 
-  getAllShipments(filters: ShipmentFilters = {}): { data: Shipment[]; total: number } {
-    // Base query for counting total records
-    let countQuery = `
-      SELECT COUNT(*) as total FROM shipments 
-      WHERE 1=1
-    `;
-
-    // Base query for fetching data
-    let dataQuery = `
-      SELECT * FROM shipments 
-      WHERE 1=1
-    `;
-
+  async getAllShipments(filters: ShipmentFilters = {}): Promise<{ data: Shipment[]; total: number }> {
+    let whereClauses: string[] = [];
     const params: any[] = [];
 
-    // Apply filters
     if (filters.status) {
-      const condition = ` AND status = ?`;
-      countQuery += condition;
-      dataQuery += condition;
       params.push(filters.status);
-    }
-
-    if (filters.priority) {
-      const condition = ` AND priority = ?`;
-      countQuery += condition;
-      dataQuery += condition;
-      params.push(filters.priority);
+      whereClauses.push(`status = $${params.length}`);
     }
 
     if (filters.type) {
-      const condition = ` AND type = ?`;
-      countQuery += condition;
-      dataQuery += condition;
       params.push(filters.type);
+      whereClauses.push(`type = $${params.length}`);
     }
-
     if (filters.routeName) {
-      const condition = ` AND routeName = ?`;
-      countQuery += condition;
-      dataQuery += condition;
       params.push(filters.routeName);
+      whereClauses.push(`"routeName" = $${params.length}`);
     }
-
     if (filters.date) {
-      const condition = ` AND DATE(deliveryTime) = ?`;
-      countQuery += condition;
-      dataQuery += condition;
       params.push(filters.date);
+      whereClauses.push(`DATE("deliveryTime") = $${params.length}`);
     }
-
     if (filters.employeeId) {
-      const condition = ` AND employeeId = ?`;
-      countQuery += condition;
-      dataQuery += condition;
       params.push(filters.employeeId);
+      whereClauses.push(`"employeeId" = $${params.length}`);
     }
 
-    if (filters.search) {
-      const condition = ` AND (customerName LIKE ? OR address LIKE ? OR id LIKE ?)`;
-      countQuery += condition;
-      dataQuery += condition;
-      const searchTerm = `%${filters.search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
-    }
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+    // Get total count
+    const countSql = `SELECT COUNT(*)::int as count FROM shipments ${whereSql}`;
+    const countRes = await db.query(countSql, params);
+    const total = countRes.rows[0]?.count || 0;
 
     // Apply sorting (default to newest first)
     const sortField = filters.sortField || 'createdAt';
     const sortOrder = filters.sortOrder || 'DESC';
-    dataQuery += ` ORDER BY ${sortField} ${sortOrder}`;
 
-    // Apply pagination
+    // Pagination
     const page = Math.max(1, parseInt(filters.page as string) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(filters.limit as string) || 20));
     const offset = (page - 1) * limit;
 
-    dataQuery += ` LIMIT ? OFFSET ?`;
-    const dataParams = [...params, limit, offset];
-
-    // Get total count
-    const totalResult = this.db.prepare(countQuery).get(...params);
-    const total = totalResult?.total || 0;
-
-    // Get paginated data
-    const data = this.db.prepare(dataQuery).all(...dataParams);
-
-    return { data, total };
+    const dataSql = `
+      SELECT *
+      FROM shipments
+      ${whereSql}
+      ORDER BY "${sortField}" ${sortOrder}
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+    `;
+    const dataRes = await db.query(dataSql, [...params, limit, offset]);
+    const mapped = (dataRes.rows || []).map((r: any) => ({
+      ...r,
+      shipment_id: r.id,
+      priority: r.priority ?? 'medium',
+      pickupAddress: r.pickupAddress ?? '',
+      weight: r.weight ?? 0,
+      dimensions: r.dimensions ?? '',
+      specialInstructions: r.specialInstructions ?? ''
+    }));
+    return { data: mapped as Shipment[], total };
   }
 
-  getShipmentById(shipment_id: string): Shipment | null {
-    return this.db.prepare('SELECT * FROM shipments WHERE shipment_id = ?').get(shipment_id) || null;
+  async getShipmentById(id: string): Promise<Shipment | null> {
+    const result = await db.query('SELECT * FROM shipments WHERE id = $1', [id]);
+    const row = result.rows[0];
+    return row ? ({ ...row, shipment_id: row.id } as any) : null;
   }
 
-  getShipmentByExternalId(externalId: string): Shipment | null {
-    // Try to find by trackingNumber first (which stores external ID)
-    let shipment = this.db.prepare('SELECT * FROM shipments WHERE trackingNumber = ?').get(externalId);
-
-    // If not found and we have a piashipmentid column, try that too
-    if (!shipment) {
-      try {
-        shipment = this.db.prepare('SELECT * FROM shipments WHERE piashipmentid = ?').get(externalId);
-      } catch (error) {
-        // piashipmentid column might not exist yet, ignore error
-      }
-    }
-
-    return shipment || null;
+  async getShipmentByExternalId(externalId: string): Promise<Shipment | null> {
+    const result = await db.query('SELECT * FROM shipments WHERE id = $1', [externalId]);
+    const row = result.rows[0];
+    return row ? ({ ...row, shipment_id: row.id } as any) : null;
   }
 
-  createShipment(shipment: InsertShipment): Shipment {
+  async createShipment(shipment: InsertShipment): Promise<Shipment> {
+    const id = shipment.shipment_id || randomUUID();
     const now = new Date().toISOString();
 
-    const stmt = this.db.prepare(`
-      INSERT INTO shipments (
-        shipment_id, type, customerName, customerMobile, address, 
-        latitude, longitude, cost, deliveryTime, routeName, 
-        employeeId, status, priority, pickupAddress, weight, 
-        dimensions, specialInstructions,
-        start_latitude, start_longitude, stop_latitude, stop_longitude, km_travelled,
-        signature_url, photo_url, acknowledgment_captured_at,
-        synced_to_external, last_sync_attempt, sync_error, sync_attempts,
-        acknowledgment_captured_by, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    // Map schema fields to database fields
+    // Map schema fields to database fields (align with Supabase schema)
     const customerName = shipment.customerName || shipment.recipientName || 'Unknown Customer';
     const customerMobile = shipment.customerMobile || shipment.recipientPhone || '';
     const address = shipment.address || shipment.deliveryAddress || '';
@@ -146,324 +95,109 @@ export class ShipmentQueries {
     const deliveryTime = shipment.deliveryTime || shipment.estimatedDeliveryTime || now;
     const routeName = shipment.routeName || 'Default Route';
     const employeeId = shipment.employeeId || 'default';
-    const priority = shipment.priority || 'medium';
-    const pickupAddress = shipment.pickupAddress || '';
-    const weight = shipment.weight || 0;
-    const dimensions = shipment.dimensions || '';
 
-    stmt.run(
-      shipment.shipment_id, shipment.type, customerName, customerMobile,
-      address, shipment.latitude || null, shipment.longitude || null,
+    await db.query(`
+      INSERT INTO shipments (
+        id, type, "customerName", "customerMobile", address,
+        cost, "deliveryTime", "routeName", "employeeId", status,
+        "createdAt", "updatedAt"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+    `, [
+      id, shipment.type, customerName, customerMobile,
+      address,
       cost, deliveryTime, routeName,
-      employeeId, shipment.status || 'Assigned', priority, pickupAddress,
-      weight, dimensions, shipment.specialInstructions || null,
-      shipment.start_latitude || null, shipment.start_longitude || null,
-      shipment.stop_latitude || null, shipment.stop_longitude || null,
-      shipment.km_travelled || 0,
-      shipment.signatureUrl || null, shipment.photoUrl || null, shipment.acknowledgment_captured_at || null,
-      false, // synced_to_external
-      null,  // last_sync_attempt
-      null,  // sync_error
-      0,     // sync_attempts
-      shipment.acknowledgment_captured_by || null, // acknowledgment_captured_by
+      employeeId, shipment.status || 'Assigned',
       now, now
-    );
+    ]);
 
-    // Also insert into replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        INSERT INTO shipments (
-          shipment_id, type, customerName, customerMobile, address, 
-          latitude, longitude, cost, deliveryTime, routeName, 
-          employeeId, status, priority, pickupAddress, weight, 
-          dimensions, specialInstructions,
-          start_latitude, start_longitude, stop_latitude, stop_longitude, km_travelled,
-          signature_url, photo_url, acknowledgment_captured_at,
-          synced_to_external, last_sync_attempt, sync_error, sync_attempts,
-          acknowledgment_captured_by, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      replicaStmt.run(
-        shipment.shipment_id, shipment.type, customerName, customerMobile,
-        address, shipment.latitude || null, shipment.longitude || null,
-        cost, deliveryTime, routeName,
-        employeeId, shipment.status || 'Assigned', priority, pickupAddress,
-        weight, dimensions, shipment.specialInstructions || null,
-        shipment.start_latitude || null, shipment.start_longitude || null,
-        shipment.stop_latitude || null, shipment.stop_longitude || null,
-        shipment.km_travelled || 0,
-        shipment.signatureUrl || null, shipment.photoUrl || null, shipment.acknowledgment_captured_at || null,
-        false, // synced_to_external
-        null,  // last_sync_attempt
-        null,  // sync_error
-        0,     // sync_attempts
-        shipment.acknowledgment_captured_by || null, // acknowledgment_captured_by
-        now, now
-      );
+    const created = await this.getShipmentById(id);
+    if (!created) {
+      throw new Error('Failed to fetch created shipment');
     }
-
-    return this.getShipmentById(shipment.shipment_id)!;
+    return created;
   }
 
-  updateShipmentTracking(shipment_id: string, trackingData: {
-    start_latitude?: number;
-    start_longitude?: number;
-    stop_latitude?: number;
-    stop_longitude?: number;
-    km_travelled?: number;
-    status?: string;
-    expectedDeliveryTime?: string;
-  }): Shipment | null {
+  async updateShipment(id: string, updates: UpdateShipment): Promise<Shipment | null> {
     const now = new Date().toISOString();
-
-    // Get current shipment data for distance calculation
-    const currentShipment = this.getShipmentById(shipment_id);
-    if (!currentShipment) return null;
-
-    const updateFields = [];
-    const values = [];
-
-    if (trackingData.start_latitude !== undefined) {
-      updateFields.push('start_latitude = ?');
-      values.push(trackingData.start_latitude);
-    }
-    if (trackingData.start_longitude !== undefined) {
-      updateFields.push('start_longitude = ?');
-      values.push(trackingData.start_longitude);
-    }
-    if (trackingData.stop_latitude !== undefined) {
-      updateFields.push('stop_latitude = ?');
-      values.push(trackingData.stop_latitude);
-    }
-    if (trackingData.stop_longitude !== undefined) {
-      updateFields.push('stop_longitude = ?');
-      values.push(trackingData.stop_longitude);
-    }
-    if (trackingData.status !== undefined) {
-      updateFields.push('status = ?');
-      values.push(trackingData.status);
-    }
-    if (trackingData.expectedDeliveryTime !== undefined) {
-      updateFields.push('deliveryTime = ?');
-      values.push(trackingData.expectedDeliveryTime);
-    }
-
-    // Auto-calculate distance if coordinates are provided
-    if (trackingData.start_latitude !== undefined || trackingData.start_longitude !== undefined ||
-      trackingData.stop_latitude !== undefined || trackingData.stop_longitude !== undefined) {
-
-      const { calculateShipmentDistance } = require('../utils/distanceCalculator');
-
-      // Merge current data with new tracking data
-      const mergedData = {
-        start_latitude: trackingData.start_latitude ?? currentShipment.start_latitude,
-        start_longitude: trackingData.start_longitude ?? currentShipment.start_longitude,
-        stop_latitude: trackingData.stop_latitude ?? currentShipment.stop_latitude,
-        stop_longitude: trackingData.stop_longitude ?? currentShipment.stop_longitude,
-        km_travelled: currentShipment.km_travelled
-      };
-
-      const calculatedDistance = calculateShipmentDistance(mergedData);
-      updateFields.push('km_travelled = ?');
-      values.push(calculatedDistance);
-    } else if (trackingData.km_travelled !== undefined) {
-      // Use provided distance if no coordinates
-      updateFields.push('km_travelled = ?');
-      values.push(trackingData.km_travelled);
-    }
-
-    if (updateFields.length === 0) {
-      return this.getShipmentById(shipment_id);
-    }
-
-    updateFields.push('updatedAt = ?');
-    values.push(now);
-    values.push(shipment_id);
-
-    const stmt = this.db.prepare(`
-      UPDATE shipments 
-      SET ${updateFields.join(', ')}
-      WHERE shipment_id = ?
-    `);
-
-    stmt.run(...values);
-
-    // Also update replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        UPDATE shipments 
-        SET ${updateFields.join(', ')}
-        WHERE shipment_id = ?
-      `);
-      replicaStmt.run(...values);
-    }
-
-    return this.getShipmentById(shipment_id);
-  }
-
-  updateShipment(shipment_id: string, updates: UpdateShipment): Shipment | null {
-    const now = new Date().toISOString();
-
-    // Build dynamic update query based on provided fields
     const updateFields: string[] = [];
     const updateValues: any[] = [];
 
     if (updates.status !== undefined) {
-      updateFields.push('status = ?');
+      updateFields.push('status = $' + (updateValues.length + 1));
       updateValues.push(updates.status);
     }
 
-    if (updates.priority !== undefined) {
-      updateFields.push('priority = ?');
-      updateValues.push(updates.priority);
-    }
-
-    if (updates.type !== undefined) {
-      updateFields.push('type = ?');
-      updateValues.push(updates.type);
-    }
-
-    if (updates.pickupAddress !== undefined) {
-      updateFields.push('pickupAddress = ?');
-      updateValues.push(updates.pickupAddress);
-    }
-
-    if (updates.deliveryAddress !== undefined || updates.address !== undefined) {
-      updateFields.push('address = ?');
-      updateValues.push(updates.deliveryAddress || updates.address);
-    }
-
-    if (updates.recipientName !== undefined || updates.customerName !== undefined) {
-      updateFields.push('customerName = ?');
-      updateValues.push(updates.recipientName || updates.customerName);
-    }
-
-    if (updates.recipientPhone !== undefined || updates.customerMobile !== undefined) {
-      updateFields.push('customerMobile = ?');
-      updateValues.push(updates.recipientPhone || updates.customerMobile);
-    }
-
-    if (updates.weight !== undefined) {
-      updateFields.push('weight = ?');
-      updateValues.push(updates.weight);
-    }
-
-    if (updates.dimensions !== undefined) {
-      updateFields.push('dimensions = ?');
-      updateValues.push(updates.dimensions);
-    }
-
-    if (updates.specialInstructions !== undefined) {
-      updateFields.push('specialInstructions = ?');
-      updateValues.push(updates.specialInstructions);
-    }
-
-    if (updates.estimatedDeliveryTime !== undefined || updates.deliveryTime !== undefined) {
-      updateFields.push('deliveryTime = ?');
-      updateValues.push(updates.estimatedDeliveryTime || updates.deliveryTime);
-    }
-
-    if (updates.actualDeliveryTime !== undefined) {
-      updateFields.push('actualDeliveryTime = ?');
-      updateValues.push(updates.actualDeliveryTime);
-    }
-
     if (updates.latitude !== undefined) {
-      updateFields.push('latitude = ?');
+      updateFields.push('latitude = $' + (updateValues.length + 1));
       updateValues.push(updates.latitude);
     }
 
     if (updates.longitude !== undefined) {
-      updateFields.push('longitude = ?');
+      updateFields.push('longitude = $' + (updateValues.length + 1));
       updateValues.push(updates.longitude);
     }
 
-    if (updates.cost !== undefined) {
-      updateFields.push('cost = ?');
-      updateValues.push(updates.cost);
+    if (updates.address !== undefined) {
+      updateFields.push('address = $' + (updateValues.length + 1));
+      updateValues.push(updates.address);
     }
 
-    if (updates.routeName !== undefined) {
-      updateFields.push('routeName = ?');
-      updateValues.push(updates.routeName);
+    if (updates.customerName !== undefined) {
+      updateFields.push('"customerName" = $' + (updateValues.length + 1));
+      updateValues.push(updates.customerName);
     }
 
-    if (updates.employeeId !== undefined) {
-      updateFields.push('employeeId = ?');
-      updateValues.push(updates.employeeId);
+    if (updates.customerMobile !== undefined) {
+      updateFields.push('"customerMobile" = $' + (updateValues.length + 1));
+      updateValues.push(updates.customerMobile);
     }
 
     // Always update the updatedAt field
-    updateFields.push('updatedAt = ?');
+    updateFields.push('"updatedAt" = $' + (updateValues.length + 1));
     updateValues.push(now);
 
-    // Add the shipment_id for the WHERE clause
-    updateValues.push(shipment_id);
+    // Add the ID for the WHERE clause
+    updateValues.push(id);
 
     if (updateFields.length === 1) { // Only updatedAt field
-      return this.getShipmentById(shipment_id);
+      return await this.getShipmentById(id);
     }
 
-    const stmt = this.db.prepare(`
+    const result = await db.query(`
       UPDATE shipments 
       SET ${updateFields.join(', ')}
-      WHERE shipment_id = ?
-    `);
+      WHERE id = $${updateValues.length}
+    `, updateValues);
 
-    const result = stmt.run(...updateValues);
-
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return null;
     }
 
-    // Also update replica if updating live db
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        UPDATE shipments 
-        SET ${updateFields.join(', ')}
-        WHERE shipment_id = ?
-      `);
-      replicaStmt.run(...updateValues);
-    }
-
-    return this.getShipmentById(shipment_id);
+    return await this.getShipmentById(id);
   }
 
-  batchUpdateShipments(updates: UpdateShipment[]): number {
+  async batchUpdateShipments(updates: UpdateShipment[]): Promise<number> {
+    const now = new Date().toISOString();
     let totalUpdated = 0;
 
-    this.db.transaction(() => {
-      const stmt = this.db.prepare(`
+    for (const update of updates) {
+      if (update.status && update.shipment_id) { // Only update if status and shipment id are provided
+        const result = await db.query(`
         UPDATE shipments 
-        SET status = ?, updatedAt = ?
-        WHERE id = ?
-      `);
-
-      const replicaStmt = replicaDb.prepare(`
-        UPDATE shipments 
-        SET status = ?, updatedAt = ?
-        WHERE id = ?
-      `);
-
-      const now = new Date().toISOString();
-
-      for (const update of updates) {
-        if (update.status) { // Only update if status is provided
-          const result = stmt.run(update.status, now, update.shipment_id);
-          if (result.changes > 0) {
+          SET status = $1, "updatedAt" = $2
+          WHERE id = $3
+        `, [update.status, now, update.shipment_id]);
+        
+        if ((result.rowCount || 0) > 0) {
             totalUpdated++;
-            // Also update replica
-            replicaStmt.run(update.status, now, update.shipment_id);
-          }
         }
       }
-    })();
+    }
 
     return totalUpdated;
   }
 
-  getDashboardMetrics(): DashboardMetrics {
+  async getDashboardMetrics(): Promise<DashboardMetrics> {
     // Initialize default values for when there's no data
     const defaultMetrics: DashboardMetrics = {
       totalShipments: 0,
@@ -476,46 +210,46 @@ export class ShipmentQueries {
     };
 
     try {
-      const totalShipmentsResult = this.db.prepare('SELECT COUNT(*) as count FROM shipments').get();
-      const totalShipments = totalShipmentsResult ? totalShipmentsResult.count : 0;
+      const totalShipmentsRes = await db.query('SELECT COUNT(*)::int as count FROM shipments');
+      const totalShipments = totalShipmentsRes.rows[0]?.count || 0;
 
       // If there are no shipments, return default metrics
       if (totalShipments === 0) {
         return defaultMetrics;
       }
 
-      const statusStats = this.db.prepare(`
-        SELECT status, COUNT(*) as count 
+      const statusStatsRes = await db.query(`
+        SELECT status, COUNT(*)::int as count
         FROM shipments 
         GROUP BY status
-      `).all();
+      `);
 
-      const typeStats = this.db.prepare(`
-        SELECT type, COUNT(*) as count 
+      const typeStatsRes = await db.query(`
+        SELECT type, COUNT(*)::int as count
         FROM shipments 
         GROUP BY type
-      `).all();
+      `);
 
-      const routeStats = this.db.prepare(`
+      const routeStatsRes = await db.query(`
         SELECT 
-          routeName,
-          COUNT(*) as total,
-          SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END) as delivered,
-          SUM(CASE WHEN status = 'Picked Up' THEN 1 ELSE 0 END) as pickedUp,
-          SUM(CASE WHEN status = 'Assigned' THEN 1 ELSE 0 END) as pending,
-          SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
-          SUM(CASE WHEN status = 'Assigned' AND type = 'pickup' THEN 1 ELSE 0 END) as pickupPending,
-          SUM(CASE WHEN status = 'Assigned' AND type = 'delivery' THEN 1 ELSE 0 END) as deliveryPending
+          "routeName" as routeName,
+          COUNT(*)::int as total,
+          SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END)::int as delivered,
+          SUM(CASE WHEN status = 'Picked Up' THEN 1 ELSE 0 END)::int as pickedUp,
+          SUM(CASE WHEN status = 'Assigned' THEN 1 ELSE 0 END)::int as pending,
+          SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END)::int as cancelled,
+          SUM(CASE WHEN status = 'Assigned' AND type = 'pickup' THEN 1 ELSE 0 END)::int as "pickupPending",
+          SUM(CASE WHEN status = 'Assigned' AND type = 'delivery' THEN 1 ELSE 0 END)::int as "deliveryPending"
         FROM shipments 
-        GROUP BY routeName
-      `).all();
+        GROUP BY "routeName"
+      `);
 
       const statusBreakdown: Record<string, number> = {};
       let completed = 0;
       let inProgress = 0;
       let pending = 0;
 
-      statusStats.forEach((stat: any) => {
+      statusStatsRes.rows.forEach((stat: any) => {
         statusBreakdown[stat.status] = stat.count;
         if (stat.status === 'Delivered' || stat.status === 'Picked Up') {
           completed += stat.count;
@@ -527,12 +261,12 @@ export class ShipmentQueries {
       });
 
       const typeBreakdown: Record<string, number> = {};
-      typeStats.forEach((stat: any) => {
+      typeStatsRes.rows.forEach((stat: any) => {
         typeBreakdown[stat.type] = stat.count;
       });
 
       const routeBreakdown: Record<string, any> = {};
-      routeStats.forEach((stat: any) => {
+      routeStatsRes.rows.forEach((stat: any) => {
         if (stat.routeName) { // Only add if routeName is not null/undefined
           routeBreakdown[stat.routeName] = {
             total: stat.total || 0,
@@ -561,60 +295,41 @@ export class ShipmentQueries {
     }
   }
 
-  createAcknowledgment(acknowledgment: any): any {
-    // Update the shipment record with acknowledgment data
-    const stmt = this.db.prepare(`
-      UPDATE shipments SET 
-        signature_url = ?,
-        photo_url = ?,
-        acknowledgment_captured_at = ?,
-        acknowledgment_captured_by = ?
-      WHERE shipment_id = ?
-    `);
+  async createAcknowledgment(acknowledgment: InsertAcknowledgment): Promise<Acknowledgment> {
+    const id = randomUUID();
 
-    stmt.run(
-      acknowledgment.signature || null,
-      acknowledgment.photo || null,
-      acknowledgment.timestamp,
-      acknowledgment.capturedBy || null,
-      acknowledgment.shipmentId
-    );
+    await db.query(`
+      INSERT INTO acknowledgments (
+        id, "shipmentId", "signatureUrl", "photoUrl", "capturedAt"
+      ) VALUES ($1, $2, $3, $4, $5)
+    `, [
+      id,
+      acknowledgment.shipment_id,
+      acknowledgment.signatureUrl || null,
+      acknowledgment.photoUrl || null,
+      acknowledgment.acknowledgment_captured_at
+    ]);
 
-    // Return the updated shipment
-    return this.db.prepare('SELECT * FROM shipments WHERE shipment_id = ?').get(acknowledgment.shipmentId);
+    const result = await db.query('SELECT * FROM acknowledgments WHERE id = $1', [id]);
+    return result.rows[0];
   }
 
-  getAcknowledmentByShipmentId(shipmentId: string): any | null {
-    // Get acknowledgment data from shipments table
-    const shipment = this.db.prepare(`
-      SELECT signature_url, photo_url, acknowledgment_captured_at, acknowledgment_captured_by 
-      FROM shipments 
-      WHERE shipment_id = ?
-    `).get(shipmentId);
-
-    if (!shipment || !shipment.acknowledgment_captured_at) {
-      return null;
-    }
-
-    return {
-      signature: shipment.signature_url,
-      photo: shipment.photo_url,
-      timestamp: shipment.acknowledgment_captured_at,
-      capturedBy: shipment.acknowledgment_captured_by
-    };
+  async getAcknowledmentByShipmentId(shipmentId: string): Promise<Acknowledgment | null> {
+    const result = await db.query('SELECT * FROM acknowledgments WHERE "shipmentId" = $1', [shipmentId]);
+    return result.rows[0] || null;
   }
 
-  resetDatabase(): void {
-    this.db.exec('DELETE FROM shipments');
+  async resetDatabase(): Promise<void> {
+    await db.query('DELETE FROM acknowledgments');
+    await db.query('DELETE FROM shipments');
   }
 
-  cleanupOldData(daysToKeep: number = 3): void {
+  async cleanupOldData(daysToKeep: number = 3): Promise<void> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
     const cutoffIso = cutoffDate.toISOString();
-
-    this.db.prepare('DELETE FROM acknowledgments WHERE timestamp < ?').run(cutoffIso);
-    this.db.prepare('DELETE FROM shipments WHERE createdAt < ?').run(cutoffIso);
+    await db.query('DELETE FROM acknowledgments WHERE "capturedAt" < $1', [cutoffIso]);
+    await db.query('DELETE FROM shipments WHERE "createdAt" < $1', [cutoffIso]);
   }
 
   /**
@@ -622,125 +337,119 @@ export class ShipmentQueries {
    * Provides atomicity for batch shipment operations
    */
   executeBatchTransaction<T>(operations: () => T): T {
-    const transaction = this.db.transaction(operations);
-    return transaction();
+    // No-op transaction wrapper for Postgres in this context
+    return operations();
   }
 
   /**
    * Batch create or update shipments with transaction support
    * Returns results for each shipment operation
    */
-  batchCreateOrUpdateShipments(shipments: Array<{ external: any, internal: any }>): Array<{
+  async batchCreateOrUpdateShipments(shipments: Array<{ external: any, internal: any }>): Promise<Array<{
     piashipmentid: string;
     internalId: string | null;
     status: 'created' | 'updated' | 'failed';
     message: string;
-  }> {
-    return this.executeBatchTransaction(() => {
-      const results = [];
+  }>> {
+    const results = [];
 
-      for (const { external, internal } of shipments) {
-        try {
-          // Check for existing shipment
-          const existing = this.getShipmentByExternalId(external.id);
+    for (const { external, internal } of shipments) {
+      try {
+        // Check for existing shipment
+        const existing = await this.getShipmentByExternalId(external.id);
 
-          if (existing) {
-            // Update existing shipment
-            this.updateShipment(existing.shipment_id, {
-              shipment_id: existing.shipment_id,
-              status: internal.status,
-              priority: internal.priority,
-              customerName: internal.customerName,
-              customerMobile: internal.customerMobile,
-              address: internal.address,
-              latitude: internal.latitude,
-              longitude: internal.longitude,
-              cost: internal.cost,
-              deliveryTime: internal.deliveryTime,
-              routeName: internal.routeName,
-              employeeId: internal.employeeId,
-              pickupAddress: internal.pickupAddress,
-              weight: internal.weight,
-              dimensions: internal.dimensions,
-              specialInstructions: internal.specialInstructions
-            });
+        if (existing) {
+          // Update existing shipment
+          await this.updateShipment(existing.shipment_id, {
+            shipment_id: existing.shipment_id,
+            status: internal.status,
+            priority: internal.priority,
+            customerName: internal.customerName,
+            customerMobile: internal.customerMobile,
+            address: internal.address,
+            latitude: internal.latitude,
+            longitude: internal.longitude,
+            cost: internal.cost,
+            deliveryTime: internal.deliveryTime,
+            routeName: internal.routeName,
+            employeeId: internal.employeeId,
+            pickupAddress: internal.pickupAddress,
+            weight: internal.weight,
+            dimensions: internal.dimensions,
+            specialInstructions: internal.specialInstructions
+          });
 
-            results.push({
-              piashipmentid: external.id,
-              internalId: existing.shipment_id,
-              status: 'updated' as const,
-              message: 'Shipment updated successfully'
-            });
-          } else {
-            // Create new shipment
-            const newShipment = this.createShipment({
-              shipment_id: internal.piashipmentid || internal.id,
-              trackingNumber: internal.piashipmentid || internal.id,
-              type: internal.type,
-              customerName: internal.customerName,
-              customerMobile: internal.customerMobile,
-              address: internal.address,
-              latitude: internal.latitude,
-              longitude: internal.longitude,
-              cost: internal.cost,
-              deliveryTime: internal.deliveryTime,
-              routeName: internal.routeName,
-              employeeId: internal.employeeId,
-              status: internal.status,
-              priority: internal.priority || 'medium',
-              pickupAddress: internal.pickupAddress || '',
-              deliveryAddress: internal.address,
-              recipientName: internal.customerName,
-              recipientPhone: internal.customerMobile,
-              weight: internal.weight || 0,
-              dimensions: internal.dimensions || '',
-              specialInstructions: internal.specialInstructions,
-              estimatedDeliveryTime: internal.deliveryTime
-            });
-
-            results.push({
-              piashipmentid: external.id,
-              internalId: newShipment.shipment_id,
-              status: 'created' as const,
-              message: 'Shipment created successfully'
-            });
-          }
-        } catch (error: any) {
           results.push({
             piashipmentid: external.id,
-            internalId: null,
-            status: 'failed' as const,
-            message: error.message
+            internalId: existing.shipment_id,
+            status: 'updated' as const,
+            message: 'Shipment updated successfully'
+          });
+        } else {
+          // Create new shipment
+          const newShipment = await this.createShipment({
+            shipment_id: internal.piashipmentid || internal.id,
+            type: internal.type,
+            customerName: internal.customerName,
+            customerMobile: internal.customerMobile,
+            address: internal.address,
+            latitude: internal.latitude,
+            longitude: internal.longitude,
+            cost: internal.cost,
+            deliveryTime: internal.deliveryTime,
+            routeName: internal.routeName,
+            employeeId: internal.employeeId,
+            status: internal.status,
+            priority: internal.priority || 'medium',
+            pickupAddress: internal.pickupAddress || '',
+            deliveryAddress: internal.address,
+            recipientName: internal.customerName,
+            recipientPhone: internal.customerMobile,
+            weight: internal.weight || 0,
+            dimensions: internal.dimensions || '',
+            specialInstructions: internal.specialInstructions,
+            estimatedDeliveryTime: internal.deliveryTime
+          });
+
+          results.push({
+            piashipmentid: external.id,
+            internalId: newShipment.shipment_id,
+            status: 'created' as const,
+            message: 'Shipment created successfully'
           });
         }
+      } catch (error: any) {
+        results.push({
+          piashipmentid: external.id,
+          internalId: null,
+          status: 'failed' as const,
+          message: error.message
+        });
       }
+    }
 
-      return results;
-    });
+    return results;
   }
 
   // Vehicle Types CRUD operations
-  getAllVehicleTypes(): VehicleType[] {
-    const stmt = this.db.prepare('SELECT * FROM vehicle_types ORDER BY name');
-    return stmt.all();
+  async getAllVehicleTypes(): Promise<VehicleType[]> {
+    const result = await db.query('SELECT * FROM vehicle_types ORDER BY name');
+    return result.rows;
   }
 
-  getVehicleTypeById(id: string): VehicleType | null {
-    const stmt = this.db.prepare('SELECT * FROM vehicle_types WHERE id = ?');
-    const vehicleType = stmt.get(id);
-    return vehicleType || null;
+  async getVehicleTypeById(id: string): Promise<VehicleType | null> {
+    const result = await db.query('SELECT * FROM vehicle_types WHERE id = $1', [id]);
+    return result.rows[0] || null;
   }
 
-  createVehicleType(vehicleType: InsertVehicleType): VehicleType {
+  async createVehicleType(vehicleType: InsertVehicleType): Promise<VehicleType> {
     const now = new Date().toISOString();
 
-    const stmt = this.db.prepare(`
+    await db.query(`
       INSERT INTO vehicle_types (
         id, name, fuel_efficiency, description, icon, fuel_type, co2_emissions, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `, [
       vehicleType.id,
       vehicleType.name,
       vehicleType.fuel_efficiency,
@@ -750,127 +459,87 @@ export class ShipmentQueries {
       vehicleType.co2_emissions || null,
       now,
       now
-    );
+    ]);
 
-    // Also insert into replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        INSERT INTO vehicle_types (
-          id, name, fuel_efficiency, description, icon, fuel_type, co2_emissions, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      replicaStmt.run(
-        vehicleType.id,
-        vehicleType.name,
-        vehicleType.fuel_efficiency,
-        vehicleType.description || null,
-        vehicleType.icon || 'car',
-        vehicleType.fuel_type || 'petrol',
-        vehicleType.co2_emissions || null,
-        now,
-        now
-      );
+    const created = await this.getVehicleTypeById(vehicleType.id);
+    if (!created) {
+      throw new Error('Failed to fetch created vehicle type');
     }
-
-    return this.getVehicleTypeById(vehicleType.id)!;
+    return created;
   }
 
-  updateVehicleType(id: string, updates: UpdateVehicleType): VehicleType | null {
+  async updateVehicleType(id: string, updates: UpdateVehicleType): Promise<VehicleType | null> {
     const now = new Date().toISOString();
 
-    const updateFields = [];
-    const values = [];
+    const updateFields: string[] = [];
+    const values: any[] = [];
 
     if (updates.name !== undefined) {
-      updateFields.push('name = ?');
+      updateFields.push(`name = $${values.length + 1}`);
       values.push(updates.name);
     }
     if (updates.fuel_efficiency !== undefined) {
-      updateFields.push('fuel_efficiency = ?');
+      updateFields.push(`fuel_efficiency = $${values.length + 1}`);
       values.push(updates.fuel_efficiency);
     }
     if (updates.description !== undefined) {
-      updateFields.push('description = ?');
+      updateFields.push(`description = $${values.length + 1}`);
       values.push(updates.description);
     }
     if (updates.icon !== undefined) {
-      updateFields.push('icon = ?');
+      updateFields.push(`icon = $${values.length + 1}`);
       values.push(updates.icon);
     }
     if (updates.fuel_type !== undefined) {
-      updateFields.push('fuel_type = ?');
+      updateFields.push(`fuel_type = $${values.length + 1}`);
       values.push(updates.fuel_type);
     }
     if (updates.co2_emissions !== undefined) {
-      updateFields.push('co2_emissions = ?');
+      updateFields.push(`co2_emissions = $${values.length + 1}`);
       values.push(updates.co2_emissions);
     }
 
     if (updateFields.length === 0) {
-      return this.getVehicleTypeById(id);
+      return await this.getVehicleTypeById(id);
     }
 
-    updateFields.push('updated_at = ?');
+    updateFields.push(`updated_at = $${values.length + 1}`);
     values.push(now);
     values.push(id);
 
-    const stmt = this.db.prepare(`
+    await db.query(`
       UPDATE vehicle_types
       SET ${updateFields.join(', ')}
-      WHERE id = ?
-    `);
+      WHERE id = $${values.length}
+    `, values);
 
-    stmt.run(...values);
-
-    // Also update replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        UPDATE vehicle_types
-        SET ${updateFields.join(', ')}
-        WHERE id = ?
-      `);
-      replicaStmt.run(...values);
-    }
-
-    return this.getVehicleTypeById(id);
+    return await this.getVehicleTypeById(id);
   }
 
-  deleteVehicleType(id: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM vehicle_types WHERE id = ?');
-    const result = stmt.run(id);
-
-    // Also delete from replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare('DELETE FROM vehicle_types WHERE id = ?');
-      replicaStmt.run(id);
-    }
-
-    return result.changes > 0;
+  async deleteVehicleType(id: string): Promise<boolean> {
+    const result = await db.query('DELETE FROM vehicle_types WHERE id = $1', [id]);
+    return (result.rowCount || 0) > 0;
   }
 
   // Fuel Settings CRUD operations
-  getAllFuelSettings(): FuelSetting[] {
-    const stmt = this.db.prepare('SELECT * FROM fuel_settings ORDER BY effective_date DESC, fuel_type');
-    return stmt.all();
+  async getAllFuelSettings(): Promise<FuelSetting[]> {
+    const result = await db.query('SELECT * FROM fuel_settings ORDER BY effective_date DESC, fuel_type');
+    return result.rows as FuelSetting[];
   }
 
-  getFuelSettingById(id: string): FuelSetting | null {
-    const stmt = this.db.prepare('SELECT * FROM fuel_settings WHERE id = ?');
-    const fuelSetting = stmt.get(id);
-    return fuelSetting || null;
+  async getFuelSettingById(id: string): Promise<FuelSetting | null> {
+    const result = await db.query('SELECT * FROM fuel_settings WHERE id = $1', [id]);
+    return (result.rows[0] as FuelSetting) || null;
   }
 
-  createFuelSetting(fuelSetting: InsertFuelSetting): FuelSetting {
+  async createFuelSetting(fuelSetting: InsertFuelSetting): Promise<FuelSetting> {
     const now = new Date().toISOString();
 
-    const stmt = this.db.prepare(`
+    await db.query(`
       INSERT INTO fuel_settings (
         id, fuel_type, price_per_liter, currency, region, effective_date, is_active, created_by, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `, [
       fuelSetting.id,
       fuelSetting.fuel_type,
       fuelSetting.price_per_liter,
@@ -881,109 +550,71 @@ export class ShipmentQueries {
       fuelSetting.created_by || null,
       now,
       now
-    );
+    ]);
 
-    // Also insert into replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        INSERT INTO fuel_settings (
-          id, fuel_type, price_per_liter, currency, region, effective_date, is_active, created_by, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      replicaStmt.run(
-        fuelSetting.id,
-        fuelSetting.fuel_type,
-        fuelSetting.price_per_liter,
-        fuelSetting.currency || 'USD',
-        fuelSetting.region || null,
-        fuelSetting.effective_date,
-        fuelSetting.is_active !== undefined ? fuelSetting.is_active : true,
-        fuelSetting.created_by || null,
-        now,
-        now
-      );
+    const createdFuel = await this.getFuelSettingById(fuelSetting.id!);
+    if (!createdFuel) {
+      throw new Error('Failed to fetch created fuel setting');
     }
-
-    return this.getFuelSettingById(fuelSetting.id!)!;
+    return createdFuel;
   }
 
-  updateFuelSetting(id: string, updates: UpdateFuelSetting): FuelSetting | null {
+  async updateFuelSetting(id: string, updates: UpdateFuelSetting): Promise<FuelSetting | null> {
     const now = new Date().toISOString();
 
-    const updateFields = [];
-    const values = [];
+    const updateFields: string[] = [];
+    const values: any[] = [];
 
     if (updates.fuel_type !== undefined) {
-      updateFields.push('fuel_type = ?');
+      updateFields.push(`fuel_type = $${values.length + 1}`);
       values.push(updates.fuel_type);
     }
 
     if (updates.price_per_liter !== undefined) {
-      updateFields.push('price_per_liter = ?');
+      updateFields.push(`price_per_liter = $${values.length + 1}`);
       values.push(updates.price_per_liter);
     }
 
     if (updates.currency !== undefined) {
-      updateFields.push('currency = ?');
+      updateFields.push(`currency = $${values.length + 1}`);
       values.push(updates.currency);
     }
 
     if (updates.region !== undefined) {
-      updateFields.push('region = ?');
+      updateFields.push(`region = $${values.length + 1}`);
       values.push(updates.region);
     }
 
     if (updates.effective_date !== undefined) {
-      updateFields.push('effective_date = ?');
+      updateFields.push(`effective_date = $${values.length + 1}`);
       values.push(updates.effective_date);
     }
 
     if (updates.is_active !== undefined) {
-      updateFields.push('is_active = ?');
+      updateFields.push(`is_active = $${values.length + 1}`);
       values.push(updates.is_active);
     }
 
     if (updateFields.length === 0) {
-      return this.getFuelSettingById(id);
+      return await this.getFuelSettingById(id);
     }
 
-    updateFields.push('updated_at = ?');
+    updateFields.push(`updated_at = $${values.length + 1}`);
     values.push(now);
     values.push(id);
 
-    const stmt = this.db.prepare(`
+    await db.query(`
       UPDATE fuel_settings
       SET ${updateFields.join(', ')}
-      WHERE id = ?
-    `);
+      WHERE id = $${values.length}
+    `, values);
 
-    stmt.run(...values);
-
-    // Also update replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        UPDATE fuel_settings
-        SET ${updateFields.join(', ')}
-        WHERE id = ?
-      `);
-      replicaStmt.run(...values);
-    }
-
-    return this.getFuelSettingById(id);
+    return await this.getFuelSettingById(id);
   }
 
-  deleteFuelSetting(id: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM fuel_settings WHERE id = ?');
-    const result = stmt.run(id);
-
-    // Also delete from replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare('DELETE FROM fuel_settings WHERE id = ?');
-      replicaStmt.run(id);
-    }
-
-    return result.changes > 0;
+  async deleteFuelSetting(id: string): Promise<boolean> {
+    const result = await db.query('DELETE FROM fuel_settings WHERE id = $1', [id]);
+    return (result.rowCount || 0) > 0;
   }
 
 }

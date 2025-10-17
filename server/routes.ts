@@ -3,8 +3,7 @@ import { createServer, type Server } from "http";
 import express from "express";
 import bcrypt from "bcrypt";
 import { storage } from "./storage.js";
-import Database from 'better-sqlite3';
-import path from 'path';
+import { db } from "./db/pg-connection.js";
 import { authenticate, AuthenticatedRequest } from "./middleware/auth.js";
 import {
   insertShipmentSchema,
@@ -22,14 +21,44 @@ import {
 } from "@shared/schema";
 import { upload, getFileUrl, saveBase64File } from "./utils/fileUpload.js";
 import { externalSync } from "./services/externalSync.js";
+import { riderService } from "./services/RiderService.js";
+import { routeService } from "./services/RouteService.js";
 import { fieldMappingService } from "./services/FieldMappingService.js";
 import { payloadValidationService } from "./services/PayloadValidationService.js";
-import { webhookAuth, webhookSecurity, webhookLogger, webhookRateLimit, webhookPayloadLimit } from "./middleware/webhookAuth.js";
+import { webhookAuth, webhookSecurity, webhookRateLimit, webhookPayloadLimit, webhookLogger } from "./middleware/webhookAuth.js";
+import path from 'path';
 
+// Helper function to convert export data to CSV format
+function convertToCSV(exportData: any): string {
+  const { tokens, analytics } = exportData;
 
-// Create userdata database connection for authentication
-const userDataDbPath = path.join(process.cwd(), 'data', 'userdata.db');
-const userDataDb = new Database(userDataDbPath);
+  let csv = 'Token Analytics Export\n\n';
+
+  // Add summary statistics
+  csv += 'Summary Statistics\n';
+  csv += 'Metric,Value\n';
+  csv += `Total Tokens,${analytics.totalTokens}\n`;
+  csv += `Active Tokens,${analytics.activeTokens}\n`;
+  csv += `Total Requests,${analytics.totalRequests}\n`;
+  csv += `Requests Today,${analytics.requestsToday}\n`;
+  csv += `Requests This Week,${analytics.requestsThisWeek}\n`;
+  csv += `Requests This Month,${analytics.requestsThisMonth}\n\n`;
+
+  // Add token information
+  csv += 'Token Information\n';
+  csv += 'ID,Name,Description,Permissions,Status,Created At,Request Count\n';
+  tokens.forEach((token: any) => {
+    csv += `${token.id},"${token.name}","${token.description || ''}",${token.permissions},${token.status},${token.createdAt},${token.requestCount}\n`;
+  });
+
+  csv += '\nTop Endpoints\n';
+  csv += 'Endpoint,Request Count\n';
+  analytics.topEndpoints.forEach((endpoint: any) => {
+    csv += `"${endpoint.endpoint}",${endpoint.count}\n`;
+  });
+
+  return csv;
+}
 
 // Helper function to check if user has required permission level
 // Simplified permission check (can be expanded if needed)
@@ -121,11 +150,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user already exists
-      const existingUser = userDataDb
-        .prepare('SELECT id FROM rider_accounts WHERE rider_id = ?')
-        .get(riderId);
+      const existingUser = await db.query(
+        'SELECT id FROM rider_accounts WHERE rider_id = $1',
+        [riderId]
+      );
 
-      if (existingUser) {
+      if (existingUser.rows.length > 0) {
         return res.status(409).json({
           success: false,
           message: 'Rider ID already exists'
@@ -139,12 +169,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create user account (pending approval)
       const userId = 'rider_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
 
-      userDataDb.prepare(`
+      await db.query(`
         INSERT INTO rider_accounts (
           id, rider_id, full_name, password_hash, 
           is_active, is_approved, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, 1, 0, datetime('now'), datetime('now'))
-      `).run(userId, riderId, fullName, passwordHash);
+        ) VALUES ($1, $2, $3, $4, true, false, NOW(), NOW())
+      `, [userId, riderId, fullName, passwordHash]);
 
       res.json({
         success: true,
@@ -173,13 +203,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Find user
-      const user = userDataDb
-        .prepare(`
-          SELECT id, rider_id, full_name, password_hash, is_active, is_approved, role
-          FROM rider_accounts 
-          WHERE rider_id = ? AND is_active = 1
-        `)
-        .get(riderId) as any;
+      const userResult = await db.query(`
+        SELECT id, rider_id, full_name, password_hash, is_active, is_approved, role
+        FROM rider_accounts 
+        WHERE rider_id = $1 AND is_active = true
+      `, [riderId]);
+      const user = userResult.rows[0] as any;
 
       if (!user) {
         console.log('User not found for riderId:', riderId);
@@ -213,13 +242,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const refreshToken = 'refresh_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
 
       // Update last login
-      userDataDb.prepare(`
+      await db.query(`
         UPDATE rider_accounts 
-        SET last_login_at = datetime('now'), updated_at = datetime('now')
-        WHERE id = ?
-      `).run(user.id);
-
-      // For local auth, we store the token directly in rider_accounts table
+        SET last_login_at = NOW(), updated_at = NOW()
+        WHERE id = $1
+      `, [user.id]);
 
       res.json({
         success: true,
@@ -241,14 +268,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get pending approvals (for admin)
   app.get('/api/auth/pending-approvals', async (req, res) => {
     try {
-      const pendingUsers = userDataDb
-        .prepare(`
-          SELECT id, rider_id, full_name, created_at
-          FROM rider_accounts 
-          WHERE is_approved = 0 AND is_active = 1
-          ORDER BY created_at DESC
-        `)
-        .all();
+      const pendingUsersResult = await db.query(`
+        SELECT id, rider_id, full_name, created_at
+        FROM rider_accounts 
+        WHERE is_approved = false AND is_active = true
+        ORDER BY created_at DESC
+      `);
+      const pendingUsers = pendingUsersResult.rows;
 
       res.json({
         success: true,
@@ -257,7 +283,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Get pending approvals error:', error);
       res.status(500).json({
-        success: false,
+          success: false,
         message: 'Failed to fetch pending approvals'
       });
     }
@@ -268,15 +294,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userId } = req.params;
 
-      const result = userDataDb
-        .prepare(`
-          UPDATE rider_accounts 
-          SET is_approved = 1, updated_at = datetime('now')
-          WHERE id = ? AND is_active = 1
-        `)
-        .run(userId);
+      const result = await db.query(`
+        UPDATE rider_accounts 
+        SET is_approved = true, updated_at = NOW()
+        WHERE id = $1 AND is_active = true
+      `, [userId]);
 
-      if (result.changes === 0) {
+      if (result.rowCount === 0) {
         return res.status(404).json({
           success: false,
           message: 'User not found'
@@ -301,15 +325,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userId } = req.params;
 
-      const result = userDataDb
-        .prepare(`
-          UPDATE rider_accounts 
-          SET is_active = 0, is_approved = 0, updated_at = datetime('now')
-          WHERE id = ?
-        `)
-        .run(userId);
+      const result = await db.query(`
+        UPDATE rider_accounts 
+        SET is_active = false, is_approved = false, updated_at = NOW()
+        WHERE id = $1
+      `, [userId]);
 
-      if (result.changes === 0) {
+      if (result.rowCount === 0) {
         return res.status(404).json({
           success: false,
           message: 'User not found'
@@ -346,15 +368,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const saltRounds = 12;
       const passwordHash = await bcrypt.hash(newPassword, saltRounds);
 
-      const result = userDataDb
-        .prepare(`
-          UPDATE rider_accounts 
-          SET password_hash = ?, updated_at = datetime('now')
-          WHERE id = ? AND is_active = 1
-        `)
-        .run(passwordHash, userId);
+      const result = await db.query(`
+        UPDATE rider_accounts 
+        SET password_hash = $1, updated_at = NOW()
+        WHERE id = $2 AND is_active = true
+      `, [passwordHash, userId]);
 
-      if (result.changes === 0) {
+      if (result.rowCount === 0) {
         return res.status(404).json({
           success: false,
           message: 'User not found'
@@ -528,16 +548,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get shipments with optional filters, pagination, and sorting
-  app.get('/api/shipments/fetch', authenticate, async (req: AuthenticatedRequest, res) => {
+  // Route sessions list and analytics (DB-backed)
+  app.get('/api/routes/sessions', async (req, res) => {
     try {
-      // User is already authenticated by the middleware
-      if (!req.user || !req.user.employeeId) {
-        return res.status(401).json({ message: 'Invalid user data' });
-      }
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 50;
+      const sessions = await routeService.listRecentSessions(limit);
+      res.json({ success: true, data: sessions });
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  });
 
-      const employeeId = req.user.employeeId;
-      const userRole = req.user.role;
+  app.get('/api/routes/analytics/summary', async (_req, res) => {
+    try {
+      const summary = await routeService.getAnalyticsSummary();
+      res.json({ success: true, data: summary });
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
+  // ---------------- Riders (lightweight auth) ----------------
+  // List active riders (for dropdown)
+  app.get('/api/riders', async (_req, res) => {
+    try {
+      const riders = await riderService.listRiders();
+      res.json({ success: true, data: riders });
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
+  // Check if a specific rider ID exists and is registered
+  app.post('/api/riders/unregistered', async (req, res) => {
+    try {
+      const { riderId } = req.body;
+      if (!riderId) {
+        return res.status(400).json({ success: false, message: 'riderId is required' });
+      }
+      
+      // Check if rider exists in our database
+      const result = await db.query('SELECT id FROM rider_accounts WHERE rider_id = $1', [riderId]);
+      res.json({
+        success: true,
+        exists: result.rows.length > 0,
+        isRegistered: result.rows.length > 0
+      });
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
+  // Register new rider (from selected rider_id)
+  app.post('/api/riders/register', async (req, res) => {
+    try {
+      const { riderId, password } = req.body;
+      if (!riderId || !password) {
+        return res.status(400).json({ success: false, message: 'riderId and password are required' });
+      }
+      
+      // For now, we'll use a default name. In production, you might want to fetch from PIA backend
+      const fullName = `Rider ${riderId}`;
+      const rider = await riderService.registerRider(riderId, fullName, password);
+      res.status(201).json({ success: true, data: rider });
+    } catch (e: any) {
+      res.status(400).json({ success: false, message: e.message });
+    }
+  });
+
+  // Check if a rider exists by riderId
+  app.post('/api/riders/check-exists', async (req, res) => {
+    try {
+      const { riderId } = req.body || {};
+      if (!riderId) {
+        return res.status(400).json({ success: false, message: 'riderId is required' });
+      }
+      const result = await db.query('SELECT rider_id, name, is_active FROM riders WHERE rider_id = $1', [riderId]);
+      const exists = result.rows.length > 0;
+      return res.json({ success: true, exists, rider: exists ? result.rows[0] : null });
+    } catch (e: any) {
+      return res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
+  // Rider login
+  app.post('/api/riders/login', async (req, res) => {
+    try {
+      const { riderId, password } = req.body;
+      if (!riderId || !password) {
+        return res.status(400).json({ success: false, message: 'riderId and password are required' });
+      }
+      const rider = await riderService.login(riderId, password);
+      if (!rider) return res.status(401).json({ success: false, message: 'Invalid credentials' });
+      
+      // Generate a simple token for the session
+      const token = Buffer.from(`${riderId}:${Date.now()}`).toString('base64');
+
+      res.json({
+        success: true,
+        name: rider.full_name,
+        riderId: rider.rider_id,
+        token: token,
+        isApproved: rider.is_approved
+      });
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
+  // Get shipments with optional filters, pagination, and sorting
+  app.get('/api/shipments', async (req, res) => {
+    try {
+      // Accept either: API token auth, rider session, or JWT without external verify
+      // Prefer API token auth when present
+      const apiTokenAuth = (req as any).isApiTokenAuth && (req as any).apiToken;
+      let employeeId = (req.headers['x-employee-id'] as string | undefined) || undefined;
+      let userRole = (req.headers['x-user-role'] as string | undefined) || 'driver';
+      
+      // Check for rider session in Authorization header
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        try {
+          const decoded = Buffer.from(token, 'base64').toString('utf-8');
+          const [riderId] = decoded.split(':');
+          if (riderId) {
+            employeeId = riderId;
+            userRole = 'driver';
+          }
+        } catch (e) {
+          // Invalid token, continue with other auth methods
+        }
+      }
+      
+      if (apiTokenAuth) {
+        userRole = 'admin';
+      }
+      if (!employeeId && userRole === 'driver') {
+        // fall back to a safe default only for non-restrictive queries
+        employeeId = 'driver';
+      }
 
       // Convert query parameters to filters
       const filters: ShipmentFilters = {};
@@ -597,12 +747,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Apply role-based filtering according to requirements:
-      // - isSuperUser: can see all shipments
-      // - isOpsTeam: can see all shipments
-      // - isStaff (mapped to isRider): can see all shipments
-      // - Default driver: can only see their own shipments
-      if (!req.user?.isSuperUser && !req.user?.isOpsTeam && !req.user?.isStaff) {
-        // Only regular drivers see filtered results
+      // - admin, super_admin: can see all shipments
+      // - driver: can only see their own shipments  
+      // - everyone else (ops_team): can see all shipments
+      if (userRole === 'driver') {
+        // Only drivers/delivery personnel see filtered results
         filters.employeeId = employeeId;
       }
       // For isSuperUser, isOpsTeam, and isStaff: no filtering (see all shipments)
@@ -631,6 +780,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error fetching shipments:', error);
       res.status(500).json({ message: error.message || 'Failed to fetch shipments' });
+    }
+  });
+
+  // Distinct route names for filters
+  app.get('/api/routes/names', async (_req, res) => {
+    try {
+      const db = (storage as any).getDatabase();
+      const result = await db.query('SELECT DISTINCT "routeName" as name FROM shipments WHERE "routeName" IS NOT NULL ORDER BY name');
+      res.json({ success: true, data: result.rows.map((r: any) => r.name) });
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
     }
   });
 
@@ -888,13 +1048,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { shipmentId, status } = req.query;
 
-      let query = 'SELECT id, shipment_id, synced_to_external, last_sync_attempt, sync_error FROM shipments';
+      let query = 'SELECT id, NULL as shipment_id, NULL as synced_to_external, NULL as last_sync_attempt, NULL as sync_error FROM shipments';
       const conditions = [];
       const params = [];
 
       if (shipmentId) {
-        conditions.push('id = ?');
-        params.push(shipmentId);
+        conditions.push('id = $1');
+        params.push(shipmentId as string);
       }
 
       if (status === 'pending') {
@@ -1469,18 +1629,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   // Sync status endpoints
-  app.get('/api/sync/stats', async (req, res) => {
+  app.get('/api/sync/stats', async (_req, res) => {
     try {
-      // Mock sync stats for now - would be implemented with actual sync tracking
-      const stats = {
-        totalPending: 2,
-        totalSent: 5,
-        totalFailed: 1,
-        lastSyncTime: new Date().toISOString(),
-      };
-      res.json(stats);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      // Compute from shipments table when available
+      const countsSql = `
+        SELECT
+          SUM(CASE WHEN synced_to_external = FALSE THEN 1 ELSE 0 END) AS total_pending,
+          SUM(CASE WHEN synced_to_external = TRUE THEN 1 ELSE 0 END) AS total_sent,
+          SUM(CASE WHEN sync_error IS NOT NULL AND sync_error <> '' THEN 1 ELSE 0 END) AS total_failed,
+          MAX(last_sync_attempt) AS last_sync_time
+        FROM shipments
+      `;
+      const result = await db.query(countsSql);
+      const row = result.rows[0] || { total_pending: 0, total_sent: 0, total_failed: 0, last_sync_time: null };
+      res.json({
+        totalPending: Number(row.total_pending || 0),
+        totalSent: Number(row.total_sent || 0),
+        totalFailed: Number(row.total_failed || 0),
+        lastSyncTime: row.last_sync_time || null,
+      });
+    } catch (_error: any) {
+      // If table missing or any SQL error, return safe zeros to avoid fake data
+      res.json({ totalPending: 0, totalSent: 0, totalFailed: 0, lastSyncTime: null });
     }
   });
 
@@ -1594,8 +1764,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { shipmentId, additionalData } = req.body;
 
         if (!shipmentId) {
-          return res.status(400).json({
-            success: false,
+        return res.status(400).json({
+          success: false,
             message: 'Shipment ID is required',
             code: 'MISSING_SHIPMENT_ID'
           });
@@ -1644,7 +1814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (deliveryResult.success) {
           res.json({
-            success: true,
+        success: true,
             message: 'Shipment update sent successfully',
             data: {
               shipmentId: shipment.shipment_id,
@@ -1670,16 +1840,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           });
         }
-      } catch (error: any) {
+    } catch (error: any) {
         console.error('Error sending external update:', error);
         res.status(500).json({
-          success: false,
+        success: false,
           message: 'Internal server error while sending update',
           code: 'INTERNAL_ERROR',
           error: error.message
-        });
-      }
-    });
+      });
+    }
+  });
 
   // Send batch shipment updates to external system
   app.post('/api/shipments/update/external/batch',
@@ -1691,8 +1861,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { shipmentIds, updates, metadata } = req.body;
 
         if (!shipmentIds && !updates) {
-          return res.status(400).json({
-            success: false,
+        return res.status(400).json({
+          success: false,
             message: 'Either shipmentIds array or updates array is required',
             code: 'MISSING_BATCH_DATA'
           });
@@ -1765,8 +1935,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Send batch updates to external system
         const batchResult = await externalSync.sendBatchUpdatesToExternal(updatePayloads);
 
-        res.json({
-          success: true,
+      res.json({
+        success: true,
           message: `Batch update completed: ${batchResult.success} successful, ${batchResult.failed} failed`,
           data: {
             total: updatePayloads.length,
@@ -1779,133 +1949,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
               batchId: metadata?.batchId || `batch_${Date.now()}`
             }
           }
-        });
-      } catch (error: any) {
+      });
+    } catch (error: any) {
         console.error('Error processing batch external update:', error);
         res.status(500).json({
-          success: false,
+        success: false,
           message: 'Internal server error while processing batch update',
           code: 'BATCH_PROCESSING_ERROR',
           error: error.message
-        });
-      }
-    });
+      });
+    }
+  });
 
   // Route Tracking Endpoints
 
-  // Start a new route session
+  // Start a new route session (DB-backed)
   app.post('/api/routes/start', async (req, res) => {
     try {
-      const { employeeId, startLatitude, startLongitude, shipmentId } = req.body;
-
-      if (!employeeId || !startLatitude || !startLongitude) {
-        return res.status(400).json({
-          success: false,
-          message: 'employeeId, startLatitude, and startLongitude are required'
-        });
+      const { employeeId, startLatitude, startLongitude } = req.body;
+      if (!employeeId || startLatitude == null || startLongitude == null) {
+        return res.status(400).json({ success: false, message: 'employeeId, startLatitude, startLongitude required' });
       }
-
       const sessionId = 'session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-      const session = {
-        id: sessionId,
-        employeeId,
-        shipmentId: shipmentId || null,
-        status: 'active',
-        startTime: new Date().toISOString(),
-        startLatitude,
-        startLongitude,
-        endTime: null,
-        endLatitude: null,
-        endLongitude: null
-      };
-
-      // Store session (in production, this would use proper database storage)
-      console.log('Route session started:', session);
-
-      res.status(201).json({
-        success: true,
-        session,
-        message: 'Route session started successfully'
-      });
+      const session = await routeService.startSession({ id: sessionId, employeeId, startLatitude: Number(startLatitude), startLongitude: Number(startLongitude) });
+      res.status(201).json({ success: true, session, message: 'Route session started successfully' });
     } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
+      res.status(400).json({ success: false, message: error.message });
     }
   });
 
-  // Stop a route session
+  // Stop a route session (DB-backed)
   app.post('/api/routes/stop', async (req, res) => {
     try {
       const { sessionId, endLatitude, endLongitude } = req.body;
-
-      if (!sessionId || !endLatitude || !endLongitude) {
-        return res.status(400).json({
-          success: false,
-          message: 'sessionId, endLatitude, and endLongitude are required'
-        });
+      if (!sessionId || endLatitude == null || endLongitude == null) {
+        return res.status(400).json({ success: false, message: 'sessionId, endLatitude, endLongitude required' });
       }
-
-      const session = {
-        id: sessionId,
-        status: 'completed',
-        endTime: new Date().toISOString(),
-        endLatitude,
-        endLongitude
-      };
-
-      // Update session (in production, this would use proper database storage)
-      console.log('Route session stopped:', session);
-
-      res.json({
-        success: true,
-        session,
-        message: 'Route session stopped successfully'
-      });
+      const session = await routeService.stopSession({ id: sessionId, endLatitude: Number(endLatitude), endLongitude: Number(endLongitude) });
+      res.json({ success: true, session, message: 'Route session stopped successfully' });
     } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
+      res.status(400).json({ success: false, message: error.message });
     }
   });
 
-  // Submit GPS coordinates
+  // Submit GPS coordinates (DB-backed)
   app.post('/api/routes/coordinates', async (req, res) => {
     try {
-      const { sessionId, latitude, longitude, accuracy, speed, timestamp } = req.body;
-
-      if (!sessionId || !latitude || !longitude) {
-        return res.status(400).json({
-          success: false,
-          message: 'sessionId, latitude, and longitude are required'
-        });
+      const { sessionId, employeeId, latitude, longitude, accuracy, speed, timestamp, eventType, shipmentId } = req.body;
+      if (!sessionId || latitude == null || longitude == null || !employeeId) {
+        return res.status(400).json({ success: false, message: 'sessionId, employeeId, latitude, longitude required' });
       }
-
-      const coordinate = {
-        id: 'coord-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+      const record = await routeService.insertCoordinate({
         sessionId,
-        latitude,
-        longitude,
-        accuracy: accuracy || null,
-        speed: speed || null,
-        timestamp: timestamp || new Date().toISOString()
-      };
-
-      // Store coordinate (in production, this would use proper database storage)
-      console.log('GPS coordinate recorded:', coordinate);
-
-      res.status(201).json({
-        success: true,
-        record: coordinate,
-        message: 'GPS coordinate recorded successfully'
+        employeeId,
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+        accuracy: accuracy != null ? Number(accuracy) : undefined,
+        speed: speed != null ? Number(speed) : undefined,
+        timestamp,
+        eventType,
+        shipmentId
       });
+      res.status(201).json({ success: true, record, message: 'GPS coordinate recorded successfully' });
     } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
+      res.status(400).json({ success: false, message: error.message });
     }
   });
 
@@ -1946,83 +2053,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get session data
+  // Get session data (DB-backed)
   app.get('/api/routes/session/:sessionId', async (req, res) => {
     try {
       const { sessionId } = req.params;
-
-      // Mock session data (in production, this would query the database)
-      const session = {
-        id: sessionId,
-        employeeId: 'mock-employee',
-        status: 'active',
-        startTime: new Date().toISOString(),
-        coordinates: []
-      };
-
-      res.json({
-        success: true,
-        session,
-        message: 'Session data retrieved successfully'
-      });
+      const data = await routeService.getSession(sessionId);
+      res.json({ success: true, data, message: 'Session data retrieved successfully' });
     } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
+      res.status(500).json({ success: false, message: error.message });
     }
   });
 
-  // Batch submit GPS coordinates (for offline sync)
+  // Batch submit GPS coordinates (DB-backed)
   app.post('/api/routes/coordinates/batch', async (req, res) => {
     try {
       const { coordinates } = req.body;
-
       if (!Array.isArray(coordinates)) {
-        return res.status(400).json({
-          success: false,
-          message: 'coordinates must be an array'
-        });
+        return res.status(400).json({ success: false, message: 'coordinates must be an array' });
       }
-
-      const results = [];
-      let successCount = 0;
-      let errorCount = 0;
-
-      for (const coord of coordinates) {
-        try {
-          const coordinate = {
-            id: 'coord-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
-            ...coord,
-            timestamp: coord.timestamp || new Date().toISOString()
-          };
-
-          // Store coordinate (in production, this would use proper database storage)
-          console.log('Batch GPS coordinate recorded:', coordinate);
-
-          results.push({ success: true, record: coordinate });
-          successCount++;
-        } catch (error: any) {
-          results.push({ success: false, error: error.message, coordinate: coord });
-          errorCount++;
-        }
-      }
-
-      res.json({
-        success: true,
-        results,
-        summary: {
-          total: coordinates.length,
-          successful: successCount,
-          failed: errorCount
-        },
-        message: `Batch coordinate submission completed: ${successCount} successful, ${errorCount} failed`
-      });
+      const summary = await routeService.insertCoordinatesBatch(coordinates);
+      res.json({ success: true, summary, message: `Batch coordinate submission completed` });
     } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
+      res.status(400).json({ success: false, message: error.message });
     }
   });
 
@@ -2112,12 +2164,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const users = userDataDb.prepare(`
+      const usersResult = await db.query(`
         SELECT id, rider_id, full_name, is_active, is_approved, role, 
                last_login_at, created_at, updated_at
         FROM rider_accounts 
         ORDER BY created_at DESC
-      `).all();
+      `);
+      const users = usersResult.rows;
 
       res.json({
         success: true,
@@ -2199,10 +2252,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         WHERE id = ?
       `;
 
-      const stmt = storage.getDatabase().prepare(updateQuery);
-      const result = stmt.run(...values);
+      const result = await db.query(updateQuery, values);
 
-      if (result.changes === 0) {
+      if (result.rowCount === 0) {
         return res.status(404).json({
           success: false,
           message: 'User not found',
@@ -2251,15 +2303,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
       // Update the password
-      const stmt = storage.getDatabase().prepare(`
+      const result = await db.query(`
         UPDATE rider_accounts 
-        SET password_hash = ?, updated_at = ? 
-        WHERE id = ?
-      `);
+        SET password_hash = $1, updated_at = $2 
+        WHERE id = $3
+      `, [hashedPassword, new Date().toISOString(), userId]);
 
-      const result = stmt.run(hashedPassword, new Date().toISOString(), userId);
-
-      if (result.changes === 0) {
+      if (result.rowCount === 0) {
         return res.status(404).json({
           success: false,
           message: 'User not found',

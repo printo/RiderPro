@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ShipmentFilters } from "@shared/schema";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ interface FiltersProps {
 
 function Filters({ filters, onFiltersChange, onClear }: FiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [routeOptions, setRouteOptions] = useState<string[]>([]);
 
   const updateFilter = (key: keyof ShipmentFilters, value: string) => {
     onFiltersChange({
@@ -28,6 +29,19 @@ function Filters({ filters, onFiltersChange, onClear }: FiltersProps) {
   };
 
   const hasActiveFilters = filters.status || filters.type || filters.routeName;
+
+  useEffect(() => {
+    const loadRoutes = async () => {
+      try {
+        const resp = await fetch('/api/routes/names');
+        const json = await resp.json();
+        setRouteOptions(Array.isArray(json.data) ? json.data : []);
+      } catch {
+        setRouteOptions([]);
+      }
+    };
+    loadRoutes();
+  }, []);
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
@@ -91,9 +105,9 @@ function Filters({ filters, onFiltersChange, onClear }: FiltersProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Routes</SelectItem>
-              <SelectItem value="Route A">Route A</SelectItem>
-              <SelectItem value="Route B">Route B</SelectItem>
-              <SelectItem value="Route C">Route C</SelectItem>
+              {routeOptions.map(name => (
+                <SelectItem key={name} value={name}>{name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

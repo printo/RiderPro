@@ -84,15 +84,33 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     setIsMenuOpen(false);
   }, [location]);
 
-  // Mock data updates (in real app, this would come from WebSocket or API)
+  // Real-time data updates from WebSocket or API
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Simulate active riders count
-      setActiveRiders(Math.floor(Math.random() * 5) + 1);
+    const fetchRealTimeData = async () => {
+      try {
+        // Fetch active riders count
+        const ridersResponse = await fetch('/api/riders/active-count');
+        const ridersData = await ridersResponse.json();
+        if (ridersData.success) {
+          setActiveRiders(ridersData.count);
+        }
 
-      // Simulate notifications
-      setUnreadNotifications(Math.floor(Math.random() * 3));
-    }, 30000);
+        // Fetch unread notifications
+        const notificationsResponse = await fetch('/api/notifications/unread-count');
+        const notificationsData = await notificationsResponse.json();
+        if (notificationsData.success) {
+          setUnreadNotifications(notificationsData.count);
+        }
+      } catch (error) {
+        console.error('Failed to fetch real-time data:', error);
+      }
+    };
+
+    // Fetch initial data
+    fetchRealTimeData();
+
+    // Set up polling for real-time updates
+    const interval = setInterval(fetchRealTimeData, 30000); // Update every 30 seconds
 
     return () => clearInterval(interval);
   }, []);

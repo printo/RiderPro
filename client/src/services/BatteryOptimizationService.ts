@@ -112,9 +112,9 @@ export class BatteryOptimizationService {
         console.log('Legacy Battery API initialized');
       } else {
         console.warn('Battery API not available');
-        // Use mock battery info
+        // Fallback to default values when Battery API is not available
         this.batteryInfo = {
-          level: 0.8, // Assume 80% battery
+          level: 1.0, // Default to 100% when API unavailable
           charging: false
         };
       }

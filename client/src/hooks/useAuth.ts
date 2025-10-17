@@ -17,6 +17,8 @@ export const useAuth = () => {
     user: authState.user,
     isAuthenticated: authState.isAuthenticated,
     isLoading: authState.isLoading,
+    // Centralized admin flag: super users and ops team are treated as admin
+    isAdmin: Boolean(authState.user?.isSuperUser || authState.user?.isOpsTeam),
     loginWithExternalAPI: authService.loginWithExternalAPI.bind(authService),
     loginWithLocalDB: authService.loginWithLocalDB.bind(authService),
     registerUser: authService.registerUser.bind(authService),

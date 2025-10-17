@@ -571,7 +571,7 @@ function ShipmentDetailModalWithTracking({
             )}
 
             {/* Revert Status for Delivered/Picked Up Shipments - Super Users Only */}
-            {(shipment.status === "Delivered" || shipment.status === "Picked Up") && user?.isSuperUser && (
+            {(shipment.status === "Delivered" || shipment.status === "Picked Up") && (user?.isSuperUser || user?.isOpsTeam) && (
               <div className="space-y-3">
                 <h4 className="font-medium text-center text-orange-600 dark:text-orange-400">Status Management</h4>
                 <div className="flex justify-center">

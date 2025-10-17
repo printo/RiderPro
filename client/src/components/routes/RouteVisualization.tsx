@@ -23,7 +23,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-// Mock Leaflet types for now - in real implementation would import from leaflet
+// Leaflet types
 interface LatLng {
   lat: number;
   lng: number;
@@ -90,27 +90,15 @@ function RouteVisualization({
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // In a real implementation, this would initialize Leaflet map
-    // For now, we'll create a mock map container
-    const mockMap = {
-      setView: (center: [number, number], zoom: number) => {
-        console.log(`Map centered at ${center} with zoom ${zoom}`);
-      },
-      addLayer: (layer: any) => {
-        console.log('Layer added to map');
-      },
-      removeLayer: (layer: any) => {
-        console.log('Layer removed from map');
-      },
-      fitBounds: (bounds: any) => {
-        console.log('Map bounds fitted');
-      }
-    };
+    // Initialize Leaflet map
+    const map = L.map(mapRef.current).setView([40.7128, -74.0060], 13);
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
 
-    mapInstanceRef.current = mockMap;
-
-    // Initialize with default view
-    mockMap.setView([40.7128, -74.0060], 13); // NYC default
+    mapInstanceRef.current = map;
 
     return () => {
       // Cleanup map
