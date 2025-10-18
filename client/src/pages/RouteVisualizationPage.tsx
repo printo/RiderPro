@@ -82,7 +82,15 @@ function RouteVisualizationPage() {
     const load = async () => {
       try {
         setIsLoading(true);
-        const sessionsResp = await apiRequest('GET', '/api/routes/sessions?limit=100');
+
+        // Add timeout to prevent long waits for blocked requests
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timeout')), 5000)
+        );
+
+        const sessionsPromise = apiRequest('GET', '/api/routes/sessions?limit=100');
+
+        const sessionsResp = await Promise.race([sessionsPromise, timeoutPromise]) as Response;
         const sessionsData = await sessionsResp.json();
         const sessions: RouteSession[] = (sessionsData.data || []).map((s: any) => ({
           id: s.id,
@@ -118,6 +126,14 @@ function RouteVisualizationPage() {
         setLastUpdated(new Date());
       } catch (e) {
         console.error('Failed to load route sessions:', e);
+
+        // Provide fallback data to prevent empty state
+        const fallbackSessions: RouteSession[] = [];
+        const fallbackData: RouteData[] = [];
+
+        setRouteSessions(fallbackSessions);
+        setRouteData(fallbackData);
+        setLastUpdated(new Date());
       } finally {
         setIsLoading(false);
       }
@@ -155,7 +171,15 @@ function RouteVisualizationPage() {
   const handleSessionSelect = async (sessionId: string) => {
     try {
       setSelectedSessionId(sessionId);
-      const resp = await apiRequest('GET', `/api/routes/session/${sessionId}`);
+
+      // Add timeout to prevent long waits for blocked requests
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 5000)
+      );
+
+      const sessionPromise = apiRequest('GET', `/api/routes/session/${sessionId}`);
+
+      const resp = await Promise.race([sessionPromise, timeoutPromise]) as Response;
       const { data } = await resp.json();
       const coords = (data?.coordinates || []) as Array<{ latitude: number; longitude: number; timestamp: string; accuracy?: number; speed?: number; event_type?: string; shipment_id?: string; }>;
 
@@ -174,6 +198,7 @@ function RouteVisualizationPage() {
       } : s));
     } catch (e) {
       console.error('Failed to load session details:', e);
+      // Don't show error to user, just log it and continue with empty data
     }
   };
 
