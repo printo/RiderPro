@@ -101,7 +101,7 @@ function RouteVisualization({
     if (!mapRef.current) return;
 
     // Initialize Leaflet map
-    const map = L.map(mapRef.current).setView([40.7128, -74.0060], 13);
+    const map = L.map(mapRef.current).setView([12.9716, 77.5946], 13);
 
     // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
