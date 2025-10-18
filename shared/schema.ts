@@ -870,10 +870,7 @@ export interface FuelSetting {
   fuel_type: string;
   price_per_liter: number;
   currency: string;
-  region?: string;
-  effective_date: string;
   is_active: boolean;
-  created_by?: string;
   created_at: string;
   updated_at: string;
 }
@@ -883,18 +880,13 @@ export interface InsertFuelSetting {
   fuel_type: string;
   price_per_liter: number;
   currency?: string;
-  region?: string;
-  effective_date: string;
   is_active?: boolean;
-  created_by?: string;
 }
 
 export interface UpdateFuelSetting {
   fuel_type?: string;
   price_per_liter?: number;
   currency?: string;
-  region?: string;
-  effective_date?: string;
   is_active?: boolean;
 }
 

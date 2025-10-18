@@ -523,7 +523,7 @@ export class ShipmentQueries {
 
   // Fuel Settings CRUD operations
   async getAllFuelSettings(): Promise<FuelSetting[]> {
-    const result = await db.query('SELECT * FROM fuel_settings ORDER BY effective_date DESC, fuel_type');
+    const result = await db.query('SELECT * FROM fuel_settings ORDER BY created_at DESC, fuel_type');
     return result.rows as FuelSetting[];
   }
 
@@ -537,17 +537,14 @@ export class ShipmentQueries {
 
     await db.query(`
       INSERT INTO fuel_settings (
-        id, fuel_type, price_per_liter, currency, region, effective_date, is_active, created_by, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        id, fuel_type, price_per_liter, currency, is_active, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
     `, [
       fuelSetting.id,
       fuelSetting.fuel_type,
       fuelSetting.price_per_liter,
       fuelSetting.currency || 'USD',
-      fuelSetting.region || null,
-      fuelSetting.effective_date,
       fuelSetting.is_active !== undefined ? fuelSetting.is_active : true,
-      fuelSetting.created_by || null,
       now,
       now
     ]);
@@ -580,15 +577,6 @@ export class ShipmentQueries {
       values.push(updates.currency);
     }
 
-    if (updates.region !== undefined) {
-      updateFields.push(`region = $${values.length + 1}`);
-      values.push(updates.region);
-    }
-
-    if (updates.effective_date !== undefined) {
-      updateFields.push(`effective_date = $${values.length + 1}`);
-      values.push(updates.effective_date);
-    }
 
     if (updates.is_active !== undefined) {
       updateFields.push(`is_active = $${values.length + 1}`);
