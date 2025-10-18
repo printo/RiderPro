@@ -180,7 +180,6 @@ function VehicleTypeForm({ vehicle, onSave, onCancel }: VehicleTypeFormProps) {
 }
 
 function AdminPage() {
-  const { user } = useAuth();
   const [, setLocation] = useLocation();
   const [payloadInput, setPayloadInput] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -214,9 +213,10 @@ function AdminPage() {
   }>>([]);
   const { toast } = useToast();
 
-  const { isAdmin } = useAuth();
-  const canAccessAdmin = !!isAdmin;
-  const canEdit = !!isAdmin;
+  const { user } = useAuth();
+  const isSuperUser = Boolean(user?.isSuperUser);
+  const canAccessAdmin = isSuperUser;
+  const canEdit = isSuperUser;
 
   // Load pending users and access tokens
   useEffect(() => {

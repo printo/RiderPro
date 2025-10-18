@@ -27,6 +27,9 @@ function FloatingActionMenu() {
   const { theme, toggleTheme } = useTheme();
   const { user, isAdmin, logout } = useAuth();
 
+  // Check if user is a super user specifically
+  const isSuperUser = Boolean(user?.isSuperUser);
+
   const menuItems = [
     {
       href: "/",
@@ -54,24 +57,18 @@ function FloatingActionMenu() {
     }
   ];
 
-  // Admin menu items - show only for super users and ops team (treat ops as admin)
-  const adminMenuItems = isAdmin ? [
+  // Admin menu items - show only for super users
+  const adminMenuItems = isSuperUser ? [
     {
       href: "/admin",
       icon: Shield,
       label: "Admin Panel",
       testId: "menu-admin"
-    },
-    {
-      href: "/settings",
-      icon: Settings,
-      label: "Settings",
-      testId: "menu-settings"
     }
   ] : [];
 
-  // Settings menu item - available to all users (if not admin, still show Settings)
-  const settingsMenuItem = isAdmin ? undefined : {
+  // Settings menu item - available to all users
+  const settingsMenuItem = {
     href: "/settings",
     icon: Settings,
     label: "Settings",
@@ -152,7 +149,7 @@ function FloatingActionMenu() {
                   Navigation
                 </h4>
                 <div className="grid grid-cols-2 gap-3">
-                  {[...menuItems, ...adminMenuItems, ...(settingsMenuItem ? [settingsMenuItem] : [])].map((item) => {
+                  {[...menuItems, ...adminMenuItems, settingsMenuItem].map((item) => {
                     const Icon = item.icon;
                     const active = isActive(item.href);
                     return (
