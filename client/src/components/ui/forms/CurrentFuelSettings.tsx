@@ -123,7 +123,7 @@ function CurrentFuelSettings({ className }: CurrentFuelSettingsProps) {
                     {setting.fuel_type}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    ₹{setting.price_per_liter.toFixed(2)} per liter
+                    ₹{Number(setting.price_per_liter).toFixed(2)} per liter
                   </p>
                 </div>
               </div>
