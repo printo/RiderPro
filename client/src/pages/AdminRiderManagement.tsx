@@ -21,6 +21,7 @@ interface Rider {
 }
 
 const AdminRiderManagement = () => {
+  const { user } = useAuth();
   const [riders, setRiders] = useState<Rider[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -49,7 +50,7 @@ const AdminRiderManagement = () => {
         setIsLoading(true);
         const response = await apiRequest('GET', '/api/users');
         const data = await response.json();
-        
+
         if (data.success && data.users) {
           setRiders(data.users);
         } else {
@@ -71,7 +72,7 @@ const AdminRiderManagement = () => {
       try {
         const response = await apiRequest('POST', `/api/users/${riderId}/reset-password`);
         const data = await response.json();
-        
+
         if (data.success) {
           alert('Password reset successful');
         } else {
@@ -90,7 +91,7 @@ const AdminRiderManagement = () => {
         is_active: !currentStatus
       });
       const data = await response.json();
-      
+
       if (data.success) {
         setRiders(prevRiders =>
           prevRiders.map(rider =>
@@ -117,7 +118,7 @@ const AdminRiderManagement = () => {
         is_super_user: !currentStatus
       });
       const data = await response.json();
-      
+
       if (data.success) {
         setRiders(prevRiders =>
           prevRiders.map(rider =>
@@ -165,9 +166,8 @@ const AdminRiderManagement = () => {
       label: 'Status',
       render: (value) => (
         <span
-          className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-            value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}
+          className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}
         >
           {value ? 'Active' : 'Inactive'}
         </span>
@@ -178,9 +178,8 @@ const AdminRiderManagement = () => {
       label: 'Role',
       render: (value) => (
         <span
-          className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${
-            value ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-          }`}
+          className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${value ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+            }`}
         >
           {value ? 'Super User' : 'Rider'}
         </span>
@@ -205,22 +204,20 @@ const AdminRiderManagement = () => {
           </button>
           <button
             onClick={() => toggleUserStatus(rider.id, rider.is_active)}
-            className={`ml-4 text-xs ${
-              rider.is_active
+            className={`ml-4 text-xs ${rider.is_active
                 ? 'text-yellow-600 hover:text-yellow-900'
                 : 'text-green-600 hover:text-green-900'
-            }`}
+              }`}
           >
             {rider.is_active ? 'Deactivate' : 'Activate'}
           </button>
           {currentUserRole === 'super_user' && (
             <button
               onClick={() => toggleSuperUserStatus(rider.id, rider.is_super_user)}
-              className={`ml-4 text-xs ${
-                rider.is_super_user
+              className={`ml-4 text-xs ${rider.is_super_user
                   ? 'text-red-600 hover:text-red-900'
                   : 'text-green-600 hover:text-green-900'
-              }`}
+                }`}
             >
               {rider.is_super_user ? 'Remove Admin' : 'Make Admin'}
             </button>

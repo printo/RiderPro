@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Package, Eye, EyeOff, Loader2, User, Truck, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
 type LoginMode = 'admin' | 'rider';
 
@@ -67,33 +66,33 @@ function Login() {
       if (response.ok) {
         const data = await response.json();
         if (data.exists) {
-          setRiderValidation({ 
-            isValid: true, 
-            message: 'Rider ID found. You can proceed with login.', 
-            isChecking: false 
+          setRiderValidation({
+            isValid: true,
+            message: 'Rider ID found. You can proceed with login.',
+            isChecking: false
           });
           setIsNewRider(false);
         } else {
-          setRiderValidation({ 
-            isValid: true, 
-            message: 'New rider detected. Please set a password to register.', 
-            isChecking: false 
+          setRiderValidation({
+            isValid: true,
+            message: 'New rider detected. Please set a password to register.',
+            isChecking: false
           });
           setIsNewRider(true);
         }
       } else {
-        setRiderValidation({ 
-          isValid: false, 
-          message: 'Rider ID not found in system.', 
-          isChecking: false 
+        setRiderValidation({
+          isValid: false,
+          message: 'Rider ID not found in system.',
+          isChecking: false
         });
         setIsNewRider(false);
       }
     } catch (error) {
-      setRiderValidation({ 
-        isValid: false, 
-        message: 'Error validating rider ID. Please try again.', 
-        isChecking: false 
+      setRiderValidation({
+        isValid: false,
+        message: 'Error validating rider ID. Please try again.',
+        isChecking: false
       });
       setIsNewRider(false);
     }
@@ -160,7 +159,7 @@ function Login() {
         }
 
         const loginData = await loginResponse.json();
-        
+
         // Check if rider is approved
         if (loginData.isApproved === false) {
           setError('Account pending approval. Please contact administrator.');
@@ -168,7 +167,7 @@ function Login() {
           setIsLoading(false);
           return;
         }
-        
+
         // Store rider session
         localStorage.setItem('riderSession', JSON.stringify({
           riderId: employeeId,
@@ -278,9 +277,8 @@ function Login() {
                 autoComplete="username"
               />
               {loginMode === 'rider' && riderValidation.message && (
-                <div className={`text-xs flex items-center gap-1 ${
-                  riderValidation.isValid ? 'text-green-600' : 'text-red-600'
-                }`}>
+                <div className={`text-xs flex items-center gap-1 ${riderValidation.isValid ? 'text-green-600' : 'text-red-600'
+                  }`}>
                   {riderValidation.isChecking ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
                   ) : (
@@ -319,9 +317,8 @@ function Login() {
                 </button>
               </div>
               {loginMode === 'rider' && isNewRider && password && (
-                <div className={`text-xs ${
-                  validatePassword(password).isValid ? 'text-green-600' : 'text-red-600'
-                }`}>
+                <div className={`text-xs ${validatePassword(password).isValid ? 'text-green-600' : 'text-red-600'
+                  }`}>
                   {validatePassword(password).message}
                 </div>
               )}
@@ -371,9 +368,9 @@ function Login() {
               type="submit"
               className="w-full"
               disabled={
-                isLoading || 
-                !employeeId || 
-                !password || 
+                isLoading ||
+                !employeeId ||
+                !password ||
                 (loginMode === 'rider' && isNewRider && (!confirmPassword || password !== confirmPassword)) ||
                 (loginMode === 'rider' && !riderValidation.isValid && !riderValidation.isChecking)
               }
@@ -408,4 +405,4 @@ function Login() {
   );
 }
 
-export default withPageErrorBoundary(Login, 'Login');
+export default Login;
