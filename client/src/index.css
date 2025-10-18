@@ -101,3 +101,36 @@
     @apply bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200;
   }
 }
+
+/* Leaflet Map Z-Index Fix */
+.leaflet-container {
+  z-index: 1 !important;
+}
+
+.leaflet-control-container {
+  z-index: 1 !important;
+}
+
+.leaflet-popup-pane {
+  z-index: 50 !important;
+}
+
+.leaflet-tooltip-pane {
+  z-index: 50 !important;
+}
+
+.leaflet-map-pane {
+  z-index: 1 !important;
+}
+
+.leaflet-tile-pane {
+  z-index: 1 !important;
+}
+
+.leaflet-overlay-pane {
+  z-index: 1 !important;
+}
+
+.leaflet-marker-pane {
+  z-index: 1 !important;
+}

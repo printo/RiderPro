@@ -16,6 +16,7 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
+
 import {
   Play,
   Pause,
@@ -363,7 +364,8 @@ function RouteVisualization({
         <CardContent className="p-0 h-full">
           <div
             ref={mapRef}
-            className="w-full h-full bg-gray-100 rounded-md flex items-center justify-center"
+            className="w-full h-full bg-gray-100 rounded-md flex items-center justify-center relative"
+            style={{ zIndex: 1 }}
           >
             {selectedSession ? (
               <div className="text-center space-y-2">
