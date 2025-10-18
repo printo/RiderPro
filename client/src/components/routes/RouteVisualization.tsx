@@ -6,6 +6,16 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withChartErrorBoundary } from '@/components/ErrorBoundary';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default markers in Leaflet with Vite
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
 import {
   Play,
   Pause,
@@ -92,7 +102,7 @@ function RouteVisualization({
 
     // Initialize Leaflet map
     const map = L.map(mapRef.current).setView([40.7128, -74.0060], 13);
-    
+
     // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
@@ -102,7 +112,10 @@ function RouteVisualization({
 
     return () => {
       // Cleanup map
-      mapInstanceRef.current = null;
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
     };
   }, []);
 
@@ -604,7 +617,8 @@ function RouteVisualization({
       )}
     </div>
   );
-} export
-  default withChartErrorBoundary(RouteVisualization, {
-    componentName: 'RouteVisualization'
-  });
+}
+
+export default withChartErrorBoundary(RouteVisualization, {
+  componentName: 'RouteVisualization'
+});
