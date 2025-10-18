@@ -71,6 +71,7 @@ function RouteVisualizationPage() {
   const [routeData, setRouteData] = useState<RouteData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [hasError, setHasError] = useState(false);
 
   const mobileOptimization = useMobileOptimization({
     enableGestures: true,
@@ -124,8 +125,10 @@ function RouteVisualizationPage() {
         setRouteSessions(sessions);
         setRouteData(data);
         setLastUpdated(new Date());
+        setHasError(false);
       } catch (e) {
         console.error('Failed to load route sessions:', e);
+        setHasError(true);
 
         // Provide fallback data to prevent empty state
         const fallbackSessions: RouteSession[] = [];
@@ -141,13 +144,58 @@ function RouteVisualizationPage() {
     load();
   }, []);
 
-  const handleRefreshData = () => {
+  const handleRefreshData = async () => {
     setIsLoading(true);
-    // In real app, this would fetch fresh data from API
-    setTimeout(() => {
+    try {
+      // Add timeout to prevent long waits for blocked requests
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 5000)
+      );
+
+      const sessionsPromise = apiRequest('GET', '/api/routes/sessions?limit=100');
+
+      const sessionsResp = await Promise.race([sessionsPromise, timeoutPromise]) as Response;
+      const sessionsData = await sessionsResp.json();
+      const sessions: RouteSession[] = (sessionsData.data || []).map((s: any) => ({
+        id: s.id,
+        employeeId: s.employee_id,
+        employeeName: s.employee_id,
+        startTime: s.start_time,
+        endTime: s.end_time,
+        status: s.status,
+        totalDistance: Number(s.total_distance || 0),
+        totalTime: Number(s.total_time || 0),
+        averageSpeed: 0,
+        points: [],
+        shipmentsCompleted: 0,
+      }));
+
+      // Derive basic routeData aggregates from sessions
+      const data: RouteData[] = sessions.map(s => ({
+        id: s.id,
+        employeeId: s.employeeId,
+        employeeName: s.employeeName,
+        date: s.startTime?.split('T')[0],
+        distance: s.totalDistance,
+        duration: s.totalTime,
+        shipmentsCompleted: s.shipmentsCompleted,
+        fuelConsumption: 0,
+        averageSpeed: s.totalTime > 0 ? (s.totalDistance / (s.totalTime / 3600)) : 0,
+        efficiency: s.shipmentsCompleted > 0 ? (s.totalDistance / s.shipmentsCompleted) : 0,
+        points: []
+      }));
+
+      setRouteSessions(sessions);
+      setRouteData(data);
       setLastUpdated(new Date());
+      setHasError(false);
+    } catch (e) {
+      console.error('Failed to refresh route sessions:', e);
+      setHasError(true);
+      // Keep existing data on refresh failure
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleExportData = () => {
@@ -246,6 +294,11 @@ function RouteVisualizationPage() {
         <div className={`flex items-center gap-2 ${isMobile ? 'justify-between' : ''}`}>
           <div className="text-sm text-gray-500">
             Last updated: {lastUpdated.toLocaleTimeString()}
+            {hasError && (
+              <span className="ml-2 text-red-500 text-xs">
+                (Connection issues detected)
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <Button
@@ -399,10 +452,25 @@ function RouteVisualizationPage() {
 
       {/* No Data State */}
       {routeSessions.length === 0 && !isLoading && (
-        <Alert>
+        <Alert variant={hasError ? "destructive" : "default"}>
           <MapPin className="h-4 w-4" />
           <AlertDescription>
-            No route data available for visualization. Complete some routes with GPS tracking enabled to see historical data and analysis here.
+            {hasError ? (
+              <>
+                Unable to load route data. This may be due to network connectivity issues or browser extensions blocking requests.
+                <br />
+                <br />
+                <strong>Suggestions:</strong>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Check your internet connection</li>
+                  <li>Disable ad blockers or browser extensions temporarily</li>
+                  <li>Try refreshing the page</li>
+                  <li>Contact support if the issue persists</li>
+                </ul>
+              </>
+            ) : (
+              "No route data available for visualization. Complete some routes with GPS tracking enabled to see historical data and analysis here."
+            )}
           </AlertDescription>
         </Alert>
       )}

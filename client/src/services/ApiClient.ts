@@ -44,8 +44,8 @@ export interface ErrorContext {
 
 export class ApiClient {
   private static instance: ApiClient;
-  private readonly MAX_RETRY_COUNT = 2; // Reduced from 3 to 2
-  private readonly RETRY_DELAY = 500; // Reduced from 1000ms to 500ms
+  private readonly MAX_RETRY_COUNT = 1; // Reduced to 1 for faster failure on blocked requests
+  private readonly RETRY_DELAY = 1000; // Increased to 1s for better user experience
   private refreshInProgress = false;
   private refreshAttemptTimestamp = 0;
   private readonly REFRESH_COOLDOWN = 5000; // 5 seconds cooldown between refresh attempts
@@ -504,7 +504,7 @@ export class ApiClient {
     error.data = metadata.data;
     error.isNetworkError = metadata.isNetworkError || errorType === ErrorType.NETWORK_ERROR;
     error.isAuthError = metadata.isAuthError || errorType === ErrorType.AUTH_ERROR;
-    error.isRetryable = this.isRetryableError(errorType, metadata.status, metadata.context?.retryCount);
+    error.isRetryable = this.isRetryableError(errorType, metadata.status, metadata.context?.retryCount, originalError);
     error.originalError = originalError;
     error.errorType = errorType;
     error.context = metadata.context as ErrorContext;
@@ -526,6 +526,11 @@ export class ApiClient {
   private isNetworkError(error: any): boolean {
     // Check if browser is offline
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return true;
+    }
+
+    // Check for blocked by client error specifically
+    if (error.message && error.message.includes('ERR_BLOCKED_BY_CLIENT')) {
       return true;
     }
 
@@ -556,7 +561,8 @@ export class ApiClient {
       'no internet',
       'connection refused',
       'connection reset',
-      'connection aborted'
+      'connection aborted',
+      'blocked by client'
     ];
 
     return networkKeywords.some(keyword => errorMessage.includes(keyword));
@@ -806,9 +812,14 @@ export class ApiClient {
   /**
    * Determine if an error is retryable based on its type and context
    */
-  private isRetryableError(errorType: ErrorType, status?: number, retryCount = 0): boolean {
+  private isRetryableError(errorType: ErrorType, status?: number, retryCount = 0, originalError?: any): boolean {
     // Don't retry if we've already retried too many times
     if (retryCount >= this.MAX_RETRY_COUNT) {
+      return false;
+    }
+
+    // Don't retry blocked by client errors - they're unlikely to succeed
+    if (originalError && originalError.message && originalError.message.includes('ERR_BLOCKED_BY_CLIENT')) {
       return false;
     }
 
