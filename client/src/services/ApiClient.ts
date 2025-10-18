@@ -44,12 +44,12 @@ export interface ErrorContext {
 
 export class ApiClient {
   private static instance: ApiClient;
-  private readonly MAX_RETRY_COUNT = 3;
-  private readonly RETRY_DELAY = 1000; // 1 second
+  private readonly MAX_RETRY_COUNT = 2; // Reduced from 3 to 2
+  private readonly RETRY_DELAY = 500; // Reduced from 1000ms to 500ms
   private refreshInProgress = false;
   private refreshAttemptTimestamp = 0;
   private readonly REFRESH_COOLDOWN = 5000; // 5 seconds cooldown between refresh attempts
-  private readonly BASE_URL = 'http://localhost:5000';
+  private readonly BASE_URL = this.getBaseUrl();
   private pendingRequests: Array<{
     config: ApiRequestConfig;
     resolve: (response: Response) => void;
@@ -74,6 +74,32 @@ export class ApiClient {
   private constructor() {
     this.initializeNetworkMonitoring();
     this.loadLastKnownAuthState();
+  }
+
+  /**
+   * Get the appropriate base URL based on environment
+   */
+  private getBaseUrl(): string {
+    // In production, use the current domain
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+
+      // If we're on the production domain, use the same domain for API calls
+      if (hostname === 'rider-pro.printo.in') {
+        return 'https://rider-pro.printo.in';
+      }
+
+      // For localhost development
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://localhost:5000';
+      }
+
+      // For any other domain (staging, etc.), use the same protocol and domain
+      return `${window.location.protocol}//${hostname}`;
+    }
+
+    // Fallback for server-side rendering
+    return 'http://localhost:5000';
   }
 
   public static getInstance(): ApiClient {

@@ -59,14 +59,14 @@ export const shipmentsApi = {
     });
 
     // Extract pagination headers
-    const total = parseInt(resp.headers.get('X-Total-Count') || '0', 10);
-    const totalPages = parseInt(resp.headers.get('X-Total-Pages') || '1', 10);
-    const currentPage = parseInt(resp.headers.get('X-Current-Page') || '1', 10);
-    const perPage = parseInt(resp.headers.get('X-Per-Page') || '20', 10);
-    const hasNextPage = resp.headers.get('X-Has-Next-Page') === 'true';
-    const hasPreviousPage = resp.headers.get('X-Has-Previous-Page') === 'true';
+    const total = parseInt(response.headers.get('X-Total-Count') || '0', 10);
+    const totalPages = parseInt(response.headers.get('X-Total-Pages') || '1', 10);
+    const currentPage = parseInt(response.headers.get('X-Current-Page') || '1', 10);
+    const perPage = parseInt(response.headers.get('X-Per-Page') || '20', 10);
+    const hasNextPage = response.headers.get('X-Has-Next-Page') === 'true';
+    const hasPreviousPage = response.headers.get('X-Has-Previous-Page') === 'true';
 
-    const data = await resp.json();
+    const data = await response.json();
     return { data, total, page: currentPage, limit: perPage, totalPages, hasNextPage, hasPreviousPage };
   },
 
