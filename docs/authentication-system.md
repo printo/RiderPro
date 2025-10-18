@@ -2,14 +2,22 @@
 
 ## Overview
 
-RiderPro implements a simplified local authentication system with role-based access control. The system uses local database authentication with bcrypt password hashing, role-based permissions, and efficient token management without unnecessary database storage.
+RiderPro implements a comprehensive authentication system with Supabase Auth as the primary authentication provider, complemented by local database authentication for offline scenarios. The system provides role-based access control, secure token management, and seamless integration with Supabase's built-in security features.
 
 ## Architecture
 
-### Local Authentication System
+### Supabase Authentication System
 
-#### Database Authentication
-- **Primary Auth**: Local SQLite database (`userdata.db`)
+#### Primary Authentication
+- **Supabase Auth**: Primary authentication provider with JWT tokens
+- **Email/Password**: Standard email and password authentication
+- **Social Auth**: Optional integration with Google, GitHub, etc.
+- **Email Verification**: Built-in email verification system
+- **Password Reset**: Secure password reset via email
+- **Session Management**: Automatic token refresh and session handling
+
+#### Local Database Fallback
+- **Offline Support**: Local SQLite database for offline authentication
 - **Registration**: Users register with `rider_id`, `password`, `full_name`, `email`
 - **Approval Workflow**: Admin approval required before login
 - **Password Security**: bcrypt hashing with 12 salt rounds
@@ -19,13 +27,41 @@ RiderPro implements a simplified local authentication system with role-based acc
 
 ### Authentication Flow
 
+#### Supabase Authentication Flow
+```mermaid
+sequenceDiagram
+    participant Client
+    participant SupabaseClient
+    participant SupabaseAuth
+    participant PostgreSQL
+    
+    Note over Client: Supabase authentication flow
+    
+    Client->>SupabaseClient: signInWithPassword({email, password})
+    SupabaseClient->>SupabaseAuth: Authenticate user
+    SupabaseAuth->>PostgreSQL: Validate credentials
+    PostgreSQL-->>SupabaseAuth: User data with role
+    SupabaseAuth-->>SupabaseClient: JWT token + user data
+    SupabaseClient-->>Client: Authentication response
+    
+    Note over Client: Store session in Supabase client
+    
+    Client->>SupabaseClient: Database query (with JWT)
+    SupabaseClient->>SupabaseAuth: Validate token
+    SupabaseAuth-->>SupabaseClient: Token valid + user context
+    SupabaseClient->>PostgreSQL: Execute query with RLS
+    PostgreSQL-->>SupabaseClient: Query results
+    SupabaseClient-->>Client: Data response
+```
+
+#### Local Database Authentication Flow
 ```mermaid
 sequenceDiagram
     participant Client
     participant RiderPro API
     participant UserData DB
     
-    Note over Client: User authentication flow
+    Note over Client: Local database authentication flow (offline)
     
     Client->>RiderPro API: POST /auth/local-login {riderId, password}
     RiderPro API->>UserData DB: SELECT user WHERE rider_id = ? AND is_approved = 1
@@ -46,11 +82,95 @@ sequenceDiagram
     RiderPro API-->>Client: Shipments data
 ```
 
+## Supabase Auth Integration
+
+### Supabase Client Setup
+
+```typescript
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  }
+})
+```
+
+### Authentication Methods
+
+#### Email/Password Authentication
+```typescript
+// Sign up
+const { data, error } = await supabase.auth.signUp({
+  email: 'user@example.com',
+  password: 'password123',
+  options: {
+    data: {
+      full_name: 'John Doe',
+      rider_id: 'RIDER001',
+      role: 'driver'
+    }
+  }
+})
+
+// Sign in
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: 'user@example.com',
+  password: 'password123'
+})
+
+// Sign out
+const { error } = await supabase.auth.signOut()
+```
+
+#### Session Management
+```typescript
+// Get current user
+const { data: { user }, error } = await supabase.auth.getUser()
+
+// Listen to auth changes
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN') {
+    console.log('User signed in:', session.user)
+  } else if (event === 'SIGNED_OUT') {
+    console.log('User signed out')
+  }
+})
+```
+
+### Row Level Security (RLS)
+
+Supabase provides built-in security through Row Level Security policies:
+
+```sql
+-- Enable RLS on shipments table
+ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
+
+-- Users can only view their own shipments
+CREATE POLICY "Users can view own shipments" ON shipments
+  FOR SELECT USING (auth.uid()::text = "employeeId");
+
+-- Managers can view all shipments
+CREATE POLICY "Managers can view all shipments" ON shipments
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM user_profiles 
+      WHERE user_profiles.id = auth.uid() 
+      AND user_profiles.role IN ('super_user', 'ops_team', 'staff')
+    )
+  );
+```
+
 ## User Roles and Permissions
 
 ### Role-Based Permission System
 
-The system uses a simplified role-based approach using the existing `role` column in the `rider_accounts` table:
+The system uses a comprehensive role-based approach with Supabase Auth and local database fallback:
 
 #### 1. **Super User** (`role: 'super_user'` or `role: 'admin'`)
 - **Database**: `role` column set to `'super_user'` or `'admin'`
@@ -135,7 +255,38 @@ The system maintains the original UserRole enum for UI purposes:
 
 ## Security Implementation
 
-### Password Security
+### Supabase Security Features
+
+#### Built-in Security
+- **JWT Tokens**: Secure JWT tokens with automatic refresh
+- **Password Hashing**: Automatic bcrypt hashing with salt
+- **Rate Limiting**: Built-in rate limiting for authentication attempts
+- **Email Verification**: Automatic email verification for new accounts
+- **Password Reset**: Secure password reset via email
+- **Session Management**: Automatic session timeout and refresh
+
+#### Row Level Security (RLS)
+```sql
+-- Enable RLS on all tables
+ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE route_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE route_tracking ENABLE ROW LEVEL SECURITY;
+
+-- Example RLS policies
+CREATE POLICY "Users can view own data" ON shipments
+  FOR SELECT USING (auth.uid()::text = "employeeId");
+
+CREATE POLICY "Managers can view all data" ON shipments
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM user_profiles 
+      WHERE user_profiles.id = auth.uid() 
+      AND user_profiles.role IN ('super_user', 'ops_team', 'staff')
+    )
+  );
+```
+
+### Local Database Security
 
 #### bcrypt Hashing
 ```typescript

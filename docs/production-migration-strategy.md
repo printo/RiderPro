@@ -1,201 +1,138 @@
 # Production Migration Strategy
 
 ## Overview
-This document outlines the strategy for deploying database schema changes to production environments where dropping tables would result in data loss.
+This document outlines the strategy for deploying RiderPro to production environments with Supabase as the primary backend service. The migration strategy covers database setup, schema deployment, authentication configuration, and application deployment.
 
-## Current Development Approach
-Our current migration strategy drops and recreates tables, which is suitable for:
-- Development environments
-- Fresh deployments
-- Schema consolidation projects
-- When data loss is acceptable
+## Supabase Production Deployment Strategy
 
-## Production Deployment Strategy
+### Phase 1: Supabase Project Setup
 
-### Phase 1: Pre-Deployment Preparation
-
-#### 1.1 Database Backup
+#### 1.1 Create Supabase Project
 ```bash
-# Create full database backup before any changes
-cp data/main.db data/main_backup_$(date +%Y%m%d_%H%M%S).db
-cp data/replica.db data/replica_backup_$(date +%Y%m%d_%H%M%S).db
-cp data/userdata.db data/userdata_backup_$(date +%Y%m%d_%H%M%S).db
+# Install Supabase CLI
+npm install -g supabase
+
+# Login to Supabase
+supabase login
+
+# Create new project
+supabase projects create riderpro-prod --region us-east-1
+
+# Link local project to remote
+supabase link --project-ref your-project-ref
 ```
 
 #### 1.2 Environment Configuration
 ```bash
-# Set production environment variables
+# Production environment variables
 export NODE_ENV=production
-export INITIALIZE_DB=false  # Critical: Disable auto-initialization
-export BACKUP_ENABLED=true
-export MIGRATION_MODE=production
+export VITE_SUPABASE_URL=https://your-project.supabase.co
+export VITE_SUPABASE_ANON_KEY=your-anon-key
+export SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+export DATABASE_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
 ```
 
-### Phase 2: Production Migration Script
+### Phase 2: Database Schema Deployment
 
-#### 2.1 Create Production Migration Script
-```typescript
-// server/scripts/production-migration.ts
-import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
+#### 2.1 Deploy Database Schema
+```bash
+# Deploy schema to Supabase
+supabase db push
 
-interface MigrationStep {
-  id: string;
-  description: string;
-  execute: (db: Database.Database) => void;
-  rollback: (db: Database.Database) => void;
-}
+# Run migrations
+supabase migration up
 
-class ProductionMigrationManager {
-  private db: Database.Database;
-  private backupPath: string;
+# Verify schema deployment
+supabase db diff
+```
 
-  constructor(dbPath: string) {
-    this.db = new Database(dbPath);
-    this.backupPath = `${dbPath}.backup.${Date.now()}`;
-  }
+#### 2.2 Configure Row Level Security
+```sql
+-- Enable RLS on all tables
+ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE route_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE route_tracking ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 
-  async executeProductionMigration(): Promise<void> {
-    console.log('🚀 Starting Production Migration...');
-    
-    // Step 1: Create backup
-    await this.createBackup();
-    
-    // Step 2: Execute migration steps
-    await this.executeMigrationSteps();
-    
-    // Step 3: Verify migration
-    await this.verifyMigration();
-    
-    console.log('✅ Production migration completed successfully');
-  }
+-- Create RLS policies
+CREATE POLICY "Users can view own shipments" ON shipments
+  FOR SELECT USING (auth.uid()::text = "employeeId");
 
-  private async createBackup(): Promise<void> {
-    console.log('📦 Creating database backup...');
-    fs.copyFileSync(this.db.name, this.backupPath);
-    console.log(`✅ Backup created: ${this.backupPath}`);
-  }
+CREATE POLICY "Managers can view all shipments" ON shipments
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM user_profiles 
+      WHERE user_profiles.id = auth.uid() 
+      AND user_profiles.role IN ('super_user', 'ops_team', 'staff')
+    )
+  );
+```
 
-  private async executeMigrationSteps(): Promise<void> {
-    const steps: MigrationStep[] = [
-      {
-        id: 'consolidate-shipments',
-        description: 'Consolidate acknowledgments and sync_status into shipments table',
-        execute: (db) => {
-          // Add new columns to existing shipments table
-          db.exec(`
-            ALTER TABLE shipments ADD COLUMN signatureUrl TEXT;
-            ALTER TABLE shipments ADD COLUMN photoUrl TEXT;
-            ALTER TABLE shipments ADD COLUMN capturedAt TEXT;
-            ALTER TABLE shipments ADD COLUMN sync_attempts INTEGER DEFAULT 0;
-            ALTER TABLE shipments ADD COLUMN expectedDeliveryTime TEXT;
-          `);
-        },
-        rollback: (db) => {
-          // Note: SQLite doesn't support DROP COLUMN, would need recreation
-          console.log('⚠️  Rollback requires table recreation - restore from backup');
-        }
-      },
-      {
-        id: 'migrate-acknowledgments',
-        description: 'Migrate data from acknowledgments table to shipments',
-        execute: (db) => {
-          db.exec(`
-            UPDATE shipments 
-            SET signatureUrl = (
-              SELECT a.signatureUrl 
-              FROM acknowledgments a 
-              WHERE a.shipmentId = shipments.id
-            ),
-            photoUrl = (
-              SELECT a.photoUrl 
-              FROM acknowledgments a 
-              WHERE a.shipmentId = shipments.id
-            ),
-            capturedAt = (
-              SELECT a.capturedAt 
-              FROM acknowledgments a 
-              WHERE a.shipmentId = shipments.id
-            )
-            WHERE EXISTS (
-              SELECT 1 FROM acknowledgments a WHERE a.shipmentId = shipments.id
-            );
-          `);
-        },
-        rollback: (db) => {
-          // Restore acknowledgments table from backup
-          console.log('⚠️  Rollback requires restoration from backup');
-        }
-      },
-      {
-        id: 'migrate-sync-status',
-        description: 'Migrate data from sync_status table to shipments',
-        execute: (db) => {
-          db.exec(`
-            UPDATE shipments 
-            SET sync_attempts = (
-              SELECT s.attempts 
-              FROM sync_status s 
-              WHERE s.shipmentId = shipments.id
-            )
-            WHERE EXISTS (
-              SELECT 1 FROM sync_status s WHERE s.shipmentId = shipments.id
-            );
-          `);
-        },
-        rollback: (db) => {
-          console.log('⚠️  Rollback requires restoration from backup');
-        }
-      },
-      {
-        id: 'cleanup-old-tables',
-        description: 'Remove old tables after successful migration',
-        execute: (db) => {
-          // Only drop after successful migration and verification
-          db.exec(`
-            DROP TABLE IF EXISTS acknowledgments;
-            DROP TABLE IF EXISTS sync_status;
-          `);
-        },
-        rollback: (db) => {
-          console.log('⚠️  Rollback requires restoration from backup');
-        }
-      }
-    ];
+### Phase 3: Supabase Configuration
 
-    for (const step of steps) {
-      console.log(`🔄 Executing: ${step.description}`);
-      try {
-        step.execute(this.db);
-        console.log(`✅ Completed: ${step.description}`);
-      } catch (error) {
-        console.error(`❌ Failed: ${step.description}`, error);
-        throw new Error(`Migration step failed: ${step.id}`);
-      }
-    }
-  }
+#### 3.1 Configure Authentication
+```bash
+# Set up authentication providers
+supabase auth providers update --enable-email true
+supabase auth providers update --enable-google true
 
-  private async verifyMigration(): Promise<void> {
-    console.log('🔍 Verifying migration...');
-    
-    // Check if new columns exist
-    const columns = this.db.prepare("PRAGMA table_info(shipments)").all();
-    const hasNewColumns = columns.some(col => 
-      ['signatureUrl', 'photoUrl', 'capturedAt', 'sync_attempts', 'expectedDeliveryTime'].includes(col.name)
-    );
-    
-    if (!hasNewColumns) {
-      throw new Error('Migration verification failed: New columns not found');
-    }
-    
-    // Check data integrity
-    const shipmentCount = this.db.prepare("SELECT COUNT(*) as count FROM shipments").get();
-    console.log(`✅ Verification complete: ${shipmentCount.count} shipments migrated`);
-  }
-}
+# Configure email templates
+supabase auth templates update --template confirm_signup --subject "Confirm your email"
+supabase auth templates update --template reset_password --subject "Reset your password"
+```
 
-export default ProductionMigrationManager;
+#### 3.2 Configure Storage
+```bash
+# Create storage buckets
+supabase storage create shipment-files --public false
+supabase storage create signatures --public false
+supabase storage create photos --public false
+
+# Set up storage policies
+supabase storage policies create --bucket shipment-files --policy "Users can upload own files"
+```
+
+#### 3.3 Configure Edge Functions
+```bash
+# Deploy edge functions
+supabase functions deploy process-shipments
+supabase functions deploy sync-external-api
+supabase functions deploy analytics-processor
+```
+
+### Phase 4: Application Deployment
+
+#### 4.1 Build Application
+```bash
+# Install dependencies
+npm ci
+
+# Build for production
+npm run build
+
+# Build server
+npm run build:server
+```
+
+#### 4.2 Deploy to Production
+```bash
+# Deploy to Vercel (recommended)
+vercel --prod
+
+# Or deploy to other platforms
+# - Netlify
+# - Railway
+# - DigitalOcean App Platform
+# - AWS Amplify
+```
+
+#### 4.3 Configure Environment Variables
+```bash
+# Set production environment variables
+vercel env add VITE_SUPABASE_URL production
+vercel env add VITE_SUPABASE_ANON_KEY production
+vercel env add SUPABASE_SERVICE_ROLE_KEY production
+vercel env add NODE_ENV production
 ```
 
 #### 2.2 Production Migration Commands
@@ -279,37 +216,69 @@ pm2 start riderpro
 
 ### Phase 5: Monitoring and Maintenance
 
-#### 5.1 Migration Monitoring
+#### 5.1 Supabase Monitoring
 ```typescript
-// server/middleware/migrationMonitor.ts
-export const migrationMonitor = (req: Request, res: Response, next: NextFunction) => {
-  // Log migration status on each request
-  const migrationStatus = checkMigrationStatus();
-  req.migrationStatus = migrationStatus;
-  next();
+// Monitor Supabase connection and performance
+const monitorSupabase = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('system_health_metrics')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(1);
+    
+    if (error) throw error;
+    
+    return {
+      status: 'healthy',
+      lastCheck: new Date().toISOString(),
+      metrics: data[0]
+    };
+  } catch (error) {
+    return {
+      status: 'unhealthy',
+      error: error.message,
+      lastCheck: new Date().toISOString()
+    };
+  }
 };
 ```
 
 #### 5.2 Health Checks
 ```typescript
 // server/routes/health.ts
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
   const health = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    migration: {
-      status: 'completed',
-      version: '2.0.0',
-      completedAt: '2024-01-01T00:00:00Z'
+    supabase: {
+      status: 'connected',
+      region: 'us-east-1',
+      version: 'latest'
     },
     database: {
       status: 'connected',
-      tables: ['shipments', 'users', 'route_sessions']
+      tables: ['shipments', 'route_sessions', 'route_tracking', 'user_profiles']
+    },
+    auth: {
+      status: 'active',
+      providers: ['email', 'google']
+    },
+    storage: {
+      status: 'active',
+      buckets: ['shipment-files', 'signatures', 'photos']
     }
   };
   res.json(health);
 });
 ```
+
+#### 5.3 Supabase Dashboard Monitoring
+- **Database Performance**: Monitor query performance and connection usage
+- **Authentication Metrics**: Track user signups, logins, and session activity
+- **Storage Usage**: Monitor file uploads and storage consumption
+- **API Usage**: Track API calls and rate limiting
+- **Real-time Connections**: Monitor WebSocket connections for live updates
 
 ## Alternative Approaches
 
@@ -334,16 +303,18 @@ app.get('/health', (req, res) => {
 ## Recommendations
 
 ### For Immediate Deployment
-1. **Use the production migration script** provided above
-2. **Create comprehensive backups** before any changes
-3. **Test on staging environment** first
-4. **Have rollback plan ready**
+1. **Use Supabase CLI** for database schema deployment
+2. **Set up staging environment** with Supabase project
+3. **Configure RLS policies** before going live
+4. **Test authentication flows** thoroughly
+5. **Set up monitoring** with Supabase dashboard
 
 ### For Future Deployments
-1. **Implement database versioning**
-2. **Use feature flags for gradual rollout**
-3. **Set up automated backups**
-4. **Implement monitoring and alerting**
+1. **Use Supabase migrations** for schema changes
+2. **Implement feature flags** for gradual rollout
+3. **Set up automated backups** via Supabase
+4. **Use Supabase Edge Functions** for serverless compute
+5. **Implement real-time monitoring** with Supabase Realtime
 
 ## Risk Mitigation
 

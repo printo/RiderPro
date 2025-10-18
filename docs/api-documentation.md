@@ -1,23 +1,215 @@
 # API Documentation - RiderPro Route Tracking System
 
 ## Overview
-This document provides comprehensive documentation for all API endpoints in the RiderPro system, including server-side routes, authentication, data models, and client-side integration patterns.
+This document provides comprehensive documentation for all API endpoints in the RiderPro system, including server-side routes, Supabase integration, authentication, data models, and client-side integration patterns. The system leverages Supabase as the primary backend with PostgreSQL database, real-time subscriptions, and built-in authentication.
 
 ## Table of Contents
-1. [Authentication & User Management](#authentication--user-management)
-2. [System Health & Monitoring](#system-health--monitoring)
-3. [Shipment Management](#shipment-management)
-4. [Route Tracking & GPS](#route-tracking--gps)
-5. [Vehicle Types Management](#vehicle-types-management)
-6. [Fuel Settings Management](#fuel-settings-management)
-7. [External System Integration](#external-system-integration)
-8. [File Upload & Acknowledgments](#file-upload--acknowledgments)
-9. [Dashboard & Analytics](#dashboard--analytics)
-10. [Error Handling](#error-handling)
-11. [Data Models](#data-models)
-12. [Rate Limiting & Security](#rate-limiting--security)
+1. [Supabase Integration](#supabase-integration)
+2. [Authentication & User Management](#authentication--user-management)
+3. [System Health & Monitoring](#system-health--monitoring)
+4. [Shipment Management](#shipment-management)
+5. [Route Tracking & GPS](#route-tracking--gps)
+6. [Vehicle Types Management](#vehicle-types-management)
+7. [Fuel Settings Management](#fuel-settings-management)
+8. [External System Integration](#external-system-integration)
+9. [File Upload & Acknowledgments](#file-upload--acknowledgments)
+10. [Dashboard & Analytics](#dashboard--analytics)
+11. [Error Handling](#error-handling)
+12. [Data Models](#data-models)
+13. [Rate Limiting & Security](#rate-limiting--security)
+
+## Supabase Integration
+
+### Supabase Client Setup
+
+RiderPro uses Supabase as the primary backend service:
+
+```typescript
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  }
+})
+```
+
+### Real-time Subscriptions
+
+#### Shipment Updates
+```typescript
+// Subscribe to shipment changes
+const subscription = supabase
+  .channel('shipments')
+  .on('postgres_changes', 
+    { event: '*', schema: 'public', table: 'shipments' },
+    (payload) => {
+      console.log('Shipment updated:', payload)
+      // Update UI with real-time data
+    }
+  )
+  .subscribe()
+```
+
+#### Route Tracking Updates
+```typescript
+// Subscribe to GPS tracking updates
+const routeSubscription = supabase
+  .channel('route-tracking')
+  .on('postgres_changes',
+    { event: 'INSERT', schema: 'public', table: 'route_tracking' },
+    (payload) => {
+      console.log('New GPS point:', payload.new)
+      // Add GPS point to map
+    }
+  )
+  .subscribe()
+```
+
+### Database Operations
+
+#### Query Shipments
+```typescript
+// Get shipments with filters
+const { data: shipments, error } = await supabase
+  .from('shipments')
+  .select('*')
+  .eq('status', 'Assigned')
+  .eq('employeeId', userId)
+  .order('createdAt', { ascending: false })
+  .limit(20)
+
+if (error) throw error
+```
+
+#### Insert New Shipment
+```typescript
+// Create new shipment
+const { data: shipment, error } = await supabase
+  .from('shipments')
+  .insert({
+    shipment_id: 'SHIP001',
+    type: 'delivery',
+    customerName: 'John Doe',
+    customerMobile: '+1234567890',
+    address: '123 Main St',
+    status: 'Assigned',
+    employeeId: userId
+  })
+  .select()
+  .single()
+
+if (error) throw error
+```
+
+#### Update Shipment
+```typescript
+// Update shipment status
+const { data: shipment, error } = await supabase
+  .from('shipments')
+  .update({ 
+    status: 'Delivered',
+    actualDeliveryTime: new Date().toISOString()
+  })
+  .eq('id', shipmentId)
+  .select()
+  .single()
+
+if (error) throw error
+```
+
+### File Storage
+
+#### Upload Files
+```typescript
+// Upload signature or photo
+const uploadFile = async (file: File, path: string): Promise<string> => {
+  const { data, error } = await supabase.storage
+    .from('shipment-files')
+    .upload(path, file)
+  
+  if (error) throw error;
+  
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from('shipment-files')
+    .getPublicUrl(path)
+  
+  return urlData.publicUrl;
+};
+```
+
+#### Download Files
+```typescript
+// Download file
+const downloadFile = async (path: string): Promise<Blob> => {
+  const { data, error } = await supabase.storage
+    .from('shipment-files')
+    .download(path)
+  
+  if (error) throw error;
+  return data;
+};
+```
 
 ## Authentication & User Management
+
+### Supabase Authentication
+
+RiderPro uses Supabase Auth for user authentication and management:
+
+#### Sign Up with Email
+```typescript
+// Register new user
+const { data, error } = await supabase.auth.signUp({
+  email: 'user@example.com',
+  password: 'password123',
+  options: {
+    data: {
+      full_name: 'John Doe',
+      rider_id: 'RIDER001',
+      role: 'driver'
+    }
+  }
+})
+
+if (error) throw error
+```
+
+#### Sign In with Email
+```typescript
+// Login user
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: 'user@example.com',
+  password: 'password123'
+})
+
+if (error) throw error
+```
+
+#### Sign Out
+```typescript
+// Logout user
+const { error } = await supabase.auth.signOut()
+if (error) throw error
+```
+
+#### Get Current User
+```typescript
+// Get current authenticated user
+const { data: { user }, error } = await supabase.auth.getUser()
+if (error) throw error
+```
 
 ### User Registration & Login
 
@@ -971,25 +1163,72 @@ interface VehicleType {
 
 ## Database Schema
 
-The system uses three separate SQLite databases:
-
-1. **main.db**: Primary operational database with daily cleanup
-2. **replica.db**: 3-day data retention for backup and recovery
-3. **userdata.db**: User profiles and local authentication data
+The system uses Supabase (PostgreSQL) as the primary database:
 
 ### Key Tables
 - `shipments`: Main shipment data with consolidated sync and acknowledgment fields
 - `route_sessions`: Route tracking sessions
 - `route_tracking`: GPS coordinate tracking data
-- `rider_accounts`: User authentication and profile data
+- `user_profiles`: User profiles and authentication data (linked to Supabase Auth)
 - `vehicle_types`: Available vehicle types
+- `fuel_settings`: Fuel price settings for different regions
 - `system_health_metrics`: System monitoring data
 - `feature_flags`: Feature toggle configuration
 - `system_config`: System configuration settings
 
+### Supabase Features
+- **Row Level Security (RLS)**: Built-in data access control
+- **Real-time Subscriptions**: Live data updates via WebSocket
+- **Automatic Backups**: Daily backups with point-in-time recovery
+- **Scalability**: Automatic scaling based on usage
+- **CDN Integration**: Global content delivery for static assets
+
 ## Integration Examples
 
-### Client-Side API Usage
+### Supabase Client Usage
+```typescript
+// Get shipments with filters using Supabase
+const { data: shipments, error } = await supabase
+  .from('shipments')
+  .select('*')
+  .eq('status', 'Assigned')
+  .eq('employeeId', 'EMP001')
+  .order('createdAt', { ascending: false })
+  .limit(20);
+
+if (error) throw error;
+
+// Update shipment status using Supabase
+const { data: updatedShipment, error: updateError } = await supabase
+  .from('shipments')
+  .update({ 
+    status: 'Delivered',
+    actualDeliveryTime: new Date().toISOString()
+  })
+  .eq('id', shipmentId)
+  .select()
+  .single();
+
+if (updateError) throw updateError;
+
+// Start route session using Supabase
+const { data: session, error: sessionError } = await supabase
+  .from('route_sessions')
+  .insert({
+    employee_id: 'EMP001',
+    start_latitude: 12.9716,
+    start_longitude: 77.5946,
+    vehicle_type: 'bike',
+    route_name: 'Route A',
+    status: 'active'
+  })
+  .select()
+  .single();
+
+if (sessionError) throw sessionError;
+```
+
+### Client-Side API Usage (Legacy)
 ```typescript
 // Get shipments with filters
 const shipments = await apiClient.get('/api/shipments/fetch', {

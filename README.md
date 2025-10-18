@@ -1,6 +1,6 @@
 # RiderPro - Delivery Management System
 
-A comprehensive delivery management system built with React, TypeScript, and Express.js, designed for efficient shipment tracking, route optimization, and real-time GPS monitoring.
+A comprehensive cloud-first delivery management system built with React, TypeScript, and Supabase, designed for efficient shipment tracking, route optimization, and real-time GPS monitoring with built-in authentication and real-time capabilities.
 
 ## 🆕 Latest Updates
 
@@ -18,19 +18,21 @@ A comprehensive delivery management system built with React, TypeScript, and Exp
 - **GPS Integration**: Automatic location recording for pickup/delivery events
 - **Acknowledgment System**: Photo and signature capture for delivery confirmations
 
-### ✅ Database Schema & Migration System
-- **Consolidated Migrations**: Single comprehensive migration file with complete schema
-- **Shipment Tracking**: Added start/stop coordinates, km travelled, sync tracking
-- **External Integration**: Separate `shipment_id` column for external system tracking
-- **Performance Optimization**: Database indexing only during build, not runtime
-- **Role-Based Access**: Super User, Ops Team, Staff, Driver roles with specific permissions
+### ✅ Supabase Integration & Cloud Architecture
+- **PostgreSQL Database**: Scalable cloud database with automatic backups
+- **Real-time Subscriptions**: Live data updates via WebSocket connections
+- **Row Level Security**: Built-in data access control and security
+- **Authentication**: Integrated user management with JWT tokens
+- **File Storage**: Cloud storage for signatures, photos, and documents
+- **Edge Functions**: Serverless compute for complex operations
 
 ### ✅ Authentication System Overhaul
-- **Dual Authentication**: External API integration + Local database authentication
+- **Supabase Auth**: Primary authentication with JWT tokens and session management
+- **Local Database Fallback**: Offline authentication for field operations
 - **Role-Based Access**: Super User, Ops Team, Staff, Driver roles with granular permissions
-- **Password Security**: bcrypt hashing for all passwords
+- **Password Security**: Built-in bcrypt hashing with automatic salt generation
 - **User Management**: Admin panel for user approval and password reset
-- **Simplified Storage**: localStorage-only authentication state management
+- **Social Authentication**: Optional Google, GitHub integration
 
 ### ✅ API Consolidation & Documentation
 - **Complete API Inventory**: 25+ documented endpoints with full specifications
@@ -47,12 +49,19 @@ git clone <repository-url>
 cd riderpro
 npm install
 
+# Supabase setup
+npm install -g supabase
+supabase login
+supabase start
+
 # Environment setup
 cp .env.example .env
-# Edit .env with your configuration
+# Edit .env with your Supabase configuration
 
-# Initialize database and start
-npm run db:migrate
+# Deploy database schema
+supabase db push
+
+# Start development server
 npm run dev
 ```
 
@@ -61,6 +70,16 @@ npm run dev
 - **Shipments**: http://localhost:5000/shipments - Enhanced shipment management with GPS tracking
 - **Admin Panel**: http://localhost:5000/admin - Complete admin dashboard with user management
 - **Settings**: http://localhost:5000/settings - User profile and system settings
+- **Supabase Dashboard**: https://supabase.com/dashboard - Database and authentication management
+
+### Supabase Configuration
+```bash
+# Environment variables for Supabase
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+DATABASE_URL=postgresql://postgres:password@db.your-project.supabase.co:5432/postgres
+```
 
 ## 📚 Documentation
 
@@ -116,17 +135,19 @@ npm run dev
 - **React Hook Form** with Zod validation
 - **Wouter** for lightweight client-side routing
 
-### Backend
-- **Node.js** with Express.js framework
+### Backend & Database
+- **Supabase** as primary backend service
+- **PostgreSQL** database with automatic scaling
+- **Supabase Auth** for authentication and user management
+- **Supabase Storage** for file uploads and management
+- **Supabase Realtime** for live data synchronization
+- **Supabase Edge Functions** for serverless compute
+- **Node.js** with Express.js for API routes
 - **TypeScript** with ES modules for type safety
-- **SQLite** with dual database setup (live + replica)
-- **Drizzle ORM** for type-safe database operations
-- **Multer** for file uploads (signatures and photos)
-- **bcrypt** for secure password hashing
-- **JWT** authentication with external API integration
 
 ### Infrastructure
-- **Better SQLite3** for high-performance database operations
+- **Supabase Cloud** for hosting and database management
+- **Vercel** for application deployment
 - **Sharp** for image processing and optimization
 - **Axios** with retry logic for external API calls
 - **Node-cron** for automated maintenance tasks

@@ -2,30 +2,32 @@
 
 ## Overview
 
-RiderPro uses a multi-database architecture with SQLite databases for server-side persistence and IndexedDB for client-side offline functionality. The system has been redesigned to use three distinct SQLite databases for optimal performance and data management.
+RiderPro uses a cloud-first database architecture with Supabase (PostgreSQL) as the primary database backend and IndexedDB for client-side offline functionality. The system leverages PostgreSQL's advanced features for optimal performance, scalability, and data management with real-time capabilities.
 
 ## Database Architecture
 
-### Server-Side Storage (SQLite)
+### Server-Side Storage (Supabase PostgreSQL)
 
-The server uses three separate SQLite databases for different purposes:
+The system uses Supabase as the primary database backend with PostgreSQL:
 
-#### 1. Main Database (`main.db`)
-- **Purpose**: Primary operational database for daily operations
-- **Cleanup**: Daily cleanup script removes old data
-- **Tables**: All operational tables (shipments, routes, tracking, etc.)
+#### 1. Primary Database (Supabase PostgreSQL)
+- **Purpose**: Primary operational database for all operations
+- **Features**: Real-time subscriptions, automatic scaling, built-in auth
+- **Tables**: All operational tables (shipments, routes, tracking, users, etc.)
+- **Security**: Row Level Security (RLS) for data protection
+- **Backup**: Automatic daily backups with point-in-time recovery
 
-#### 2. Replica Database (`replica.db`)
-- **Purpose**: Backup and data retention
-- **Retention**: Maintains data for minimum 3 days
-- **Tables**: Mirrored structure of main database
+#### 2. Supabase Auth
+- **Purpose**: User authentication and session management
+- **Features**: JWT tokens, social auth, email verification
+- **Integration**: Seamless integration with PostgreSQL user tables
+- **Security**: Built-in security features and rate limiting
 
-#### 3. User Data Database (`userdata.db`)
-- **Purpose**: User profiles and local authentication
-- **Tables**: rider_accounts, user_preferences
-- **Security**: Isolated from operational data
-- **Authentication**: Role-based permissions using existing `role` column
-- **Token Management**: No database token storage (localStorage only)
+#### 3. Supabase Storage
+- **Purpose**: File storage for signatures, photos, and documents
+- **Features**: CDN integration, automatic optimization
+- **Security**: Access control and signed URLs
+- **Integration**: Direct integration with database records
 
 ### Client-Side Storage (IndexedDB)
 
@@ -35,74 +37,110 @@ The client uses IndexedDB for offline-first functionality, storing GPS data, rou
 **Version**: 1
 **Stores**: `gpsRecords`, `routeSessions`
 
-## SQLite Database Schema
+## PostgreSQL Database Schema
 
-### Main Database Tables (main.db)
+### Main Database Tables (Supabase PostgreSQL)
 
 #### Shipments Table (Consolidated)
 The shipments table has been consolidated to include acknowledgment and sync status fields directly, eliminating the need for separate tables.
 
 ```sql
 CREATE TABLE shipments (
-  shipment_id TEXT PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  shipment_id TEXT UNIQUE NOT NULL,
   type TEXT NOT NULL CHECK(type IN ('delivery', 'pickup')),
-  customerName TEXT NOT NULL,
-  customerMobile TEXT NOT NULL,
+  "customerName" TEXT NOT NULL,
+  "customerMobile" TEXT NOT NULL,
   address TEXT NOT NULL,
-  latitude REAL,
-  longitude REAL,
-  cost REAL NOT NULL,
-  deliveryTime TEXT NOT NULL,
-  routeName TEXT NOT NULL,
-  employeeId TEXT NOT NULL,
+  latitude DECIMAL(10, 8),
+  longitude DECIMAL(11, 8),
+  cost DECIMAL(10, 2) NOT NULL,
+  "deliveryTime" TEXT NOT NULL,
+  "routeName" TEXT NOT NULL,
+  "employeeId" TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'Assigned' CHECK(status IN ('Assigned', 'In Transit', 'Delivered', 'Picked Up', 'Returned', 'Cancelled')),
   priority TEXT DEFAULT 'medium',
-  pickupAddress TEXT,
-  weight REAL DEFAULT 0,
+  "pickupAddress" TEXT,
+  weight DECIMAL(8, 2) DEFAULT 0,
   dimensions TEXT,
-  specialInstructions TEXT,
-  actualDeliveryTime TEXT,
+  "specialInstructions" TEXT,
+  "actualDeliveryTime" TEXT,
   -- Tracking fields
-  start_latitude REAL,
-  start_longitude REAL,
-  stop_latitude REAL,
-  stop_longitude REAL,
-  km_travelled REAL DEFAULT 0,
+  start_latitude DECIMAL(10, 8),
+  start_longitude DECIMAL(11, 8),
+  stop_latitude DECIMAL(10, 8),
+  stop_longitude DECIMAL(11, 8),
+  km_travelled DECIMAL(8, 2) DEFAULT 0,
   -- Sync tracking (consolidated from sync_status table)
-  synced_to_external BOOLEAN DEFAULT 0,
-  last_sync_attempt TEXT,
+  synced_to_external BOOLEAN DEFAULT FALSE,
+  last_sync_attempt TIMESTAMP,
   sync_error TEXT,
   sync_status TEXT DEFAULT 'pending' CHECK(sync_status IN ('pending', 'success', 'failed')),
   sync_attempts INTEGER DEFAULT 0,
   -- Acknowledgments (consolidated from acknowledgments table)
   signature_url TEXT,
   photo_url TEXT,
-  acknowledgment_captured_at TEXT,
+  acknowledgment_captured_at TIMESTAMP,
   -- Timestamps
-  createdAt TEXT DEFAULT (datetime('now')),
-  updatedAt TEXT DEFAULT (datetime('now'))
+  "createdAt" TIMESTAMP DEFAULT NOW(),
+  "updatedAt" TIMESTAMP DEFAULT NOW()
 );
+
+-- Indexes for performance
+CREATE INDEX idx_shipments_status ON shipments(status);
+CREATE INDEX idx_shipments_employee_id ON shipments("employeeId");
+CREATE INDEX idx_shipments_route_name ON shipments("routeName");
+CREATE INDEX idx_shipments_created_at ON shipments("createdAt");
+CREATE INDEX idx_shipments_sync_status ON shipments(sync_status);
+
+-- Row Level Security (RLS)
+ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE POLICY "Users can view their own shipments" ON shipments
+  FOR SELECT USING (auth.uid()::text = "employeeId");
+
+CREATE POLICY "Managers can view all shipments" ON shipments
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM auth.users 
+      WHERE auth.users.id = auth.uid() 
+      AND auth.users.raw_user_meta_data->>'role' IN ('super_user', 'ops_team', 'staff')
+    )
+  );
 ```
 
 #### Route Sessions Table
 ```sql
 CREATE TABLE route_sessions (
-  id TEXT PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   employee_id TEXT NOT NULL,
-  start_time TEXT NOT NULL,
-  end_time TEXT,
+  start_time TIMESTAMP NOT NULL,
+  end_time TIMESTAMP,
   status TEXT NOT NULL CHECK(status IN ('active', 'completed', 'paused')),
-  start_latitude REAL NOT NULL,
-  start_longitude REAL NOT NULL,
-  end_latitude REAL,
-  end_longitude REAL,
-  total_distance REAL,
-  total_time INTEGER,
+  start_latitude DECIMAL(10, 8) NOT NULL,
+  start_longitude DECIMAL(11, 8) NOT NULL,
+  end_latitude DECIMAL(10, 8),
+  end_longitude DECIMAL(11, 8),
+  total_distance DECIMAL(8, 2),
+  total_time INTEGER, -- in seconds
   vehicle_type TEXT,
   route_name TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now'))
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Indexes for performance
+CREATE INDEX idx_route_sessions_employee_id ON route_sessions(employee_id);
+CREATE INDEX idx_route_sessions_status ON route_sessions(status);
+CREATE INDEX idx_route_sessions_start_time ON route_sessions(start_time);
+
+-- Row Level Security (RLS)
+ALTER TABLE route_sessions ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE POLICY "Users can view their own route sessions" ON route_sessions
+  FOR SELECT USING (auth.uid()::text = employee_id);
 ```
 
 #### Route Tracking Table
@@ -197,41 +235,59 @@ CREATE TABLE system_config (
 );
 ```
 
-### User Data Database Tables (userdata.db)
+### Supabase Auth Integration
 
-#### Rider Accounts Table
+#### User Management
+Supabase Auth handles user authentication and management:
+
 ```sql
-CREATE TABLE rider_accounts (
-  id TEXT PRIMARY KEY,
-  rider_id TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
+-- Users are managed by Supabase Auth
+-- Custom user metadata can be stored in auth.users.raw_user_meta_data
+-- Example: role, permissions, custom fields
+
+-- Custom user profiles table (optional)
+CREATE TABLE user_profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  rider_id TEXT UNIQUE NOT NULL,
   full_name TEXT NOT NULL,
-  is_approved BOOLEAN DEFAULT 0,
-  is_active BOOLEAN DEFAULT 1,
-  role TEXT DEFAULT 'driver',
-  last_login_at TEXT,
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now'))
+  role TEXT DEFAULT 'driver' CHECK(role IN ('super_user', 'ops_team', 'staff', 'driver')),
+  is_active BOOLEAN DEFAULT TRUE,
+  is_approved BOOLEAN DEFAULT FALSE,
+  preferences JSONB DEFAULT '{}',
+  last_login_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Row Level Security for user profiles
+ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Users can only view their own profile
+CREATE POLICY "Users can view own profile" ON user_profiles
+  FOR SELECT USING (auth.uid() = id);
+
+-- Users can update their own profile
+CREATE POLICY "Users can update own profile" ON user_profiles
+  FOR UPDATE USING (auth.uid() = id);
+
+-- Managers can view all profiles
+CREATE POLICY "Managers can view all profiles" ON user_profiles
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM user_profiles up
+      WHERE up.id = auth.uid() 
+      AND up.role IN ('super_user', 'ops_team', 'staff')
+    )
+  );
 ```
 
-**Key Changes:**
-- **Simplified Schema**: Removed `is_super_user`, `is_ops_team`, `is_staff` columns
-- **Role-Based Permissions**: Uses single `role` column for all permissions
-- **No Token Storage**: Tokens stored in localStorage only
-- **Efficient Design**: Eliminates unnecessary boolean columns
-
-#### User Preferences Table
+#### User Preferences
 ```sql
-CREATE TABLE user_preferences (
-  id TEXT PRIMARY KEY,
-  rider_id TEXT NOT NULL,
-  preference_key TEXT NOT NULL,
-  preference_value TEXT NOT NULL,
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now')),
-  FOREIGN KEY (rider_id) REFERENCES rider_accounts (rider_id)
-);
+-- User preferences stored as JSONB for flexibility
+-- Access via user_profiles.preferences column
+-- Example usage:
+-- SELECT preferences->>'theme' FROM user_profiles WHERE id = auth.uid();
+-- UPDATE user_profiles SET preferences = preferences || '{"theme": "dark"}' WHERE id = auth.uid();
 ```
 
 ### Database Indexes
@@ -907,5 +963,125 @@ const trackQueryPerformance = async (
     console.error(`Query ${operation} failed after ${duration}ms:`, error);
     throw error;
   }
+};
+```
+
+## Supabase Real-time Features
+
+### Real-time Subscriptions
+
+RiderPro leverages Supabase Realtime for live data synchronization:
+
+```typescript
+// Real-time shipment updates
+const subscription = supabase
+  .channel('shipments')
+  .on('postgres_changes', 
+    { event: '*', schema: 'public', table: 'shipments' },
+    (payload) => {
+      console.log('Shipment updated:', payload)
+      // Update UI with real-time data
+      updateShipmentInUI(payload.new)
+    }
+  )
+  .subscribe()
+
+// Real-time route tracking
+const routeSubscription = supabase
+  .channel('route-tracking')
+  .on('postgres_changes',
+    { event: 'INSERT', schema: 'public', table: 'route_tracking' },
+    (payload) => {
+      console.log('New GPS point:', payload.new)
+      // Add GPS point to map
+      addGPSPointToMap(payload.new)
+    }
+  )
+  .subscribe()
+```
+
+### Row Level Security (RLS)
+
+Supabase provides built-in security through Row Level Security:
+
+```sql
+-- Enable RLS on all tables
+ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE route_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE route_tracking ENABLE ROW LEVEL SECURITY;
+
+-- Example RLS policies
+CREATE POLICY "Users can view own shipments" ON shipments
+  FOR SELECT USING (auth.uid()::text = "employeeId");
+
+CREATE POLICY "Managers can view all shipments" ON shipments
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM user_profiles 
+      WHERE user_profiles.id = auth.uid() 
+      AND user_profiles.role IN ('super_user', 'ops_team', 'staff')
+    )
+  );
+```
+
+### Offline-First Strategy with Supabase
+
+```typescript
+class SupabaseSyncService {
+  private supabase = createClient(supabaseUrl, supabaseKey)
+  private offlineStorage = new IndexedDBStorage()
+  
+  async syncPendingData(): Promise<void> {
+    if (!navigator.onLine) return;
+    
+    const pendingItems = await this.offlineStorage.getPendingSyncItems();
+    
+    for (const item of pendingItems) {
+      try {
+        await this.syncToSupabase(item);
+        await this.offlineStorage.markAsSynced(item.id);
+      } catch (error) {
+        await this.handleSyncError(item, error);
+      }
+    }
+  }
+  
+  private async syncToSupabase(item: SyncItem): Promise<void> {
+    const { data, error } = await this.supabase
+      .from(item.table)
+      .upsert(item.data)
+    
+    if (error) throw error;
+  }
+}
+```
+
+### Supabase Storage Integration
+
+```typescript
+// Upload files to Supabase Storage
+const uploadFile = async (file: File, path: string): Promise<string> => {
+  const { data, error } = await supabase.storage
+    .from('shipment-files')
+    .upload(path, file)
+  
+  if (error) throw error;
+  
+  // Get public URL
+  const { data: urlData } = supabase.storage
+    .from('shipment-files')
+    .getPublicUrl(path)
+  
+  return urlData.publicUrl;
+};
+
+// Download files
+const downloadFile = async (path: string): Promise<Blob> => {
+  const { data, error } = await supabase.storage
+    .from('shipment-files')
+    .download(path)
+  
+  if (error) throw error;
+  return data;
 };
 ```

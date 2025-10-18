@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Smart Route Completion system is an intelligent feature that automatically detects when a delivery route has been completed based on GPS location, time spent, and shipment completion patterns. This reduces manual intervention and improves operational efficiency.
+The Smart Route Completion system is an intelligent feature that automatically detects when a delivery route has been completed based on GPS location, time spent, and shipment completion patterns. This reduces manual intervention and improves operational efficiency. The system integrates with Supabase for real-time data synchronization and uses PostgreSQL for efficient data storage and retrieval.
 
 ## How It Works
 

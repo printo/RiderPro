@@ -2,7 +2,7 @@
 
 ## Overview
 
-RiderPro is a modern, offline-first shipment management and GPS tracking system built with React, TypeScript, and Node.js. The system uses a consolidated database architecture with three distinct SQLite databases and provides comprehensive route tracking, analytics, and real-time monitoring capabilities with local authentication support.
+RiderPro is a modern, cloud-first delivery management and GPS tracking system built with React, TypeScript, and Node.js. The system leverages Supabase as the primary database backend with PostgreSQL, providing comprehensive route tracking, analytics, and real-time monitoring capabilities with integrated authentication and real-time subscriptions.
 
 ## High-Level Architecture
 
@@ -11,8 +11,8 @@ graph TB
     subgraph "Client Layer"
         A[React Frontend]
         B[Service Worker]
-        C[IndexedDB]
-        D[localStorage<br/>Auth Tokens]
+        C[IndexedDB<br/>Offline Storage]
+        D[Supabase Client<br/>Real-time Subscriptions]
     end
     
     subgraph "API Layer"
@@ -25,27 +25,32 @@ graph TB
     subgraph "External Services"
         I[Printo API]
         J[GPS Services]
+        K[Supabase Edge Functions]
     end
     
-    subgraph "Data Layer"
-        K[Main Database<br/>main.db<br/>Shipments & Routes]
-        L[Replica Database<br/>replica.db<br/>Development Data]
-        M[User Data Database<br/>userdata.db<br/>Authentication Only]
-        N[IndexedDB<br/>Offline Storage]
+    subgraph "Supabase Cloud"
+        L[PostgreSQL Database<br/>Primary Data Store]
+        M[Supabase Auth<br/>Authentication & Users]
+        N[Supabase Storage<br/>File Uploads]
+        O[Supabase Realtime<br/>Live Updates]
+        P[Supabase Edge Functions<br/>Serverless Functions]
     end
     
     A --> E
-    A --> N
+    A --> C
     A --> D
-    B --> N
-    E --> K
+    A --> J
+    B --> C
     E --> L
     E --> M
     E --> I
     F --> G
     G --> H
-    A --> J
-    D -.->|Token Validation| M
+    D --> O
+    D --> M
+    D --> N
+    E --> K
+    K --> P
 ```
 
 ## Frontend Architecture
@@ -185,29 +190,35 @@ interface OfflineStorage {
 
 ## Authentication Architecture
 
-### Simplified Token-Based Authentication
+### Supabase Authentication Integration
 
-RiderPro uses a streamlined authentication system that eliminates unnecessary database complexity:
+RiderPro leverages Supabase Auth for comprehensive authentication management:
 
-#### Token Management
-- **Token Format**: `local_<timestamp>_<userId>` (embedded user ID)
-- **Storage**: localStorage only (no database token storage)
-- **Validation**: Extract user ID from token and validate against `rider_accounts` table
-- **Role-Based Permissions**: Derived from `role` column in database
+#### Authentication Methods
+- **Supabase Auth**: Primary authentication system with JWT tokens
+- **External API Integration**: Printo API for enterprise users
+- **Local Database Fallback**: SQLite for offline authentication
+- **Real-time Sessions**: Live session management with Supabase Realtime
 
 #### Authentication Flow
 ```mermaid
 sequenceDiagram
     participant Client
-    participant AuthMiddleware
-    participant UserDataDB
+    participant SupabaseClient
+    participant SupabaseAuth
+    participant PostgreSQL
     
-    Client->>AuthMiddleware: Request with Bearer token
-    AuthMiddleware->>AuthMiddleware: Extract user ID from token
-    AuthMiddleware->>UserDataDB: Validate user by ID
-    UserDataDB-->>AuthMiddleware: User data with role
-    AuthMiddleware->>AuthMiddleware: Derive permissions from role
-    AuthMiddleware-->>Client: Authenticated request with user context
+    Client->>SupabaseClient: Login request
+    SupabaseClient->>SupabaseAuth: Authenticate user
+    SupabaseAuth->>PostgreSQL: Validate credentials
+    PostgreSQL-->>SupabaseAuth: User data with role
+    SupabaseAuth-->>SupabaseClient: JWT token + user data
+    SupabaseClient-->>Client: Authentication response
+    
+    Client->>SupabaseClient: API request with JWT
+    SupabaseClient->>SupabaseAuth: Validate token
+    SupabaseAuth-->>SupabaseClient: Token valid + user context
+    SupabaseClient-->>Client: Authenticated response
 ```
 
 #### Role-Based Access Control
@@ -261,10 +272,14 @@ server/
 │   ├── auth.ts         # Authentication middleware
 │   ├── cors.ts         # CORS configuration
 │   └── rateLimit.ts    # Rate limiting
-└── services/           # Business logic services
-    ├── AuthService.ts
-    ├── ShipmentService.ts
-    └── GPSService.ts
+├── services/           # Business logic services
+│   ├── AuthService.ts
+│   ├── ShipmentService.ts
+│   └── GPSService.ts
+└── supabase/           # Supabase integration
+    ├── client.ts       # Supabase client configuration
+    ├── auth.ts         # Authentication helpers
+    └── realtime.ts     # Real-time subscriptions
 ```
 
 ### API Design Patterns
@@ -636,6 +651,76 @@ class PerformanceMonitor {
 }
 ```
 
+## Supabase Integration
+
+### Database Configuration
+
+RiderPro uses Supabase as the primary database backend with PostgreSQL:
+
+#### Supabase Client Setup
+```typescript
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY
+
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  }
+})
+```
+
+#### Real-time Subscriptions
+```typescript
+// Subscribe to shipment updates
+const subscription = supabase
+  .channel('shipments')
+  .on('postgres_changes', 
+    { event: '*', schema: 'public', table: 'shipments' },
+    (payload) => {
+      console.log('Shipment updated:', payload)
+      // Update UI with real-time data
+    }
+  )
+  .subscribe()
+```
+
+#### Authentication Integration
+```typescript
+// Sign in with Supabase Auth
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: 'user@example.com',
+  password: 'password'
+})
+
+// Get current user
+const { data: { user } } = await supabase.auth.getUser()
+
+// Sign out
+await supabase.auth.signOut()
+```
+
+### File Storage
+```typescript
+// Upload files to Supabase Storage
+const { data, error } = await supabase.storage
+  .from('shipment-files')
+  .upload('signatures/signature-123.png', file)
+
+// Download files
+const { data } = supabase.storage
+  .from('shipment-files')
+  .getPublicUrl('signatures/signature-123.png')
+```
+
 ## Deployment Architecture
 
 ### Development Environment
@@ -645,6 +730,10 @@ npm run dev              # http://localhost:5000
 
 # Backend (Node.js)
 npm run server          # http://localhost:5000/api
+
+# Supabase Local Development
+supabase start          # Start local Supabase instance
+supabase db reset       # Reset local database
 
 # External API
 # https://pia.printo.in/api/v1
@@ -656,7 +745,11 @@ npm run server          # http://localhost:5000/api
 npm run build           # Build React app
 npm run build:server    # Build Node.js server
 
-# Deployment
+# Supabase deployment
+supabase db push        # Deploy schema changes
+supabase functions deploy # Deploy edge functions
+
+# Application deployment
 docker build -t riderpro .
 docker run -p 80:5000 riderpro
 ```
@@ -667,6 +760,8 @@ docker run -p 80:5000 riderpro
 # Client environment variables
 VITE_API_BASE_URL=https://api.riderpro.com
 VITE_AUTH_BASE_URL=https://pia.printo.in/api/v1
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
 VITE_GPS_UPDATE_INTERVAL=30000
 VITE_SYNC_INTERVAL=60000
 
@@ -674,6 +769,8 @@ VITE_SYNC_INTERVAL=60000
 NODE_ENV=production
 PORT=5000
 PRINTO_API_BASE_URL=https://pia.printo.in/api/v1
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 CORS_ORIGINS=https://riderpro.com,https://app.riderpro.com
 RATE_LIMIT_WINDOW=900000
 RATE_LIMIT_MAX=100
@@ -682,35 +779,35 @@ RATE_LIMIT_MAX=100
 ## Scalability Considerations
 
 ### Horizontal Scaling
-- Stateless server design
-- JWT tokens (no server-side sessions)
-- Database connection pooling
-- Load balancer ready
+- Stateless server design with Supabase backend
+- JWT tokens with Supabase Auth
+- Automatic database connection pooling via Supabase
+- Load balancer ready with CDN integration
 
 ### Data Growth
 - Pagination for all list endpoints
-- GPS data archiving strategy
-- Efficient indexing for queries
-- Background cleanup jobs
+- Supabase automatic scaling and optimization
+- Efficient PostgreSQL indexing
+- Real-time data streaming with Supabase Realtime
 
 ### Performance Bottlenecks
-- GPS point ingestion rate limiting
+- GPS point ingestion with rate limiting
 - Batch processing for sync operations
-- Caching for frequently accessed data
-- CDN for static assets
+- Supabase caching and CDN for static assets
+- Edge functions for compute-intensive tasks
 
 ## Future Enhancements
 
 ### Planned Features
-1. **WebSocket Integration**: Real-time updates
-2. **Push Notifications**: Shipment status alerts
-3. **Advanced Analytics**: Machine learning insights
-4. **Multi-tenant Support**: Multiple organizations
-5. **Mobile App**: Native iOS/Android apps
+1. **Advanced Analytics**: Machine learning insights with Supabase ML
+2. **Multi-tenant Support**: Multiple organizations with RLS
+3. **Mobile App**: Native iOS/Android apps with Supabase
+4. **Edge Functions**: Serverless compute for complex operations
+5. **Advanced Caching**: Redis integration for high-performance queries
 
-### Technical Debt
-1. **Database Migration**: Move from mock data to real database
-2. **Microservices**: Split monolith into services
-3. **Event Sourcing**: Audit trail and replay capability
-4. **GraphQL**: More efficient data fetching
-5. **Kubernetes**: Container orchestration
+### Technical Improvements
+1. **Database Optimization**: Advanced PostgreSQL features and indexing
+2. **Microservices**: Edge functions for specific business logic
+3. **Event Sourcing**: Audit trail with Supabase Realtime
+4. **GraphQL**: Supabase GraphQL API integration
+5. **Kubernetes**: Container orchestration with Supabase Edge Functions
