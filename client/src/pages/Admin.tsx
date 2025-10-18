@@ -699,6 +699,195 @@ function AdminPage() {
         </p>
       </div>
 
+      {/* User Management */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              User Management
+            </div>
+            <Button
+              onClick={() => {
+                loadPendingUsers();
+                loadAllUsers();
+              }}
+              disabled={loadingUsers || loadingAllUsers}
+              variant="outline"
+              size="sm"
+            >
+              {(loadingUsers || loadingAllUsers) ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Refresh
+                </>
+              )}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-8">
+            {/* Pending User Approvals Section - Only show if there are pending users */}
+            {pendingUsers.length > 0 && (
+              <div className="space-y-4 p-4 bg-orange-50 dark:bg-orange-900/10 rounded-lg border border-orange-200 dark:border-orange-800">
+                <h3 className="text-lg font-medium text-orange-600 dark:text-orange-400">
+                  Pending User Approvals ({pendingUsers.length})
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  New user registrations awaiting approval
+                </p>
+                <div className="space-y-3">
+                  {pendingUsers.map((user) => (
+                    <div key={user.id} className="border rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-orange-100 dark:bg-orange-800 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Users className="h-5 w-5 text-orange-600" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-medium truncate">{user.full_name}</h3>
+                              <p className="text-sm text-muted-foreground truncate">
+                                ID: {user.rider_id} • {user.email}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Registered: {new Date(user.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 sm:flex-shrink-0">
+                          <Button
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to approve ${user.full_name}?`)) {
+                                approveUser(user.id);
+                              }
+                            }}
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
+                          >
+                            <UserCheck className="h-4 w-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to reject ${user.full_name}? This action cannot be undone.`)) {
+                                rejectUser(user.id);
+                              }
+                            }}
+                            size="sm"
+                            variant="destructive"
+                            className="w-full sm:w-auto"
+                          >
+                            <UserX className="h-4 w-4 mr-1" />
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* All Users Management Section */}
+            <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search users..."
+                  value={userFilter}
+                  onChange={(e) => setUserFilter(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {loadingAllUsers ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p>Loading users...</p>
+                </div>
+              ) : filteredUsers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No users found - Try refreshing the list or check if you have permission to view users.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredUsers.map((user) => (
+                    <div key={user.id} className="border rounded-lg p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Users className="h-5 w-5 text-primary" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-medium truncate">{user.full_name}</h3>
+                                <Badge variant={user.is_active ? "default" : "secondary"}>
+                                  {user.is_active ? "Active" : "Inactive"}
+                                </Badge>
+                                <Badge variant={user.is_approved ? "default" : "destructive"}>
+                                  {user.is_approved ? "Approved" : "Pending"}
+                                </Badge>
+                                <Badge variant="outline">
+                                  {user.role}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground truncate">
+                                ID: {user.rider_id} • {user.email}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Last Login: {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 sm:flex-shrink-0">
+                          <Button
+                            onClick={() => setEditingUser({
+                              id: user.id,
+                              name: user.full_name,
+                              email: user.email || '',
+                              riderId: user.rider_id,
+                              isActive: Boolean(user.is_active)
+                            })}
+                            size="sm"
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            onClick={() => resetPassword(user.id)}
+                            size="sm"
+                            variant="outline"
+                            disabled={isResettingPassword}
+                            className="w-full sm:w-auto"
+                          >
+                            <Key className="h-4 w-4 mr-1" />
+                            {isResettingPassword ? 'Resetting...' : 'Reset Password'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Shipment Testing Section */}
       <Card className="mb-6">
         <CardHeader>
@@ -917,195 +1106,6 @@ function AdminPage() {
 
 
 
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* User Management */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              User Management
-            </div>
-            <Button
-              onClick={() => {
-                loadPendingUsers();
-                loadAllUsers();
-              }}
-              disabled={loadingUsers || loadingAllUsers}
-              variant="outline"
-              size="sm"
-            >
-              {(loadingUsers || loadingAllUsers) ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-1" />
-                  Refresh
-                </>
-              )}
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-8">
-            {/* Pending User Approvals Section - Only show if there are pending users */}
-            {pendingUsers.length > 0 && (
-              <div className="space-y-4 p-4 bg-orange-50 dark:bg-orange-900/10 rounded-lg border border-orange-200 dark:border-orange-800">
-                <h3 className="text-lg font-medium text-orange-600 dark:text-orange-400">
-                  Pending User Approvals ({pendingUsers.length})
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  New user registrations awaiting approval
-                </p>
-                <div className="space-y-3">
-                  {pendingUsers.map((user) => (
-                    <div key={user.id} className="border rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-orange-100 dark:bg-orange-800 rounded-full flex items-center justify-center flex-shrink-0">
-                              <Users className="h-5 w-5 text-orange-600" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h3 className="font-medium truncate">{user.full_name}</h3>
-                              <p className="text-sm text-muted-foreground truncate">
-                                ID: {user.rider_id} • {user.email}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Registered: {new Date(user.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 sm:flex-shrink-0">
-                          <Button
-                            onClick={() => {
-                              if (window.confirm(`Are you sure you want to approve ${user.full_name}?`)) {
-                                approveUser(user.id);
-                              }
-                            }}
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
-                          >
-                            <UserCheck className="h-4 w-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              if (window.confirm(`Are you sure you want to reject ${user.full_name}? This action cannot be undone.`)) {
-                                rejectUser(user.id);
-                              }
-                            }}
-                            size="sm"
-                            variant="destructive"
-                            className="w-full sm:w-auto"
-                          >
-                            <UserX className="h-4 w-4 mr-1" />
-                            Reject
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* All Users Management Section */}
-            <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
-
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search users..."
-                  value={userFilter}
-                  onChange={(e) => setUserFilter(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              {loadingAllUsers ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p>Loading users...</p>
-                </div>
-              ) : filteredUsers.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No users found - Try refreshing the list or check if you have permission to view users.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredUsers.map((user) => (
-                    <div key={user.id} className="border rounded-lg p-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                              <Users className="h-5 w-5 text-primary" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-medium truncate">{user.full_name}</h3>
-                                <Badge variant={user.is_active ? "default" : "secondary"}>
-                                  {user.is_active ? "Active" : "Inactive"}
-                                </Badge>
-                                <Badge variant={user.is_approved ? "default" : "destructive"}>
-                                  {user.is_approved ? "Approved" : "Pending"}
-                                </Badge>
-                                <Badge variant="outline">
-                                  {user.role}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground truncate">
-                                ID: {user.rider_id} • {user.email}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Last Login: {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 sm:flex-shrink-0">
-                          <Button
-                            onClick={() => setEditingUser({
-                              id: user.id,
-                              name: user.full_name,
-                              email: user.email || '',
-                              riderId: user.rider_id,
-                              isActive: Boolean(user.is_active)
-                            })}
-                            size="sm"
-                            variant="outline"
-                            className="w-full sm:w-auto"
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                          <Button
-                            onClick={() => resetPassword(user.id)}
-                            size="sm"
-                            variant="outline"
-                            disabled={isResettingPassword}
-                            className="w-full sm:w-auto"
-                          >
-                            <Key className="h-4 w-4 mr-1" />
-                            {isResettingPassword ? 'Resetting...' : 'Reset Password'}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </CardContent>
       </Card>
