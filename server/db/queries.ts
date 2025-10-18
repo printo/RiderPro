@@ -3,7 +3,7 @@ import { Shipment, InsertShipment, UpdateShipment, Acknowledgment, InsertAcknowl
 import { randomUUID } from 'crypto';
 
 export class ShipmentQueries {
-  constructor(_useReplica = false) {}
+  constructor(_useReplica = false) { }
 
   getDatabase() {
     return db;
@@ -187,9 +187,9 @@ export class ShipmentQueries {
           SET status = $1, "updatedAt" = $2
           WHERE id = $3
         `, [update.status, now, update.shipment_id]);
-        
+
         if ((result.rowCount || 0) > 0) {
-            totalUpdated++;
+          totalUpdated++;
         }
       }
     }

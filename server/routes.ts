@@ -414,6 +414,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // Vehicle Types CRUD endpoints
   app.get('/api/vehicle-types', async (req, res) => {
     try {
@@ -770,8 +771,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // - admin, super_admin: can see all shipments
       // - driver: can only see their own shipments  
       // - everyone else (ops_team): can see all shipments
-      if (userRole === 'driver') {
+      if (userRole === 'driver' && employeeId && employeeId !== 'driver') {
         // Only drivers/delivery personnel see filtered results
+        // But only if we have a real employeeId (not the default fallback)
         filters.employeeId = employeeId;
       }
       // For isSuperUser, isOpsTeam, and isStaff: no filtering (see all shipments)
