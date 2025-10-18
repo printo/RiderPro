@@ -559,6 +559,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get active session for an employee
+  app.get('/api/routes/active/:employeeId', async (req, res) => {
+    try {
+      const { employeeId } = req.params;
+      const activeSession = await routeService.getActiveSession(employeeId);
+
+      if (!activeSession) {
+        return res.status(404).json({
+          success: false,
+          message: 'No active session found for this employee'
+        });
+      }
+
+      res.json({ success: true, data: activeSession });
+    } catch (e: any) {
+      console.error('Error getting active session:', e);
+      res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
   app.get('/api/routes/analytics/summary', async (_req, res) => {
     try {
       const summary = await routeService.getAnalyticsSummary();
@@ -586,7 +606,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!riderId) {
         return res.status(400).json({ success: false, message: 'riderId is required' });
       }
-      
+
       // Check if rider exists in our database
       const result = await db.query('SELECT id FROM rider_accounts WHERE rider_id = $1', [riderId]);
       res.json({
@@ -606,7 +626,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!riderId || !password) {
         return res.status(400).json({ success: false, message: 'riderId and password are required' });
       }
-      
+
       // For now, we'll use a default name. In production, you might want to fetch from PIA backend
       const fullName = `Rider ${riderId}`;
       const rider = await riderService.registerRider(riderId, fullName, password);
@@ -640,7 +660,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const rider = await riderService.login(riderId, password);
       if (!rider) return res.status(401).json({ success: false, message: 'Invalid credentials' });
-      
+
       // Generate a simple token for the session
       const token = Buffer.from(`${riderId}:${Date.now()}`).toString('base64');
 
@@ -664,7 +684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const apiTokenAuth = (req as any).isApiTokenAuth && (req as any).apiToken;
       let employeeId = (req.headers['x-employee-id'] as string | undefined) || undefined;
       let userRole = (req.headers['x-user-role'] as string | undefined) || 'driver';
-      
+
       // Check for rider session in Authorization header
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -680,7 +700,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Invalid token, continue with other auth methods
         }
       }
-      
+
       if (apiTokenAuth) {
         userRole = 'admin';
       }
@@ -1764,8 +1784,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { shipmentId, additionalData } = req.body;
 
         if (!shipmentId) {
-        return res.status(400).json({
-          success: false,
+          return res.status(400).json({
+            success: false,
             message: 'Shipment ID is required',
             code: 'MISSING_SHIPMENT_ID'
           });
@@ -1814,7 +1834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (deliveryResult.success) {
           res.json({
-        success: true,
+            success: true,
             message: 'Shipment update sent successfully',
             data: {
               shipmentId: shipment.shipment_id,
@@ -1840,16 +1860,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           });
         }
-    } catch (error: any) {
+      } catch (error: any) {
         console.error('Error sending external update:', error);
         res.status(500).json({
-        success: false,
+          success: false,
           message: 'Internal server error while sending update',
           code: 'INTERNAL_ERROR',
           error: error.message
-      });
-    }
-  });
+        });
+      }
+    });
 
   // Send batch shipment updates to external system
   app.post('/api/shipments/update/external/batch',
@@ -1861,8 +1881,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const { shipmentIds, updates, metadata } = req.body;
 
         if (!shipmentIds && !updates) {
-        return res.status(400).json({
-          success: false,
+          return res.status(400).json({
+            success: false,
             message: 'Either shipmentIds array or updates array is required',
             code: 'MISSING_BATCH_DATA'
           });
@@ -1935,8 +1955,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Send batch updates to external system
         const batchResult = await externalSync.sendBatchUpdatesToExternal(updatePayloads);
 
-      res.json({
-        success: true,
+        res.json({
+          success: true,
           message: `Batch update completed: ${batchResult.success} successful, ${batchResult.failed} failed`,
           data: {
             total: updatePayloads.length,
@@ -1949,17 +1969,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               batchId: metadata?.batchId || `batch_${Date.now()}`
             }
           }
-      });
-    } catch (error: any) {
+        });
+      } catch (error: any) {
         console.error('Error processing batch external update:', error);
         res.status(500).json({
-        success: false,
+          success: false,
           message: 'Internal server error while processing batch update',
           code: 'BATCH_PROCESSING_ERROR',
           error: error.message
-      });
-    }
-  });
+        });
+      }
+    });
 
   // Route Tracking Endpoints
 
