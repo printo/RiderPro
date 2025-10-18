@@ -15,6 +15,7 @@ import {
   Moon,
   LogOut,
   X,
+  Shield,
 } from "lucide-react";
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
@@ -56,10 +57,10 @@ function FloatingActionMenu() {
   // Admin menu items - show only for super users and ops team (treat ops as admin)
   const adminMenuItems = isAdmin ? [
     {
-      href: "/admin-riders",
-      icon: Settings,
-      label: "User Management",
-      testId: "menu-user-management"
+      href: "/admin",
+      icon: Shield,
+      label: "Admin Panel",
+      testId: "menu-admin"
     },
     {
       href: "/settings",

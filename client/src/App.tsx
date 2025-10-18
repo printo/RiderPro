@@ -18,7 +18,6 @@ import RouteAnalytics from "@/pages/RouteAnalytics";
 import RouteVisualizationPage from "@/pages/RouteVisualizationPage";
 import Settings from "@/pages/Settings";
 import RiderSignupForm from "@/pages/RiderSignupForm";
-import AdminRiderManagement from "@/pages/AdminRiderManagement";
 import { PageLoader } from "@/components/ui/Loader";
 
 function Router() {
@@ -59,7 +58,6 @@ function Router() {
         <Route path="/route-visualization" component={RouteVisualizationPage} />
         <Route path="/settings" component={Settings} />
         <Route path="/signup" component={RiderSignupForm} />
-        <Route path="/admin-riders" component={AdminRiderManagement} />
         <Route component={NotFound} />
       </Switch>
       <FloatingActionMenu />

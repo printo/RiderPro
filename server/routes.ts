@@ -2175,17 +2175,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Management API endpoints
   app.get('/api/auth/all-users', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
-      // Only super users can access all users
-      if (!req.user?.isSuperUser) {
+      // Only admin users (super users, ops team, or staff) can access all users
+      if (!req.user?.isSuperUser && !req.user?.isOpsTeam && !req.user?.isStaff) {
         return res.status(403).json({
           success: false,
-          message: 'Access denied: Only super users can view all users',
+          message: 'Access denied: Only admin users can view all users',
           code: 'ACCESS_DENIED'
         });
       }
 
       const usersResult = await db.query(`
-        SELECT id, rider_id, full_name, is_active, is_approved, role, 
+        SELECT id, rider_id, full_name, email, is_active, is_approved, role, 
                last_login_at, created_at, updated_at
         FROM rider_accounts 
         ORDER BY created_at DESC

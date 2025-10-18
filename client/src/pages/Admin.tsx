@@ -924,16 +924,39 @@ function AdminPage() {
       {/* User Management */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            User Management
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              User Management
+            </div>
+            <Button
+              onClick={() => {
+                loadPendingUsers();
+                loadAllUsers();
+              }}
+              disabled={loadingUsers || loadingAllUsers}
+              variant="outline"
+              size="sm"
+            >
+              {(loadingUsers || loadingAllUsers) ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Refresh
+                </>
+              )}
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Pending User Approvals Section - Only show if there are pending users */}
             {pendingUsers.length > 0 && (
-              <div className="space-y-4">
+              <div className="space-y-4 p-4 bg-orange-50 dark:bg-orange-900/10 rounded-lg border border-orange-200 dark:border-orange-800">
                 <h3 className="text-lg font-medium text-orange-600 dark:text-orange-400">
                   Pending User Approvals ({pendingUsers.length})
                 </h3>
@@ -995,31 +1018,7 @@ function AdminPage() {
             )}
 
             {/* All Users Management Section */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">All Users Management</h3>
-                <Button
-                  onClick={() => {
-                    loadPendingUsers();
-                    loadAllUsers();
-                  }}
-                  disabled={loadingUsers || loadingAllUsers}
-                  variant="outline"
-                  size="sm"
-                >
-                  {(loadingUsers || loadingAllUsers) ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-1" />
-                      Refresh
-                    </>
-                  )}
-                </Button>
-              </div>
+            <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-200 dark:border-blue-800">
 
               {/* Search */}
               <div className="relative">
