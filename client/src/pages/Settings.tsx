@@ -161,60 +161,63 @@ function Settings() {
           </CardContent>
         </Card>
 
-        {/* System Features Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Battery className="h-5 w-5" />
-              Battery & Performance
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-sm font-medium text-green-800 dark:text-green-200">Optimization Active</span>
+        {/* System Features and Device Info Section - Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Battery & Performance Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Battery className="h-5 w-5" />
+                Battery & Performance
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-sm font-medium text-green-800 dark:text-green-200">Optimization Active</span>
+                </div>
+                <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400">
+                  Enabled
+                </Badge>
               </div>
-              <Badge variant="outline" className="text-green-600 border-green-600 dark:text-green-400 dark:border-green-400">
-                Enabled
-              </Badge>
-            </div>
-            <div className="text-sm text-muted-foreground space-y-1">
-              <p>• GPS tracking optimized for battery life</p>
-              <p>• Background app refresh managed</p>
-              <p>• Location accuracy balanced with power usage</p>
-              <p>• Automatic sleep mode when inactive</p>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <p>• GPS tracking optimized for battery life</p>
+                <p>• Background app refresh managed</p>
+                <p>• Location accuracy balanced with power usage</p>
+                <p>• Automatic sleep mode when inactive</p>
+              </div>
+            </CardContent>
+          </Card>
 
-        {/* Device Info Section - Mobile Optimized */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Smartphone className="h-5 w-5" />
-              Device Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div>
-                <label className="text-muted-foreground">Platform</label>
-                <p className="font-medium">{navigator.platform || 'Unknown'}</p>
+          {/* Device Information Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5" />
+                Device Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-4 text-sm">
+                <div>
+                  <label className="text-muted-foreground">Platform</label>
+                  <p className="font-medium">{navigator.platform || 'Unknown'}</p>
+                </div>
+                <div>
+                  <label className="text-muted-foreground">User Agent</label>
+                  <p className="font-medium truncate" title={navigator.userAgent}>
+                    {navigator.userAgent.split(' ')[0] || 'Unknown'}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-muted-foreground">Language</label>
+                  <p className="font-medium">{navigator.language || 'Unknown'}</p>
+                </div>
               </div>
-              <div>
-                <label className="text-muted-foreground">User Agent</label>
-                <p className="font-medium truncate" title={navigator.userAgent}>
-                  {navigator.userAgent.split(' ')[0] || 'Unknown'}
-                </p>
-              </div>
-              <div>
-                <label className="text-muted-foreground">Language</label>
-                <p className="font-medium">{navigator.language || 'Unknown'}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Health Check Settings Section */}
         {(user?.role === 'admin' || user?.isSuperUser) && (
