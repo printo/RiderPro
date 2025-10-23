@@ -32,11 +32,11 @@ export const webhookConfig: WebhookConfig = {
   authentication: {
     methods: ['api-key', 'hmac', 'basic-auth'],
     apiKeys: [
-      process.env.PRINTO_API_KEY || 'printo-api-key-2024',
-      process.env.EXTERNAL_API_KEY || 'external-system-key-1',
-      process.env.RIDERPRO_INTEGRATION_KEY || 'riderpro-integration-key'
+      process.env.PIA_API_KEY || 'printo-api-key-2024',
+      process.env.EXTERNAL_API_KEY_1 || 'external-system-key-1',
+      process.env.EXTERNAL_API_KEY_2 || 'riderpro-integration-key'
     ],
-    hmacSecret: process.env.WEBHOOK_SECRET || 'riderpro-webhook-secret-2024',
+    hmacSecret: process.env.WEBHOOK_SECRET || 'ad96b9b4d80432777acc8129186b652a971c42f9102934e6c6537c0ae0acea8c',
     basicAuthCredentials: [
       {
         username: process.env.WEBHOOK_USERNAME || 'riderpro',

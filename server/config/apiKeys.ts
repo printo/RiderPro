@@ -5,13 +5,15 @@
 
 export const API_KEYS = {
   // External API integration
-  EXTERNAL_API_KEY: process.env.EXTERNAL_API_KEY || 'hardcoded-external-api-key-12345',
+  PIA_API_KEY: process.env.PIA_API_KEY || 'printo-api-key-2024',
+  EXTERNAL_API_KEY_1: process.env.EXTERNAL_API_KEY_1 || 'external-system-key-1',
+  EXTERNAL_API_KEY_2: process.env.EXTERNAL_API_KEY_2 || 'riderpro-integration-key',
 
   // Internal system API key
   INTERNAL_API_KEY: process.env.INTERNAL_API_KEY || 'hardcoded-internal-api-key-67890',
 
   // Webhook authentication
-  WEBHOOK_SECRET: process.env.WEBHOOK_SECRET || 'hardcoded-webhook-secret-abcdef',
+  WEBHOOK_SECRET: process.env.WEBHOOK_SECRET || 'ad96b9b4d80432777acc8129186b652a971c42f9102934e6c6537c0ae0acea8c',
 
   // Admin API key for system operations
   ADMIN_API_KEY: process.env.ADMIN_API_KEY || 'hardcoded-admin-api-key-xyz789',
