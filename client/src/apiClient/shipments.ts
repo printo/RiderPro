@@ -47,7 +47,7 @@ export const shipmentsApi = {
     if (filters.sortField) params.append('sortField', filters.sortField);
     if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
 
-    const url = `/api/shipments${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `/api/shipments/fetch${params.toString() ? `?${params.toString()}` : ''}`;
     console.log('📡 Making API request to:', url);
 
     const response = await apiRequest("GET", url);

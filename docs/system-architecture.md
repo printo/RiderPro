@@ -287,8 +287,8 @@ server/
 #### RESTful Endpoints
 ```typescript
 // Shipments API
-GET    /api/shipments           # List shipments (paginated)
-POST   /api/shipments           # Create shipment
+GET    /api/shipments/fetch     # List shipments (paginated)
+POST   /api/shipments/receive   # Receive external shipment data
 GET    /api/shipments/:id       # Get single shipment
 PUT    /api/shipments/:id       # Update shipment
 DELETE /api/shipments/:id       # Delete shipment

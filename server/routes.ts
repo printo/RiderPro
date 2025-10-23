@@ -740,7 +740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get shipments with optional filters, pagination, and sorting
-  app.get('/api/shipments', async (req, res) => {
+  app.get('/api/shipments/fetch', async (req, res) => {
     try {
       // Accept either: API token auth, rider session, or JWT without external verify
       // Prefer API token auth when present
@@ -898,51 +898,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create new shipment (no auth for now)
-  app.post('/api/shipments/create', async (req, res) => {
-    try {
-      // Authentication removed (simplified app)
-
-      // Check write permissions
-      if (!hasRequiredPermission(req, 'write')) {
-        return res.status(403).json({
-          message: 'Insufficient permissions. Write access required to create shipments.',
-          code: 'INSUFFICIENT_PERMISSIONS'
-        });
-      }
-
-      // Validate that shipment ID is provided
-      if (!req.body.shipment_id && !req.body.trackingNumber) {
-        return res.status(400).json({
-          success: false,
-          message: 'Shipment ID (shipment_id or trackingNumber) is required and cannot be empty',
-          code: 'MISSING_SHIPMENT_ID'
-        });
-      }
-
-      // Use trackingNumber as shipment_id if shipment_id is not provided
-      if (!req.body.shipment_id && req.body.trackingNumber) {
-        req.body.shipment_id = req.body.trackingNumber;
-      }
-
-      const shipmentData = insertShipmentSchema.parse(req.body);
-      const shipment = await storage.createShipment(shipmentData);
-
-      // Sync to external API
-      externalSync.syncShipmentUpdate(shipment).catch(err => {
-        console.error('External sync failed for new shipment:', err);
-      });
-
-      res.status(201).json({
-        success: true,
-        message: 'Shipment created successfully',
-        shipment: shipment,
-        shipmentId: shipment.shipment_id
-      });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
-    }
-  });
+  // Note: /api/shipments/create endpoint removed for security
+  // Use /api/shipments/receive with proper authentication for both dev and production
 
   // Update shipment tracking data
   app.patch('/api/shipments/:id/tracking', async (req, res) => {

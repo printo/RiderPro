@@ -83,6 +83,14 @@ export const webhookEndpoints = {
     logging: true,
     description: 'Receive shipment data from external systems'
   },
+  fetch: {
+    path: '/api/shipments/fetch',
+    methods: ['GET'],
+    authentication: true,
+    rateLimit: true,
+    logging: true,
+    description: 'Fetch shipments with filters and pagination'
+  },
   updateExternal: {
     path: '/api/shipments/update/external',
     methods: ['POST'],
