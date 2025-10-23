@@ -94,55 +94,38 @@ app.get("/api-status", (req, res) => {
   });
 });
 
-// Initialize the app asynchronously
-let appInitialized = false;
-let initializationPromise: Promise<void> | null = null;
+// Initialize immediately (synchronous)
+console.log('🚀 Initializing Vercel serverless function...');
 
-async function initializeApp() {
-  if (appInitialized) return;
-  if (initializationPromise) return initializationPromise;
+try {
+  // Initialize authentication
+  initializeAuth();
 
-  initializationPromise = (async () => {
-    try {
-      // Initialize authentication tables
-      initializeAuth();
+  // Register routes (await is OK at module level, not in middleware)
+  await registerRoutes(app);
 
-      // Register routes
-      await registerRoutes(app);
-
-      // Error handling middleware
-      app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-        const status = err.status || err.statusCode || 500;
-        const message = err.message || "Internal Server Error";
-
-        console.error("Error:", err);
-        res.status(status).json({ error: true, message });
-      });
-
-      // Setup static file serving for production
-      serveStatic(app);
-
-      appInitialized = true;
-      console.log('✅ Vercel app initialized successfully');
-    } catch (error) {
-      console.error('❌ Failed to initialize Vercel app:', error);
-      throw error;
-    }
-  })();
-
-  return initializationPromise;
+  console.log('✅ Vercel app initialized successfully');
+} catch (error) {
+  console.error('❌ Failed to initialize Vercel app:', error);
+  throw error; // Fail fast - don't start if initialization fails
 }
 
-// Middleware to ensure app is initialized before handling requests
-app.use(async (req, res, next) => {
-  try {
-    await initializeApp();
-    next();
-  } catch (error) {
-    console.error('App initialization error:', error);
-    res.status(500).json({ error: true, message: 'Server initialization failed' });
-  }
+// Error handling middleware MUST be after routes
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('❌ Vercel Request Error:', {
+    message: err.message,
+    stack: err.stack,
+    url: _req.url,
+    method: _req.method
+  });
+
+  const status = err.status || err.statusCode || 500;
+  const message = err.message || "Internal Server Error";
+  res.status(status).json({ error: true, message });
 });
+
+// Serve static files
+serveStatic(app);
 
 // Export the Express app for Vercel
 export default app;

@@ -66,7 +66,7 @@ function hasRequiredPermission(_req: any, _requiredLevel: 'read' | 'write' | 'ad
   return true;
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<Server | null> {
   // Add request ID middleware for better error tracking
 
   // Add error handling middleware at the end
@@ -2377,6 +2377,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Setup error handling middleware (must be last)
   setupErrorHandling();
+
+  // Only create HTTP server in non-Vercel environments
+  if (process.env.VERCEL) {
+    console.log('✅ Routes registered for Vercel serverless');
+    return null;
+  }
 
   const httpServer = createServer(app);
   return httpServer;
