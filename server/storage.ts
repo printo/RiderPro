@@ -29,6 +29,7 @@ export interface IStorage {
 
   // Dashboard operations
   getDashboardMetrics(): Promise<DashboardMetrics>;
+  getDashboardMetricsForEmployee(employeeId: string): Promise<DashboardMetrics>;
 
   // Vehicle Types operations
   getVehicleTypes(): Promise<VehicleType[]>;
@@ -113,6 +114,10 @@ export class PostgresStorage implements IStorage {
 
   async getDashboardMetrics(): Promise<DashboardMetrics> {
     return this.queries.getDashboardMetrics();
+  }
+
+  async getDashboardMetricsForEmployee(employeeId: string): Promise<DashboardMetrics> {
+    return this.queries.getDashboardMetricsForEmployee(employeeId);
   }
 
   // Vehicle Types operations

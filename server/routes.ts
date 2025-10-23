@@ -407,9 +407,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard endpoint
   app.get('/api/dashboard', async (req, res) => {
     try {
-      const metrics = await storage.getDashboardMetrics();
+      // Get employee ID from query params or use a default
+      const employeeId = req.query.employeeId as string;
+      
+      let metrics;
+      if (employeeId) {
+        // Try to get employee-specific metrics first
+        try {
+          metrics = await storage.getDashboardMetricsForEmployee(employeeId);
+        } catch (error) {
+          console.log(`No data found for employee ${employeeId}, falling back to cumulative metrics`);
+          // Fall back to cumulative metrics if no employee data
+          metrics = await storage.getDashboardMetrics();
+        }
+      } else {
+        // Get cumulative metrics for all employees
+        metrics = await storage.getDashboardMetrics();
+      }
+      
       res.json(metrics);
     } catch (error: any) {
+      console.error('Dashboard error:', error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -564,11 +582,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/routes/active/:employeeId', async (req, res) => {
     try {
       const { employeeId } = req.params;
+      
+      // Check if employee exists in the system
+      const employeeCheck = await db.query(
+        'SELECT COUNT(*)::int as count FROM shipments WHERE "employeeId" = $1', 
+        [employeeId]
+      );
+      
+      if (employeeCheck.rows[0]?.count === 0) {
+        // Return a response indicating no data instead of 404
+        return res.json({ 
+          success: true, 
+          data: null,
+          message: `No data found for employee ${employeeId}. Showing cumulative metrics instead.`
+        });
+      }
+      
       const activeSession = await routeService.getActiveSession(employeeId);
 
       if (!activeSession) {
-        return res.status(404).json({
-          success: false,
+        return res.json({
+          success: true,
+          data: null,
           message: 'No active session found for this employee'
         });
       }

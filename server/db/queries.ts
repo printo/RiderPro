@@ -295,6 +295,121 @@ export class ShipmentQueries {
     }
   }
 
+  async getDashboardMetricsForEmployee(employeeId: string): Promise<DashboardMetrics> {
+    // Initialize default values for when there's no data
+    const defaultMetrics: DashboardMetrics = {
+      totalShipments: 0,
+      completed: 0,
+      inProgress: 0,
+      pending: 0,
+      statusBreakdown: {},
+      typeBreakdown: {},
+      routeBreakdown: {}
+    };
+
+    try {
+      // Check if employee has any data
+      const employeeCheckRes = await db.query(
+        'SELECT COUNT(*)::int as count FROM shipments WHERE "employeeId" = $1', 
+        [employeeId]
+      );
+      const employeeShipments = employeeCheckRes.rows[0]?.count || 0;
+
+      if (employeeShipments === 0) {
+        console.log(`No shipments found for employee ${employeeId}`);
+        return defaultMetrics;
+      }
+
+      const totalShipmentsRes = await db.query(
+        'SELECT COUNT(*)::int as count FROM shipments WHERE "employeeId" = $1', 
+        [employeeId]
+      );
+      const totalShipments = totalShipmentsRes.rows[0]?.count || 0;
+
+      if (totalShipments === 0) {
+        return defaultMetrics;
+      }
+
+      const statusStatsRes = await db.query(`
+        SELECT status, COUNT(*)::int as count
+        FROM shipments 
+        WHERE "employeeId" = $1
+        GROUP BY status
+      `, [employeeId]);
+
+      const typeStatsRes = await db.query(`
+        SELECT type, COUNT(*)::int as count
+        FROM shipments 
+        WHERE "employeeId" = $1
+        GROUP BY type
+      `, [employeeId]);
+
+      const routeStatsRes = await db.query(`
+        SELECT 
+          "routeName" as routeName,
+          COUNT(*)::int as total,
+          SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END)::int as delivered,
+          SUM(CASE WHEN status = 'Picked Up' THEN 1 ELSE 0 END)::int as pickedUp,
+          SUM(CASE WHEN status = 'Assigned' THEN 1 ELSE 0 END)::int as pending,
+          SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END)::int as cancelled,
+          SUM(CASE WHEN status = 'Assigned' AND type = 'pickup' THEN 1 ELSE 0 END)::int as "pickupPending",
+          SUM(CASE WHEN status = 'Assigned' AND type = 'delivery' THEN 1 ELSE 0 END)::int as "deliveryPending"
+        FROM shipments 
+        WHERE "employeeId" = $1
+        GROUP BY "routeName"
+      `, [employeeId]);
+
+      const statusBreakdown: Record<string, number> = {};
+      let completed = 0;
+      let inProgress = 0;
+      let pending = 0;
+
+      statusStatsRes.rows.forEach((stat: any) => {
+        statusBreakdown[stat.status] = stat.count;
+        if (stat.status === 'Delivered' || stat.status === 'Picked Up') {
+          completed += stat.count;
+        } else if (stat.status === 'In Transit') {
+          inProgress += stat.count;
+        } else if (stat.status === 'Assigned') {
+          pending += stat.count;
+        }
+      });
+
+      const typeBreakdown: Record<string, number> = {};
+      typeStatsRes.rows.forEach((stat: any) => {
+        typeBreakdown[stat.type] = stat.count;
+      });
+
+      const routeBreakdown: Record<string, any> = {};
+      routeStatsRes.rows.forEach((stat: any) => {
+        if (stat.routeName) {
+          routeBreakdown[stat.routeName] = {
+            total: stat.total || 0,
+            delivered: stat.delivered || 0,
+            pickedUp: stat.pickedUp || 0,
+            pending: stat.pending || 0,
+            cancelled: stat.cancelled || 0,
+            pickupPending: stat.pickupPending || 0,
+            deliveryPending: stat.deliveryPending || 0,
+          };
+        }
+      });
+
+      return {
+        totalShipments,
+        completed,
+        inProgress,
+        pending,
+        statusBreakdown,
+        typeBreakdown,
+        routeBreakdown,
+      };
+    } catch (error) {
+      console.error(`Error fetching dashboard metrics for employee ${employeeId}:`, error);
+      return defaultMetrics;
+    }
+  }
+
   async createAcknowledgment(acknowledgment: InsertAcknowledgment): Promise<Acknowledgment> {
     const id = randomUUID();
 
