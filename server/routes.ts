@@ -407,28 +407,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard endpoint
   app.get('/api/dashboard', async (req, res) => {
     try {
+      console.log('📊 Dashboard endpoint called');
       // Get employee ID from query params or use a default
       const employeeId = req.query.employeeId as string;
-      
+      console.log('Employee ID:', employeeId);
+
       let metrics;
       if (employeeId) {
         // Try to get employee-specific metrics first
         try {
+          console.log(`Getting metrics for employee: ${employeeId}`);
           metrics = await storage.getDashboardMetricsForEmployee(employeeId);
+          console.log('Employee metrics retrieved successfully');
         } catch (error) {
           console.log(`No data found for employee ${employeeId}, falling back to cumulative metrics`);
           // Fall back to cumulative metrics if no employee data
           metrics = await storage.getDashboardMetrics();
+          console.log('Fallback metrics retrieved successfully');
         }
       } else {
         // Get cumulative metrics for all employees
+        console.log('Getting cumulative metrics');
         metrics = await storage.getDashboardMetrics();
+        console.log('Cumulative metrics retrieved successfully');
       }
-      
+
+      console.log('Dashboard metrics:', JSON.stringify(metrics, null, 2));
       res.json(metrics);
     } catch (error: any) {
-      console.error('Dashboard error:', error);
-      res.status(500).json({ message: error.message });
+      console.error('❌ Dashboard error:', error);
+      console.error('Error stack:', error.stack);
+      res.status(500).json({
+        error: true,
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   });
 
@@ -581,26 +594,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get active session for an employee
   app.get('/api/routes/active/:employeeId', async (req, res) => {
     try {
+      console.log('🛣️ Active routes endpoint called');
       const { employeeId } = req.params;
-      
+      console.log('Employee ID:', employeeId);
+
       // Check if employee exists in the system
+      console.log('Checking if employee exists in shipments...');
       const employeeCheck = await db.query(
-        'SELECT COUNT(*)::int as count FROM shipments WHERE "employeeId" = $1', 
+        'SELECT COUNT(*)::int as count FROM shipments WHERE "employeeId" = $1',
         [employeeId]
       );
-      
+      console.log('Employee check result:', employeeCheck.rows[0]);
+
       if (employeeCheck.rows[0]?.count === 0) {
         // Return a response indicating no data instead of 404
-        return res.json({ 
-          success: true, 
+        console.log(`No shipments found for employee ${employeeId}`);
+        return res.json({
+          success: true,
           data: null,
           message: `No data found for employee ${employeeId}. Showing cumulative metrics instead.`
         });
       }
-      
+
+      console.log('Getting active session for employee...');
       const activeSession = await routeService.getActiveSession(employeeId);
+      console.log('Active session result:', activeSession);
 
       if (!activeSession) {
+        console.log('No active session found');
         return res.json({
           success: true,
           data: null,
@@ -608,10 +629,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      console.log('Returning active session data');
       res.json({ success: true, data: activeSession });
     } catch (e: any) {
-      console.error('Error getting active session:', e);
-      res.status(500).json({ success: false, message: e.message });
+      console.error('❌ Error getting active session:', e);
+      console.error('Error stack:', e.stack);
+      res.status(500).json({
+        success: false,
+        message: e.message,
+        stack: process.env.NODE_ENV === 'development' ? e.stack : undefined
+      });
     }
   });
 

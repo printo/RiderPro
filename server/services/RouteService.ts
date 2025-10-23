@@ -98,7 +98,7 @@ class RouteService {
       RETURNING id, employee_id, start_time, end_time, status, start_latitude, start_longitude, end_latitude, end_longitude, total_distance, total_time, average_speed, fuel_consumed, fuel_cost, shipments_completed, fuel_efficiency, fuel_price, vehicle_type, created_at, updated_at
     `;
     const res = await db.query(sql, [params.id, params.endLatitude, params.endLongitude]);
-    
+
     if (res.rows[0]) {
       // Calculate and update analytics for the completed session
       await this.updateSessionAnalytics(params.id);
@@ -246,19 +246,44 @@ class RouteService {
   }
 
   async getActiveSession(employeeId: string): Promise<RouteSessionRecord | null> {
-    const sql = `
-      SELECT DISTINCT id, employee_id, start_time, end_time, status, 
-             start_latitude, start_longitude, end_latitude, end_longitude,
-             total_distance, total_time, average_speed, fuel_consumed, fuel_cost,
-             shipments_completed, fuel_efficiency, fuel_price, vehicle_type,
-             created_at, updated_at
-      FROM route_sessions 
-      WHERE employee_id = $1 AND status = 'active'
-      ORDER BY created_at DESC
-      LIMIT 1
-    `;
-    const res = await db.query(sql, [employeeId]);
-    return res.rows[0] as RouteSessionRecord || null;
+    try {
+      console.log(`🔍 Getting active session for employee: ${employeeId}`);
+
+      // First check if the route_sessions table exists
+      const tableCheck = await db.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'route_sessions'
+        );
+      `);
+
+      if (!tableCheck.rows[0]?.exists) {
+        console.log('⚠️ route_sessions table does not exist');
+        return null;
+      }
+
+      const sql = `
+        SELECT DISTINCT id, employee_id, start_time, end_time, status, 
+               start_latitude, start_longitude, end_latitude, end_longitude,
+               total_distance, total_time, average_speed, fuel_consumed, fuel_cost,
+               shipments_completed, fuel_efficiency, fuel_price, vehicle_type,
+               created_at, updated_at
+        FROM route_sessions 
+        WHERE employee_id = $1 AND status = 'active'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `;
+
+      console.log('Executing query for active session...');
+      const res = await db.query(sql, [employeeId]);
+      console.log(`Found ${res.rows.length} active sessions`);
+
+      return res.rows[0] as RouteSessionRecord || null;
+    } catch (error) {
+      console.error('❌ Error in getActiveSession:', error);
+      throw error;
+    }
   }
 
   async getSessionCoordinates(sessionId: string): Promise<RouteTrackingRecord[]> {
@@ -275,7 +300,7 @@ class RouteService {
     return res.rows as RouteTrackingRecord[];
   }
 
-  async getSession(sessionId: string): Promise<{ session: RouteSessionRecord | null; coordinates: RouteTrackingRecord[]; }>{
+  async getSession(sessionId: string): Promise<{ session: RouteSessionRecord | null; coordinates: RouteTrackingRecord[]; }> {
     const s = await db.query('SELECT * FROM route_sessions WHERE id = $1', [sessionId]);
     const session = (s.rows[0] as RouteSessionRecord) || null;
     const coordsRes = await db.query('SELECT * FROM route_tracking WHERE session_id = $1 ORDER BY timestamp DESC', [sessionId]);
@@ -717,7 +742,7 @@ class RouteService {
     await db.query('DELETE FROM route_tracking WHERE date < $1', [cutoffIso]);
   }
 
-  async getAnalyticsSummary(): Promise<{ totalRoutes: number; totalDistance: number; totalTimeHours: number; shipmentsCompleted: number; }>{
+  async getAnalyticsSummary(): Promise<{ totalRoutes: number; totalDistance: number; totalTimeHours: number; shipmentsCompleted: number; }> {
     const totalRoutesRes = await db.query('SELECT COUNT(*)::int as c FROM route_sessions');
     const totalDistanceRes = await db.query('SELECT COALESCE(SUM(total_distance),0)::float as d FROM route_sessions');
     const totalTimeRes = await db.query('SELECT COALESCE(SUM(total_time),0)::int as t FROM route_sessions');
@@ -732,7 +757,7 @@ class RouteService {
     };
   }
 
-  async insertCoordinatesBatch(coordinates: Array<{ sessionId: string; employeeId: string; latitude: number; longitude: number; accuracy?: number; speed?: number; timestamp?: string; eventType?: string; shipmentId?: string; }>): Promise<{ success: number; failed: number; }>{
+  async insertCoordinatesBatch(coordinates: Array<{ sessionId: string; employeeId: string; latitude: number; longitude: number; accuracy?: number; speed?: number; timestamp?: string; eventType?: string; shipmentId?: string; }>): Promise<{ success: number; failed: number; }> {
     let success = 0;
     let failed = 0;
     for (const c of coordinates) {
