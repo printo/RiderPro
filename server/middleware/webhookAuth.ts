@@ -88,11 +88,21 @@ export class WebhookAuthMiddleware {
    * Validate API key authentication
    */
   private static validateApiKey(apiKey: string): boolean {
+      // Debug logs
+      log(`Valid API Keys: ${Array.from(WebhookAuthMiddleware.VALID_API_KEYS).join(', ')}`);
+      log(`Received API Key: ${apiKey}`);
+      log(`Environment Variables - PIA_API_KEY: ${process.env.PIA_API_KEY ? 'set' : 'not set'}, EXTERNAL_API_KEY_1: ${process.env.EXTERNAL_API_KEY_1 ? 'set' : 'not set'}, EXTERNAL_API_KEY_2: ${process.env.EXTERNAL_API_KEY_2 ? 'set' : 'not set'}`);
+
+
     if (!apiKey || typeof apiKey !== 'string') {
       return false;
     }
 
-    return webhookConfig.authentication.apiKeys.includes(apiKey.trim());
+    const trimmedKey = apiKey.trim();
+    const isValid = webhookConfig.authentication.apiKeys.includes(trimmedKey);
+    log(`API Key validation result: ${isValid}`, 'webhook-auth');
+
+    return isValid;
   }
 
   /**
