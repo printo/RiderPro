@@ -21,10 +21,10 @@ export class WebhookAuthMiddleware {
 
   // Valid API keys for external systems (in production, store in database)
   private static readonly VALID_API_KEYS = new Set([
-    'printo-api-key-2024',
-    'external-system-key-1',
-    'riderpro-integration-key'
-  ]);
+  process.env.PIA_API_KEY || 'printo-api-key-2024',
+  process.env.EXTERNAL_API_KEY_1 || 'external-system-key-1',
+  process.env.EXTERNAL_API_KEY_2 || 'riderpro-integration-key'
+]);
 
   /**
    * Main webhook authentication middleware
