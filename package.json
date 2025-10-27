@@ -7,7 +7,7 @@
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
-    "build:server": "esbuild server/index.ts --platform=node --packages=external --external:rollup --external:@rollup/* --external:vite --bundle --format=esm --outdir=dist --external:./server/vite.ts",
+    "build:server": "esbuild server/index-no-vite.ts --platform=node --packages=external --external:rollup --external:@rollup/* --external:vite --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "lint": "eslint . --ext .ts,.tsx --fix",
