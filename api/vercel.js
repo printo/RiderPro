@@ -6198,7 +6198,16 @@ app.use(async (req, res, next) => {
     next();
   } catch (error) {
     console.error("\u274C Initialization failed:", error);
-    res.status(500).json({ error: true, message: "Server initialization failed" });
+    console.error("\u274C Error details:", {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    res.status(500).json({
+      error: true,
+      message: "Server initialization failed",
+      details: error.message
+    });
   }
 });
 app.use((err, _req, res, _next) => {

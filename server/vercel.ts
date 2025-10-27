@@ -125,7 +125,17 @@ app.use(async (req, res, next) => {
     next();
   } catch (error) {
     console.error('❌ Initialization failed:', error);
-    res.status(500).json({ error: true, message: 'Server initialization failed' });
+    const err = error as Error;
+    console.error('❌ Error details:', {
+      message: err.message,
+      stack: err.stack,
+      name: err.name
+    });
+    res.status(500).json({ 
+      error: true, 
+      message: 'Server initialization failed',
+      details: err.message 
+    });
   }
 });
 
