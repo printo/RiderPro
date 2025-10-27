@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -178,6 +179,9 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
             <Fuel className="h-5 w-5 text-blue-600" />
             Fuel Settings Management
           </DialogTitle>
+          <DialogDescription>
+            Manage fuel settings for different vehicle types and track fuel consumption analytics.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">

@@ -142,7 +142,7 @@ export const routeAPI = {
         throw new Error(result.message || 'Failed to get active session');
       }
 
-      return result.session;
+      return result.data;
     } catch (error) {
       if (error instanceof Error && error.message.includes('404')) {
         return null;
@@ -162,7 +162,7 @@ export const routeAPI = {
       throw new Error(result.message || 'Failed to get session coordinates');
     }
 
-    return result.coordinates;
+    return result.data;
   },
 
   /**
@@ -184,7 +184,7 @@ export const routeAPI = {
       throw new Error(result.message || 'Failed to get route analytics');
     }
 
-    return result.analytics;
+    return result.data;
   },
 
   /**

@@ -642,6 +642,25 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
     }
   });
 
+  // Get route analytics with filters
+  app.get('/api/routes/analytics', async (req, res) => {
+    try {
+      const { employeeId, startDate, endDate, sessionStatus } = req.query;
+      
+      const filters = {
+        employeeId: employeeId as string,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        sessionStatus: sessionStatus as string
+      };
+
+      const analytics = await routeService.getRouteAnalytics(filters);
+      res.json({ success: true, data: analytics });
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: e.message });
+    }
+  });
+
   app.get('/api/routes/analytics/summary', async (_req, res) => {
     try {
       const summary = await routeService.getAnalyticsSummary();

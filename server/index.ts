@@ -114,9 +114,12 @@ let server: any = null;
       res.status(status).json({ error: true, message });
     });
 
-    // Setup static files for production
+    // Setup Vite for development or static files for production
     if (app.get("env") === "production") {
       serveStatic(app);
+    } else {
+      // Development mode - setup Vite middleware
+      await setupVite(app, server);
     }
 
     // Only start server if not in Vercel environment

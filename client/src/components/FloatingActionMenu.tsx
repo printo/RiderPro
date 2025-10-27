@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 import {
@@ -113,6 +113,11 @@ function FloatingActionMenu() {
             "w-full h-[60vh] sm:max-w-sm sm:ml-auto sm:mr-4 sm:h-[70vh]"
           )}
         >
+          <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+          <SheetDescription className="sr-only">
+            Main navigation menu with access to dashboard, shipments, analytics, and settings
+          </SheetDescription>
+          
           {/* Handle bar for visual indication */}
           <div className="flex justify-center py-3">
             <div className="w-8 h-1 bg-muted-foreground/30 rounded-full" />
