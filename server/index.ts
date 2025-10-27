@@ -2,9 +2,18 @@
 import dotenv from 'dotenv';
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
 import { initializeAuth } from "./middleware/auth";
 import cors from 'cors';
+
+// Simple logger shim
+const log = console.log;
+
+// Vite utilities - lazy loaded to avoid bundling Vite/Rollup in serverless
+const getViteUtils = async () => {
+  if (process.env.VERCEL) return { serveStatic: null, setupVite: null };
+  const viteModule = await import("./vite");
+  return { serveStatic: viteModule.serveStatic, setupVite: viteModule.setupVite };
+};
 
 // Load environment variables
 dotenv.config();
@@ -157,11 +166,12 @@ if (process.env.VERCEL) {
       isInitialized = true;
 
       // Setup Vite for development or static files for production
-      if (app.get("env") === "production") {
-        serveStatic(app);
-      } else if (server) {
+      const viteUtils = await getViteUtils();
+      if (app.get("env") === "production" && viteUtils.serveStatic) {
+        viteUtils.serveStatic(app);
+      } else if (server && viteUtils.setupVite) {
         // Development mode - setup Vite middleware
-        await setupVite(app, server);
+        await viteUtils.setupVite(app, server);
       }
 
       // Start server
