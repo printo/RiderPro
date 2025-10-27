@@ -94,47 +94,55 @@ app.get("/api-status", (req, res) => {
   });
 });
 
+// Initialize authentication tables
+initializeAuth();
+
+// Initialize the app asynchronously
+let server: any = null;
+
 (async () => {
-  // Initialize authentication tables
-  initializeAuth();
+  try {
+    // Register routes
+    server = await registerRoutes(app);
 
+    // Error handling middleware
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-  const server = await registerRoutes(app);
+      console.error("Error:", err);
+      res.status(status).json({ error: true, message });
+    });
 
-  // Error handling middleware
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    // Setup static files for production
+    if (app.get("env") === "production") {
+      serveStatic(app);
+    }
 
-    console.error("Error:", err);
-    res.status(status).json({ error: true, message });
-  });
-
-  // Setup Vite in development, serve static files in production
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    // Only start server if not in Vercel environment
+    if (!process.env.VERCEL && server) {
+      const port = parseInt(process.env.PORT || '5000', 10);
+      server.listen(port, '0.0.0.0', () => {
+        console.log('\n=== RiderPro Delivery Management System ===');
+        console.log(`🚀 Server running on port ${port}`);
+        console.log(`🌐 Application: http://localhost:${port}`);
+        console.log(`📱 Mobile App: http://localhost:${port} (responsive design)`);
+        console.log(`📡 API Endpoints: http://localhost:${port}/api/*`);
+        console.log(`🔍 Health Check: http://localhost:${port}/health`);
+        console.log(`📊 Admin Panel: http://localhost:${port}/admin`);
+        console.log(`📦 Shipments: http://localhost:${port}/shipments`);
+        console.log(`⚙️  Settings: http://localhost:${port}/settings`);
+        console.log(`\n🔑 API Keys: Hardcoded (see admin panel for details)`);
+        console.log(`🗄️  Database: SQLite with consolidated schema`);
+        console.log(`🔄 Sync Status: Real-time external API integration`);
+        console.log(`📍 GPS Tracking: Auto-calculated distance tracking`);
+        console.log(`👥 Roles: Super User, Ops Team, Staff, Driver`);
+        console.log('===============================================\n');
+      });
+    }
+  } catch (error) {
+    console.error('Failed to initialize app:', error);
   }
-
-  const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen(port, '0.0.0.0', () => {
-    console.log('\n=== RiderPro Delivery Management System ===');
-    console.log(`🚀 Server running on port ${port}`);
-    console.log(`🌐 Application: http://localhost:${port}`);
-    console.log(`📱 Mobile App: http://localhost:${port} (responsive design)`);
-    console.log(`📡 API Endpoints: http://localhost:${port}/api/*`);
-    console.log(`🔍 Health Check: http://localhost:${port}/health`);
-    console.log(`📊 Admin Panel: http://localhost:${port}/admin`);
-    console.log(`📦 Shipments: http://localhost:${port}/shipments`);
-    console.log(`⚙️  Settings: http://localhost:${port}/settings`);
-    console.log(`\n🔑 API Keys: Hardcoded (see admin panel for details)`);
-    console.log(`🗄️  Database: SQLite with consolidated schema`);
-    console.log(`🔄 Sync Status: Real-time external API integration`);
-    console.log(`📍 GPS Tracking: Auto-calculated distance tracking`);
-    console.log(`👥 Roles: Super User, Ops Team, Staff, Driver`);
-    console.log('===============================================\n');
-  });
 })();
 
 // Export the Express app for Vercel
