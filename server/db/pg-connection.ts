@@ -11,8 +11,9 @@ neonConfig.webSocketConstructor = ws;
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  console.error('DATABASE_URL environment variable is not set');
-  throw new Error('DATABASE_URL must be configured');
+  console.error('❌ DATABASE_URL environment variable is not set');
+  console.error('❌ This is a required configuration. Please set DATABASE_URL in your environment.');
+  throw new Error('DATABASE_URL must be configured. Please add it to your Vercel environment variables.');
 }
 
 // Create the pool
