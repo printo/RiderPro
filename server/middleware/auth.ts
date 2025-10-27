@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
-import Database from 'better-sqlite3';
+import { db } from '../db/pg-connection';
 
 // User roles for role-based access control
 export enum UserRole {
@@ -152,8 +152,6 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     const accessToken = authHeader.substring(7);
 
     // For local auth, extract user ID from token and validate against rider_accounts
-    const userDataDb = new Database('data/userdata.db');
-
     // Extract user ID from token (format: local_timestamp_userId)
     const tokenParts = accessToken.split('_');
     if (tokenParts.length < 3 || tokenParts[0] !== 'local') {
@@ -163,13 +161,13 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     // Get the last part as userId (in case there are underscores in the userId)
     const userId = tokenParts.slice(2).join('_');
 
-    const userRow = userDataDb
+    const userRow = await db
       .prepare(`
         SELECT id, rider_id as username, rider_id as email, role, rider_id as employee_id, full_name, 
                '' as access_token, '' as refresh_token, is_active, last_login_at as last_login, 
                created_at, updated_at
         FROM rider_accounts 
-        WHERE id = ? AND is_active = 1
+        WHERE id = $1 AND is_active = true
       `)
       .get(userId) as any;
 
@@ -273,18 +271,18 @@ export const authenticateUser = async (email: string, password: string) => {
       throw new Error('Authentication failed with Printo API');
     }
 
-    // Store/update user in local SQLite for session management
-    const existingUser = storage
-      .prepare('SELECT id FROM users WHERE id = ?')
+    // Store/update user in PostgreSQL for session management
+    const existingUser = await storage
+      .prepare('SELECT id FROM users WHERE id = $1')
       .get(printoUser.id);
 
     if (existingUser) {
       // Update existing user
-      storage.prepare(`
+      await storage.prepare(`
         UPDATE users 
-        SET username = ?, email = ?, role = ?, employee_id = ?, full_name = ?, 
-            access_token = ?, refresh_token = ?, last_login = datetime('now'), updated_at = datetime('now')
-        WHERE id = ?
+        SET username = $1, email = $2, role = $3, employee_id = $4, full_name = $5, 
+            access_token = $6, refresh_token = $7, last_login = NOW(), updated_at = NOW()
+        WHERE id = $8
       `).run(
         printoUser.username,
         printoUser.email,
@@ -297,9 +295,9 @@ export const authenticateUser = async (email: string, password: string) => {
       );
     } else {
       // Create new user
-      storage.prepare(`
+      await storage.prepare(`
         INSERT INTO users (id, username, email, role, employee_id, full_name, access_token, refresh_token, is_active, last_login, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), datetime('now'))
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, NOW(), NOW(), NOW())
       `).run(
         printoUser.id,
         printoUser.username,
@@ -341,15 +339,19 @@ export const refreshAccessTokenForUser = async (userId: string, refreshToken: st
     if (!newAccess) return null;
 
     // Update stored access token
-    storage.prepare(`
-      UPDATE users SET access_token = ?, updated_at = datetime('now') WHERE id = ?
+    await storage.prepare(`
+      UPDATE users SET access_token = $1, updated_at = NOW() WHERE id = $2
     `).run(newAccess, userId);
 
     // Update session to extend 24 hours
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-    storage.prepare(`
-      INSERT OR REPLACE INTO user_sessions (id, user_id, access_token, expires_at)
-      VALUES ((SELECT id FROM user_sessions WHERE user_id = ? LIMIT 1), ?, ?, ?)
+    await storage.prepare(`
+      INSERT INTO user_sessions (id, user_id, access_token, expires_at)
+      VALUES ((SELECT id FROM user_sessions WHERE user_id = $1 LIMIT 1), $2, $3, $4)
+      ON CONFLICT (id) DO UPDATE SET
+        user_id = EXCLUDED.user_id,
+        access_token = EXCLUDED.access_token,
+        expires_at = EXCLUDED.expires_at
     `).run(userId, userId, newAccess, expiresAt);
 
     return newAccess;
@@ -386,11 +388,11 @@ export const hasPermission = (userRole: UserRole, permission: Permission): boole
 };
 
 // Session cleanup
-export const cleanupExpiredSessions = () => {
+export const cleanupExpiredSessions = async () => {
   try {
-    const result = storage.prepare(`
+    const result = await storage.prepare(`
       DELETE FROM user_sessions
-      WHERE expires_at < datetime('now')
+      WHERE expires_at < NOW()
     `).run();
 
     if (result.changes > 0) {

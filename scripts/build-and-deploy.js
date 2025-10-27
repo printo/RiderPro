@@ -142,7 +142,7 @@ function installDependencies() {
   }
   
   // Verify critical dependencies
-  const criticalDeps = ['better-sqlite3', 'express', 'react', 'typescript'];
+  const criticalDeps = ['@neondatabase/serverless', 'express', 'react', 'typescript'];
   for (const dep of criticalDeps) {
     const depPath = `node_modules/${dep}`;
     if (fs.existsSync(depPath)) {
