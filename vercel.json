@@ -1,12 +1,12 @@
 {
   "version": 2,
-  "buildCommand": "rm -rf node_modules package-lock.json && npm install --legacy-peer-deps --include=optional --include=dev && npm run build",
+  "buildCommand": "npm run build",
   "devCommand": "npm run dev",
+  "installCommand": "npm install",
   "framework": null,
   "outputDirectory": "dist/public",
-  "fluid": true,
   "functions": {
-    "api/vercel.js": {
+    "api/index.js": {
       "memory": 1024,
       "maxDuration": 30
     }
@@ -14,16 +14,13 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/vercel.js"
+      "destination": "/api/index.js"
     },
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  ]
 }
 
 
