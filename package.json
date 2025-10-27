@@ -7,8 +7,8 @@
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
-    "build:server": "esbuild server/vercel.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --external:rollup",
-    "start": "NODE_ENV=production node dist/index.js",
+    "build:server": "esbuild server/vercel.ts --platform=node --packages=external --bundle --format=esm --outdir=api --out-extension:.js=.js",
+    "start": "NODE_ENV=production tsx server/production.ts",
     "check": "tsc",
     "lint": "eslint . --ext .ts,.tsx --fix",
     "lint:check": "eslint . --ext .ts,.tsx",
@@ -113,7 +113,7 @@
     "@types/ws": "^8.5.13",
     "@typescript-eslint/eslint-plugin": "^8.46.1",
     "@typescript-eslint/parser": "^8.46.1",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^4.3.3",
     "@vitejs/plugin-react-swc": "^3.7.0",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.2.1",
@@ -122,11 +122,10 @@
     "eslint": "^9.37.0",
     "http-proxy-middleware": "^3.0.5",
     "postcss": "^8.4.47",
-    "rollup": "^4.0.0",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.3",
     "typescript": "5.6.3",
-    "vite": "^7.1.10"
+    "vite": "^5.4.10"
   },
   "overrides": {
     "@babel/helpers": "^7.26.10",
@@ -134,11 +133,6 @@
     "on-headers": "^1.0.2"
   },
   "optionalDependencies": {
-    "bufferutil": "^4.0.8",
-    "@rollup/rollup-linux-x64-gnu": "^4.0.0",
-    "@rollup/rollup-linux-x64-musl": "^4.0.0",
-    "@rollup/rollup-darwin-x64": "^4.0.0",
-    "@rollup/rollup-darwin-arm64": "^4.0.0",
-    "@rollup/rollup-win32-x64-msvc": "^4.0.0"
+    "bufferutil": "^4.0.8"
   }
 }

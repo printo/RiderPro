@@ -28,10 +28,7 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
     minify: 'esbuild',
-    target: 'es2020',
-    rollupOptions: {
-      external: ['rollup', '@rollup/rollup-linux-x64-gnu']
-    }
+    target: 'es2020'
   },
   esbuild: {
     target: 'es2020'
