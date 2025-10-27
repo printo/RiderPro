@@ -3,7 +3,7 @@ import FormData from 'form-data';
 import fs from 'fs';
 import path from 'path';
 import { Shipment, Acknowledgment } from '@shared/schema';
-import { log } from '../vite.js';
+const log = console.log;
 
 interface ExternalSyncPayload {
   shipmentId: string;

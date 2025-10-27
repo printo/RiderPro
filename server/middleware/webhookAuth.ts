@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { log } from '../vite.js';
+const log = console.log;
 import { webhookConfig } from '../config/webhook.js';
 
 export interface WebhookRequest extends Request {

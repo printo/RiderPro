@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { ShipmentQueries } from '../db/queries.js';
-import { log } from '../vite.js';
+const log = console.log;
 
 // Reset live database daily at midnight
 cron.schedule('0 0 * * *', () => {

@@ -1,4 +1,4 @@
-import { log } from '../vite.js';
+const log = console.log;
 import {
   ExternalShipmentPayload,
   ExternalShipmentBatch,
