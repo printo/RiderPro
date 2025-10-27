@@ -4,16 +4,18 @@ import fs from 'fs';
 import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 
-// Ensure uploads directory exists
+// Ensure uploads directory exists (skip in Vercel serverless as it's read-only)
 const uploadsDir = path.join(process.cwd(), 'uploads');
 const signaturesDir = path.join(uploadsDir, 'signatures');
 const photosDir = path.join(uploadsDir, 'photos');
 
-[uploadsDir, signaturesDir, photosDir].forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-});
+if (!process.env.VERCEL) {
+  [uploadsDir, signaturesDir, photosDir].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  });
+}
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
