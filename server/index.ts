@@ -122,14 +122,40 @@ const initializeApp = async () => {
   }
 };
 
-// Initialize the app based on environment
-(async () => {
-  try {
-    // Always initialize routes
-    await initializeApp();
+// Track initialization state
+export let isInitializing = false;
+export let isInitialized = false;
 
-    // Only start the server if not in Vercel
-    if (!process.env.VERCEL) {
+// Create a promise that resolves when initialization is complete
+export const initializationPromise = (async () => {
+  isInitializing = true;
+  try {
+    await initializeApp();
+    isInitialized = true;
+    return true;
+  } catch (error) {
+    console.error('Initialization failed:', error);
+    return false;
+  }
+})();
+
+// Initialize the app based on environment
+if (process.env.VERCEL) {
+  // For Vercel, start initializing
+  initializationPromise
+    .then(() => {
+      console.log('✅ Vercel app initialized - routes ready');
+    })
+    .catch((error) => {
+      console.error('Failed to initialize Vercel app:', error);
+    });
+} else {
+  // For local development, use async initialization
+  (async () => {
+    try {
+      await initializeApp();
+      isInitialized = true;
+
       // Setup Vite for development or static files for production
       if (app.get("env") === "production") {
         serveStatic(app);
@@ -159,16 +185,12 @@ const initializeApp = async () => {
           console.log('===============================================\n');
         });
       }
-    } else {
-      console.log('✅ Vercel app initialized - routes ready');
-    }
-  } catch (error) {
-    console.error('Failed to initialize app:', error);
-    if (!process.env.VERCEL) {
+    } catch (error) {
+      console.error('Failed to start app:', error);
       process.exit(1);
     }
-  }
-})();
+  })();
+}
 
 // Export the Express app for Vercel
 export default app;
