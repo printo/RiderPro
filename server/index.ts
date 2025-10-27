@@ -136,3 +136,6 @@ app.get("/api-status", (req, res) => {
     console.log('===============================================\n');
   });
 })();
+
+// Export the Express app for Vercel
+export default app;
