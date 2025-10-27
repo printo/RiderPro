@@ -8,10 +8,16 @@ import cors from 'cors';
 // Simple logger shim
 const log = console.log;
 
-// Vite utilities - lazy loaded to avoid bundling Vite/Rollup in serverless
+// Vite utilities - no-op shims for Vercel to avoid bundling Vite/Rollup
 const getViteUtils = async () => {
-  if (process.env.VERCEL) return { serveStatic: null, setupVite: null };
-  const viteModule = await import("./vite");
+  if (process.env.VERCEL) {
+    return { 
+      serveStatic: () => {}, // No-op for serverless
+      setupVite: async () => {} // No-op for serverless
+    };
+  }
+  // For local dev, use dynamic require (not import) to avoid bundling
+  const viteModule = await import(/* webpackIgnore: true */ "./vite");
   return { serveStatic: viteModule.serveStatic, setupVite: viteModule.setupVite };
 };
 
