@@ -2391,8 +2391,13 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
     }
   });
 
-  // Initialize scheduler (runs the cron jobs)
-  await import('./services/scheduler.js');
+  // Initialize scheduler (runs the cron jobs) - don't await in Vercel
+  if (process.env.VERCEL) {
+    // In serverless, don't initialize scheduler as it creates long-running processes
+    console.log('⏭️  Skipping scheduler initialization in Vercel serverless');
+  } else {
+    await import('./services/scheduler.js');
+  }
 
   // Setup error handling middleware (must be last)
   setupErrorHandling();
