@@ -27,6 +27,13 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    minify: 'esbuild',
+    rollupOptions: {
+      external: ['rollup']
+    }
+  },
+  esbuild: {
+    target: 'es2020'
   },
   server: {
     port: 5000,

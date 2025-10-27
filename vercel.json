@@ -1,8 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
+  "buildCommand": "npm install --legacy-peer-deps --include=optional --include=dev && npm run build",
   "devCommand": "npm run dev",
-  "installCommand": "npm ci --legacy-peer-deps --include=optional",
   "framework": null,
   "outputDirectory": "dist/public",
   "functions": {
