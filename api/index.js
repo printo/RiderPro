@@ -1,5 +1,5 @@
 // Import your Express app and initialization promise
-import app, { initializationPromise } from '../dist/index.js';
+import app, { initializationPromise } from '../dist/index-no-vite.js';
 
 console.log('📦 API Handler module loaded');
 
