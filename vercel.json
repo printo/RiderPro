@@ -6,7 +6,7 @@
   "framework": null,
   "outputDirectory": "dist/public",
   "functions": {
-    "api/index.js": {
+    "api/vercel.js": {
       "memory": 1024,
       "maxDuration": 30
     }
@@ -14,7 +14,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.js"
+      "destination": "/api/vercel.js"
     },
     {
       "source": "/(.*)",
