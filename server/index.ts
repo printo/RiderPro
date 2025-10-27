@@ -97,14 +97,15 @@ app.get("/api-status", (req, res) => {
 // Initialize authentication tables
 initializeAuth();
 
-// Initialize the app asynchronously
+// Initialize routes
 let server: any = null;
 
-(async () => {
+// Create a function to initialize the app
+const initializeApp = async () => {
   try {
     // Register routes
     server = await registerRoutes(app);
-
+    
     // Error handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
@@ -114,37 +115,58 @@ let server: any = null;
       res.status(status).json({ error: true, message });
     });
 
-    // Setup Vite for development or static files for production
-    if (app.get("env") === "production") {
-      serveStatic(app);
-    } else {
-      // Development mode - setup Vite middleware
-      await setupVite(app, server);
-    }
+    console.log('✅ Routes initialized successfully');
+  } catch (error) {
+    console.error('Failed to initialize app:', error);
+    throw error;
+  }
+};
 
-    // Only start server if not in Vercel environment
-    if (!process.env.VERCEL && server) {
-      const port = parseInt(process.env.PORT || '5000', 10);
-      server.listen(port, '0.0.0.0', () => {
-        console.log('\n=== RiderPro Delivery Management System ===');
-        console.log(`🚀 Server running on port ${port}`);
-        console.log(`🌐 Application: http://localhost:${port}`);
-        console.log(`📱 Mobile App: http://localhost:${port} (responsive design)`);
-        console.log(`📡 API Endpoints: http://localhost:${port}/api/*`);
-        console.log(`🔍 Health Check: http://localhost:${port}/health`);
-        console.log(`📊 Admin Panel: http://localhost:${port}/admin`);
-        console.log(`📦 Shipments: http://localhost:${port}/shipments`);
-        console.log(`⚙️  Settings: http://localhost:${port}/settings`);
-        console.log(`\n🔑 API Keys: Hardcoded (see admin panel for details)`);
-        console.log(`🗄️  Database: SQLite with consolidated schema`);
-        console.log(`🔄 Sync Status: Real-time external API integration`);
-        console.log(`📍 GPS Tracking: Auto-calculated distance tracking`);
-        console.log(`👥 Roles: Super User, Ops Team, Staff, Driver`);
-        console.log('===============================================\n');
-      });
+// Initialize the app based on environment
+(async () => {
+  try {
+    // Always initialize routes
+    await initializeApp();
+
+    // Only start the server if not in Vercel
+    if (!process.env.VERCEL) {
+      // Setup Vite for development or static files for production
+      if (app.get("env") === "production") {
+        serveStatic(app);
+      } else if (server) {
+        // Development mode - setup Vite middleware
+        await setupVite(app, server);
+      }
+
+      // Start server
+      if (server) {
+        const port = parseInt(process.env.PORT || '5000', 10);
+        server.listen(port, '0.0.0.0', () => {
+          console.log('\n=== RiderPro Delivery Management System ===');
+          console.log(`🚀 Server running on port ${port}`);
+          console.log(`🌐 Application: http://localhost:${port}`);
+          console.log(`📱 Mobile App: http://localhost:${port} (responsive design)`);
+          console.log(`📡 API Endpoints: http://localhost:${port}/api/*`);
+          console.log(`🔍 Health Check: http://localhost:${port}/health`);
+          console.log(`📊 Admin Panel: http://localhost:${port}/admin`);
+          console.log(`📦 Shipments: http://localhost:${port}/shipments`);
+          console.log(`⚙️  Settings: http://localhost:${port}/settings`);
+          console.log(`\n🔑 API Keys: Hardcoded (see admin panel for details)`);
+          console.log(`🗄️  Database: SQLite with consolidated schema`);
+          console.log(`🔄 Sync Status: Real-time external API integration`);
+          console.log(`📍 GPS Tracking: Auto-calculated distance tracking`);
+          console.log(`👥 Roles: Super User, Ops Team, Staff, Driver`);
+          console.log('===============================================\n');
+        });
+      }
+    } else {
+      console.log('✅ Vercel app initialized - routes ready');
     }
   } catch (error) {
     console.error('Failed to initialize app:', error);
+    if (!process.env.VERCEL) {
+      process.exit(1);
+    }
   }
 })();
 
