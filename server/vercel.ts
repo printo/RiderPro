@@ -94,21 +94,40 @@ app.get("/api-status", (req, res) => {
   });
 });
 
-// Initialize immediately (synchronous)
-console.log('🚀 Initializing Vercel serverless function...');
+// Lazy initialization flag
+let isInitialized = false;
 
-try {
-  // Initialize authentication
-  initializeAuth();
+// Initialize function that runs on first request
+async function initializeApp() {
+  if (isInitialized) return;
+  
+  console.log('🚀 Initializing Vercel serverless function...');
+  
+  try {
+    // Initialize authentication
+    initializeAuth();
 
-  // Register routes (await is OK at module level, not in middleware)
-  await registerRoutes(app);
+    // Register routes
+    await registerRoutes(app);
 
-  console.log('✅ Vercel app initialized successfully');
-} catch (error) {
-  console.error('❌ Failed to initialize Vercel app:', error);
-  throw error; // Fail fast - don't start if initialization fails
+    console.log('✅ Vercel app initialized successfully');
+    isInitialized = true;
+  } catch (error) {
+    console.error('❌ Failed to initialize Vercel app:', error);
+    throw error;
+  }
 }
+
+// Middleware to ensure initialization on each request
+app.use(async (req, res, next) => {
+  try {
+    await initializeApp();
+    next();
+  } catch (error) {
+    console.error('❌ Initialization failed:', error);
+    res.status(500).json({ error: true, message: 'Server initialization failed' });
+  }
+});
 
 // Error handling middleware MUST be after routes
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

@@ -6178,15 +6178,29 @@ app.get("/api-status", (req, res) => {
     timestamp: (/* @__PURE__ */ new Date()).toISOString()
   });
 });
-console.log("\u{1F680} Initializing Vercel serverless function...");
-try {
-  initializeAuth();
-  await registerRoutes(app);
-  console.log("\u2705 Vercel app initialized successfully");
-} catch (error) {
-  console.error("\u274C Failed to initialize Vercel app:", error);
-  throw error;
+var isInitialized = false;
+async function initializeApp() {
+  if (isInitialized) return;
+  console.log("\u{1F680} Initializing Vercel serverless function...");
+  try {
+    initializeAuth();
+    await registerRoutes(app);
+    console.log("\u2705 Vercel app initialized successfully");
+    isInitialized = true;
+  } catch (error) {
+    console.error("\u274C Failed to initialize Vercel app:", error);
+    throw error;
+  }
 }
+app.use(async (req, res, next) => {
+  try {
+    await initializeApp();
+    next();
+  } catch (error) {
+    console.error("\u274C Initialization failed:", error);
+    res.status(500).json({ error: true, message: "Server initialization failed" });
+  }
+});
 app.use((err, _req, res, _next) => {
   console.error("\u274C Vercel Request Error:", {
     message: err.message,
