@@ -7,7 +7,7 @@
     "dev": "NODE_ENV=development tsx server/index.ts",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build",
-    "build:server": "esbuild server/vercel.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build:server": "esbuild server/vercel.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --external:rollup",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "lint": "eslint . --ext .ts,.tsx --fix",
@@ -96,6 +96,7 @@
   "devDependencies": {
     "@replit/vite-plugin-cartographer": "^0.3.0",
     "@replit/vite-plugin-runtime-error-modal": "^0.0.3",
+    "@rollup/rollup-linux-x64-gnu": "^4.0.0",
     "@tailwindcss/typography": "^0.5.15",
     "@types/bcrypt": "^5.0.2",
     "@types/connect-pg-simple": "^7.0.3",
@@ -122,6 +123,7 @@
     "eslint": "^9.37.0",
     "http-proxy-middleware": "^3.0.5",
     "postcss": "^8.4.47",
+    "rollup": "^4.0.0",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.3",
     "typescript": "5.6.3",
@@ -133,6 +135,11 @@
     "on-headers": "^1.0.2"
   },
   "optionalDependencies": {
-    "bufferutil": "^4.0.8"
+    "bufferutil": "^4.0.8",
+    "@rollup/rollup-linux-x64-gnu": "^4.0.0",
+    "@rollup/rollup-linux-x64-musl": "^4.0.0",
+    "@rollup/rollup-darwin-x64": "^4.0.0",
+    "@rollup/rollup-darwin-arm64": "^4.0.0",
+    "@rollup/rollup-win32-x64-msvc": "^4.0.0"
   }
 }

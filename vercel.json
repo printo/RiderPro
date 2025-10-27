@@ -2,7 +2,7 @@
   "version": 2,
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
-  "installCommand": "npm install",
+  "installCommand": "npm ci --legacy-peer-deps --include=optional",
   "framework": null,
   "outputDirectory": "dist/public",
   "functions": {
@@ -20,7 +20,10 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
 }
 
 
