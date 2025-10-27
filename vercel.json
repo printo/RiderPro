@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "buildCommand": "npm install --legacy-peer-deps --include=optional --include=dev && npm run build",
+  "buildCommand": "rm -rf node_modules package-lock.json && npm install --legacy-peer-deps --include=optional --include=dev && npm run build",
   "devCommand": "npm run dev",
   "framework": null,
   "outputDirectory": "dist/public",
+  "fluid": true,
   "functions": {
     "api/vercel.js": {
       "memory": 1024,

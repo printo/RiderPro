@@ -113,7 +113,7 @@
     "@types/ws": "^8.5.13",
     "@typescript-eslint/eslint-plugin": "^8.46.1",
     "@typescript-eslint/parser": "^8.46.1",
-    "@vitejs/plugin-react": "^4.3.3",
+    "@vitejs/plugin-react": "^4.3.1",
     "@vitejs/plugin-react-swc": "^3.7.0",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.2.1",
@@ -125,7 +125,7 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.3",
     "typescript": "5.6.3",
-    "vite": "^5.4.10"
+    "vite": "^4.5.3"
   },
   "overrides": {
     "@babel/helpers": "^7.26.10",
@@ -133,6 +133,11 @@
     "on-headers": "^1.0.2"
   },
   "optionalDependencies": {
-    "bufferutil": "^4.0.8"
+    "bufferutil": "^4.0.8",
+    "@rollup/rollup-linux-x64-gnu": "^3.29.4",
+    "@rollup/rollup-linux-x64-musl": "^3.29.4",
+    "@rollup/rollup-darwin-x64": "^3.29.4",
+    "@rollup/rollup-darwin-arm64": "^3.29.4",
+    "@rollup/rollup-win32-x64-msvc": "^3.29.4"
   }
 }
