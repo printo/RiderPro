@@ -1,40 +1,111 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 const log = console.log;
 import { webhookConfig } from '../config/webhook.js';
 
 export interface WebhookRequest extends Request {
   webhookSource?: string;
   webhookTimestamp?: number;
+  user?: {
+    user_id: number;
+    email?: string;
+    full_name?: string;
+    is_ops_team?: boolean;
+    is_staff?: boolean;
+    is_superuser?: boolean;
+  };
 }
 
 /**
  * Webhook authentication middleware for external system integration
- * Supports multiple authentication methods: API key, HMAC signature, and basic auth
+ * Primary authentication: Django JWT token passthrough from pops
+ * Supports JWT validation with shared secret
  */
 export class WebhookAuthMiddleware {
-  private static readonly WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || 'riderpro-webhook-secret-2024';
+  private static readonly POPS_JWT_SECRET = process.env.POPS_JWT_SECRET;
   private static readonly API_KEY_HEADER = 'x-api-key';
   private static readonly SIGNATURE_HEADER = 'x-webhook-signature';
   private static readonly TIMESTAMP_HEADER = 'x-webhook-timestamp';
   private static readonly SOURCE_HEADER = 'x-webhook-source';
 
-  // Valid API keys for external systems (in production, store in database)
-  private static readonly VALID_API_KEYS = new Set([
-  process.env.PIA_API_KEY || 'printo-api-key-2024',
-  process.env.EXTERNAL_API_KEY_1 || 'external-system-key-1',
-  process.env.EXTERNAL_API_KEY_2 || 'riderpro-integration-key'
-]);
+  /**
+   * Validate Django JWT token from pops
+   */
+  private static validateDjangoJWT(token: string): {
+    valid: boolean;
+    user?: {
+      user_id: number;
+      email?: string;
+      full_name?: string;
+      is_ops_team?: boolean;
+      is_staff?: boolean;
+      is_superuser?: boolean;
+    };
+  } {
+    try {
+      // Check if JWT secret is configured
+      if (!WebhookAuthMiddleware.POPS_JWT_SECRET) {
+        console.error('POPS_JWT_SECRET is not configured');
+        return { valid: false };
+      }
+
+      // Verify and decode Django JWT
+      const decoded = jwt.verify(token, WebhookAuthMiddleware.POPS_JWT_SECRET, {
+        algorithms: ['HS256'],
+      }) as any;
+
+      // Extract user info from JWT claims
+      return {
+        valid: true,
+        user: {
+          user_id: decoded.user_id || decoded.userId || decoded.id,
+          email: decoded.email,
+          full_name: decoded.full_name || decoded.fullName || decoded.name,
+          is_ops_team: decoded.is_ops_team || decoded.isOpsTeam || false,
+          is_staff: decoded.is_staff || decoded.isStaff || false,
+          is_superuser: decoded.is_superuser || decoded.isSuperuser || decoded.is_super_user || false,
+        },
+      };
+    } catch (error: any) {
+      log(`Django JWT validation failed: ${error.message}`, 'webhook-auth');
+      log(`JWT Secret configured: ${WebhookAuthMiddleware.POPS_JWT_SECRET ? 'YES' : 'NO'}`, 'webhook-auth');
+      if (error.name === 'JsonWebTokenError') {
+        log(`JWT Error: ${error.message}`, 'webhook-auth');
+      } else if (error.name === 'TokenExpiredError') {
+        log(`JWT expired at: ${error.expiredAt}`, 'webhook-auth');
+      }
+      return { valid: false };
+    }
+  }
 
   /**
    * Main webhook authentication middleware
+   * Priority: Django JWT (from pops) > API key (backward compatibility) > HMAC > Basic Auth
    */
   static authenticate() {
     return (req: WebhookRequest, res: Response, next: NextFunction) => {
       try {
         log(`Webhook authentication attempt from ${req.ip}`, 'webhook-auth');
 
-        // Check for API key authentication first
+        // Priority 1: Check for Django JWT token (from pops service)
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          const token = authHeader.substring(7);
+          
+          // Try to validate as Django JWT
+          const jwtValidation = WebhookAuthMiddleware.validateDjangoJWT(token);
+          if (jwtValidation.valid && jwtValidation.user) {
+            // Store user context for audit trail
+            req.webhookSource = 'django-jwt';
+            req.user = jwtValidation.user;
+            
+            log(`Webhook authenticated via Django JWT - User: ${jwtValidation.user.user_id} (${jwtValidation.user.full_name || jwtValidation.user.email || 'unknown'})`, 'webhook-auth');
+            return next();
+          }
+        }
+
+        // Priority 2: Check for API key authentication (for backward compatibility with external systems)
         const apiKey = req.headers[WebhookAuthMiddleware.API_KEY_HEADER] as string;
         if (apiKey && WebhookAuthMiddleware.validateApiKey(apiKey)) {
           req.webhookSource = req.headers[WebhookAuthMiddleware.SOURCE_HEADER] as string || 'api-key';
@@ -42,7 +113,7 @@ export class WebhookAuthMiddleware {
           return next();
         }
 
-        // Check for HMAC signature authentication
+        // Priority 3: Check for HMAC signature authentication
         const signature = req.headers[WebhookAuthMiddleware.SIGNATURE_HEADER] as string;
         const timestamp = req.headers[WebhookAuthMiddleware.TIMESTAMP_HEADER] as string;
 
@@ -55,8 +126,7 @@ export class WebhookAuthMiddleware {
           }
         }
 
-        // Check for basic authentication
-        const authHeader = req.headers.authorization;
+        // Priority 4: Check for basic authentication
         if (authHeader && WebhookAuthMiddleware.validateBasicAuth(authHeader)) {
           req.webhookSource = 'basic-auth';
           log(`Webhook authenticated via basic auth`, 'webhook-auth');
@@ -85,22 +155,19 @@ export class WebhookAuthMiddleware {
   }
 
   /**
-   * Validate API key authentication
+   * Validate API key authentication (backward compatibility)
    */
   private static validateApiKey(apiKey: string): boolean {
-      // Debug logs
-      log(`Valid API Keys: ${Array.from(WebhookAuthMiddleware.VALID_API_KEYS).join(', ')}`);
-      log(`Received API Key: ${apiKey}`);
-      log(`Environment Variables - PIA_API_KEY: ${process.env.PIA_API_KEY ? 'set' : 'not set'}, EXTERNAL_API_KEY_1: ${process.env.EXTERNAL_API_KEY_1 ? 'set' : 'not set'}, EXTERNAL_API_KEY_2: ${process.env.EXTERNAL_API_KEY_2 ? 'set' : 'not set'}`);
-
-
     if (!apiKey || typeof apiKey !== 'string') {
       return false;
     }
 
     const trimmedKey = apiKey.trim();
     const isValid = webhookConfig.authentication.apiKeys.includes(trimmedKey);
-    log(`API Key validation result: ${isValid}`, 'webhook-auth');
+    
+    if (isValid) {
+      log(`API Key validation result: valid (backward compatibility)`, 'webhook-auth');
+    }
 
     return isValid;
   }

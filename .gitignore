@@ -6,3 +6,5 @@ vite.config.ts.*
 # Ignore .env and env files
 .env
 env
+.vercel
+.env*.local

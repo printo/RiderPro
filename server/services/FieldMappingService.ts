@@ -92,6 +92,7 @@ export interface ValidationError {
 export interface ValidationResult {
   isValid: boolean;
   errors: ValidationError[];
+  warnings?: ValidationError[];
   sanitizedData?: any;
 }
 
@@ -222,10 +223,13 @@ export class FieldMappingService {
     try {
       // Check required fields
       for (const field of this.requiredExternalFields) {
-        if (!payload[field as keyof ExternalShipmentPayload]) {
+        const value = payload[field as keyof ExternalShipmentPayload];
+        // Properly check for missing/empty values (don't use truthiness check - 0 is valid!)
+        // For numeric fields like 'cost', 0 is a valid value, so check for undefined/null/empty string
+        if (value === undefined || value === null || value === '') {
           errors.push({
             field,
-            value: payload[field as keyof ExternalShipmentPayload],
+            value: value,
             message: `Required field '${field}' is missing or empty`,
             code: 'REQUIRED_FIELD_MISSING'
           });

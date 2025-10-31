@@ -19,13 +19,13 @@ import {
   InsertVehicleType,
   UpdateVehicleType
 } from "@shared/schema";
-import { upload, getFileUrl, saveBase64File } from "./utils/fileUpload.js";
+import { upload, getFileUrl, saveBase64File, processAndUploadImage } from "./utils/fileUpload.js";
 import { externalSync } from "./services/externalSync.js";
 import { riderService } from "./services/RiderService.js";
 import { routeService } from "./services/RouteService.js";
 import { fieldMappingService } from "./services/FieldMappingService.js";
 import { payloadValidationService } from "./services/PayloadValidationService.js";
-import { webhookAuth, webhookSecurity, webhookRateLimit, webhookPayloadLimit, webhookLogger } from "./middleware/webhookAuth.js";
+import { webhookAuth, webhookSecurity, webhookRateLimit, webhookPayloadLimit, webhookLogger, WebhookRequest } from "./middleware/webhookAuth.js";
 import path from 'path';
 
 // Helper function to convert export data to CSV format
@@ -865,6 +865,20 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       // Get shipments with pagination
       const { data: shipments, total } = await storage.getShipments(filters);
 
+      // Debug logging
+      console.log('📦 Shipments fetch debug:', {
+        filters: JSON.stringify(filters),
+        employeeId: employeeId,
+        userRole: userRole,
+        totalShipments: total,
+        returnedShipments: shipments.length,
+        firstShipment: shipments[0] ? {
+          id: shipments[0].shipment_id,
+          employeeId: shipments[0].employeeId,
+          status: shipments[0].status
+        } : 'none'
+      });
+
       // Add pagination headers
       const page = Math.max(1, parseInt(filters.page as string) || 1);
       const limit = Math.min(100, Math.max(1, parseInt(filters.limit as string) || 20));
@@ -1257,31 +1271,11 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
           });
         }
 
-        // Validate access token
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          return res.status(401).json({
-            success: false,
-            message: 'Access token required. Use Authorization: Bearer <token>',
-            error: 'MISSING_ACCESS_TOKEN',
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        const providedToken = authHeader.substring(7); // Remove 'Bearer ' prefix
-        const { API_KEYS, validateApiKey } = await import('./config/apiKeys.js');
-
-        // Check if token matches any of our access tokens
-        const isValidToken = validateApiKey(providedToken, 'ACCESS_TOKEN_1') ||
-          validateApiKey(providedToken, 'ACCESS_TOKEN_2');
-
-        if (!isValidToken) {
-          return res.status(401).json({
-            success: false,
-            message: 'Invalid access token. Please use a valid access token.',
-            error: 'INVALID_ACCESS_TOKEN',
-            timestamp: new Date().toISOString()
-          });
+        // Authentication is handled by webhookAuth middleware (JWT validation)
+        // User info is available in req.user if authenticated via JWT
+        const webhookReq = req as WebhookRequest;
+        if (webhookReq.user) {
+          console.log(`Processing shipment request from user: ${webhookReq.user.user_id} (${webhookReq.user.full_name || webhookReq.user.email || 'unknown'})`, 'shipment-receive');
         }
 
         // Determine if this is a single shipment or batch
@@ -1296,16 +1290,21 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
               success: false,
               message: 'Batch validation failed',
               errors: batchValidation.errors,
+              warnings: batchValidation.warnings || [],
               timestamp: new Date().toISOString()
             });
           }
 
+          // Track IDs we've processed to handle duplicates within batch
+          const processedIdsInBatch = new Set<string>();
+          
           const results = {
             total: payload.shipments.length,
             created: 0,
             updated: 0,
             failed: 0,
-            duplicates: 0
+            duplicates: 0,
+            skipped: 0
           };
 
           const processedShipments = [];
@@ -1313,12 +1312,31 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
           // Process each shipment in the batch
           for (let i = 0; i < payload.shipments.length; i++) {
             const externalShipment = payload.shipments[i];
+            const shipmentId = externalShipment?.id ? String(externalShipment.id) : null;
+
+            // Skip if duplicate within batch (already processed this ID)
+            if (shipmentId && processedIdsInBatch.has(shipmentId)) {
+              results.skipped++;
+              results.duplicates++;
+              processedShipments.push({
+                piashipmentid: shipmentId,
+                internalId: null,
+                status: 'skipped',
+                message: 'Duplicate shipment ID in batch - skipped (already processing first occurrence)'
+              });
+              continue;
+            }
+
+            // Mark this ID as being processed
+            if (shipmentId) {
+              processedIdsInBatch.add(shipmentId);
+            }
 
             try {
               // Map external payload to internal format
               const internalShipment = fieldMappingService.mapExternalToInternal(externalShipment);
 
-              // Check for existing shipment by piashipmentid
+              // Check for existing shipment by piashipmentid (in database)
               const existingShipment = await storage.getShipmentByExternalId(externalShipment.id);
 
               if (existingShipment) {
@@ -1397,9 +1415,10 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
           return res.status(200).json({
             success: true,
-            message: `Batch processing completed: ${results.created} created, ${results.updated} updated, ${results.failed} failed`,
+            message: `Batch processing completed: ${results.created} created, ${results.updated} updated, ${results.failed} failed${results.skipped > 0 ? `, ${results.skipped} skipped (duplicates)` : ''}`,
             results,
             processedShipments,
+            warnings: batchValidation.warnings || [],
             timestamp: new Date().toISOString()
           });
 
@@ -1650,18 +1669,27 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         let signatureUrl: string | undefined;
         let photoUrl: string | undefined;
 
-        // Handle uploaded photo
+        // Handle uploaded photo - include shipmentId in filename for traceability
         if (files.photo && files.photo[0]) {
-          photoUrl = getFileUrl(files.photo[0].filename, 'photo');
+          try {
+            const extension = files.photo[0].originalname.split('.').pop() || 'jpg';
+            photoUrl = await processAndUploadImage(files.photo[0].buffer, 'photo', `.${extension}`, shipmentId);
+          } catch (error) {
+            console.error('Failed to process photo:', error);
+          }
         }
 
-        // Handle signature (either uploaded file or base64 data)
+        // Handle signature (either uploaded file or base64 data) - include shipmentId in filename for traceability
         if (files.signature && files.signature[0]) {
-          signatureUrl = getFileUrl(files.signature[0].filename, 'signature');
+          try {
+            const extension = files.signature[0].originalname.split('.').pop() || 'png';
+            signatureUrl = await processAndUploadImage(files.signature[0].buffer, 'signature', `.${extension}`, shipmentId);
+          } catch (error) {
+            console.error('Failed to process signature file:', error);
+          }
         } else if (signatureData) {
           try {
-            const filename = await saveBase64File(signatureData, 'signature');
-            signatureUrl = getFileUrl(filename, 'signature');
+            signatureUrl = await saveBase64File(signatureData, 'signature', shipmentId);
           } catch (error) {
             console.error('Failed to save signature data:', error);
           }

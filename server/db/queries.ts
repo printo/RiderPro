@@ -412,21 +412,45 @@ export class ShipmentQueries {
 
   async createAcknowledgment(acknowledgment: InsertAcknowledgment): Promise<Acknowledgment> {
     const id = randomUUID();
+    const now = new Date().toISOString();
+
+    // Extract employeeId from acknowledgment or use default
+    const employeeId = (acknowledgment as any).employeeId || acknowledgment.acknowledgment_captured_by || 'unknown';
+    const acknowledgmentType = (acknowledgment as any).acknowledgmentType || 'delivery';
+    const acknowledgmentTime = acknowledgment.acknowledgment_captured_at || now;
 
     await db.query(`
       INSERT INTO acknowledgments (
-        id, "shipmentId", "signatureUrl", "photoUrl", "capturedAt"
-      ) VALUES ($1, $2, $3, $4, $5)
+        id, "shipmentId", "employeeId", "acknowledgmentType", "acknowledgmentTime",
+        "customerSignature", "photoUrl", "notes", "createdAt", "updatedAt"
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     `, [
       id,
       acknowledgment.shipment_id,
-      acknowledgment.signatureUrl || null,
+      employeeId,
+      acknowledgmentType,
+      acknowledgmentTime,
+      acknowledgment.signatureUrl || null, // Store signature URL in customerSignature column
       acknowledgment.photoUrl || null,
-      acknowledgment.acknowledgment_captured_at
+      null, // notes
+      now,
+      now
     ]);
 
     const result = await db.query('SELECT * FROM acknowledgments WHERE id = $1', [id]);
-    return result.rows[0];
+    const row = result.rows[0];
+    
+    // Map database columns to Acknowledgment interface
+    return {
+      id: row.id,
+      shipment_id: row.shipmentId,
+      signatureUrl: row.customerSignature || row.signatureUrl,
+      photoUrl: row.photoUrl,
+      acknowledgment_captured_at: row.acknowledgmentTime || row.capturedAt || row.acknowledgment_captured_at,
+      acknowledgment_captured_by: row.employeeId || row.acknowledgment_captured_by,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt
+    } as Acknowledgment;
   }
 
   async getAcknowledmentByShipmentId(shipmentId: string): Promise<Acknowledgment | null> {

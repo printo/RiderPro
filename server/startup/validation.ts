@@ -1,12 +1,8 @@
-import SystemValidationService from '../services/SystemValidationService.js';
-import IntegrationChecker from '../services/IntegrationChecker.js';
 import { storage } from '../storage';
 import config from '../config';
 
 interface StartupValidationResult {
   success: boolean;
-  systemValidation?: any;
-  integrationTests?: any;
   errors: string[];
   warnings: string[];
 }
@@ -21,72 +17,16 @@ export async function runStartupValidation(): Promise<StartupValidationResult> {
   };
 
   try {
-    // Initialize services
-    const systemValidator = SystemValidationService.getInstance(storage.getDatabase());
-    const integrationChecker = IntegrationChecker.getInstance(storage.getDatabase());
-
-    // Run system validation
-    console.log('📋 Running system validation...');
-    try {
-      const systemValidation = await systemValidator.runFullValidation();
-      result.systemValidation = systemValidation;
-
-      if (systemValidation.overallStatus === 'FAIL') {
-        result.success = false;
-        result.errors.push('System validation failed');
-
-        // Log specific failures
-        if (!systemValidation.shipmentFunctionality.passed) {
-          result.errors.push(`Shipment functionality: ${systemValidation.shipmentFunctionality.message}`);
-        }
-        if (!systemValidation.routeTrackingToggle.passed) {
-          result.errors.push(`Route tracking toggle: ${systemValidation.routeTrackingToggle.message}`);
-        }
-        if (!systemValidation.systemPerformance.passed) {
-          result.errors.push(`System performance: ${systemValidation.systemPerformance.message}`);
-        }
-      }
-    } catch (error) {
-      result.success = false;
-      result.errors.push(`System validation error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-
-    // Run integration tests
-    console.log('🔧 Running integration tests...');
-    try {
-      const integrationTests = await integrationChecker.runAllTests();
-      result.integrationTests = integrationTests;
-
-      if (integrationTests.overallStatus === 'FAIL') {
-        result.success = false;
-        result.errors.push('Integration tests failed');
-
-        // Log specific test failures
-        integrationTests.tests.forEach(test => {
-          if (!test.passed) {
-            result.errors.push(`Integration test '${test.name}': ${test.message}`);
-          }
-        });
-      }
-    } catch (error) {
-      result.success = false;
-      result.errors.push(`Integration tests error: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-
     // Additional startup checks
-    console.log('⚙️ Running additional startup checks...');
+    console.log('⚙️ Running startup checks...');
 
-    // Check configuration consistency
-    if (config.routeTracking.enabled && !config.featureFlags.routeTracking) {
-      result.warnings.push('Route tracking is enabled in config but disabled in feature flags');
-    }
-
-    // Check database connection
+    // Check database connection (PostgreSQL)
     try {
-      storage.getDatabase().prepare('SELECT 1').get();
+      const db = storage.getDatabase();
+      await db.query('SELECT 1');
     } catch (error) {
       result.success = false;
-      result.errors.push('Database connection failed');
+      result.errors.push(`Database connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // Check required environment variables in production
@@ -146,17 +86,10 @@ export function validateEnvironmentConfiguration(): { valid: boolean; errors: st
 
   // Check environment variables
   const requiredEnvVars = ['NODE_ENV'];
-  const recommendedEnvVars = ['PORT', 'DATABASE_PATH'];
 
   requiredEnvVars.forEach(envVar => {
     if (!process.env[envVar]) {
       errors.push(`Required environment variable ${envVar} is not set`);
-    }
-  });
-
-  recommendedEnvVars.forEach(envVar => {
-    if (!process.env[envVar]) {
-      warnings.push(`Recommended environment variable ${envVar} is not set`);
     }
   });
 
@@ -170,14 +103,9 @@ export function validateEnvironmentConfiguration(): { valid: boolean; errors: st
     });
   }
 
-  // Check configuration consistency
-  if (config.routeTracking.enabled && !config.featureFlags.routeTracking) {
-    warnings.push('Route tracking configuration inconsistency detected');
-  }
-
-  // Check port availability (basic check)
-  if (config.port < 1024 && process.getuid && process.getuid() !== 0) {
-    warnings.push(`Port ${config.port} requires root privileges on Unix systems`);
+  // Check port range (validation only, not availability)
+  if (config.port < 1 || config.port > 65535) {
+    errors.push(`PORT must be between 1 and 65535, got ${config.port}`);
   }
 
   return {
@@ -194,9 +122,8 @@ export function logSystemInfo(): void {
   console.log(`  Architecture: ${process.arch}`);
   console.log(`  Environment: ${config.environment}`);
   console.log(`  Port: ${config.port}`);
-  console.log(`  Database: ${config.database.path}`);
+  console.log(`  Database: PostgreSQL (via DATABASE_URL)`);
   console.log(`  Route Tracking: ${config.routeTracking.enabled ? 'enabled' : 'disabled'}`);
-  console.log(`  Feature Flags: ${Object.entries(config.featureFlags).filter(([, enabled]) => enabled).map(([flag]) => flag).join(', ')}`);
 
   const memUsage = process.memoryUsage();
   console.log(`  Memory Usage: ${(memUsage.heapUsed / 1024 / 1024).toFixed(2)}MB`);

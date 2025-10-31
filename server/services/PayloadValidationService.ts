@@ -173,31 +173,45 @@ export class PayloadValidationService {
         });
 
         // Check for duplicate IDs within batch
-        if (shipment?.id) {
-          if (shipmentIds.has(shipment.shipment_id)) {
+        // Convert ID to string for consistent comparison
+        const shipmentId = shipment?.id ? String(shipment.id) : null;
+        if (shipmentId) {
+          if (shipmentIds.has(shipmentId)) {
+            // Don't fail on duplicates - just warn, they'll be handled during processing
             errors.push({
               field: `shipments[${index}].id`,
-              value: shipment.shipment_id,
-              message: `Duplicate shipment ID '${shipment.shipment_id}' found in batch`,
-              code: 'DUPLICATE_SHIPMENT_ID'
+              value: shipmentId,
+              message: `Duplicate shipment ID '${shipmentId}' found in batch - will be skipped`,
+              code: 'DUPLICATE_SHIPMENT_ID_WARNING'
             });
           } else {
-            shipmentIds.add(shipment.shipment_id);
+            shipmentIds.add(shipmentId);
           }
+        } else if (!shipmentId && shipment?.id === undefined) {
+          // Missing ID is a required field error, will be caught by validateSingleShipment
         }
       });
 
-      const isValid = errors.length === 0;
+      // Separate warnings from errors - duplicates are warnings, not errors
+      const blockingErrors = errors.filter(e => e.code !== 'DUPLICATE_SHIPMENT_ID_WARNING');
+      const warnings = errors.filter(e => e.code === 'DUPLICATE_SHIPMENT_ID_WARNING');
+      
+      const isValid = blockingErrors.length === 0;
 
       if (isValid) {
-        log(`Batch validation passed for ${batch.shipments.length} shipments`, 'payload-validation');
+        if (warnings.length > 0) {
+          log(`Batch validation passed with ${warnings.length} duplicate warnings for ${batch.shipments.length} shipments`, 'payload-validation');
+        } else {
+          log(`Batch validation passed for ${batch.shipments.length} shipments`, 'payload-validation');
+        }
       } else {
-        log(`Batch validation failed with ${errors.length} errors across ${batch.shipments.length} shipments`, 'payload-validation');
+        log(`Batch validation failed with ${blockingErrors.length} errors (and ${warnings.length} warnings) across ${batch.shipments.length} shipments`, 'payload-validation');
       }
 
       return {
         isValid,
-        errors,
+        errors: blockingErrors, // Only return blocking errors
+        warnings, // Include warnings separately
         sanitizedData: isValid ? this.sanitizeBatch(batch) : undefined
       };
 

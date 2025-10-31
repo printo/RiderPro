@@ -364,11 +364,16 @@ CREATE TABLE system_health_metrics (
 CREATE INDEX idx_health_metrics_name ON system_health_metrics(metric_name);
 CREATE INDEX idx_health_metrics_timestamp ON system_health_metrics(timestamp);
 
--- Create triggers for updated_at columns
+-- Create triggers for updatedAt columns (note: shipments uses "updatedAt" with quotes, other tables use updated_at)
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = NOW();
+    -- Handle camelCase columns (with quotes) vs snake_case columns
+    IF TG_TABLE_NAME = 'shipments' OR TG_TABLE_NAME = 'acknowledgments' THEN
+        NEW."updatedAt" = NOW();
+    ELSE
+        NEW.updated_at = NOW();
+    END IF;
     RETURN NEW;
 END;
 $$ language 'plpgsql';
