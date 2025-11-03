@@ -585,19 +585,11 @@ export class PayloadValidationService {
             code: 'INVALID_DATETIME_FORMAT'
           });
         } else {
-          // Check if date is in the past (with 1 hour tolerance)
-          const now = new Date();
-          const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-          if (date < oneHourAgo) {
-            errors.push({
-              field: 'estimatedDeliveryTime',
-              value: payload.estimatedDeliveryTime,
-              message: 'Estimated delivery time cannot be in the past',
-              code: 'PAST_DELIVERY_TIME'
-            });
-          }
+          // Note: We allow past dates for delivery time to support retry scenarios
+          // (e.g., failed delivery yesterday, attempting again today)
 
           // Check if date is too far in the future (1 year)
+          const now = new Date();
           const oneYearFromNow = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
           if (date > oneYearFromNow) {
             errors.push({
