@@ -646,7 +646,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
   app.get('/api/routes/analytics', async (req, res) => {
     try {
       const { employeeId, startDate, endDate, sessionStatus } = req.query;
-      
+
       const filters = {
         employeeId: employeeId as string,
         startDate: startDate as string,
@@ -1282,6 +1282,57 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         const isBatch = payload.shipments && Array.isArray(payload.shipments);
 
         if (isBatch) {
+          // Pre-process batch to normalize Printo payload format and fix empty/null routeName
+          if (payload.shipments && Array.isArray(payload.shipments)) {
+            payload.shipments.forEach((shipment: any) => {
+              // Normalize type to lowercase
+              if (shipment.type) {
+                shipment.type = shipment.type.toLowerCase();
+              }
+              // Set default status if missing
+              if (!shipment.status) {
+                shipment.status = 'Assigned';
+              }
+              // Normalize Printo format to standard external format
+              // Map customerName/customerMobile/address to recipientName/recipientPhone/deliveryAddress
+              if (!shipment.recipientName && shipment.customerName) {
+                shipment.recipientName = shipment.customerName;
+              }
+              if (!shipment.recipientPhone && shipment.customerMobile) {
+                shipment.recipientPhone = shipment.customerMobile;
+              }
+              if (!shipment.deliveryAddress && shipment.address) {
+                // Handle address as object or string
+                if (typeof shipment.address === 'object' && shipment.address !== null) {
+                  // Convert address object to formatted string
+                  const addr = shipment.address;
+                  const parts = [];
+                  if (addr.address1) parts.push(addr.address1);
+                  if (addr.address2) parts.push(addr.address2);
+                  if (addr.placeName) parts.push(addr.placeName);
+                  if (addr.city) parts.push(addr.city);
+                  if (addr.state) parts.push(addr.state);
+                  if (addr.pincode) parts.push(addr.pincode);
+                  shipment.deliveryAddress = parts.join(', ');
+                  // Only set deliveryAddress if we have at least one part
+                  if (parts.length === 0) {
+                    shipment.deliveryAddress = undefined; // Will be flagged as missing
+                  }
+                } else if (typeof shipment.address === 'string') {
+                  shipment.deliveryAddress = shipment.address;
+                }
+              }
+              // Map deliveryTime to estimatedDeliveryTime
+              if (!shipment.estimatedDeliveryTime && shipment.deliveryTime) {
+                shipment.estimatedDeliveryTime = shipment.deliveryTime;
+              }
+              // Fix empty/null routeName to default "Others"
+              if (!shipment.routeName || shipment.routeName.trim() === '') {
+                shipment.routeName = 'Others';
+              }
+            });
+          }
+
           // Handle batch shipments
           const batchValidation = payloadValidationService.validateBatchShipments(payload);
 
@@ -1297,7 +1348,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
           // Track IDs we've processed to handle duplicates within batch
           const processedIdsInBatch = new Set<string>();
-          
+
           const results = {
             total: payload.shipments.length,
             created: 0,
@@ -1423,6 +1474,52 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
           });
 
         } else {
+          // Pre-process single shipment to normalize Printo payload format and fix empty/null routeName
+          // Normalize type to lowercase
+          if (payload.type) {
+            payload.type = payload.type.toLowerCase();
+          }
+          // Set default status if missing
+          if (!payload.status) {
+            payload.status = 'Assigned';
+          }
+          // Map customerName/customerMobile/address to recipientName/recipientPhone/deliveryAddress
+          if (!payload.recipientName && payload.customerName) {
+            payload.recipientName = payload.customerName;
+          }
+          if (!payload.recipientPhone && payload.customerMobile) {
+            payload.recipientPhone = payload.customerMobile;
+          }
+          if (!payload.deliveryAddress && payload.address) {
+            // Handle address as object or string
+            if (typeof payload.address === 'object' && payload.address !== null) {
+              // Convert address object to formatted string
+              const addr = payload.address;
+              const parts = [];
+              if (addr.address1) parts.push(addr.address1);
+              if (addr.address2) parts.push(addr.address2);
+              if (addr.placeName) parts.push(addr.placeName);
+              if (addr.city) parts.push(addr.city);
+              if (addr.state) parts.push(addr.state);
+              if (addr.pincode) parts.push(addr.pincode);
+              payload.deliveryAddress = parts.join(', ');
+              // Only set deliveryAddress if we have at least one part
+              if (parts.length === 0) {
+                payload.deliveryAddress = undefined; // Will be flagged as missing
+              }
+            } else if (typeof payload.address === 'string') {
+              payload.deliveryAddress = payload.address;
+            }
+          }
+          // Map deliveryTime to estimatedDeliveryTime
+          if (!payload.estimatedDeliveryTime && payload.deliveryTime) {
+            payload.estimatedDeliveryTime = payload.deliveryTime;
+          }
+          // Fix empty/null routeName to default "Others"
+          if (!payload.routeName || payload.routeName.trim() === '') {
+            payload.routeName = 'Others';
+          }
+
           // Handle single shipment
           const singleValidation = payloadValidationService.validateSingleShipment(payload);
 

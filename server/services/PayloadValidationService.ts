@@ -163,39 +163,39 @@ export class PayloadValidationService {
       batch.shipments.forEach((shipment: any, index: number) => {
         const shipmentValidation = this.validateSingleShipment(shipment);
 
-        // Add index prefix to error fields
+        // Get shipment ID for better error identification
+        const shipmentId = shipment?.id ? String(shipment.id) : `index-${index}`;
+
+        // Add index prefix to error fields and include shipment ID
         shipmentValidation.errors.forEach(error => {
           errors.push({
             ...error,
             field: `shipments[${index}].${error.field}`,
-            message: `Shipment ${index + 1}: ${error.message}`
+            message: `Shipment ID ${shipmentId} (${index + 1}): ${error.message}`
           });
         });
 
-        // Check for duplicate IDs within batch
-        // Convert ID to string for consistent comparison
-        const shipmentId = shipment?.id ? String(shipment.id) : null;
-        if (shipmentId) {
-          if (shipmentIds.has(shipmentId)) {
+        // Check for duplicate IDs within batch (using shipment ID if available)
+        if (shipment?.id) {
+          const idForDuplicateCheck = String(shipment.id);
+          if (shipmentIds.has(idForDuplicateCheck)) {
             // Don't fail on duplicates - just warn, they'll be handled during processing
             errors.push({
               field: `shipments[${index}].id`,
-              value: shipmentId,
-              message: `Duplicate shipment ID '${shipmentId}' found in batch - will be skipped`,
+              value: idForDuplicateCheck,
+              message: `Duplicate shipment ID '${idForDuplicateCheck}' found in batch - will be skipped`,
               code: 'DUPLICATE_SHIPMENT_ID_WARNING'
             });
           } else {
-            shipmentIds.add(shipmentId);
+            shipmentIds.add(idForDuplicateCheck);
           }
-        } else if (!shipmentId && shipment?.id === undefined) {
-          // Missing ID is a required field error, will be caught by validateSingleShipment
         }
       });
 
       // Separate warnings from errors - duplicates are warnings, not errors
       const blockingErrors = errors.filter(e => e.code !== 'DUPLICATE_SHIPMENT_ID_WARNING');
       const warnings = errors.filter(e => e.code === 'DUPLICATE_SHIPMENT_ID_WARNING');
-      
+
       const isValid = blockingErrors.length === 0;
 
       if (isValid) {
