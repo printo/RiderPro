@@ -1,24 +1,18 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { shipmentsApi, type PaginatedResponse } from "@/apiClient/shipments";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Edit, RotateCcw, Navigation, MapPin, AlertCircle } from "lucide-react";
+import { Edit, RotateCcw, AlertCircle } from "lucide-react";
 import ShipmentCardWithTracking from "@/components/shipments/ShipmentCardWithTracking";
 import ShipmentDetailModalWithTracking from "@/components/ui/forms/ShipmentDetailModalWithTracking";
 import BatchUpdateModal from "@/components/ui/forms/BatchUpdateModal";
-import RouteSessionControls from "@/components/routes/RouteSessionControls";
 import Filters from "@/components/Filters";
 import { Shipment, ShipmentFilters } from "@shared/schema";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
-
-// Lazy load the shipments list component
-const ShipmentsList = lazy(() => import("@/components/shipments/ShipmentsList"));
-import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 
 function ShipmentsWithTracking() {
@@ -27,7 +21,7 @@ function ShipmentsWithTracking() {
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const { toast } = useToast();
-  const { user: currentUser, isAuthenticated, authenticatedFetch, getAuthHeaders, logout } = useAuth();
+  const { user: currentUser, isAuthenticated, getAuthHeaders } = useAuth();
 
   // Debug: Log component mount and auth state
   useEffect(() => {
@@ -57,16 +51,13 @@ function ShipmentsWithTracking() {
   const employeeId = currentUser?.employeeId || currentUser?.username || "";
 
   // Memoize effective filters so query key is stable
+  // Simple logic: riders see only their shipments, everyone else sees all
   const effectiveFilters = useMemo(() => {
     return {
       ...filters,
-      ...(currentUser?.role !== "admin" &&
-        !(currentUser?.isSuperUser || currentUser?.isOpsTeam) &&
-        employeeId
-        ? { employeeId }
-        : {}),
+      ...(currentUser?.isRider && employeeId ? { employeeId } : {}),
     } as ShipmentFilters;
-  }, [filters, currentUser?.role, employeeId]);
+  }, [filters, currentUser?.isRider, employeeId]);
 
   // Lazy loading
   const [shouldLoadShipments, setShouldLoadShipments] = useState(false);
@@ -106,7 +97,7 @@ function ShipmentsWithTracking() {
   }, []);
 
   // State for pagination
-  const [pagination, setPagination] = useState({
+  const [pagination] = useState({
     page: 1,
     limit: 20,
   });
@@ -165,15 +156,9 @@ function ShipmentsWithTracking() {
 
   const {
     data: shipments = [],
-    total = 0,
-    page = 1,
-    limit: pageSize = 20,
-    totalPages = 1,
-    hasNextPage = false,
-    hasPreviousPage = false
   } = paginatedData;
 
-  const { hasActiveSession, activeSession } = useRouteTracking(employeeId);
+  const { hasActiveSession } = useRouteTracking(employeeId);
 
   // Show welcome toast when shipments are loaded
   useEffect(() => {
@@ -200,21 +185,7 @@ function ShipmentsWithTracking() {
     }
   };
 
-  // Handle page change
-  const handlePageChange = (newPage: number) => {
-    setPagination(prev => ({
-      ...prev,
-      page: newPage,
-    }));
-  };
-
-  // Handle page size change
-  const handlePageSizeChange = (newSize: number) => {
-    setPagination(prev => ({
-      page: 1, // Reset to first page when changing page size
-      limit: newSize,
-    }));
-  };
+  // Pagination handlers removed - not currently used in UI
 
   const handleBatchUpdate = () => {
     if (selectedShipmentIds.length === 0) return;
@@ -231,216 +202,21 @@ function ShipmentsWithTracking() {
 
 
 
-  // Debounce filter changes to prevent excessive API calls
-  const debouncedFilters = useDebounce(effectiveFilters, 500);
-
-  // Update query params when debounced filters change
-  useEffect(() => {
-    if (!shouldLoadShipments) return;
-    refetch();
-  }, [debouncedFilters, refetch, shouldLoadShipments]);
+  // Filters are automatically applied via queryParams in useQuery
 
   // Handle filter changes
   const handleFilterChange = useCallback((newFilters: Partial<ShipmentFilters>) => {
-    setFilters(prev => ({
-      ...prev,
+    setFilters((_prev) => ({
+      ..._prev,
       ...newFilters,
       // Reset to first page when filters change
       page: 1
     }));
   }, []);
 
-  // Add missing toggleRouteControls function
-  const [showRouteControls, setShowRouteControls] = useState(true);
-  const toggleRouteControls = () => {
-    setShowRouteControls(prev => !prev);
-  };
 
-  // Error banner
-  const renderErrorBanner = () => {
-    if (!error) return null;
 
-    console.error("Shipments error:", error);
 
-    let errorMessage = "Failed to load shipments. Please try again.";
-    let showRetry = true;
-
-    if (error instanceof Error) {
-      if (error.message.includes("401")) {
-        errorMessage = "Your session has expired. Please log in again.";
-        showRetry = false;
-      } else if (error.message.includes("NetworkError")) {
-        errorMessage = "Network error. Please check your internet connection.";
-      } else if (error.message.includes("500")) {
-        errorMessage = "Server error. Please try again later.";
-      }
-    }
-
-    return (
-      <Card className="mt-6">
-        <CardContent className="p-4">
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">{errorMessage}</h3>
-                {process.env.NODE_ENV === "development" && (
-                  <div className="mt-2 text-sm text-red-700">
-                    <details>
-                      <summary className="cursor-pointer text-sm">
-                        Show error details
-                      </summary>
-                      <pre className="mt-2 p-2 bg-red-100 rounded overflow-auto text-xs">
-                        {error instanceof Error ? error.message : JSON.stringify(error, null, 2)}
-                      </pre>
-                    </details>
-                  </div>
-                )}
-                <div className="mt-2 flex gap-2">
-                  {showRetry ? (
-                    <Button
-                      onClick={handleRefresh}
-                      variant="destructive"
-                      size="sm"
-                      className="mt-2"
-                      data-testid="button-retry"
-                    >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Retry Loading Shipments
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => {
-                        logout();
-                        window.location.href = "/login";
-                      }}
-                      variant="destructive"
-                      size="sm"
-                      className="mt-2"
-                    >
-                      Go to Login
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  // Initial loading skeleton
-  if (isLoading && shouldLoadShipments && !isFetching) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <Card className="mb-6" data-testid="card-filters">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-              <h2 className="text-xl font-semibold text-foreground" data-testid="text-shipments-title">
-                Shipments
-              </h2>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={handleBatchUpdate}
-                  disabled={selectedShipmentIds.length === 0}
-                  className="bg-primary text-primary-foreground"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Batch Update ({selectedShipmentIds.length})
-                </Button>
-                <Button variant="outline" onClick={toggleRouteControls}>
-                  <MapPin className="h-4 w-4 mr-2" />
-                  {showRouteControls ? "Hide" : "Show"} Tracking
-                </Button>
-                <Button variant="secondary" onClick={handleRefresh}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
-              </div>
-            </div>
-            <Filters filters={filters} onFiltersChange={setFilters} />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <Skeleton className="h-20 w-full mb-4" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="space-y-4 mt-6">
-          {[...Array(5)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-4">
-                <Skeleton className="h-24 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // Render filter section
-  const renderFilterSection = () => (
-    <Card className="shadow-sm mb-6">
-      <CardContent className="p-4">
-        <Filters
-          filters={filters}
-          onFiltersChange={handleFilterChange}
-          onClear={() => setFilters({})}
-        />
-      </CardContent>
-    </Card>
-  );
-
-  // Render error state
-  const renderErrorState = () => (
-    <Alert variant="destructive" className="mb-6">
-      <AlertCircle className="h-4 w-4" />
-      <AlertTitle>Error</AlertTitle>
-      <AlertDescription className="flex flex-col space-y-2">
-        <span>Failed to load shipments. {error?.message || 'Please try again.'}</span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          className="w-fit mt-2"
-        >
-          <RotateCcw className="mr-2 h-4 w-4" />
-          Retry
-        </Button>
-      </AlertDescription>
-    </Alert>
-  );
-
-  // Render loading state
-  const renderLoadingState = () => (
-    <div className="space-y-4">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Skeleton key={i} className="h-24 w-full" />
-      ))}
-    </div>
-  );
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -491,12 +267,27 @@ function ShipmentsWithTracking() {
           </CardContent>
         </Card>
       ) : error ? (
-        renderErrorState()
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription className="flex flex-col space-y-2">
+            <span>Failed to load shipments. {error?.message || 'Please try again.'}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="w-fit mt-2"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
       ) : !shipments || shipments.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground" data-testid="text-no-shipments">
-              {filters.status || filters.type || filters.routeName || filters.date || (filters as any).employeeId
+              {filters.status || filters.type || filters.routeName || filters.date || filters.employeeId
                 ? "No shipments match the current filters. Try adjusting your filters."
                 : "No shipments available at the moment. Please check back later."}
             </p>

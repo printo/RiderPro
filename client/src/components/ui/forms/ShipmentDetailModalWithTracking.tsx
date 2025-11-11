@@ -90,14 +90,24 @@ function ShipmentDetailModalWithTracking({
 
 
   const handleStatusUpdateWithGPS = async (status: string) => {
+    console.log('🔘 handleStatusUpdateWithGPS called:', {
+      status,
+      shipmentId: shipment.shipment_id,
+      shipmentType: shipment.type,
+      currentStatus: shipment.status
+    });
+
     // Proceed with normal status update
     if (status === "Delivered" || status === "Picked Up") {
+      console.log('📸 Opening acknowledgment modal');
       setShowAcknowledgment(true);
       // Don't update status yet - wait for acknowledgment to be saved
     } else if (status === "Cancelled" || status === "Returned") {
+      console.log('📝 Opening remarks modal');
       setRemarksStatus(status as "Cancelled" | "Returned");
       setShowRemarksModal(true);
     } else {
+      console.log('✅ Updating status directly');
       updateStatusMutation.mutate({ status });
       onClose();
     }

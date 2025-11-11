@@ -6,20 +6,15 @@ import { storage } from "./storage.js";
 import { db } from "./db/pg-connection.js";
 import { authenticate, AuthenticatedRequest } from "./middleware/auth.js";
 import {
-  insertShipmentSchema,
   updateShipmentSchema,
   batchUpdateSchema,
-  shipmentFiltersSchema,
-  startRouteSessionSchema,
-  stopRouteSessionSchema,
-  gpsCoordinateSchema,
-  routeFiltersSchema,
   ShipmentFilters,
-  VehicleType,
   InsertVehicleType,
-  UpdateVehicleType
+  UpdateVehicleType,
+  Shipment,
+  UpdateShipment
 } from "@shared/schema";
-import { upload, getFileUrl, saveBase64File, processAndUploadImage } from "./utils/fileUpload.js";
+import { upload, saveBase64File, processAndUploadImage } from "./utils/fileUpload.js";
 import { externalSync } from "./services/externalSync.js";
 import { riderService } from "./services/RiderService.js";
 import { routeService } from "./services/RouteService.js";
@@ -28,41 +23,9 @@ import { payloadValidationService } from "./services/PayloadValidationService.js
 import { webhookAuth, webhookSecurity, webhookRateLimit, webhookPayloadLimit, webhookLogger, WebhookRequest } from "./middleware/webhookAuth.js";
 import path from 'path';
 
-// Helper function to convert export data to CSV format
-function convertToCSV(exportData: any): string {
-  const { tokens, analytics } = exportData;
-
-  let csv = 'Token Analytics Export\n\n';
-
-  // Add summary statistics
-  csv += 'Summary Statistics\n';
-  csv += 'Metric,Value\n';
-  csv += `Total Tokens,${analytics.totalTokens}\n`;
-  csv += `Active Tokens,${analytics.activeTokens}\n`;
-  csv += `Total Requests,${analytics.totalRequests}\n`;
-  csv += `Requests Today,${analytics.requestsToday}\n`;
-  csv += `Requests This Week,${analytics.requestsThisWeek}\n`;
-  csv += `Requests This Month,${analytics.requestsThisMonth}\n\n`;
-
-  // Add token information
-  csv += 'Token Information\n';
-  csv += 'ID,Name,Description,Permissions,Status,Created At,Request Count\n';
-  tokens.forEach((token: any) => {
-    csv += `${token.id},"${token.name}","${token.description || ''}",${token.permissions},${token.status},${token.createdAt},${token.requestCount}\n`;
-  });
-
-  csv += '\nTop Endpoints\n';
-  csv += 'Endpoint,Request Count\n';
-  analytics.topEndpoints.forEach((endpoint: any) => {
-    csv += `"${endpoint.endpoint}",${endpoint.count}\n`;
-  });
-
-  return csv;
-}
-
 // Helper function to check if user has required permission level
 // Simplified permission check (can be expanded if needed)
-function hasRequiredPermission(_req: any, _requiredLevel: 'read' | 'write' | 'admin'): boolean {
+function hasRequiredPermission(_req: Express.Request, _requiredLevel: 'read' | 'write' | 'admin'): boolean {
   return true;
 }
 
@@ -75,7 +38,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
   };
 
   // Health check endpoint for connectivity monitoring with caching and rate limiting
-  let healthCheckCache: { data: any; timestamp: number } | null = null;
+  let healthCheckCache: { data: { status: string; timestamp: string; uptime: number }; timestamp: number } | null = null;
   const HEALTH_CHECK_CACHE_TTL = 10000; // 10 seconds cache
   const healthCheckRateLimit = new Map<string, { count: number; resetTime: number }>();
   const HEALTH_CHECK_RATE_LIMIT = 10; // 10 requests per minute per IP
@@ -181,7 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         message: 'Registration successful. Please wait for approval.',
         userId
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Registration error:', error);
       res.status(500).json({
         success: false,
@@ -208,7 +171,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         FROM rider_accounts 
         WHERE rider_id = $1 AND is_active = true
       `, [riderId]);
-      const user = userResult.rows[0] as any;
+      const user = userResult.rows[0] as { id: string; rider_id: string; full_name: string; password_hash: string; is_active: boolean; is_approved: boolean; role: string } | undefined;
 
       if (!user) {
         console.log('User not found for riderId:', riderId);
@@ -256,7 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         fullName: user.full_name,
         isApproved: user.is_approved
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Local login error:', error);
       res.status(500).json({
         success: false,
@@ -280,7 +243,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         success: true,
         users: pendingUsers
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Get pending approvals error:', error);
       res.status(500).json({
         success: false,
@@ -311,7 +274,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         success: true,
         message: 'User approved successfully'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Approve user error:', error);
       res.status(500).json({
         success: false,
@@ -342,7 +305,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         success: true,
         message: 'User rejected successfully'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Reject user error:', error);
       res.status(500).json({
         success: false,
@@ -385,7 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         success: true,
         message: 'Password reset successfully'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Reset password error:', error);
       res.status(500).json({
         success: false,
@@ -419,7 +382,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
           console.log(`Getting metrics for employee: ${employeeId}`);
           metrics = await storage.getDashboardMetricsForEmployee(employeeId);
           console.log('Employee metrics retrieved successfully');
-        } catch (error) {
+        } catch {
           console.log(`No data found for employee ${employeeId}, falling back to cumulative metrics`);
           // Fall back to cumulative metrics if no employee data
           metrics = await storage.getDashboardMetrics();
@@ -434,13 +397,13 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
       console.log('Dashboard metrics:', JSON.stringify(metrics, null, 2));
       res.json(metrics);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Dashboard error:', error);
-      console.error('Error stack:', error.stack);
+      console.error('Error stack:', error instanceof Error ? error.stack : String(error));
       res.status(500).json({
         error: true,
-        message: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        message: error instanceof Error ? error.message : String(error),
+        stack: process.env.NODE_ENV === 'development' && error instanceof Error ? error.stack : undefined
       });
     }
   });
@@ -451,8 +414,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
     try {
       const vehicleTypes = await storage.getVehicleTypes();
       res.json(vehicleTypes);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -464,8 +427,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         return res.status(404).json({ message: 'Vehicle type not found' });
       }
       res.json(vehicleType);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
@@ -480,8 +443,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
       const vehicleType = await storage.createVehicleType(vehicleTypeData);
       res.status(201).json(vehicleType);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -495,8 +458,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         return res.status(404).json({ message: 'Vehicle type not found' });
       }
       res.json(vehicleType);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -508,8 +471,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         return res.status(404).json({ message: 'Vehicle type not found' });
       }
       res.json({ message: 'Vehicle type deleted successfully' });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -518,8 +481,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
     try {
       const fuelSettings = await storage.getFuelSettings();
       res.json(fuelSettings);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -531,8 +494,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         return res.status(404).json({ message: 'Fuel setting not found' });
       }
       res.json(fuelSetting);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -547,8 +510,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
       const fuelSetting = await storage.createFuelSetting(fuelSettingData);
       res.status(201).json(fuelSetting);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -562,8 +525,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         return res.status(404).json({ message: 'Fuel setting not found' });
       }
       res.json(fuelSetting);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -575,8 +538,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         return res.status(404).json({ message: 'Fuel setting not found' });
       }
       res.json({ message: 'Fuel setting deleted successfully' });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -586,8 +549,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 50;
       const sessions = await routeService.listRecentSessions(limit);
       res.json({ success: true, data: sessions });
-    } catch (e: any) {
-      res.status(500).json({ success: false, message: e.message });
+    } catch (e: unknown) {
+      res.status(500).json({ success: false, message: e instanceof Error ? e.message : String(e) });
     }
   });
 
@@ -631,13 +594,13 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
       console.log('Returning active session data');
       res.json({ success: true, data: activeSession });
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('❌ Error getting active session:', e);
-      console.error('Error stack:', e.stack);
+      console.error('Error stack:', e instanceof Error ? e.stack : String(e));
       res.status(500).json({
         success: false,
-        message: e.message,
-        stack: process.env.NODE_ENV === 'development' ? e.stack : undefined
+        message: e instanceof Error ? e.message : String(e),
+        stack: process.env.NODE_ENV === 'development' && e instanceof Error ? e.stack : undefined
       });
     }
   });
@@ -656,8 +619,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
       const analytics = await routeService.getRouteAnalytics(filters);
       res.json({ success: true, data: analytics });
-    } catch (e: any) {
-      res.status(500).json({ success: false, message: e.message });
+    } catch (e: unknown) {
+      res.status(500).json({ success: false, message: e instanceof Error ? e.message : String(e) });
     }
   });
 
@@ -665,8 +628,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
     try {
       const summary = await routeService.getAnalyticsSummary();
       res.json({ success: true, data: summary });
-    } catch (e: any) {
-      res.status(500).json({ success: false, message: e.message });
+    } catch (e: unknown) {
+      res.status(500).json({ success: false, message: e instanceof Error ? e.message : String(e) });
     }
   });
 
@@ -676,8 +639,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
     try {
       const riders = await riderService.listRiders();
       res.json({ success: true, data: riders });
-    } catch (e: any) {
-      res.status(500).json({ success: false, message: e.message });
+    } catch (e: unknown) {
+      res.status(500).json({ success: false, message: e instanceof Error ? e.message : String(e) });
     }
   });
 
@@ -696,8 +659,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         exists: result.rows.length > 0,
         isRegistered: result.rows.length > 0
       });
-    } catch (e: any) {
-      res.status(500).json({ success: false, message: e.message });
+    } catch (e: unknown) {
+      res.status(500).json({ success: false, message: e instanceof Error ? e.message : String(e) });
     }
   });
 
@@ -713,8 +676,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       const fullName = `Rider ${riderId}`;
       const rider = await riderService.registerRider(riderId, fullName, password);
       res.status(201).json({ success: true, data: rider });
-    } catch (e: any) {
-      res.status(400).json({ success: false, message: e.message });
+    } catch (e: unknown) {
+      res.status(400).json({ success: false, message: e instanceof Error ? e.message : String(e) });
     }
   });
 
@@ -728,8 +691,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       const result = await db.query('SELECT rider_id, name, is_active FROM riders WHERE rider_id = $1', [riderId]);
       const exists = result.rows.length > 0;
       return res.json({ success: true, exists, rider: exists ? result.rows[0] : null });
-    } catch (e: any) {
-      return res.status(500).json({ success: false, message: e.message });
+    } catch (e: unknown) {
+      return res.status(500).json({ success: false, message: e instanceof Error ? e.message : String(e) });
     }
   });
 
@@ -753,8 +716,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         token: token,
         isApproved: rider.is_approved
       });
-    } catch (e: any) {
-      res.status(500).json({ success: false, message: e.message });
+    } catch (e: unknown) {
+      res.status(500).json({ success: false, message: e instanceof Error ? e.message : String(e) });
     }
   });
 
@@ -763,32 +726,37 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
     try {
       // Accept either: API token auth, rider session, or JWT without external verify
       // Prefer API token auth when present
-      const apiTokenAuth = (req as any).isApiTokenAuth && (req as any).apiToken;
+      const apiTokenAuth = (req as { isApiTokenAuth?: boolean; apiToken?: string }).isApiTokenAuth && (req as { isApiTokenAuth?: boolean; apiToken?: string }).apiToken;
       let employeeId = (req.headers['x-employee-id'] as string | undefined) || undefined;
-      let userRole = (req.headers['x-user-role'] as string | undefined) || 'driver';
+      let isRider = false; // Simple flag: true for riders, false for everyone else
 
-      // Check for rider session in Authorization header
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
-        try {
-          const decoded = Buffer.from(token, 'base64').toString('utf-8');
-          const [riderId] = decoded.split(':');
-          if (riderId) {
-            employeeId = riderId;
-            userRole = 'driver';
+      // Check for X-Is-Rider header from frontend (JWT auth) - PRIORITY 1
+      const isRiderHeader = req.headers['x-is-rider'] as string | undefined;
+      if (isRiderHeader !== undefined) {
+        // If header is present, use it (JWT auth from frontend)
+        isRider = isRiderHeader === 'true';
+      } else {
+        // No header present, check for rider session in Authorization header (base64 token auth)
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          const token = authHeader.substring(7);
+          try {
+            const decoded = Buffer.from(token, 'base64').toString('utf-8');
+            const [riderId] = decoded.split(':');
+            if (riderId && decoded.includes(':')) {
+              // Valid base64 rider session format (riderId:password)
+              employeeId = riderId;
+              isRider = true;
+            }
+          } catch {
+            // Invalid token, continue with other auth methods
           }
-        } catch (e) {
-          // Invalid token, continue with other auth methods
         }
       }
 
+      // API token auth means admin/manager (not a rider)
       if (apiTokenAuth) {
-        userRole = 'admin';
-      }
-      if (!employeeId && userRole === 'driver') {
-        // fall back to a safe default only for non-restrictive queries
-        employeeId = 'driver';
+        isRider = false;
       }
 
       // Convert query parameters to filters
@@ -800,7 +768,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       // Handle string filters
       for (const [key, value] of Object.entries(req.query)) {
         if (validFilters.includes(key) && typeof value === 'string') {
-          (filters as any)[key] = value;
+          (filters as Record<string, string>)[key] = value;
         }
       }
 
@@ -817,7 +785,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
               end: String(dateRange.end)
             };
           }
-        } catch (e) {
+        } catch {
           console.warn('Invalid dateRange format:', req.query.dateRange);
         }
       }
@@ -848,16 +816,12 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         }
       }
 
-      // Apply role-based filtering according to requirements:
-      // - admin, super_admin: can see all shipments
-      // - driver: can only see their own shipments  
-      // - everyone else (ops_team): can see all shipments
-      if (userRole === 'driver' && employeeId && employeeId !== 'driver') {
-        // Only drivers/delivery personnel see filtered results
-        // But only if we have a real employeeId (not the default fallback)
+      // Simple role-based filtering:
+      // - Riders: see only their own shipments
+      // - Everyone else: see all shipments
+      if (isRider && employeeId) {
         filters.employeeId = employeeId;
       }
-      // For isSuperUser, isOpsTeam, and isStaff: no filtering (see all shipments)
 
       // Set cache control headers (5 minutes)
       res.set('Cache-Control', 'public, max-age=300');
@@ -867,9 +831,11 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
       // Debug logging
       console.log('📦 Shipments fetch debug:', {
+        isRiderHeader: req.headers['x-is-rider'],
+        employeeIdHeader: req.headers['x-employee-id'],
         filters: JSON.stringify(filters),
         employeeId: employeeId,
-        userRole: userRole,
+        isRider: isRider,
         totalShipments: total,
         returnedShipments: shipments.length,
         firstShipment: shipments[0] ? {
@@ -894,20 +860,20 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       });
 
       res.json(shipments);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching shipments:', error);
-      res.status(500).json({ message: error.message || 'Failed to fetch shipments' });
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) || 'Failed to fetch shipments' });
     }
   });
 
   // Distinct route names for filters
   app.get('/api/routes/names', async (_req, res) => {
     try {
-      const db = (storage as any).getDatabase();
+      const db = (storage as { getDatabase: () => { query: (sql: string) => Promise<{ rows: Array<{ name: string }> }> } }).getDatabase();
       const result = await db.query('SELECT DISTINCT "routeName" as name FROM shipments WHERE "routeName" IS NOT NULL ORDER BY name');
-      res.json({ success: true, data: result.rows.map((r: any) => r.name) });
-    } catch (e: any) {
-      res.status(500).json({ success: false, message: e.message });
+      res.json({ success: true, data: result.rows.map((r) => r.name) });
+    } catch (e: unknown) {
+      res.status(500).json({ success: false, message: e instanceof Error ? e.message : String(e) });
     }
   });
 
@@ -926,8 +892,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       const acknowledgment = await storage.getAcknowledgmentByShipmentId(shipment.shipment_id);
 
       res.json({ shipment, acknowledgment });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -942,7 +908,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
       // Validate tracking data
       const allowedFields = ['start_latitude', 'start_longitude', 'stop_latitude', 'stop_longitude', 'km_travelled', 'status', 'actualDeliveryTime'];
-      const updates: any = { shipment_id: id };
+      const updates: Record<string, unknown> = { shipment_id: id };
 
       for (const field of allowedFields) {
         if (trackingData[field] !== undefined) {
@@ -958,7 +924,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         });
       }
 
-      const updatedShipment = await storage.updateShipment(id, updates);
+      const updatedShipment = await storage.updateShipment(id, updates as unknown as UpdateShipment);
 
       if (!updatedShipment) {
         return res.status(404).json({
@@ -981,10 +947,10 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         message: 'Tracking data updated successfully',
         shipment: updatedShipment
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(400).json({
         success: false,
-        message: error.message,
+        message: error instanceof Error ? error.message : String(error),
         code: 'TRACKING_UPDATE_FAILED'
       });
     }
@@ -1053,26 +1019,27 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
             code: 'SYNC_FAILED'
           });
         }
-      } catch (syncError: any) {
+      } catch (syncError: unknown) {
+        const errorMessage = syncError instanceof Error ? syncError.message : String(syncError);
         // Mark sync as failed
         storage.updateShipment(id, {
           shipment_id: id,
           synced_to_external: false,
           last_sync_attempt: new Date().toISOString(),
-          sync_error: syncError.message
+          sync_error: errorMessage
         });
 
         res.status(500).json({
           success: false,
           message: 'Failed to sync to external system',
-          error: syncError.message,
+          error: errorMessage,
           code: 'SYNC_FAILED'
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(400).json({
         success: false,
-        message: error.message,
+        message: error instanceof Error ? error.message : String(error),
         code: 'SYNC_REQUEST_FAILED'
       });
     }
@@ -1108,11 +1075,11 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         success: true,
         accessTokens
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve access tokens',
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   });
@@ -1122,7 +1089,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
     try {
       const { shipmentId, status } = req.query;
 
-      let query = 'SELECT id, NULL as shipment_id, NULL as synced_to_external, NULL as last_sync_attempt, NULL as sync_error FROM shipments';
+      // Query building for potential future use
+      // let query = 'SELECT id, NULL as shipment_id, NULL as synced_to_external, NULL as last_sync_attempt, NULL as sync_error FROM shipments';
       const conditions = [];
       const params = [];
 
@@ -1139,14 +1107,15 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         conditions.push('synced_to_external = 0 AND sync_error IS NOT NULL');
       }
 
-      if (conditions.length > 0) {
-        query += ' WHERE ' + conditions.join(' AND ');
-      }
+      // Query conditions built but not used - using storage.getShipments instead
+      // if (conditions.length > 0) {
+      //   query += ' WHERE ' + conditions.join(' AND ');
+      // }
 
       const shipmentsResult = await storage.getShipments({});
       const shipments = shipmentsResult.data;
 
-      const syncStatus = shipments.map((shipment: any) => ({
+      const syncStatus = shipments.map((shipment) => ({
         shipmentId: shipment.shipment_id,
         externalId: shipment.shipment_id,
         status: shipment.synced_to_external ? 'success' : 'failed',
@@ -1158,10 +1127,10 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         success: true,
         syncStatus
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(400).json({
         success: false,
-        message: error.message,
+        message: error instanceof Error ? error.message : String(error),
         code: 'SYNC_STATUS_FAILED'
       });
     }
@@ -1229,11 +1198,11 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         }))
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(500).json({
         success: false,
         message: 'Batch sync failed',
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
         code: 'BATCH_SYNC_FAILED'
       });
     }
@@ -1284,7 +1253,19 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         if (isBatch) {
           // Pre-process batch to normalize Printo payload format and fix empty/null routeName
           if (payload.shipments && Array.isArray(payload.shipments)) {
-            payload.shipments.forEach((shipment: any) => {
+            payload.shipments.forEach((shipment: {
+              type?: string;
+              status?: string;
+              routeName?: string;
+              recipientName?: string;
+              customerName?: string;
+              recipientPhone?: string;
+              customerMobile?: string;
+              deliveryAddress?: string;
+              address?: string | { address1?: string; address2?: string; placeName?: string; city?: string; state?: string; pincode?: string };
+              estimatedDeliveryTime?: string;
+              deliveryTime?: string;
+            }) => {
               // Normalize type to lowercase
               if (shipment.type) {
                 shipment.type = shipment.type.toLowerCase();
@@ -1392,7 +1373,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
               if (existingShipment) {
                 // Update existing shipment
-                const updatedShipment = await storage.updateShipment(existingShipment.shipment_id, {
+                await storage.updateShipment(existingShipment.shipment_id, {
                   shipment_id: existingShipment.shipment_id,
                   status: internalShipment.status,
                   priority: internalShipment.priority,
@@ -1453,13 +1434,13 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
                   message: 'Shipment created successfully'
                 });
               }
-            } catch (error: any) {
+            } catch (error: unknown) {
               results.failed++;
               processedShipments.push({
                 piashipmentid: externalShipment.id,
                 internalId: null,
                 status: 'failed',
-                message: error.message
+                message: error instanceof Error ? error.message : String(error)
               });
             }
           }
@@ -1540,7 +1521,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
           if (existingShipment) {
             // Update existing shipment
-            const updatedShipment = await storage.updateShipment(existingShipment.shipment_id, {
+            await storage.updateShipment(existingShipment.shipment_id, {
               shipment_id: existingShipment.shipment_id,
               status: internalShipment.status,
               priority: internalShipment.priority,
@@ -1624,12 +1605,12 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
             });
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error processing external shipment data:', error);
         return res.status(500).json({
           success: false,
           message: 'Internal server error while processing shipment data',
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
           timestamp: new Date().toISOString()
         });
       }
@@ -1638,6 +1619,15 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
   // Update single shipment status (no auth for now)
   app.patch('/api/shipments/:id', async (req, res) => {
     try {
+      console.log('📝 PATCH /api/shipments/:id called:', {
+        id: req.params.id,
+        body: req.body,
+        headers: {
+          'x-is-rider': req.headers['x-is-rider'],
+          'x-employee-id': req.headers['x-employee-id']
+        }
+      });
+
       // Authentication removed (simplified app)
 
       // Check write permissions
@@ -1676,8 +1666,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       });
 
       res.json(shipment);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(400).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -1716,13 +1706,13 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
       // Get updated shipments for external sync
       const updatedShipments = await Promise.all(
-        batchData.updates.map(async (update: any) => {
+        batchData.updates.map(async (update: { shipment_id: string }) => {
           const shipment = await storage.getShipment(update.shipment_id);
           return shipment;
         })
       );
 
-      const validShipments = updatedShipments.filter(Boolean) as any[];
+      const validShipments = updatedShipments.filter(Boolean) as Shipment[];
 
       // Batch sync to external API
       externalSync.batchSyncShipments(validShipments).catch(err => {
@@ -1730,8 +1720,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       });
 
       res.json({ updatedCount, message: `${updatedCount} shipments updated successfully` });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(400).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -1741,7 +1731,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
     upload.fields([
       { name: 'photo', maxCount: 1 },
       { name: 'signature', maxCount: 1 }
-    ]),
+    ]) as unknown as express.RequestHandler,
     async (req: AuthenticatedRequest, res) => {
       try {
 
@@ -1807,8 +1797,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         });
 
         res.status(201).json(acknowledgment);
-      } catch (error: any) {
-        res.status(400).json({ message: error.message });
+      } catch (error: unknown) {
+        res.status(400).json({ message: error instanceof Error ? error.message : String(error) });
       }
     }
   );
@@ -1833,7 +1823,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         totalFailed: Number(row.total_failed || 0),
         lastSyncTime: row.last_sync_time || null,
       });
-    } catch (_error: any) {
+    } catch {
       // If table missing or any SQL error, return safe zeros to avoid fake data
       res.json({ totalPending: 0, totalSent: 0, totalFailed: 0, lastSyncTime: null });
     }
@@ -1850,8 +1840,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         success: result.success,
         failed: result.failed
       });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -1891,8 +1881,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         status,
         savedAt: new Date().toISOString()
       });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(400).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -1932,8 +1922,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         message: 'Shipment deleted successfully',
         shipmentId: shipmentId
       });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -2025,13 +2015,13 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
             }
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error sending external update:', error);
         res.status(500).json({
           success: false,
           message: 'Internal server error while sending update',
           code: 'INTERNAL_ERROR',
-          error: error.message
+          error: error instanceof Error ? error.message : String(error)
         });
       }
     });
@@ -2053,7 +2043,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
           });
         }
 
-        let updatePayloads: any[] = [];
+        let updatePayloads: unknown[] = [];
 
         if (updates && Array.isArray(updates)) {
           // Direct updates provided
@@ -2135,13 +2125,13 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
             }
           }
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error processing batch external update:', error);
         res.status(500).json({
           success: false,
           message: 'Internal server error while processing batch update',
           code: 'BATCH_PROCESSING_ERROR',
-          error: error.message
+          error: error instanceof Error ? error.message : String(error)
         });
       }
     });
@@ -2158,8 +2148,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       const sessionId = 'session-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
       const session = await routeService.startSession({ id: sessionId, employeeId, startLatitude: Number(startLatitude), startLongitude: Number(startLongitude) });
       res.status(201).json({ success: true, session, message: 'Route session started successfully' });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+    } catch (error: unknown) {
+      res.status(400).json({ success: false, message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -2172,8 +2162,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       }
       const session = await routeService.stopSession({ id: sessionId, endLatitude: Number(endLatitude), endLongitude: Number(endLongitude) });
       res.json({ success: true, session, message: 'Route session stopped successfully' });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+    } catch (error: unknown) {
+      res.status(400).json({ success: false, message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -2196,8 +2186,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         shipmentId
       });
       res.status(201).json({ success: true, record, message: 'GPS coordinate recorded successfully' });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+    } catch (error: unknown) {
+      res.status(400).json({ success: false, message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -2233,8 +2223,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       console.log('Route shipment event recorded:', record);
 
       return res.status(201).json({ success: true, record, message: 'Shipment event recorded' });
-    } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to record event' });
+    } catch (error: unknown) {
+      return res.status(500).json({ success: false, message: error instanceof Error ? error.message : String(error) || 'Failed to record event' });
     }
   });
 
@@ -2244,8 +2234,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       const { sessionId } = req.params;
       const data = await routeService.getSession(sessionId);
       res.json({ success: true, data, message: 'Session data retrieved successfully' });
-    } catch (error: any) {
-      res.status(500).json({ success: false, message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ success: false, message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -2258,8 +2248,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       }
       const summary = await routeService.insertCoordinatesBatch(coordinates);
       res.json({ success: true, summary, message: `Batch coordinate submission completed` });
-    } catch (error: any) {
-      res.status(400).json({ success: false, message: error.message });
+    } catch (error: unknown) {
+      res.status(400).json({ success: false, message: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -2290,8 +2280,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
       console.log('Offline session synced:', synced);
       return res.json({ success: true, session: synced, message: 'Session synced' });
-    } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to sync session' });
+    } catch (error: unknown) {
+      return res.status(500).json({ success: false, message: error instanceof Error ? error.message : String(error) || 'Failed to sync session' });
     }
   });
 
@@ -2307,7 +2297,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         });
       }
 
-      const results = coordinates.map((c: any) => ({
+      const results = coordinates.map((c: { latitude: number; longitude: number; timestamp: string; accuracy?: number }) => ({
         success: true,
         record: {
           id: 'coord-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
@@ -2321,8 +2311,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
 
       console.log(`Offline coordinates synced for session ${sessionId}:`, results.length);
       return res.json({ success: true, results, message: 'Coordinates synced' });
-    } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to sync coordinates' });
+    } catch (error: unknown) {
+      return res.status(500).json({ success: false, message: error instanceof Error ? error.message : String(error) || 'Failed to sync coordinates' });
     }
   });
 
@@ -2332,8 +2322,8 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
       // Log error (in production, would save to monitoring service)
       console.error('Frontend Error:', req.body);
       res.status(200).json({ logged: true });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: error instanceof Error ? error.message : 'Unknown error' });
     }
   });
 
@@ -2361,7 +2351,7 @@ export async function registerRoutes(app: Express): Promise<Server | null> {
         success: true,
         users: users
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to fetch all users:', error);
       res.status(500).json({
         success: false,

@@ -130,7 +130,7 @@ class AuthService {
     is_rider: boolean;
     is_super_user: boolean;
   } {
-    // is_super_user: true → is_super_user: true
+    // is_super_user: true → is_super_user: true, NOT a rider (sees all shipments)
     if (isSuperUser === true) {
       return {
         is_rider: false,
@@ -138,17 +138,17 @@ class AuthService {
       };
     }
 
-    // is_ops_team: true OR is_staff: true → is_rider: true
+    // is_ops_team: true OR is_staff: true → NOT a rider (sees all shipments)
     if (isOpsTeam === true || isStaff === true) {
       return {
-        is_rider: true,
+        is_rider: false,
         is_super_user: false
       };
     }
 
-    // Everything else → is_driver (default, no special flags)
+    // Everything else → is a regular rider/driver (sees only their shipments)
     return {
-      is_rider: false,
+      is_rider: true,
       is_super_user: false
     };
   }
@@ -458,7 +458,9 @@ class AuthService {
     }
     return {
       'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'X-Is-Rider': this.state.user?.isRider ? 'true' : 'false',
+      'X-Employee-Id': this.state.user?.employeeId || ''
     };
   }
 }
