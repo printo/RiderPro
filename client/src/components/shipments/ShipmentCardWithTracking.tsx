@@ -1,12 +1,11 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Shipment } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Truck, Package, MapPin, Phone, Route, Clock, ChevronRight,
-  Navigation, Play, Square, AlertCircle, Satellite
+  Truck, Package, MapPin, Phone, Route, Clock,
+  Navigation, Satellite
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
@@ -35,7 +34,6 @@ function ShipmentCardWithTracking({
   const { toast } = useToast();
 
   const {
-    activeSession,
     hasActiveSession,
     recordShipmentEvent,
     isSubmitting
@@ -45,11 +43,6 @@ function ShipmentCardWithTracking({
     getCurrentPosition,
     isLoading: isGettingLocation
   } = useGPSTracking();
-
-  const getStatusClass = (status: string) => {
-    const statusLower = status.toLowerCase().replace(" ", "-");
-    return `status-${statusLower}`;
-  };
 
   const getTypeIcon = (type: string) => {
     return type === "delivery" ? (
