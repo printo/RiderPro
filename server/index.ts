@@ -12,8 +12,9 @@ const app = express();
 app.use(cors({
   origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://localhost:5000'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['X-Total-Count', 'X-Total-Pages', 'X-Current-Page', 'X-Per-Page', 'X-Has-Next-Page', 'X-Has-Previous-Page'],
 }));
 
 // Body parsing middleware
@@ -114,7 +115,7 @@ app.get("/api-status", (req, res) => {
   }
 
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen(port, '0.0.0.0', () => {
+  server.listen(port, () => {
     log.dev('\n=== RiderPro Delivery Management System ===');
     log.dev(`🚀 Server running on port ${port}`);
     log.dev(`🌐 Application: http://localhost:${port}`);

@@ -39,8 +39,21 @@ export function registerShipmentRoutes(app: Express): void {
         filters.employeeId = req.user?.employeeId;
       }
 
-      const shipments = await storage.getShipments(filters);
-      res.json(shipments);
+      const result = await storage.getShipments(filters);
+
+      // Set pagination headers for the client
+      const page = Math.max(1, parseInt(filters.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(filters.limit as string) || 20));
+      const totalPages = Math.ceil(result.total / limit);
+
+      res.setHeader('X-Total-Count', result.total.toString());
+      res.setHeader('X-Total-Pages', totalPages.toString());
+      res.setHeader('X-Current-Page', page.toString());
+      res.setHeader('X-Per-Page', limit.toString());
+      res.setHeader('X-Has-Next-Page', (page < totalPages).toString());
+      res.setHeader('X-Has-Previous-Page', (page > 1).toString());
+
+      res.json(result.data);
     } catch (error: any) {
       log.error('Error fetching shipments:', error.reason || error.message);
       res.status(500).json({ error: 'Failed to fetch shipments' });

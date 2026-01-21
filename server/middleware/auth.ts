@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import path from 'path';
 import { storage } from '../storage';
 import Database from 'better-sqlite3';
 import { log } from "../../shared/utils/logger.js";
@@ -256,7 +257,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         const userId = tokenParts.slice(2).join('_');
 
         // Connect to legacy DB
-        const dbPath = require('path').join(process.cwd(), 'data', 'userdata.db');
+        const dbPath = path.join(process.cwd(), 'data', 'userdata.db');
         const userDataDb = new Database(dbPath);
 
         const userRow = userDataDb

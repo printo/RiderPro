@@ -1,5 +1,6 @@
 import { Shipment } from '@shared/schema';
 import { log } from "../../shared/utils/logger.js";
+import { API_KEYS } from '../config/apiKeys.js';
 
 export interface ExternalSyncData {
   shipment_id: string;
@@ -56,7 +57,7 @@ export class ExternalApiService {
    * Rotates between available tokens for load balancing
    */
   private getAccessToken(): string {
-    const { API_KEYS } = require('../config/apiKeys.js');
+
     // Use a simple round-robin approach
     const tokens = [API_KEYS.ACCESS_TOKEN_1, API_KEYS.ACCESS_TOKEN_2];
     const randomIndex = Math.floor(Math.random() * tokens.length);

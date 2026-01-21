@@ -1,6 +1,7 @@
 import { liveDb, replicaDb } from './connection.js';
 import { Shipment, InsertShipment, UpdateShipment, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType, FuelSetting, InsertFuelSetting, UpdateFuelSetting } from '@shared/schema';
 import { randomUUID } from 'crypto';
+import { calculateShipmentDistance } from '../utils/distanceCalculator.js';
 
 export class ShipmentQueries {
   private db: any;
@@ -253,7 +254,7 @@ export class ShipmentQueries {
     if (trackingData.start_latitude !== undefined || trackingData.start_longitude !== undefined ||
       trackingData.stop_latitude !== undefined || trackingData.stop_longitude !== undefined) {
 
-      const { calculateShipmentDistance } = require('../utils/distanceCalculator');
+
 
       // Merge current data with new tracking data
       const mergedData = {
