@@ -83,6 +83,9 @@ export const initializeAuth = () => {
         access_token TEXT,
         refresh_token TEXT,
         is_active BOOLEAN DEFAULT 1,
+        is_super_user BOOLEAN DEFAULT 0,
+        is_ops_team BOOLEAN DEFAULT 0,
+        is_staff BOOLEAN DEFAULT 0,
         last_login TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
@@ -99,6 +102,20 @@ export const initializeAuth = () => {
         FOREIGN KEY (user_id) REFERENCES users (id)
       )
     `);
+
+    // Ensure columns exist (self-healing migration)
+    const tableInfo = storage.prepare("PRAGMA table_info(users)").all();
+    const columns = tableInfo.map((col: any) => col.name);
+
+    if (!columns.includes('is_super_user')) {
+      storage.exec('ALTER TABLE users ADD COLUMN is_super_user BOOLEAN DEFAULT 0');
+    }
+    if (!columns.includes('is_ops_team')) {
+      storage.exec('ALTER TABLE users ADD COLUMN is_ops_team BOOLEAN DEFAULT 0');
+    }
+    if (!columns.includes('is_staff')) {
+      storage.exec('ALTER TABLE users ADD COLUMN is_staff BOOLEAN DEFAULT 0');
+    }
 
     log.dev('✅ Authentication initialized - using Printo API with Bearer tokens');
   } catch (error) {
