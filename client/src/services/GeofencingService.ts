@@ -1,4 +1,5 @@
 import { GPSPosition } from './GPSTracker';
+import { log } from "../utils/logger.js";
 
 export interface GeofenceConfig {
   center: {
@@ -41,7 +42,7 @@ export class GeofencingService {
       distance: Infinity
     });
 
-    console.log(`Geofence added: ${id} at (${config.center.latitude}, ${config.center.longitude}) with radius ${config.radius}m`);
+    log.dev(`Geofence added: ${id} at (${config.center.latitude}, ${config.center.longitude}) with radius ${config.radius}m`);
   }
 
   /**
@@ -52,7 +53,7 @@ export class GeofencingService {
     this.geofenceStatuses.delete(id);
     this.eventListeners.delete(id);
 
-    console.log(`Geofence removed: ${id}`);
+    log.dev(`Geofence removed: ${id}`);
   }
 
   /**
@@ -94,7 +95,7 @@ export class GeofencingService {
         events.push(event);
         this.triggerEventListeners(id, event);
 
-        console.log(`Entered geofence: ${id} (distance: ${distance.toFixed(1)}m)`);
+        log.dev(`Entered geofence: ${id} (distance: ${distance.toFixed(1)}m)`);
 
       } else if (wasInside && !isInside) {
         // Exited geofence
@@ -113,7 +114,7 @@ export class GeofencingService {
         events.push(event);
         this.triggerEventListeners(id, event);
 
-        console.log(`Exited geofence: ${id} (distance: ${distance.toFixed(1)}m)`);
+        log.dev(`Exited geofence: ${id} (distance: ${distance.toFixed(1)}m)`);
       }
 
       this.geofenceStatuses.set(id, currentStatus);
@@ -264,7 +265,7 @@ export class GeofencingService {
     geofence.radius = newRadius;
     this.geofences.set(id, geofence);
 
-    console.log(`Updated geofence ${id} radius to ${newRadius}m`);
+    log.dev(`Updated geofence ${id} radius to ${newRadius}m`);
     return true;
   }
 
@@ -276,7 +277,7 @@ export class GeofencingService {
     this.geofenceStatuses.clear();
     this.eventListeners.clear();
 
-    console.log('All geofences cleared');
+    log.dev('All geofences cleared');
   }
 
   /**

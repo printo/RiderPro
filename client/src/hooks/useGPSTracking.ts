@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { GPSTracker, GPSPosition, GPSError, GPSPermissionStatus } from '../services/GPSTracker';
 import { GPSErrorRecoveryService } from '../services/GPSErrorRecoveryService';
 import { ErrorHandlingService } from '../services/ErrorHandlingService';
+import { log } from "../utils/logger.js";
 
 export interface GPSTrackingState {
   isTracking: boolean;
@@ -66,7 +67,7 @@ export function useGPSTracking(options: UseGPSTrackingOptions = {}) {
       errorHandlerRef.current.addRecoveryListener((recoveryState) => {
         if (recoveryState.isRecovering) {
           // Could show recovery notification here
-          console.log('GPS recovery in progress...');
+          log.dev('GPS recovery in progress...');
         }
       });
     }

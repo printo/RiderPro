@@ -1,5 +1,6 @@
 // client/src/services/AuthService.ts
 import { User, UserRole } from '@/types/User';
+import { log } from "../utils/logger.js";
 
 interface AuthState {
   user: User | null;
@@ -26,6 +27,11 @@ interface LocalAuthResponse {
   refreshToken: string;
   fullName: string;
   isApproved: boolean;
+  is_super_user?: boolean;
+  is_staff?: boolean;
+  is_ops_team?: boolean;
+  employee_id?: string;
+  role?: string;
 }
 
 class AuthService {
@@ -158,13 +164,13 @@ class AuthService {
     try {
       this.setState({ isLoading: true });
 
-      const response = await fetch('https://pia.printo.in/api/v1/auth/', {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: employeeId,  // PIA API expects 'email' field
+          email: employeeId,  // Proxy expects 'email' field
           password: password,
         }),
       });
@@ -175,7 +181,7 @@ class AuthService {
       }
 
       const data: ExternalAuthResponse = await response.json();
-      console.log('[AuthService] PIA API response:', data);
+      log.dev('[AuthService] PIA API response:', data);
 
       // Map PIA roles to internal role structure
       const internalRoles = this.mapPIARolesToInternal(data.is_staff, data.is_super_user, data.is_ops_team);
@@ -253,26 +259,35 @@ class AuthService {
         return { success: false, message: 'Account pending approval', isApproved: false };
       }
 
+      // Map PIA roles to internal role structure
+      const internalRoles = this.mapPIARolesToInternal(data.is_staff, data.is_super_user, data.is_ops_team);
+
       // Save to localStorage with all user details
       localStorage.setItem('access_token', data.accessToken);
       localStorage.setItem('refresh_token', data.refreshToken);
       localStorage.setItem('full_name', data.fullName);
       localStorage.setItem('employee_id', riderId);
-      localStorage.setItem('is_rider', 'false');
-      localStorage.setItem('is_super_user', 'false'); // Local users are drivers by default
+      localStorage.setItem('is_rider', internalRoles.is_rider.toString());
+      localStorage.setItem('is_super_user', internalRoles.is_super_user.toString());
+      localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
+      localStorage.setItem('is_staff', (data.is_staff || false).toString());
+
+      const role = this.determineRole(data.is_staff, data.is_super_user, data.is_ops_team);
 
       this.setState({
         user: {
           id: riderId,
           username: riderId,
           email: '',
-          role: UserRole.DRIVER,
+          role,
           employeeId: riderId,
           fullName: data.fullName,
           isActive: true,
-          isApproved: data.isApproved || false, // Use approval status from server
-          isRider: false,
-          isSuperUser: false, // Local users are drivers by default
+          isApproved: data.isApproved || false,
+          isRider: internalRoles.is_rider,
+          isSuperUser: internalRoles.is_super_user,
+          isOpsTeam: data.is_ops_team || false,
+          isStaff: data.is_staff || false,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },

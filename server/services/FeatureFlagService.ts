@@ -1,5 +1,6 @@
 import { Database } from 'better-sqlite3';
 import config, { FeatureFlags } from '../config';
+import { log } from "../../shared/utils/logger.js";
 
 // Feature flag configuration
 interface FeatureFlagConfig {
@@ -78,7 +79,7 @@ class FeatureFlagService {
           ON feature_flags(enabled);
       `);
 
-      console.log('✓ Feature flags table initialized');
+      log.dev('✓ Feature flags table initialized');
     } catch (error) {
       console.error('Failed to initialize feature flags table:', error);
     }
@@ -107,7 +108,7 @@ class FeatureFlagService {
       });
 
       this.lastCacheUpdate = Date.now();
-      console.log(`✓ Loaded ${flags.length} feature flags`);
+      log.dev(`✓ Loaded ${flags.length} feature flags`);
     } catch (error) {
       console.error('Failed to load feature flags:', error);
     }
@@ -283,7 +284,7 @@ class FeatureFlagService {
       // Notify listeners
       this.notifyListeners(flag.name, flag.enabled);
 
-      console.log(`✓ Feature flag '${flag.name}' ${flag.enabled ? 'enabled' : 'disabled'}`);
+      log.dev(`✓ Feature flag '${flag.name}' ${flag.enabled ? 'enabled' : 'disabled'}`);
       return true;
     } catch (error) {
       console.error(`Failed to create feature flag '${flag.name}':`, error);
@@ -336,7 +337,7 @@ class FeatureFlagService {
         this.notifyListeners(name, updated.enabled);
       }
 
-      console.log(`✓ Feature flag '${name}' updated`);
+      log.dev(`✓ Feature flag '${name}' updated`);
       return true;
     } catch (error) {
       console.error(`Failed to update feature flag '${name}':`, error);
@@ -351,7 +352,7 @@ class FeatureFlagService {
 
       if (result.changes > 0) {
         this.cache.delete(name);
-        console.log(`✓ Feature flag '${name}' deleted`);
+        log.dev(`✓ Feature flag '${name}' deleted`);
         return true;
       }
       return false;

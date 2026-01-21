@@ -5,8 +5,24 @@ import { Badge } from '@/components/ui/badge';
 import { useRouteSession } from '@/hooks/useRouteSession';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 import RouteCompletionDialog from '@/components/routes/RouteCompletionDialog';
-// import SmartCompletionSettings from '@/components/routes/SmartCompletionSettings';
+import SmartCompletionSettings from '@/components/SmartCompletionSettings';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target, Settings } from 'lucide-react';
 
 interface RouteSessionControlsProps {
@@ -42,7 +58,10 @@ function RouteSessionControls({
     canResumeSession,
     getFormattedDuration,
     getFormattedDistance,
-    getFormattedSpeed
+    getFormattedSpeed,
+    showGeofenceDialog,
+    confirmGeofenceStop,
+    cancelGeofenceStop
   } = useRouteSession({
     employeeId,
     trackingInterval: 30000,
@@ -138,7 +157,7 @@ function RouteSessionControls({
 
   return (
     <>
-      <Card className="w-full max-w-md">
+      <Card className="w-full">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-lg">
             <span className="flex items-center gap-2">
@@ -179,71 +198,72 @@ function RouteSessionControls({
           )}
 
           {/* Session Metrics */}
-          {session && metrics && (
-            <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-md dark:bg-gray-800/50">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-gray-500" />
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Duration</p>
-                  <p className="text-sm font-medium">{getFormattedDuration()}</p>
-                </div>
+          {/* Session Metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-gray-50 rounded-md dark:bg-gray-800/50">
+            <div className="flex flex-col gap-1 items-start">
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <Clock className="h-3 w-3" />
+                <span className="text-[10px] uppercase tracking-wider font-semibold">Duration</span>
               </div>
-
-              <div className="flex items-center gap-2">
-                <Route className="h-4 w-4 text-gray-500" />
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Distance</p>
-                  <p className="text-sm font-medium">{getFormattedDistance()}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Gauge className="h-4 w-4 text-gray-500" />
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Avg Speed</p>
-                  <p className="text-sm font-medium">{getFormattedSpeed()}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-gray-500" />
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Points</p>
-                  <p className="text-sm font-medium">{metrics.coordinateCount}</p>
-                </div>
-              </div>
+              <p className="text-sm font-semibold pl-[18px]">{getFormattedDuration()}</p>
             </div>
-          )}
+
+            <div className="flex flex-col gap-1 items-start">
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <Route className="h-3 w-3" />
+                <span className="text-[10px] uppercase tracking-wider font-semibold">Distance</span>
+              </div>
+              <p className="text-sm font-semibold pl-[18px]">{getFormattedDistance()}</p>
+            </div>
+
+            <div className="flex flex-col gap-1 items-start">
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <Gauge className="h-3 w-3" />
+                <span className="text-[10px] uppercase tracking-wider font-semibold">Speed</span>
+              </div>
+              <p className="text-sm font-semibold pl-[18px]">{getFormattedSpeed()}</p>
+            </div>
+
+            <div className="flex flex-col gap-1 items-start">
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <MapPin className="h-3 w-3" />
+                <span className="text-[10px] uppercase tracking-wider font-semibold">Points</span>
+              </div>
+              <p className="text-sm font-semibold pl-[18px]">{metrics?.coordinateCount || 0}</p>
+            </div>
+          </div>
 
           {/* Smart Completion Status */}
-          {session && smartCompletion.isEnabled && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md dark:bg-blue-900/20 dark:border-blue-800">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                      Smart Completion Active
-                    </p>
-                    <p className="text-xs text-blue-600 dark:text-blue-300">
-                      Distance from start: {smartCompletion.distanceFromStart < 1000
-                        ? `${Math.round(smartCompletion.distanceFromStart)}m`
-                        : `${(smartCompletion.distanceFromStart / 1000).toFixed(1)}km`
-                      }
-                    </p>
-                  </div>
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md dark:bg-blue-900/20 dark:border-blue-800">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-blue-600" />
+                <div>
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                    Smart Completion {smartCompletion.isEnabled ? 'Active' : 'Inactive'}
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-300">
+                    Distance from start: {
+                      !session ? '0m' :
+                        smartCompletion.distanceFromStart === Number.POSITIVE_INFINITY || smartCompletion.distanceFromStart === null
+                          ? 'Unknown'
+                          : smartCompletion.distanceFromStart < 1000
+                            ? `${Math.round(smartCompletion.distanceFromStart)}m`
+                            : `${(smartCompletion.distanceFromStart / 1000).toFixed(1)}km`
+                    }
+                  </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowSmartSettings(!showSmartSettings)}
-                  className="h-8 w-8 p-0"
-                >
-                  <Settings className="h-4 w-4" />
-                </Button>
               </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSmartSettings(!showSmartSettings)}
+                className="h-8 w-8 p-0"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
             </div>
-          )}
+          </div>
 
           {/* Control Buttons */}
           <div className="flex gap-2">
@@ -300,11 +320,11 @@ function RouteSessionControls({
 
           {/* Session Info */}
           {session && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-              <p>Session ID: {session.id.slice(-8)}</p>
-              <p>Employee: {session.employeeId}</p>
+            <div className="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400 pt-2 border-t mt-2">
+              <p>Session ID: <span className="font-medium text-foreground">{session.id.slice(-8)}</span></p>
+              <p>Employee: <span className="font-medium text-foreground">{session.employeeId}</span></p>
               {session.startTime && (
-                <p>Started: {new Date(session.startTime).toLocaleTimeString()}</p>
+                <p>Started: <span className="font-medium text-foreground">{new Date(session.startTime).toLocaleTimeString()}</span></p>
               )}
             </div>
           )}
@@ -320,20 +340,24 @@ function RouteSessionControls({
         </CardContent>
       </Card>
 
-      {/* Smart Completion Settings */}
-      {showSmartSettings && (
-        <div className="mt-4">
-          {/* <SmartCompletionSettings
-            config={smartCompletion.config}
-            onConfigChange={smartCompletion.updateConfig}
-            isActive={session?.status === 'active'}
-            currentDistance={smartCompletion.distanceFromStart}
-          /> */}
-          <div className="text-sm text-muted-foreground">
-            Smart completion settings component not available
+      {/* Smart Completion Settings Modal */}
+      <Dialog open={showSmartSettings} onOpenChange={setShowSmartSettings}>
+        <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden flex flex-col gap-0">
+          <div className="p-6 pr-12 border-b bg-background sticky top-0 z-10">
+            <DialogHeader>
+              <DialogTitle>Smart Completion Settings</DialogTitle>
+            </DialogHeader>
           </div>
-        </div>
-      )}
+          <div className="flex-1 overflow-y-auto p-6 pt-2">
+            <SmartCompletionSettings
+              config={smartCompletion.config}
+              onConfigChange={smartCompletion.updateConfig}
+              isActive={session?.status === 'active'}
+              currentDistance={smartCompletion.distanceFromStart}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
 
 
@@ -348,6 +372,24 @@ function RouteSessionControls({
           autoConfirmSeconds={smartCompletion.config.autoConfirmDelay}
         />
       )}
+
+      {/* Geofence Alert Dialog */}
+      <AlertDialog open={showGeofenceDialog} onOpenChange={cancelGeofenceStop}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>End Route Session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You appear to have returned to your starting location. Would you like to stop GPS tracking?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelGeofenceStop}>Keep Tracking</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmGeofenceStop} className="bg-red-600 hover:bg-red-700 focus:ring-red-600">
+              Stop Session
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

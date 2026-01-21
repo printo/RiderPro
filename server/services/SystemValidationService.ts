@@ -1,6 +1,7 @@
 import { Database } from 'better-sqlite3';
 import config from '../config/index.js';
 import { storage } from '../storage';
+import { log } from "../../shared/utils/logger.js";
 
 interface ValidationResult {
   passed: boolean;
@@ -41,7 +42,7 @@ class SystemValidationService {
   }
 
   public async runFullValidation(): Promise<SystemValidationReport> {
-    console.log('🔍 Starting system validation...');
+    log.dev('🔍 Starting system validation...');
 
     const shipmentValidation = await this.validateShipmentFunctionality();
     const routeTrackingValidation = await this.validateRouteTrackingToggle();
@@ -68,15 +69,15 @@ class SystemValidationService {
       }
     };
 
-    console.log(`✅ System validation completed: ${overallStatus}`);
-    console.log(`📊 Results: ${passed}/${results.length} checks passed`);
+    log.dev(`✅ System validation completed: ${overallStatus}`);
+    log.dev(`📊 Results: ${passed}/${results.length} checks passed`);
 
     return report;
   }
 
   private async validateShipmentFunctionality(): Promise<ValidationResult> {
     try {
-      console.log('🚚 Validating shipment functionality...');
+      log.dev('🚚 Validating shipment functionality...');
 
       // Check if core shipment tables exist and are accessible
       const shipmentTables = ['shipments', 'employees'];
@@ -177,7 +178,7 @@ class SystemValidationService {
 
   private async validateRouteTrackingToggle(): Promise<ValidationResult> {
     try {
-      console.log('🗺️ Validating route tracking toggle functionality...');
+      log.dev('🗺️ Validating route tracking toggle functionality...');
 
       // Check if route tracking can be disabled/enabled via config
       const originalRouteTrackingState = config.routeTracking.enabled;
@@ -300,7 +301,7 @@ class SystemValidationService {
 
   private async validateSystemPerformance(): Promise<ValidationResult> {
     try {
-      console.log('⚡ Validating system performance...');
+      log.dev('⚡ Validating system performance...');
 
       const performanceMetrics = {
         databaseQueryTime: 0,

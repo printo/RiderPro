@@ -10,6 +10,7 @@ export interface RouteSessionState {
   isLoading: boolean;
   error: string | null;
   coordinates: GPSPosition[];
+  showGeofenceDialog: boolean;
 }
 
 export interface UseRouteSessionOptions extends RouteSessionConfig {
@@ -32,7 +33,8 @@ export function useRouteSession(options: UseRouteSessionOptions = {}) {
     metrics: null,
     isLoading: false,
     error: null,
-    coordinates: []
+    coordinates: [],
+    showGeofenceDialog: false
   });
 
   const routeSessionRef = useRef<RouteSession | null>(null);
@@ -61,7 +63,7 @@ export function useRouteSession(options: UseRouteSessionOptions = {}) {
       },
       onGeofenceDetected: (startPosition: GPSPosition, currentPosition: GPSPosition) => {
         // Show confirmation dialog for returning to start
-        showReturnToStartConfirmation(startPosition, currentPosition);
+        setState(prev => ({ ...prev, showGeofenceDialog: true }));
         sessionConfig.onGeofenceDetected?.(startPosition, currentPosition);
       },
       onError: (error: Error) => {
@@ -251,19 +253,19 @@ export function useRouteSession(options: UseRouteSessionOptions = {}) {
     setState(prev => ({ ...prev, error: null }));
   }, []);
 
-  // Show confirmation dialog for returning to start position
-  const showReturnToStartConfirmation = useCallback((
-    startPosition: GPSPosition,
-    currentPosition: GPSPosition
-  ) => {
-    const message = 'You appear to have returned to your starting location. Would you like to stop GPS tracking?';
-
-    if (window.confirm(message)) {
-      stopSession().catch(error => {
-        console.error('Failed to stop session from geofence:', error);
-      });
+  // Handle geofence confirmation actions
+  const confirmGeofenceStop = useCallback(async () => {
+    setState(prev => ({ ...prev, showGeofenceDialog: false }));
+    try {
+      await stopSession();
+    } catch (error) {
+      console.error('Failed to stop session from geofence:', error);
     }
   }, [stopSession]);
+
+  const cancelGeofenceStop = useCallback(() => {
+    setState(prev => ({ ...prev, showGeofenceDialog: false }));
+  }, []);
 
   // Check if session can be started
   const canStartSession = useCallback((): boolean => {
@@ -338,6 +340,10 @@ export function useRouteSession(options: UseRouteSessionOptions = {}) {
     // Formatted data
     getFormattedDuration,
     getFormattedDistance,
-    getFormattedSpeed
+    getFormattedSpeed,
+
+    // Geofence Actions
+    confirmGeofenceStop,
+    cancelGeofenceStop
   };
 }

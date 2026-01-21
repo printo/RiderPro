@@ -2,6 +2,7 @@ import { Database } from 'better-sqlite3';
 import os from 'os';
 import fs from 'fs';
 import config, { MonitoringConfig } from '../config';
+import { log } from "../../shared/utils/logger.js";
 
 // Health check status
 export enum HealthStatus {
@@ -148,11 +149,11 @@ class SystemMonitoringService {
 
   private initializeMonitoring(): void {
     if (!this.config.enabled) {
-      console.log('📊 Monitoring disabled');
+      log.dev('📊 Monitoring disabled');
       return;
     }
 
-    console.log('📊 Initializing system monitoring service...');
+    log.dev('📊 Initializing system monitoring service...');
 
     // Initialize database tables for metrics storage
     this.initializeMetricsTables();
@@ -160,7 +161,7 @@ class SystemMonitoringService {
     // Start health check interval
     this.startHealthChecks();
 
-    console.log('✓ System monitoring service initialized');
+    log.dev('✓ System monitoring service initialized');
   }
 
   private initializeMetricsTables(): void {
@@ -732,7 +733,7 @@ class SystemMonitoringService {
   }
 
   public startPeriodicCollection(intervalMinutes: number = 1): NodeJS.Timeout {
-    console.log(`📊 Starting performance monitoring (${intervalMinutes} minute intervals)`);
+    log.dev(`📊 Starting performance monitoring (${intervalMinutes} minute intervals)`);
 
     return setInterval(async () => {
       try {

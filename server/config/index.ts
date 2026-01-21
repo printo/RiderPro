@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { log } from "../../shared/utils/logger.js";
 
 // Load environment variables
 dotenv.config();
@@ -366,7 +367,7 @@ export const isFeatureEnabled = (feature: keyof FeatureFlags): boolean => {
 // Configuration updater (for runtime configuration changes)
 export const updateFeatureFlag = (feature: keyof FeatureFlags, enabled: boolean): void => {
   featureFlags[feature] = enabled;
-  console.log(`Feature flag ${feature} ${enabled ? 'enabled' : 'disabled'}`);
+  log.dev(`Feature flag ${feature} ${enabled ? 'enabled' : 'disabled'}`);
 };
 
 // Get configuration summary for debugging

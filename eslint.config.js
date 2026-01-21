@@ -29,7 +29,7 @@ export default [
         performance: 'readonly',
         indexedDB: 'readonly',
         Buffer: 'readonly',
-        
+
         // Node.js globals
         process: 'readonly',
         global: 'readonly',
@@ -38,7 +38,7 @@ export default [
         exports: 'readonly',
         __dirname: 'readonly',
         __filename: 'readonly',
-        
+
         // TypeScript globals
         NodeJS: 'readonly',
       },
@@ -55,9 +55,9 @@ export default [
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-empty-function': 'warn',
       '@typescript-eslint/no-require-imports': 'off',
-      
+
       // General rules
-      'no-console': 'off', // Allow console in development
+      'no-console': process.env.NODE_ENV === 'production' ? 'error' : 'off',
       'no-debugger': 'error',
       'prefer-const': 'error',
       'no-var': 'error',

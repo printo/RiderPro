@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 import MigrationManager from '../migrations/index.js';
+import { log } from "../../shared/utils/logger.js";
 
 const dbDir = path.join(process.cwd(), 'data');
 
@@ -91,12 +92,12 @@ const migrateDatabase = (db: Database.Database) => {
     const hasLongitude = tableInfo.some((col: any) => col.name === 'longitude');
 
     if (!hasLatitude) {
-      console.log('Adding latitude column to shipments table...');
+      log.dev('Adding latitude column to shipments table...');
       db.exec('ALTER TABLE shipments ADD COLUMN latitude REAL');
     }
 
     if (!hasLongitude) {
-      console.log('Adding longitude column to shipments table...');
+      log.dev('Adding longitude column to shipments table...');
       db.exec('ALTER TABLE shipments ADD COLUMN longitude REAL');
     }
 
@@ -106,7 +107,7 @@ const migrateDatabase = (db: Database.Database) => {
     const finalHasLongitude = updatedTableInfo.some((col: any) => col.name === 'longitude');
 
     if (finalHasLatitude && finalHasLongitude) {
-      console.log('Creating location index...');
+      log.dev('Creating location index...');
       db.exec('CREATE INDEX IF NOT EXISTS idx_shipments_location ON shipments(latitude, longitude)');
     }
   } catch (error) {
@@ -117,7 +118,7 @@ const migrateDatabase = (db: Database.Database) => {
 // Initialize tables and run migrations
 const initializeDatabase = async (db: Database.Database, dbName: string) => {
   try {
-    console.log(`Initializing ${dbName} database...`);
+    log.dev(`Initializing ${dbName} database...`);
 
     // Skip initTables - let migration system handle schema creation
     // initTables(db);
@@ -130,7 +131,7 @@ const initializeDatabase = async (db: Database.Database, dbName: string) => {
     const result = await migrationManager.runMigrations();
 
     if (result.success) {
-      console.log(`✅ ${result.executed} migrations executed successfully for ${dbName}`);
+      log.dev(`✅ ${result.executed} migrations executed successfully for ${dbName}`);
     } else {
       console.error(`❌ Migration failed for ${dbName}:`, result.errors);
     }
@@ -146,7 +147,7 @@ if (shouldInitialize) {
   initializeDatabase(liveDb, 'live');
   initializeDatabase(replicaDb, 'replica');
 } else {
-  console.log('Skipping database initialization in production mode');
+  log.dev('Skipping database initialization in production mode');
 }
 
 export { initTables, migrateDatabase };

@@ -1,5 +1,6 @@
 import { GPSPosition } from './GPSTracker';
 import { OfflineGPSRecord, OfflineRouteSession } from './OfflineStorageService';
+import { log } from "../utils/logger.js";
 
 export interface DataConflict {
   id: string;
@@ -196,7 +197,7 @@ export class ConflictResolutionService {
 
     if (strategy) {
       const resolution = strategy(conflict);
-      console.log(`Resolved conflict ${conflictId}:`, resolution);
+      log.dev(`Resolved conflict ${conflictId}:`, resolution);
       return resolution;
     }
 

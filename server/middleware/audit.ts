@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
 import { AuthenticatedRequest } from './auth';
+import { log } from "../../shared/utils/logger.js";
 
 // Audit event types
 export enum AuditEventType {
@@ -88,7 +89,7 @@ export const initializeAuditLogging = () => {
       CREATE INDEX IF NOT EXISTS idx_audit_logs_employee_id ON audit_logs(employee_id);
     `);
 
-    console.log('Audit logging system initialized');
+    log.dev('Audit logging system initialized');
   } catch (error) {
     console.error('Failed to initialize audit logging:', error);
   }
@@ -144,7 +145,7 @@ export const logAuditEvent = (entry: Partial<AuditLogEntry> & {
 
     // Log to console for development (remove in production)
     if (process.env.NODE_ENV !== 'production') {
-      console.log('Audit Event:', {
+      log.dev('Audit Event:', {
         type: auditEntry.eventType,
         user: auditEntry.username,
         action: auditEntry.action,
@@ -363,7 +364,7 @@ export const cleanupOldAuditLogs = (retentionDays: number = 90) => {
     `).run(cutoffDate);
 
     if (result.changes > 0) {
-      console.log(`Cleaned up ${result.changes} old audit log entries`);
+      log.dev(`Cleaned up ${result.changes} old audit log entries`);
 
       // Log the cleanup action
       logAuditEvent({

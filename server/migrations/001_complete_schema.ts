@@ -1,7 +1,8 @@
 import { Database } from 'better-sqlite3';
+import { log } from "../../shared/utils/logger.js";
 
 export const up = (db: Database) => {
-  console.log('🚀 Creating complete RiderPro database schema...');
+  log.dev('🚀 Creating complete RiderPro database schema...');
 
   // 1. Route tracking tables
   db.exec(`
@@ -239,11 +240,11 @@ export const up = (db: Database) => {
     ('fs_003', 'electric', 0.8, 'USD', 'default', datetime('now'), 1, 'system');
   `);
 
-  console.log('✅ Complete database schema created successfully');
+  log.dev('✅ Complete database schema created successfully');
 };
 
 export const down = (db: Database) => {
-  console.log('🔄 Rolling back complete database schema...');
+  log.dev('🔄 Rolling back complete database schema...');
 
   // Drop all indexes first
   db.exec(`
@@ -287,5 +288,5 @@ export const down = (db: Database) => {
     DROP TABLE IF EXISTS route_sessions;
   `);
 
-  console.log('✅ Database schema rolled back successfully');
+  log.dev('✅ Database schema rolled back successfully');
 };

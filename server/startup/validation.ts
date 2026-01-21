@@ -2,6 +2,7 @@ import SystemValidationService from '../services/SystemValidationService.js';
 import IntegrationChecker from '../services/IntegrationChecker.js';
 import { storage } from '../storage';
 import config from '../config';
+import { log } from "../../shared/utils/logger.js";
 
 interface StartupValidationResult {
   success: boolean;
@@ -12,7 +13,7 @@ interface StartupValidationResult {
 }
 
 export async function runStartupValidation(): Promise<StartupValidationResult> {
-  console.log('🚀 Running startup validation...');
+  log.dev('🚀 Running startup validation...');
 
   const result: StartupValidationResult = {
     success: true,
@@ -26,7 +27,7 @@ export async function runStartupValidation(): Promise<StartupValidationResult> {
     const integrationChecker = IntegrationChecker.getInstance(storage.getDatabase());
 
     // Run system validation
-    console.log('📋 Running system validation...');
+    log.dev('📋 Running system validation...');
     try {
       const systemValidation = await systemValidator.runFullValidation();
       result.systemValidation = systemValidation;
@@ -52,7 +53,7 @@ export async function runStartupValidation(): Promise<StartupValidationResult> {
     }
 
     // Run integration tests
-    console.log('🔧 Running integration tests...');
+    log.dev('🔧 Running integration tests...');
     try {
       const integrationTests = await integrationChecker.runAllTests();
       result.integrationTests = integrationTests;
@@ -74,7 +75,7 @@ export async function runStartupValidation(): Promise<StartupValidationResult> {
     }
 
     // Additional startup checks
-    console.log('⚙️ Running additional startup checks...');
+    log.dev('⚙️ Running additional startup checks...');
 
     // Check configuration consistency
     if (config.routeTracking.enabled && !config.featureFlags.routeTracking) {
@@ -106,18 +107,18 @@ export async function runStartupValidation(): Promise<StartupValidationResult> {
 
     // Log results
     if (result.success) {
-      console.log('✅ Startup validation completed successfully');
+      log.dev('✅ Startup validation completed successfully');
       if (result.warnings.length > 0) {
-        console.log('⚠️ Warnings:');
-        result.warnings.forEach(warning => console.log(`  - ${warning}`));
+        log.dev('⚠️ Warnings:');
+        result.warnings.forEach(warning => log.dev(`  - ${warning}`));
       }
     } else {
-      console.log('❌ Startup validation failed');
-      console.log('🚨 Errors:');
-      result.errors.forEach(error => console.log(`  - ${error}`));
+      log.dev('❌ Startup validation failed');
+      log.dev('🚨 Errors:');
+      result.errors.forEach(error => log.dev(`  - ${error}`));
       if (result.warnings.length > 0) {
-        console.log('⚠️ Warnings:');
-        result.warnings.forEach(warning => console.log(`  - ${warning}`));
+        log.dev('⚠️ Warnings:');
+        result.warnings.forEach(warning => log.dev(`  - ${warning}`));
       }
     }
 
@@ -188,16 +189,16 @@ export function validateEnvironmentConfiguration(): { valid: boolean; errors: st
 }
 
 export function logSystemInfo(): void {
-  console.log('📊 System Information:');
-  console.log(`  Node.js: ${process.version}`);
-  console.log(`  Platform: ${process.platform}`);
-  console.log(`  Architecture: ${process.arch}`);
-  console.log(`  Environment: ${config.environment}`);
-  console.log(`  Port: ${config.port}`);
-  console.log(`  Database: ${config.database.path}`);
-  console.log(`  Route Tracking: ${config.routeTracking.enabled ? 'enabled' : 'disabled'}`);
-  console.log(`  Feature Flags: ${Object.entries(config.featureFlags).filter(([, enabled]) => enabled).map(([flag]) => flag).join(', ')}`);
+  log.dev('📊 System Information:');
+  log.dev(`  Node.js: ${process.version}`);
+  log.dev(`  Platform: ${process.platform}`);
+  log.dev(`  Architecture: ${process.arch}`);
+  log.dev(`  Environment: ${config.environment}`);
+  log.dev(`  Port: ${config.port}`);
+  log.dev(`  Database: ${config.database.path}`);
+  log.dev(`  Route Tracking: ${config.routeTracking.enabled ? 'enabled' : 'disabled'}`);
+  log.dev(`  Feature Flags: ${Object.entries(config.featureFlags).filter(([, enabled]) => enabled).map(([flag]) => flag).join(', ')}`);
 
   const memUsage = process.memoryUsage();
-  console.log(`  Memory Usage: ${(memUsage.heapUsed / 1024 / 1024).toFixed(2)}MB`);
+  log.dev(`  Memory Usage: ${(memUsage.heapUsed / 1024 / 1024).toFixed(2)}MB`);
 }

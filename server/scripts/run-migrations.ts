@@ -10,9 +10,10 @@ import MigrationManager from '../migrations/index.js';
 import config from '../config/index.js';
 import fs from 'fs';
 import path from 'path';
+import { log } from "../../shared/utils/logger.js";
 
 async function runMigrations() {
-  console.log('🔄 Running database migrations...');
+  log.dev('🔄 Running database migrations...');
 
   try {
     // Ensure database directory exists
@@ -21,7 +22,7 @@ async function runMigrations() {
       const dbDir = path.dirname(dbPath);
       if (!fs.existsSync(dbDir)) {
         fs.mkdirSync(dbDir, { recursive: true });
-        console.log(`Created database directory: ${dbDir}`);
+        log.dev(`Created database directory: ${dbDir}`);
       }
     }
 
@@ -34,7 +35,7 @@ async function runMigrations() {
     db.pragma('temp_store = MEMORY');
 
     // Initialize basic tables first (from connection.ts)
-    console.log('Initializing basic tables...');
+    log.dev('Initializing basic tables...');
     db.exec(`
       CREATE TABLE IF NOT EXISTS shipments (
         id TEXT PRIMARY KEY,
@@ -91,39 +92,39 @@ async function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_sync_status_status ON sync_status(status);
     `);
 
-    console.log('✅ Basic tables initialized');
+    log.dev('✅ Basic tables initialized');
 
     const migrationManager = new MigrationManager(db);
 
     // Show current status
     const status = migrationManager.getMigrationStatus();
-    console.log(`\nMigration Status:`);
-    console.log(`- Total migrations: ${status.total}`);
-    console.log(`- Executed: ${status.executed}`);
-    console.log(`- Pending: ${status.pending}`);
-    console.log(`- Latest version: ${status.latest || 'None'}`);
+    log.dev(`\nMigration Status:`);
+    log.dev(`- Total migrations: ${status.total}`);
+    log.dev(`- Executed: ${status.executed}`);
+    log.dev(`- Pending: ${status.pending}`);
+    log.dev(`- Latest version: ${status.latest || 'None'}`);
 
     if (status.pending > 0) {
-      console.log(`\nPending migrations:`);
+      log.dev(`\nPending migrations:`);
       status.migrations
         .filter(m => m.status === 'pending')
-        .forEach(m => console.log(`  - ${m.version}: ${m.description}`));
+        .forEach(m => log.dev(`  - ${m.version}: ${m.description}`));
 
       // Run migrations
       const result = await migrationManager.runMigrations();
 
       if (result.success) {
-        console.log(`\n✅ ${result.executed} migrations executed successfully`);
+        log.dev(`\n✅ ${result.executed} migrations executed successfully`);
       } else {
         console.error(`\n❌ Migration failed:`, result.errors);
         process.exit(1);
       }
     } else {
-      console.log('\n✅ All migrations are up to date');
+      log.dev('\n✅ All migrations are up to date');
     }
 
     db.close();
-    console.log('\n🎉 Migration process completed');
+    log.dev('\n🎉 Migration process completed');
 
   } catch (error) {
     console.error('❌ Migration failed:', error);

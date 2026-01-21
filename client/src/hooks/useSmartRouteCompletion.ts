@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { GeofencingService, GeofenceEvent } from '@/services/GeofencingService';
 import { GPSPosition } from '@/services/GPSTracker';
 import { RouteCompletionData } from '@/components/routes/RouteCompletionDialog';
+import { log } from "../utils/logger.js";
 
 export interface SmartCompletionConfig {
   enabled: boolean;
@@ -97,7 +98,7 @@ export function useSmartRouteCompletion({
       distanceFromStart: Infinity
     }));
 
-    console.log(`Smart route completion initialized for session ${sessionId} with ${fullConfig.radius}m radius`);
+    log.dev(`Smart route completion initialized for session ${sessionId} with ${fullConfig.radius}m radius`);
 
     return () => {
       if (geofenceId) {
@@ -108,7 +109,7 @@ export function useSmartRouteCompletion({
 
   // Handle geofence events
   const handleGeofenceEvent = useCallback((event: GeofenceEvent) => {
-    console.log('Geofence event:', event.type, 'Distance:', event.distance.toFixed(1) + 'm');
+    log.dev('Geofence event:', event.type, 'Distance:', event.distance.toFixed(1) + 'm');
 
     if (event.type === 'enter') {
       // Check if conditions are met for route completion
@@ -143,7 +144,7 @@ export function useSmartRouteCompletion({
 
         onRouteCompletionDetected?.(completionData);
       } else {
-        console.log('Route completion conditions not met:', {
+        log.dev('Route completion conditions not met:', {
           sessionDuration,
           meetsMinDuration,
           totalDistance,
@@ -213,7 +214,7 @@ export function useSmartRouteCompletion({
       completionData: null
     }));
 
-    console.log('Route completion cancelled by user');
+    log.dev('Route completion cancelled by user');
   }, []);
 
   // Update configuration
@@ -233,7 +234,7 @@ export function useSmartRouteCompletion({
       }));
     }
 
-    console.log('Smart completion config updated:', updatedConfig);
+    log.dev('Smart completion config updated:', updatedConfig);
   }, [fullConfig, state.geofenceId]);
 
   // Enable/disable smart completion

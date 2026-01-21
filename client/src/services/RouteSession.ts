@@ -1,6 +1,7 @@
 import { GPSTracker, GPSPosition } from './GPSTracker';
 import { GeofencingService } from './GeofencingService';
 import { RouteSession as RouteSessionType, StartRouteSession, StopRouteSession, GPSCoordinate } from '@shared/schema';
+import { log } from "../utils/logger.js";
 
 export type SessionStatus = 'active' | 'completed' | 'paused';
 
@@ -36,6 +37,7 @@ export class RouteSession {
   private config: Required<RouteSessionConfig>;
   private autoSaveTimer: NodeJS.Timeout | null = null;
   private lastSavedCoordinateIndex = 0;
+  private hasLeftStartZone = false;
 
   constructor(config: RouteSessionConfig = {}) {
     this.config = {
@@ -75,6 +77,7 @@ export class RouteSession {
       this.coordinates = [startPosition];
       this.status = 'active';
       this.lastSavedCoordinateIndex = 0;
+      this.hasLeftStartZone = false;
 
       // Start GPS tracking
       await this.gpsTracker.startTracking(
@@ -89,7 +92,7 @@ export class RouteSession {
       // Notify status change
       this.config.onSessionStatusChange(this.status);
 
-      console.log(`Route session started: ${this.sessionId} for employee: ${employeeId}`);
+      log.dev(`Route session started: ${this.sessionId} for employee: ${employeeId}`);
 
       return this.getSessionData();
     } catch (error) {
@@ -102,7 +105,7 @@ export class RouteSession {
    * Stop the current route session
    */
   async stopSession(): Promise<RouteSessionType> {
-    if (this.status !== 'active') {
+    if (this.status !== 'active' && this.status !== 'paused') {
       throw new Error('No active route session to stop');
     }
 
@@ -127,7 +130,7 @@ export class RouteSession {
       // Notify status change
       this.config.onSessionStatusChange(this.status);
 
-      console.log(`Route session stopped: ${this.sessionId}`);
+      log.dev(`Route session stopped: ${this.sessionId}`);
 
       return this.getSessionData();
     } catch (error) {
@@ -151,7 +154,7 @@ export class RouteSession {
     // Notify status change
     this.config.onSessionStatusChange(this.status);
 
-    console.log(`Route session paused: ${this.sessionId}`);
+    log.dev(`Route session paused: ${this.sessionId}`);
 
     return this.getSessionData();
   }
@@ -183,7 +186,7 @@ export class RouteSession {
     // Notify status change
     this.config.onSessionStatusChange(this.status);
 
-    console.log(`Route session resumed: ${this.sessionId}`);
+    log.dev(`Route session resumed: ${this.sessionId}`);
 
     return this.getSessionData();
   }
@@ -291,9 +294,22 @@ export class RouteSession {
 
     const distance = GPSTracker.calculateDistance(this.startPosition, currentPosition);
 
+    // Initial zone exit check
+    // We require the user to move at least 1.5x the geofence radius away before we arm the return detection
+    if (!this.hasLeftStartZone) {
+      if (distance > this.config.geofenceRadius * 1.5) {
+        this.hasLeftStartZone = true;
+        log.dev(`User left start zone (distance: ${distance.toFixed(3)}km). Geofence return detection armed.`);
+      }
+      return;
+    }
+
+    // Return detection
     if (distance <= this.config.geofenceRadius) {
-      console.log('Geofence detected: rider returned to starting position');
+      log.dev('Geofence detected: rider returned to starting position');
       this.config.onGeofenceDetected(this.startPosition, currentPosition);
+      // Reset to prevent repeated alerts immediately
+      this.hasLeftStartZone = false;
     }
   }
 
@@ -379,7 +395,7 @@ export class RouteSession {
       try {
         const { routeAPI } = await import('@/apiClient/routes');
         await routeAPI.batchSubmitCoordinates(coordinatesToSave);
-        console.log(`Successfully saved ${coordinatesToSave.length} coordinates for session ${this.sessionId}`);
+        log.dev(`Successfully saved ${coordinatesToSave.length} coordinates for session ${this.sessionId}`);
       } catch (apiError) {
         console.warn('API save failed, storing offline:', apiError);
         // Store in localStorage as backup when API fails
@@ -460,6 +476,7 @@ export class RouteSession {
     this.employeeId = null;
     this.status = 'completed';
     this.coordinates = [];
+    this.hasLeftStartZone = false;
   }
 
   /**

@@ -2,6 +2,7 @@ import { Database } from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import config from '../config/index.js';
+import { log } from "../../shared/utils/logger.js";
 
 // Migration interface
 interface Migration {
@@ -247,10 +248,10 @@ class MigrationManager {
           ('cfg_004', 'external_api_timeout', '30000', 'External API timeout in milliseconds');
         `);
 
-        console.log('✅ Complete database schema created successfully');
+        log.dev('✅ Complete database schema created successfully');
       },
       down: (db: Database) => {
-        console.log('🔄 Rolling back complete database schema...');
+        log.dev('🔄 Rolling back complete database schema...');
 
         // Drop all indexes first
         db.exec(`
@@ -288,7 +289,7 @@ class MigrationManager {
           DROP TABLE IF EXISTS route_sessions;
         `);
 
-        console.log('✅ Database schema rolled back successfully');
+        log.dev('✅ Database schema rolled back successfully');
       }
     });
 
@@ -327,12 +328,12 @@ class MigrationManager {
     const errors: string[] = [];
     let executed = 0;
 
-    console.log(`🔄 Running database migrations...`);
-    console.log(`Found ${pending.length} pending migrations`);
+    log.dev(`🔄 Running database migrations...`);
+    log.dev(`Found ${pending.length} pending migrations`);
 
     for (const migration of pending) {
       try {
-        console.log(`Running migration ${migration.version}: ${migration.description}`);
+        log.dev(`Running migration ${migration.version}: ${migration.description}`);
 
         const startTime = Date.now();
         const transaction = this.db.transaction(() => {
@@ -354,7 +355,7 @@ class MigrationManager {
 
         transaction();
         executed++;
-        console.log(`✓ Migration ${migration.version} completed in ${Date.now() - startTime}ms`);
+        log.dev(`✓ Migration ${migration.version} completed in ${Date.now() - startTime}ms`);
       } catch (error) {
         const errorMsg = `Migration ${migration.version} failed: ${error instanceof Error ? error.message : 'Unknown error'}`;
         console.error(`✗ ${errorMsg}`);
@@ -367,7 +368,7 @@ class MigrationManager {
       return { success: false, executed, errors };
     }
 
-    console.log(`✅ ${executed} migrations executed successfully`);
+    log.dev(`✅ ${executed} migrations executed successfully`);
     return { success: true, executed, errors: [] };
   }
 
@@ -384,7 +385,7 @@ class MigrationManager {
     }
 
     try {
-      console.log(`Rolling back migration ${version}: ${migration.description}`);
+      log.dev(`Rolling back migration ${version}: ${migration.description}`);
 
       const transaction = this.db.transaction(() => {
         // Execute rollback
@@ -398,7 +399,7 @@ class MigrationManager {
 
       transaction();
 
-      console.log(`✓ Migration ${version} rolled back successfully`);
+      log.dev(`✓ Migration ${version} rolled back successfully`);
       return { success: true };
     } catch (error) {
       const errorMsg = `Rollback of migration ${version} failed: ${error instanceof Error ? error.message : 'Unknown error'}`;

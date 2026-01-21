@@ -1,5 +1,6 @@
 import { Database } from 'better-sqlite3';
 import config from '../config';
+import { log } from "../../shared/utils/logger.js";
 
 interface IntegrationTest {
   name: string;
@@ -81,7 +82,7 @@ class IntegrationChecker {
   }
 
   public async runAllTests(): Promise<IntegrationReport> {
-    console.log('🔧 Starting integration tests...');
+    log.dev('🔧 Starting integration tests...');
 
     const report: IntegrationReport = {
       timestamp: new Date().toISOString(),
@@ -98,7 +99,7 @@ class IntegrationChecker {
       const startTime = Date.now();
 
       try {
-        console.log(`  Running: ${test.name}`);
+        log.dev(`  Running: ${test.name}`);
         const result = await test.execute();
         const executionTime = Date.now() - startTime;
 
@@ -134,8 +135,8 @@ class IntegrationChecker {
       }
     }
 
-    console.log(`✅ Integration tests completed: ${report.overallStatus}`);
-    console.log(`📊 Results: ${report.summary.passed}/${report.summary.total} tests passed`);
+    log.dev(`✅ Integration tests completed: ${report.overallStatus}`);
+    log.dev(`📊 Results: ${report.summary.passed}/${report.summary.total} tests passed`);
 
     return report;
   }

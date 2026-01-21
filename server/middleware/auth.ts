@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
 import Database from 'better-sqlite3';
+import { log } from "../../shared/utils/logger.js";
 
 // User roles for role-based access control
 export enum UserRole {
@@ -99,7 +100,7 @@ export const initializeAuth = () => {
       )
     `);
 
-    console.log('✅ Authentication initialized - using Printo API with Bearer tokens');
+    log.dev('✅ Authentication initialized - using Printo API with Bearer tokens');
   } catch (error) {
     console.error('Failed to initialize authentication:', error);
   }
@@ -160,6 +161,8 @@ const authenticateWithPrintoAPI = async (email: string, password: string) => {
       fullName: userData.full_name || userData.name,
       isOpsTeam: Boolean(userData.is_ops_team),
       isActive: userData.is_active !== false,
+      isStaff: Boolean(userData.is_staff),
+      isSuperUser: Boolean(userData.is_super_user),
       accessToken,
       refreshToken,
       lastLogin: new Date().toISOString(),
@@ -173,6 +176,7 @@ const authenticateWithPrintoAPI = async (email: string, password: string) => {
 };
 
 // Authentication middleware - uses Bearer token directly (no JWT)
+// Authentication middleware - hybrid approach supporting both Printo and Legacy tokens
 export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
@@ -182,60 +186,104 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     const accessToken = authHeader.substring(7);
 
-    // For local auth, extract user ID from token and validate against rider_accounts
-    const userDataDb = new Database('data/userdata.db');
+    // 1. Try New System: Check 'users' table in main storage (riderpro.db)
+    // This handles users logged in via Printo Proxy
+    try {
+      let userRow: any = storage.prepare('SELECT * FROM users WHERE access_token = ?').get(accessToken);
 
-    // Extract user ID from token (format: local_timestamp_userId)
-    const tokenParts = accessToken.split('_');
-    if (tokenParts.length < 3 || tokenParts[0] !== 'local') {
-      return res.status(401).json({ success: false, message: 'Invalid token format', code: 'INVALID_TOKEN' });
+      // If not found by direct token match, check active session
+      if (!userRow) {
+        const session: any = storage.prepare(`
+          SELECT user_id FROM user_sessions 
+          WHERE access_token = ? AND expires_at > datetime('now')
+        `).get(accessToken);
+
+        if (session) {
+          userRow = storage.prepare('SELECT * FROM users WHERE id = ?').get(session.user_id);
+        }
+      }
+
+      if (userRow) {
+        // Map DB user to User interface
+        const user: User = {
+          id: userRow.id,
+          username: userRow.username,
+          email: userRow.email,
+          role: userRow.role as UserRole,
+          employeeId: userRow.employee_id,
+          fullName: userRow.full_name,
+          isActive: Boolean(userRow.is_active),
+          accessToken: userRow.access_token,
+          refreshToken: userRow.refresh_token,
+          lastLogin: userRow.last_login,
+          createdAt: userRow.created_at,
+          updatedAt: userRow.updated_at,
+          // Derive helpers from role
+          isSuperUser: userRow.role === 'admin',
+          isOpsTeam: userRow.role === 'isops' || userRow.role === 'admin' || userRow.role === 'manager',
+          isStaff: userRow.role === 'staff' || userRow.role === 'admin'
+        };
+
+        (req as AuthenticatedRequest).user = user;
+        return next();
+      }
+    } catch (e) {
+      // Continue to legacy check if new DB check fails/errors
     }
 
-    // Get the last part as userId (in case there are underscores in the userId)
-    const userId = tokenParts.slice(2).join('_');
+    // 2. Try Legacy System: Check 'rider_accounts' in userdata.db
+    // Only applies if token has specific legacy format
+    if (accessToken.startsWith('local_')) {
+      const tokenParts = accessToken.split('_');
+      if (tokenParts.length >= 3) {
+        const userId = tokenParts.slice(2).join('_');
 
-    const userRow = userDataDb
-      .prepare(`
-        SELECT id, rider_id as username, rider_id as email, role, rider_id as employee_id, full_name, 
-               '' as access_token, '' as refresh_token, is_active, last_login_at as last_login, 
-               created_at, updated_at
-        FROM rider_accounts 
-        WHERE id = ? AND is_active = 1
-      `)
-      .get(userId) as any;
+        // Connect to legacy DB
+        const dbPath = require('path').join(process.cwd(), 'data', 'userdata.db');
+        const userDataDb = new Database(dbPath);
 
-    if (!userRow) {
-      return res.status(401).json({ success: false, message: 'Invalid or expired token', code: 'INVALID_TOKEN' });
+        const userRow = userDataDb
+          .prepare(`
+            SELECT id, rider_id as username, rider_id as email, role, rider_id as employee_id, full_name, 
+                   '' as access_token, '' as refresh_token, is_active, last_login_at as last_login, 
+                   created_at, updated_at
+            FROM rider_accounts 
+            WHERE id = ? AND is_active = 1
+          `)
+          .get(userId) as any;
+
+        if (userRow) {
+          const isSuperUser = userRow.role === 'super_user' || userRow.role === 'admin';
+          const isOpsTeam = userRow.role === 'ops_team' || userRow.role === 'admin';
+          const isStaff = userRow.role === 'staff' || userRow.role === 'admin';
+
+          const user: User = {
+            id: userRow.id,
+            username: userRow.username,
+            email: userRow.email,
+            role: userRow.role as UserRole,
+            employeeId: userRow.employee_id,
+            fullName: userRow.full_name,
+            accessToken: userRow.access_token,
+            refreshToken: userRow.refresh_token,
+            isActive: Boolean(userRow.is_active),
+            isSuperUser,
+            isOpsTeam,
+            isStaff,
+            lastLogin: userRow.last_login,
+            createdAt: userRow.created_at,
+            updatedAt: userRow.updated_at
+          };
+
+          (req as AuthenticatedRequest).user = user;
+          return next();
+        }
+      }
     }
 
-    // For local auth, we don't need session validation since we store the token directly
+    // 3. Fallback: Token is invalid or expired
+    return res.status(401).json({ success: false, message: 'Invalid or expired token', code: 'INVALID_TOKEN' });
 
-    // Map database columns to interface properties
-    // Derive permissions from role
-    const isSuperUser = userRow.role === 'super_user' || userRow.role === 'admin';
-    const isOpsTeam = userRow.role === 'ops_team' || userRow.role === 'admin';
-    const isStaff = userRow.role === 'staff' || userRow.role === 'admin';
-
-    const user: User = {
-      id: userRow.id,
-      username: userRow.username,
-      email: userRow.email,
-      role: userRow.role as UserRole,
-      employeeId: userRow.employee_id,
-      fullName: userRow.full_name,
-      accessToken: userRow.access_token,
-      refreshToken: userRow.refresh_token,
-      isActive: Boolean(userRow.is_active),
-      isSuperUser,
-      isOpsTeam,
-      isStaff,
-      lastLogin: userRow.last_login,
-      createdAt: userRow.created_at,
-      updatedAt: userRow.updated_at
-    };
-
-    (req as AuthenticatedRequest).user = user;
-    next();
   } catch (error) {
     return res.status(401).json({
       success: false,
@@ -425,7 +473,7 @@ export const cleanupExpiredSessions = () => {
     `).run();
 
     if (result.changes > 0) {
-      console.log(`Cleaned up ${result.changes} expired sessions`);
+      log.dev(`Cleaned up ${result.changes} expired sessions`);
     }
   } catch (error) {
     console.error('Failed to cleanup expired sessions:', error);

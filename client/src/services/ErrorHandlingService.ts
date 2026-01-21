@@ -1,3 +1,5 @@
+import { log } from "../utils/logger.js";
+
 export interface ErrorLog {
   id: string;
   timestamp: Date;
@@ -99,14 +101,14 @@ export class ErrorHandlingService {
         description: 'Show permission request dialog',
         action: () => {
           // This would trigger a UI notification
-          console.log('GPS permission denied - showing user notification');
+          log.dev('GPS permission denied - showing user notification');
         }
       },
       {
         type: 'fallback',
         description: 'Continue without GPS tracking',
         action: () => {
-          console.log('Continuing shipment operations without GPS');
+          log.dev('Continuing shipment operations without GPS');
         }
       }
     ]);
@@ -117,14 +119,14 @@ export class ErrorHandlingService {
         type: 'retry',
         description: 'Retry GPS request with different settings',
         action: async () => {
-          console.log('Retrying GPS with fallback settings');
+          log.dev('Retrying GPS with fallback settings');
         }
       },
       {
         type: 'fallback',
         description: 'Use last known position',
         action: () => {
-          console.log('Using last known GPS position');
+          log.dev('Using last known GPS position');
         }
       }
     ]);
@@ -136,14 +138,14 @@ export class ErrorHandlingService {
         description: 'Retry request after delay',
         action: async () => {
           await new Promise(resolve => setTimeout(resolve, 2000));
-          console.log('Retrying network request');
+          log.dev('Retrying network request');
         }
       },
       {
         type: 'fallback',
         description: 'Store data offline',
         action: () => {
-          console.log('Storing data offline for later sync');
+          log.dev('Storing data offline for later sync');
         }
       }
     ]);
@@ -154,14 +156,14 @@ export class ErrorHandlingService {
         type: 'fallback',
         description: 'Use alternative storage method',
         action: () => {
-          console.log('Falling back to localStorage');
+          log.dev('Falling back to localStorage');
         }
       },
       {
         type: 'ignore',
         description: 'Continue without storing',
         action: () => {
-          console.log('Continuing without data storage');
+          log.dev('Continuing without data storage');
         }
       }
     ]);
@@ -268,7 +270,7 @@ export class ErrorHandlingService {
     this.notifyErrorListeners(errorLog);
 
     // Console logging for development
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.MODE === 'development') {
       const consoleMethod = level === 'error' || level === 'critical' ? 'error' :
         level === 'warn' ? 'warn' : 'log';
       console[consoleMethod](`[${level.toUpperCase()}] ${category}: ${message}`, details);
@@ -336,7 +338,7 @@ export class ErrorHandlingService {
   ): Promise<void> {
     for (const action of actions) {
       try {
-        console.log(`Executing recovery action: ${action.description}`);
+        log.dev(`Executing recovery action: ${action.description}`);
         await action.action();
 
         this.logInfo('system', `Recovery action executed: ${action.description}`, {
@@ -558,7 +560,7 @@ export class ErrorHandlingService {
     setInterval(() => {
       const removed = this.clearOldLogs();
       if (removed > 0) {
-        console.log(`Cleaned up ${removed} old error logs`);
+        log.dev(`Cleaned up ${removed} old error logs`);
       }
     }, 3600000);
   }

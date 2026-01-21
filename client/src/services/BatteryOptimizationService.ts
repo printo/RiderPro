@@ -1,3 +1,5 @@
+import { log } from "../utils/logger.js";
+
 export interface BatteryInfo {
   level: number; // 0-1 (0% to 100%)
   charging: boolean;
@@ -103,13 +105,13 @@ export class BatteryOptimizationService {
         this.battery = await (navigator as any).getBattery();
         this.updateBatteryInfo();
         this.setupBatteryListeners();
-        console.log('Battery API initialized');
+        log.dev('Battery API initialized');
       } else if ('battery' in navigator) {
         // Older API
         this.battery = (navigator as any).battery;
         this.updateBatteryInfo();
         this.setupBatteryListeners();
-        console.log('Legacy Battery API initialized');
+        log.dev('Legacy Battery API initialized');
       } else {
         console.warn('Battery API not available');
         // Use mock battery info
@@ -361,7 +363,7 @@ export class BatteryOptimizationService {
    */
   updateSettings(newSettings: Partial<OptimizationSettings>): void {
     this.settings = { ...this.settings, ...newSettings };
-    console.log('Battery optimization settings updated:', this.settings);
+    log.dev('Battery optimization settings updated:', this.settings);
   }
 
   /**
