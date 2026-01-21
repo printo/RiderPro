@@ -135,6 +135,20 @@ npm run dev
 - **Axios** with retry logic for external API calls
 - **Node-cron** for automated maintenance tasks
 
+## 📊 Data Flow & Storage
+
+The system employs a multi-layered data architecture designed for reliability and offline-first operations.
+
+### 1. Storage Layers
+- **In-Memory Cache (React Query)**: Most application data (Shipments, Vehicle Types, Metrics) is cached in memory for instant UI responsiveness.
+- **Persistent Local Storage (IndexedDB)**: Critical tracking data (GPS points, active sessions) is stored in the browser's IndexedDB (`RouteTrackingOffline`) to prevent data loss during network outages.
+- **Server-Side Database (SQLite)**: The final source of truth, using a dual database setup (live + replica) for high availability.
+
+### 2. Data Retrieval & Sync
+- **Centralized API Client**: A robust wrapper around `fetch` that handles authentication, token refreshes, and exponential backoff retries.
+- **Custom Hooks State Management**: Components interact with data through specialized hooks (`useShipments`, `useVehicleTypes`) that abstract away the complexity of caching and network state.
+- **Background Sync Engine**: Automatically detects network restoration and batches unsynced records from IndexedDB to the server, ensuring complete data integrity for field operations.
+
 ## 🏗️ Project Structure
 
 ```
