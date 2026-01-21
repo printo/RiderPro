@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { MessageCircle, Save } from "lucide-react";
 import { withModalErrorBoundary } from "@/components/ErrorBoundary";
+import { useRouteTracking } from "@/hooks/useRouteAPI";
+import { useGPSTracking } from "@/hooks/useGPSTracking";
 
 interface RemarksModalProps {
   isOpen: boolean;

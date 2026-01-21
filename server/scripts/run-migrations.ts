@@ -34,65 +34,8 @@ async function runMigrations() {
     db.pragma('cache_size = 10000');
     db.pragma('temp_store = MEMORY');
 
-    // Initialize basic tables first (from connection.ts)
-    log.dev('Initializing basic tables...');
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS shipments (
-        id TEXT PRIMARY KEY,
-        type TEXT NOT NULL CHECK(type IN ('delivery', 'pickup')),
-        customerName TEXT NOT NULL,
-        customerMobile TEXT NOT NULL,
-        address TEXT NOT NULL,
-        latitude REAL,
-        longitude REAL,
-        cost REAL NOT NULL,
-        deliveryTime TEXT NOT NULL,
-        routeName TEXT NOT NULL,
-        employeeId TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'Assigned' CHECK(status IN ('Assigned', 'In Transit', 'Delivered', 'Picked Up', 'Returned', 'Cancelled')),
-        createdAt TEXT DEFAULT (datetime('now')),
-        updatedAt TEXT DEFAULT (datetime('now'))
-      )
-    `);
-
-    // Acknowledgments table
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS acknowledgments (
-        id TEXT PRIMARY KEY,
-        shipmentId TEXT NOT NULL,
-        signatureUrl TEXT,
-        photoUrl TEXT,
-        acknowledgment_captured_at TEXT NOT NULL,
-        FOREIGN KEY (shipmentId) REFERENCES shipments (id)
-      )
-    `);
-
-    // Sync status tracking table
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS sync_status (
-        id TEXT PRIMARY KEY,
-        shipmentId TEXT NOT NULL,
-        status TEXT NOT NULL CHECK(status IN ('pending', 'success', 'failed')),
-        attempts INTEGER DEFAULT 0,
-        lastAttempt TEXT,
-        error TEXT,
-        createdAt TEXT DEFAULT (datetime('now')),
-        FOREIGN KEY (shipmentId) REFERENCES shipments (id)
-      )
-    `);
-
-    // Create basic indexes
-    db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(status);
-      CREATE INDEX IF NOT EXISTS idx_shipments_type ON shipments(type);
-      CREATE INDEX IF NOT EXISTS idx_shipments_route ON shipments(routeName);
-      CREATE INDEX IF NOT EXISTS idx_shipments_date ON shipments(deliveryTime);
-      CREATE INDEX IF NOT EXISTS idx_acknowledgments_shipment ON acknowledgments(shipmentId);
-      CREATE INDEX IF NOT EXISTS idx_sync_status_shipment ON sync_status(shipmentId);
-      CREATE INDEX IF NOT EXISTS idx_sync_status_status ON sync_status(status);
-    `);
-
-    log.dev('✅ Basic tables initialized');
+    // Let MigrationManager handle all table creation and updates
+    log.dev('MigrationManager taking over schema management...');
 
     const migrationManager = new MigrationManager(db);
 
