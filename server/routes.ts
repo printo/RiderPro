@@ -266,9 +266,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         refreshToken,
         fullName: user.full_name,
         isApproved: user.is_approved,
-        is_super_user: user.role === 'is_super_user',
-        is_staff: user.role === 'is_rider' || user.role === 'is_super_user',
-        is_ops_team: user.role === 'is_super_user', // For now map super user to ops team
+        is_super_user: user.role === 'is_super_user' || user.role === 'super_user' || user.role === 'admin',
+        is_staff: user.role === 'is_rider' || user.role === 'super_user' || user.role === 'is_super_user' || user.role === 'admin' || user.role === 'manager' || user.role === 'staff',
+        is_ops_team: user.role === 'is_super_user' || user.role === 'super_user' || user.role === 'admin' || user.role === 'ops_team',
         employee_id: user.rider_id,
         role: user.role
       });
@@ -428,11 +428,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Dashboard endpoint
-  app.get('/api/dashboard', async (req, res) => {
+  app.get('/api/dashboard', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
-      const metrics = await storage.getDashboardMetrics();
+      // Determine if we should filter by employeeId
+      // SuperUser, OpsTeam, and Staff (mapped to isRider/Manager in client) see all data
+      let employeeIdFilter: string | undefined = undefined;
+
+      if (!req.user?.isSuperUser && !req.user?.isOpsTeam && !req.user?.isStaff) {
+        employeeIdFilter = req.user?.employeeId;
+      }
+
+      const metrics = await storage.getDashboardMetrics(employeeIdFilter);
       res.json(metrics);
     } catch (error: any) {
+      console.error('Dashboard metrics error:', error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -1953,14 +1962,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Record shipment event (pickup/delivery) for a session
-  app.post('/api/routes/shipment-event', async (req, res) => {
+  app.post('/api/routes/shipment-event', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       const { sessionId, shipmentId, eventType, latitude, longitude } = req.body || {};
+      const employeeId = req.user?.employeeId;
 
-      if (!sessionId || !shipmentId || !eventType) {
+      if (!sessionId || !shipmentId || !eventType || !employeeId) {
         return res.status(400).json({
           success: false,
-          message: 'sessionId, shipmentId and eventType are required'
+          message: 'sessionId, shipmentId, eventType and employeeId are required'
         });
       }
 
@@ -1971,20 +1981,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const record = {
-        id: 'evt-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+      const record = await storage.recordShipmentEvent({
         sessionId,
         shipmentId,
         eventType,
-        latitude: latitude ?? null,
-        longitude: longitude ?? null,
-        timestamp: new Date().toISOString()
-      };
+        latitude: latitude ?? 0,
+        longitude: longitude ?? 0,
+        employeeId
+      });
 
-      log.info('Route shipment event recorded:', record);
-
-      return res.status(201).json({ success: true, record, message: 'Shipment event recorded' });
+      return res.status(201).json({
+        success: true,
+        record,
+        message: 'Shipment event recorded and coordinates updated'
+      });
     } catch (error: any) {
+      console.error('Record shipment event error:', error);
       return res.status(500).json({ success: false, message: error.message || 'Failed to record event' });
     }
   });

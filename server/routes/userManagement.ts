@@ -14,7 +14,7 @@ export function registerUserManagementRoutes(app: Express): void {
   app.get('/api/auth/all-users', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       // Only admin users can access all users
-      if (req.user?.role !== 'admin') {
+      if (!req.user?.isSuperUser && req.user?.role !== 'admin') {
         return res.status(403).json({
           success: false,
           message: 'Access denied. Admin privileges required.'
@@ -23,8 +23,8 @@ export function registerUserManagementRoutes(app: Express): void {
 
       const users = userDataDb
         .prepare(`
-          SELECT id, rider_id, full_name, role, status, created_at, last_login, approved_at
-          FROM users 
+          SELECT id, rider_id, full_name, role, is_approved, created_at, last_login_at, approved_at, is_super_user, is_ops_team, is_staff
+          FROM rider_accounts 
           ORDER BY created_at DESC
         `)
         .all();
@@ -45,7 +45,7 @@ export function registerUserManagementRoutes(app: Express): void {
   app.patch('/api/auth/users/:userId', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       // Only admin users can update users
-      if (req.user?.role !== 'admin') {
+      if (!req.user?.isSuperUser && req.user?.role !== 'admin') {
         return res.status(403).json({
           success: false,
           message: 'Access denied. Admin privileges required.'
@@ -53,7 +53,7 @@ export function registerUserManagementRoutes(app: Express): void {
       }
 
       const { userId } = req.params;
-      const { role, status, fullName } = req.body;
+      const { role, isApproved, fullName, isSuperUser, isOpsTeam, isStaff } = req.body;
 
       // Build update query dynamically based on provided fields
       const updates: string[] = [];
@@ -64,14 +64,29 @@ export function registerUserManagementRoutes(app: Express): void {
         values.push(role);
       }
 
-      if (status !== undefined) {
-        updates.push('status = ?');
-        values.push(status);
+      if (isApproved !== undefined) {
+        updates.push('is_approved = ?');
+        values.push(isApproved === true ? 1 : (isApproved === false ? 0 : isApproved));
       }
 
       if (fullName !== undefined) {
         updates.push('full_name = ?');
         values.push(fullName);
+      }
+
+      if (isSuperUser !== undefined) {
+        updates.push('is_super_user = ?');
+        values.push(isSuperUser ? 1 : 0);
+      }
+
+      if (isOpsTeam !== undefined) {
+        updates.push('is_ops_team = ?');
+        values.push(isOpsTeam ? 1 : 0);
+      }
+
+      if (isStaff !== undefined) {
+        updates.push('is_staff = ?');
+        values.push(isStaff ? 1 : 0);
       }
 
       if (updates.length === 0) {
@@ -85,7 +100,7 @@ export function registerUserManagementRoutes(app: Express): void {
       updates.push('updated_at = datetime(\'now\')');
       values.push(userId);
 
-      const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+      const query = `UPDATE rider_accounts SET ${updates.join(', ')} WHERE id = ?`;
       const result = userDataDb.prepare(query).run(...values);
 
       if (result.changes === 0) {
@@ -97,7 +112,7 @@ export function registerUserManagementRoutes(app: Express): void {
 
       // Fetch updated user
       const updatedUser = userDataDb
-        .prepare('SELECT id, rider_id, full_name, role, status, created_at, last_login FROM users WHERE id = ?')
+        .prepare('SELECT id, rider_id, full_name, role, is_approved, created_at, last_login_at FROM rider_accounts WHERE id = ?')
         .get(userId);
 
       log.info('User updated by admin user:', { userId, updates: req.body, updatedBy: req.user?.id });
@@ -119,7 +134,7 @@ export function registerUserManagementRoutes(app: Express): void {
   app.post('/api/auth/users/:userId/reset-password', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       // Only admin users can reset passwords
-      if (req.user?.role !== 'admin') {
+      if (!req.user?.isSuperUser && req.user?.role !== 'admin') {
         return res.status(403).json({
           success: false,
           message: 'Access denied. Admin privileges required.'
@@ -142,8 +157,8 @@ export function registerUserManagementRoutes(app: Express): void {
 
       const result = userDataDb
         .prepare(`
-          UPDATE users 
-          SET password_hash = ?, password_reset_at = datetime('now'), updated_at = datetime('now')
+          UPDATE rider_accounts 
+          SET password_hash = ?, updated_at = datetime('now')
           WHERE id = ?
         `)
         .run(hashedPassword, userId);

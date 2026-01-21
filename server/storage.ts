@@ -21,6 +21,19 @@ export interface IStorage {
     message: string;
   }>>;
 
+  recordShipmentEvent(event: {
+    sessionId: string;
+    shipmentId: string;
+    eventType: string;
+    latitude: number;
+    longitude: number;
+    employeeId: string;
+  }): Promise<any>;
+
+  startRouteSession(data: any): Promise<any>;
+  stopRouteSession(data: any): Promise<any>;
+  recordCoordinate(data: any): Promise<any>;
+
 
 
   // Acknowledgment operations (now integrated into shipments table)
@@ -115,8 +128,8 @@ export class SqliteStorage implements IStorage {
     return acknowledgment || undefined;
   }
 
-  async getDashboardMetrics(): Promise<DashboardMetrics> {
-    return this.liveQueries.getDashboardMetrics();
+  async getDashboardMetrics(employeeId?: string): Promise<DashboardMetrics> {
+    return this.liveQueries.getDashboardMetrics(employeeId);
   }
 
   // Vehicle Types operations
@@ -159,6 +172,29 @@ export class SqliteStorage implements IStorage {
   async updateFuelSetting(id: string, updates: UpdateFuelSetting): Promise<FuelSetting | undefined> {
     const fuelSetting = this.liveQueries.updateFuelSetting(id, updates);
     return fuelSetting || undefined;
+  }
+
+  async recordShipmentEvent(event: {
+    sessionId: string;
+    shipmentId: string;
+    eventType: string;
+    latitude: number;
+    longitude: number;
+    employeeId: string;
+  }): Promise<any> {
+    return this.liveQueries.recordShipmentEvent(event);
+  }
+
+  async startRouteSession(data: any): Promise<any> {
+    return this.liveQueries.startRouteSession(data);
+  }
+
+  async stopRouteSession(data: any): Promise<any> {
+    return this.liveQueries.stopRouteSession(data);
+  }
+
+  async recordCoordinate(data: any): Promise<any> {
+    return this.liveQueries.recordCoordinate(data);
   }
 
   async deleteFuelSetting(id: string): Promise<boolean> {

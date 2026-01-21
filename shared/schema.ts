@@ -558,6 +558,21 @@ export const batchUpdateSchema = {
 // insertAcknowledgmentSchema removed - functionality consolidated into shipments
 
 export const shipmentFiltersSchema = {
+  parse: (data: any): ShipmentFilters => {
+    return {
+      status: data.status,
+      priority: data.priority,
+      type: data.type,
+      routeName: data.routeName,
+      date: data.date,
+      search: data.search,
+      employeeId: data.employeeId,
+      page: data.page ? parseInt(data.page, 10) : 1,
+      limit: data.limit ? parseInt(data.limit, 10) : 20,
+      sortField: data.sortField,
+      sortOrder: data.sortOrder
+    };
+  },
   validate: (data: any): data is ShipmentFilters => true
 } as any;
 

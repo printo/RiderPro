@@ -11,9 +11,16 @@ import { log } from "../../shared/utils/logger.js";
 
 export function registerShipmentRoutes(app: Express): void {
   // Dashboard endpoint
-  app.get('/api/dashboard', async (req, res) => {
+  app.get('/api/dashboard', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
-      const metrics = await storage.getDashboardMetrics();
+      // Determine if we should filter by employeeId
+      let employeeIdFilter: string | undefined = undefined;
+
+      if (!req.user?.isSuperUser && !req.user?.isOpsTeam && !req.user?.isStaff) {
+        employeeIdFilter = req.user?.employeeId;
+      }
+
+      const metrics = await storage.getDashboardMetrics(employeeIdFilter);
       res.json(metrics);
     } catch (error: any) {
       log.error('Dashboard error:', error.message);
@@ -25,10 +32,17 @@ export function registerShipmentRoutes(app: Express): void {
   app.get('/api/shipments/fetch', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       const filters = shipmentFiltersSchema.parse(req.query);
+
+      // Apply role-based filtering:
+      // Admins/Ops/Staff see all. Regular riders see only their own.
+      if (!req.user?.isSuperUser && !req.user?.isOpsTeam && !req.user?.isStaff) {
+        filters.employeeId = req.user?.employeeId;
+      }
+
       const shipments = await storage.getShipments(filters);
       res.json(shipments);
     } catch (error: any) {
-      log.error('Error fetching shipments:', error.message);
+      log.error('Error fetching shipments:', error.reason || error.message);
       res.status(500).json({ error: 'Failed to fetch shipments' });
     }
   });
@@ -38,11 +52,11 @@ export function registerShipmentRoutes(app: Express): void {
     try {
       const { id } = req.params;
       const shipment = await storage.getShipment(id);
-      
+
       if (!shipment) {
         return res.status(404).json({ error: 'Shipment not found' });
       }
-      
+
       res.json(shipment);
     } catch (error: any) {
       log.error('Error fetching shipment:', error.message);
@@ -95,16 +109,16 @@ export function registerShipmentRoutes(app: Express): void {
     try {
       const { id } = req.params;
       const { status, remarks } = req.body;
-      
+
       if (!status || !remarks) {
         return res.status(400).json({
           success: false,
           message: 'Status and remarks are required'
         });
       }
-      
+
       log.debug(`Remarks for shipment ${id} (${status}):`, remarks);
-      
+
       res.status(201).json({
         success: true,
         message: 'Remarks saved successfully'

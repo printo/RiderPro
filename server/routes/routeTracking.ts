@@ -1,23 +1,28 @@
 import type { Express } from "express";
+import { storage } from "../storage.js";
+import { authenticate, AuthenticatedRequest } from "../middleware/auth.js";
 import { log } from "../../shared/utils/logger.js";
 
 export function registerRouteTrackingRoutes(app: Express): void {
   // Start a new route session
-  app.post('/api/routes/start', async (req, res) => {
+  app.post('/api/routes/start', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
-      const { employeeId, startLatitude, startLongitude, shipmentId } = req.body;
+      const { startLatitude, startLongitude, shipmentId } = req.body;
+      const employeeId = req.user?.employeeId;
 
-      const session = {
-        id: Date.now().toString(),
+      if (!employeeId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const sessionData = {
+        id: 'sess-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9),
         employeeId,
-        startTime: new Date().toISOString(),
-        status: 'active',
         startLatitude: parseFloat(startLatitude),
         startLongitude: parseFloat(startLongitude),
         shipmentId: shipmentId ? parseInt(shipmentId) : null
       };
 
-      // Store session (in production, this would use proper database storage)
+      const session = await storage.startRouteSession(sessionData);
       log.info('Route session started:', session);
 
       res.status(201).json({
@@ -35,19 +40,17 @@ export function registerRouteTrackingRoutes(app: Express): void {
   });
 
   // Stop a route session
-  app.post('/api/routes/stop', async (req, res) => {
+  app.post('/api/routes/stop', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       const { sessionId, endLatitude, endLongitude } = req.body;
 
-      const session = {
-        id: sessionId,
-        endTime: new Date().toISOString(),
-        status: 'completed',
+      const sessionData = {
+        sessionId,
         endLatitude: parseFloat(endLatitude),
         endLongitude: parseFloat(endLongitude)
       };
 
-      // Update session (in production, this would use proper database storage)
+      const session = await storage.stopRouteSession(sessionData);
       log.info('Route session stopped:', session);
 
       res.json({
@@ -65,12 +68,14 @@ export function registerRouteTrackingRoutes(app: Express): void {
   });
 
   // Submit GPS coordinates
-  app.post('/api/routes/coordinates', async (req, res) => {
+  app.post('/api/routes/coordinates', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       const { sessionId, latitude, longitude, accuracy, speed, timestamp } = req.body;
+      const employeeId = req.user?.employeeId;
 
-      const coordinate = {
+      const coordinateData = {
         sessionId,
+        employeeId,
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
         accuracy: accuracy ? parseFloat(accuracy) : null,
@@ -78,12 +83,12 @@ export function registerRouteTrackingRoutes(app: Express): void {
         timestamp: timestamp || new Date().toISOString()
       };
 
-      // Store coordinate (in production, this would use proper database storage)
-      log.debug('GPS coordinate recorded:', coordinate);
+      const record = await storage.recordCoordinate(coordinateData);
+      log.debug('GPS coordinate recorded:', record);
 
       res.status(201).json({
         success: true,
-        coordinate,
+        record,
         message: 'GPS coordinate recorded successfully'
       });
     } catch (error: any) {
@@ -96,22 +101,31 @@ export function registerRouteTrackingRoutes(app: Express): void {
   });
 
   // Record shipment event (pickup/delivery) for a session
-  app.post('/api/routes/shipment-event', async (req, res) => {
+  app.post('/api/routes/shipment-event', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       const { sessionId, shipmentId, eventType, latitude, longitude } = req.body || {};
+      const employeeId = req.user?.employeeId;
 
-      const record = {
+      if (!employeeId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const record = await storage.recordShipmentEvent({
         sessionId,
-        shipmentId: parseInt(shipmentId),
+        shipmentId,
         eventType,
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
-        timestamp: new Date().toISOString()
-      };
+        employeeId
+      });
 
       log.info('Route shipment event recorded:', record);
 
-      return res.status(201).json({ success: true, record, message: 'Shipment event recorded' });
+      return res.status(201).json({
+        success: true,
+        record,
+        message: 'Shipment event recorded and coordinates updated'
+      });
     } catch (error: any) {
       log.error('Error recording shipment event:', error.message);
       return res.status(500).json({ success: false, message: 'Failed to record shipment event' });
@@ -119,17 +133,16 @@ export function registerRouteTrackingRoutes(app: Express): void {
   });
 
   // Get session data
-  app.get('/api/routes/session/:sessionId', async (req, res) => {
+  app.get('/api/routes/session/:sessionId', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       const { sessionId } = req.params;
 
-      // Mock session data (in production, would fetch from database)
-      const session = {
-        id: sessionId,
-        employeeId: 'mock-employee',
-        status: 'active',
-        startTime: new Date().toISOString()
-      };
+      // In a real app, we'd fetch from DB. For now, let's at least return something sensible.
+      const session = await storage.getDatabase().prepare('SELECT * FROM route_sessions WHERE id = ?').get(sessionId);
+
+      if (!session) {
+        return res.status(404).json({ success: false, message: 'Session not found' });
+      }
 
       res.json({ success: true, session });
     } catch (error: any) {
@@ -139,9 +152,10 @@ export function registerRouteTrackingRoutes(app: Express): void {
   });
 
   // Batch submit GPS coordinates (for offline sync)
-  app.post('/api/routes/coordinates/batch', async (req, res) => {
+  app.post('/api/routes/coordinates/batch', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       const { coordinates } = req.body;
+      const employeeId = req.user?.employeeId;
 
       if (!Array.isArray(coordinates)) {
         return res.status(400).json({
@@ -150,26 +164,24 @@ export function registerRouteTrackingRoutes(app: Express): void {
         });
       }
 
-      const results = coordinates.map((coord: any) => {
+      const results = await Promise.all(coordinates.map(async (coord: any) => {
         try {
-          const coordinate = {
+          const record = await storage.recordCoordinate({
             sessionId: coord.sessionId,
+            employeeId: employeeId || coord.employeeId,
             latitude: parseFloat(coord.latitude),
             longitude: parseFloat(coord.longitude),
             accuracy: coord.accuracy ? parseFloat(coord.accuracy) : null,
             speed: coord.speed ? parseFloat(coord.speed) : null,
             timestamp: coord.timestamp || new Date().toISOString()
-          };
+          });
 
-          // Store coordinate (in production, this would use proper database storage)
-          log.debug('Batch GPS coordinate recorded:', coordinate);
-
-          return { success: true, record: coordinate };
+          return { success: true, record };
         } catch (error: any) {
           log.error('Error processing coordinate:', error.message);
           return { success: false, error: error.message };
         }
-      });
+      }));
 
       res.json({
         success: true,
@@ -186,25 +198,28 @@ export function registerRouteTrackingRoutes(app: Express): void {
   });
 
   // Offline sync: sync a route session created while offline
-  app.post('/api/routes/sync-session', async (req, res) => {
+  app.post('/api/routes/sync-session', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
-      const { id, employeeId, startTime, endTime, status, startLatitude, startLongitude, endLatitude, endLongitude } = req.body || {};
+      const { id, startTime, endTime, status, startLatitude, startLongitude, endLatitude, endLongitude, shipmentId } = req.body || {};
+      const employeeId = req.user?.employeeId;
 
-      const synced = {
+      const session = await storage.startRouteSession({
         id,
         employeeId,
-        startTime,
-        endTime,
-        status,
-        startLatitude: startLatitude ? parseFloat(startLatitude) : null,
-        startLongitude: startLongitude ? parseFloat(startLongitude) : null,
-        endLatitude: endLatitude ? parseFloat(endLatitude) : null,
-        endLongitude: endLongitude ? parseFloat(endLongitude) : null,
-        syncedAt: new Date().toISOString()
-      };
+        startLatitude,
+        startLongitude,
+        shipmentId
+      });
 
-      log.info('Offline session synced:', synced);
-      return res.json({ success: true, session: synced, message: 'Session synced' });
+      if (status === 'completed' || endTime) {
+        await storage.stopRouteSession({
+          sessionId: id,
+          endLatitude,
+          endLongitude
+        });
+      }
+
+      return res.json({ success: true, session, message: 'Session synced' });
     } catch (error: any) {
       log.error('Error syncing session:', error.message);
       return res.status(500).json({ success: false, message: 'Failed to sync session' });
@@ -212,18 +227,21 @@ export function registerRouteTrackingRoutes(app: Express): void {
   });
 
   // Offline sync: sync coordinates captured while offline
-  app.post('/api/routes/sync-coordinates', async (req, res) => {
+  app.post('/api/routes/sync-coordinates', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       const { sessionId, coordinates } = req.body || {};
+      const employeeId = req.user?.employeeId;
 
-      const results = (coordinates || []).map((coord: any) => ({
-        sessionId,
-        latitude: parseFloat(coord.latitude),
-        longitude: parseFloat(coord.longitude),
-        accuracy: coord.accuracy ? parseFloat(coord.accuracy) : null,
-        speed: coord.speed ? parseFloat(coord.speed) : null,
-        timestamp: coord.timestamp,
-        syncedAt: new Date().toISOString()
+      const results = await Promise.all((coordinates || []).map(async (coord: any) => {
+        return await storage.recordCoordinate({
+          sessionId,
+          employeeId,
+          latitude: parseFloat(coord.latitude),
+          longitude: parseFloat(coord.longitude),
+          accuracy: coord.accuracy ? parseFloat(coord.accuracy) : null,
+          speed: coord.speed ? parseFloat(coord.speed) : null,
+          timestamp: coord.timestamp
+        });
       }));
 
       log.info(`Offline coordinates synced for session ${sessionId}:`, results.length);

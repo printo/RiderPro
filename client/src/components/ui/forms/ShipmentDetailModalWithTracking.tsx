@@ -610,6 +610,7 @@ function ShipmentDetailModalWithTracking({
           onClose={() => setShowRemarksModal(false)}
           shipmentId={shipment.shipment_id}
           status={remarksStatus}
+          employeeId={employeeId}
         />
       )}
 

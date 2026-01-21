@@ -218,10 +218,10 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
           lastLogin: userRow.last_login,
           createdAt: userRow.created_at,
           updatedAt: userRow.updated_at,
-          // Derive helpers from role
-          isSuperUser: userRow.role === 'admin',
-          isOpsTeam: userRow.role === 'isops' || userRow.role === 'admin' || userRow.role === 'manager',
-          isStaff: userRow.role === 'staff' || userRow.role === 'admin'
+          // Use columns if available, fallback to role derivation
+          isSuperUser: Boolean(userRow.is_super_user) || userRow.role === 'admin' || userRow.role === 'super_user',
+          isOpsTeam: Boolean(userRow.is_ops_team) || userRow.role === 'isops' || userRow.role === 'admin' || userRow.role === 'super_user' || userRow.role === 'manager',
+          isStaff: Boolean(userRow.is_staff) || userRow.role === 'staff' || userRow.role === 'admin' || userRow.role === 'super_user' || userRow.role === 'manager'
         };
 
         (req as AuthenticatedRequest).user = user;
@@ -246,16 +246,16 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
           .prepare(`
             SELECT id, rider_id as username, rider_id as email, role, rider_id as employee_id, full_name, 
                    '' as access_token, '' as refresh_token, is_active, last_login_at as last_login, 
-                   created_at, updated_at
+                   created_at, updated_at, is_super_user, is_ops_team, is_staff
             FROM rider_accounts 
             WHERE id = ? AND is_active = 1
           `)
           .get(userId) as any;
 
         if (userRow) {
-          const isSuperUser = userRow.role === 'super_user' || userRow.role === 'admin';
-          const isOpsTeam = userRow.role === 'ops_team' || userRow.role === 'admin';
-          const isStaff = userRow.role === 'staff' || userRow.role === 'admin';
+          const isSuperUser = Boolean(userRow.is_super_user) || userRow.role === 'super_user' || userRow.role === 'admin';
+          const isOpsTeam = Boolean(userRow.is_ops_team) || userRow.role === 'ops_team' || userRow.role === 'admin';
+          const isStaff = Boolean(userRow.is_staff) || userRow.role === 'staff' || userRow.role === 'admin';
 
           const user: User = {
             id: userRow.id,
@@ -362,7 +362,9 @@ export const authenticateUser = async (email: string, password: string) => {
       storage.prepare(`
         UPDATE users 
         SET username = ?, email = ?, role = ?, employee_id = ?, full_name = ?, 
-            access_token = ?, refresh_token = ?, last_login = datetime('now'), updated_at = datetime('now')
+            access_token = ?, refresh_token = ?, 
+            is_super_user = ?, is_ops_team = ?, is_staff = ?,
+            last_login = datetime('now'), updated_at = datetime('now')
         WHERE id = ?
       `).run(
         printoUser.username,
@@ -372,13 +374,21 @@ export const authenticateUser = async (email: string, password: string) => {
         printoUser.fullName,
         printoUser.accessToken,
         printoUser.refreshToken,
+        printoUser.isSuperUser ? 1 : 0,
+        printoUser.isOpsTeam ? 1 : 0,
+        printoUser.isStaff ? 1 : 0,
         printoUser.id
       );
     } else {
       // Create new user
       storage.prepare(`
-        INSERT INTO users (id, username, email, role, employee_id, full_name, access_token, refresh_token, is_active, last_login, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'), datetime('now'))
+        INSERT INTO users (
+          id, username, email, role, employee_id, full_name, 
+          access_token, refresh_token, is_active, 
+          is_super_user, is_ops_team, is_staff,
+          last_login, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))
       `).run(
         printoUser.id,
         printoUser.username,
@@ -387,7 +397,10 @@ export const authenticateUser = async (email: string, password: string) => {
         printoUser.employeeId,
         printoUser.fullName,
         printoUser.accessToken,
-        printoUser.refreshToken
+        printoUser.refreshToken,
+        printoUser.isSuperUser ? 1 : 0,
+        printoUser.isOpsTeam ? 1 : 0,
+        printoUser.isStaff ? 1 : 0
       );
     }
 

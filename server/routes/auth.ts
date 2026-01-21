@@ -23,7 +23,7 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       // Check if user already exists
-      const existingUser = userDataDb.prepare('SELECT * FROM users WHERE rider_id = ?').get(riderId);
+      const existingUser = userDataDb.prepare('SELECT * FROM rider_accounts WHERE rider_id = ?').get(riderId);
       if (existingUser) {
         return res.status(409).json({
           success: false,
@@ -37,8 +37,8 @@ export function registerAuthRoutes(app: Express): void {
 
       // Insert new user (pending approval)
       const insertUser = userDataDb.prepare(`
-        INSERT INTO users (rider_id, password_hash, full_name, status, created_at)
-        VALUES (?, ?, ?, 'pending', datetime('now'))
+        INSERT INTO rider_accounts (rider_id, password_hash, full_name, is_approved, is_active, created_at)
+        VALUES (?, ?, ?, 0, 1, datetime('now'))
       `);
 
       const result = insertUser.run(riderId, hashedPassword, fullName);
@@ -106,7 +106,7 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       // Get user from database
-      const user = userDataDb.prepare('SELECT * FROM users WHERE rider_id = ?').get(riderId) as any;
+      const user = userDataDb.prepare('SELECT * FROM rider_accounts WHERE rider_id = ?').get(riderId) as any;
 
       if (!user) {
         log.warn('Login attempt for non-existent user:', riderId);
@@ -126,28 +126,33 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       // Check if user is approved
-      if (user.status !== 'approved') {
+      if (user.is_approved !== 1) {
         return res.status(403).json({
           success: false,
-          message: user.status === 'pending' ? 'Account pending approval' : 'Account access denied'
+          message: 'Account pending approval or access denied'
         });
       }
 
       // Update last login
-      userDataDb.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
+      userDataDb.prepare('UPDATE rider_accounts SET last_login_at = datetime(\'now\') WHERE id = ?').run(user.id);
 
       log.info('Successful login:', { riderId, userId: user.id });
+
+      const isSuperUser = Boolean(user.is_super_user) || user.role === 'super_user' || user.role === 'admin';
+      const isOpsTeam = Boolean(user.is_ops_team) || user.role === 'ops_team' || user.role === 'admin' || user.role === 'manager';
+      const isStaff = Boolean(user.is_staff) || user.role === 'staff' || user.role === 'admin' || user.role === 'manager';
 
       res.json({
         success: true,
         message: 'Login successful',
-        user: {
-          id: user.id,
-          riderId: user.rider_id,
-          fullName: user.full_name,
-          role: user.role || 'rider',
-          status: user.status
-        }
+        accessToken: `local_${Date.now()}_${user.id}`,
+        refreshToken: `local_refresh_${Date.now()}_${user.id}`,
+        full_name: user.full_name,
+        is_staff: isStaff,
+        is_super_user: isSuperUser,
+        is_ops_team: isOpsTeam,
+        employee_id: user.rider_id,
+        role: user.role || 'rider'
       });
     } catch (error: any) {
       log.error('Login error:', error.message);
@@ -162,8 +167,8 @@ export function registerAuthRoutes(app: Express): void {
   app.get('/api/auth/pending-approvals', async (req, res) => {
     try {
       const pendingUsers = userDataDb
-        .prepare('SELECT id, rider_id, full_name, created_at FROM users WHERE status = ?')
-        .all('pending');
+        .prepare('SELECT id, rider_id, full_name, created_at FROM rider_accounts WHERE is_approved = 0')
+        .all();
 
       res.json({
         success: true,
@@ -184,9 +189,12 @@ export function registerAuthRoutes(app: Express): void {
       const { userId } = req.params;
       const { role = 'rider' } = req.body;
 
+      // Map roles to flags if needed
+      const isSuperUser = role === 'admin' || role === 'super_user' ? 1 : 0;
+
       const result = userDataDb
-        .prepare('UPDATE users SET status = ?, role = ?, approved_at = datetime(\'now\') WHERE id = ?')
-        .run('approved', role, userId);
+        .prepare('UPDATE rider_accounts SET is_approved = 1, role = ?, is_super_user = ?, updated_at = datetime(\'now\') WHERE id = ?')
+        .run(role, isSuperUser, userId);
 
       if (result.changes === 0) {
         return res.status(404).json({
@@ -217,8 +225,8 @@ export function registerAuthRoutes(app: Express): void {
       const { reason } = req.body;
 
       const result = userDataDb
-        .prepare('UPDATE users SET status = ?, rejection_reason = ?, rejected_at = datetime(\'now\') WHERE id = ?')
-        .run('rejected', reason || 'No reason provided', userId);
+        .prepare('UPDATE rider_accounts SET is_approved = -1, updated_at = datetime(\'now\') WHERE id = ?')
+        .run(userId);
 
       if (result.changes === 0) {
         return res.status(404).json({
@@ -260,7 +268,7 @@ export function registerAuthRoutes(app: Express): void {
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
       const result = userDataDb
-        .prepare('UPDATE users SET password_hash = ?, password_reset_at = datetime(\'now\') WHERE id = ?')
+        .prepare('UPDATE rider_accounts SET password_hash = ?, updated_at = datetime(\'now\') WHERE id = ?')
         .run(hashedPassword, userId);
 
       if (result.changes === 0) {

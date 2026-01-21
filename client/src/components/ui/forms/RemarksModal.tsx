@@ -20,17 +20,28 @@ interface RemarksModalProps {
   onClose: () => void;
   shipmentId: string;
   status: "Cancelled" | "Returned";
+  employeeId?: string;
 }
 
 function RemarksModal({
   isOpen,
   onClose,
   shipmentId,
-  status
+  status,
+  employeeId
 }: RemarksModalProps) {
   const [remarks, setRemarks] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const {
+    hasActiveSession,
+    recordShipmentEvent,
+  } = useRouteTracking(employeeId || '');
+
+  const {
+    getCurrentPosition,
+  } = useGPSTracking();
 
   const submitRemarksMutation = useMutation({
     mutationFn: async () => {
@@ -42,6 +53,24 @@ function RemarksModal({
       const statusResponse = await apiRequest("PATCH", `/api/shipments/${shipmentId}`, {
         status: status
       });
+
+      // Record GPS coordinates if we have an active session
+      if (hasActiveSession) {
+        try {
+          const position = await getCurrentPosition();
+          // Record the shipment event with GPS coordinates
+          // eventType is always 'delivery' for status changes on standard shipments
+          await recordShipmentEvent(
+            shipmentId,
+            'delivery',
+            position.latitude,
+            position.longitude
+          );
+        } catch (gpsError) {
+          console.error('Failed to record GPS location during status change:', gpsError);
+          // We don't throw here - we want the status update to succeed even if GPS fails
+        }
+      }
 
       // Then save the remarks
       const remarksResponse = await apiRequest("POST", `/api/shipments/${shipmentId}/remarks`, {
