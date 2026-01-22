@@ -15,30 +15,17 @@ const photosDir = path.join(uploadsDir, 'photos');
   }
 });
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const dir = file.fieldname === 'signature' ? signaturesDir : photosDir;
-    cb(null, dir);
-  },
-  filename: function (req, file, cb) {
-    const extension = path.extname(file.originalname) || '.png';
-    const filename = `${randomUUID()}${extension}`;
-    cb(null, filename);
-  }
-});
-
 // File filter for images
-const fileFilter = (req: any, file: any, cb: any) => {
+const fileFilter = (req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   if (file.mimetype.startsWith('image/')) {
     cb(null, true);
   } else {
-    cb(new Error('Only image files are allowed'), false);
+    cb(new Error('Only image files are allowed'));
   }
 };
 
 // Process the image before saving
-async function processImage(file: Express.Multer.File, type: 'signature' | 'photo'): Promise<string> {
+export async function processImage(file: Express.Multer.File, type: 'signature' | 'photo'): Promise<string> {
   const extension = path.extname(file.originalname) || '.jpg';
   const filename = `${randomUUID()}${extension}`;
   const outputPath = path.join(type === 'signature' ? signaturesDir : photosDir, filename);
@@ -46,11 +33,11 @@ async function processImage(file: Express.Multer.File, type: 'signature' | 'phot
   if (type === 'photo') {
     // Get image metadata
     const metadata = await sharp(file.buffer).metadata();
-    
+
     // Calculate resize dimensions while maintaining aspect ratio
     let width = metadata.width || 0;
     let height = metadata.height || 0;
-    
+
     // More aggressive scaling - limit to 1200px for preview purposes
     const maxDimension = 1200;
     if (width > maxDimension || height > maxDimension) {
@@ -65,12 +52,12 @@ async function processImage(file: Express.Multer.File, type: 'signature' | 'phot
         fit: 'inside',
         withoutEnlargement: true
       })
-      .jpeg({ 
+      .jpeg({
         quality: 75,  // More aggressive compression
         chromaSubsampling: '4:2:0'  // Standard chroma subsampling
       })
       .toFile(outputPath);
-    
+
     // Check if the output file is still too large (> 3MB)
     const stats = await fs.promises.stat(outputPath);
     if (stats.size > 3 * 1024 * 1024) {
@@ -80,7 +67,7 @@ async function processImage(file: Express.Multer.File, type: 'signature' | 'phot
           fit: 'inside',
           withoutEnlargement: true
         })
-        .jpeg({ 
+        .jpeg({
           quality: 65,  // More aggressive compression
           chromaSubsampling: '4:2:0'
         })
@@ -93,7 +80,7 @@ async function processImage(file: Express.Multer.File, type: 'signature' | 'phot
         fit: 'inside',
         withoutEnlargement: true
       })
-      .png({ 
+      .png({
         compressionLevel: 6,  // Balanced compression
         quality: 90
       })
@@ -138,7 +125,7 @@ export async function saveBase64File(base64Data: string, type: 'signature' | 'ph
         fit: 'inside',
         withoutEnlargement: true
       })
-      .jpeg({ 
+      .jpeg({
         quality: 75,
         chromaSubsampling: '4:2:0'
       })
@@ -149,7 +136,7 @@ export async function saveBase64File(base64Data: string, type: 'signature' | 'ph
         fit: 'inside',
         withoutEnlargement: true
       })
-      .png({ 
+      .png({
         compressionLevel: 9,
         quality: 75
       })

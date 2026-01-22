@@ -20,7 +20,7 @@ import {
   InsertVehicleType,
   UpdateVehicleType
 } from "@shared/schema";
-import { upload, getFileUrl, saveBase64File } from "./utils/fileUpload.js";
+import { upload, getFileUrl, saveBase64File, processImage } from "./utils/fileUpload.js";
 import { externalSync } from "./services/externalSync.js";
 import { fieldMappingService } from "./services/FieldMappingService.js";
 import { payloadValidationService } from "./services/PayloadValidationService.js";
@@ -1484,12 +1484,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Handle uploaded photo
         if (files.photo && files.photo[0]) {
-          photoUrl = getFileUrl(files.photo[0].filename, 'photo');
+          try {
+            const filename = await processImage(files.photo[0], 'photo');
+            photoUrl = getFileUrl(filename, 'photo');
+          } catch (error) {
+            console.error('Failed to process uploaded photo:', error);
+          }
         }
 
         // Handle signature (either uploaded file or base64 data)
         if (files.signature && files.signature[0]) {
-          signatureUrl = getFileUrl(files.signature[0].filename, 'signature');
+          try {
+            const filename = await processImage(files.signature[0], 'signature');
+            signatureUrl = getFileUrl(filename, 'signature');
+          } catch (error) {
+            console.error('Failed to process uploaded signature:', error);
+          }
         } else if (signatureData) {
           try {
             const filename = await saveBase64File(signatureData, 'signature');

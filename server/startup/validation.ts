@@ -87,7 +87,7 @@ export async function runStartupValidation(): Promise<StartupValidationResult> {
       storage.getDatabase().prepare('SELECT 1').get();
     } catch (error) {
       result.success = false;
-      result.errors.push('Database connection failed');
+      result.errors.push(`Database connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // Check required environment variables in production
