@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { log } from "../../shared/utils/logger.js";
 
 export interface IndexInfo {
   name: string;
@@ -352,7 +353,7 @@ export class DatabaseOptimizationService {
       try {
         this.db.exec(rec.sql);
         applied++;
-        console.log(`Applied optimization: ${rec.description}`);
+        log.dev(`Applied optimization: ${rec.description}`);
       } catch (error) {
         failed++;
         const errorMsg = `Failed to apply ${rec.description}: ${error}`;
@@ -476,7 +477,7 @@ export class DatabaseOptimizationService {
       this.db.pragma('mmap_size = 268435456'); // 256MB memory map
       this.db.pragma('optimize');
 
-      console.log('Database configuration optimized for route tracking');
+      log.dev('Database configuration optimized for route tracking');
     } catch (error) {
       console.error('Error optimizing database configuration:', error);
     }
@@ -503,7 +504,7 @@ export class DatabaseOptimizationService {
       }
     }
 
-    console.log('Essential indexes created/verified');
+    log.dev('Essential indexes created/verified');
   }
 
   /**
@@ -520,7 +521,7 @@ export class DatabaseOptimizationService {
         WHERE date < ? AND session_status = 'completed'
       `).run(cutoffIso);
 
-      console.log(`Cleaned up ${result.changes} old route tracking records`);
+      log.dev(`Cleaned up ${result.changes} old route tracking records`);
       return result.changes;
     } catch (error) {
       console.error('Error cleaning up old data:', error);

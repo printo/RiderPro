@@ -1,4 +1,5 @@
 import { apiRequest } from "@/lib/queryClient";
+import { log } from "../utils/logger.js";
 import {
   Shipment,
   InsertShipment,
@@ -25,7 +26,7 @@ export interface PaginatedResponse<T> {
 
 export const shipmentsApi = {
   getShipments: async (filters: ShipmentFilters = {}): Promise<PaginatedResponse<Shipment>> => {
-    console.log('📦 shipmentsApi.getShipments called with filters:', filters);
+    log.dev('📦 shipmentsApi.getShipments called with filters:', filters);
 
     const params = new URLSearchParams();
 
@@ -52,11 +53,11 @@ export const shipmentsApi = {
     if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
 
     const url = `/api/shipments/fetch${params.toString() ? `?${params.toString()}` : ''}`;
-    console.log('📡 Making API request to:', url);
+    log.dev('📡 Making API request to:', url);
 
     const response = await apiRequest("GET", url);
 
-    console.log('📥 Shipments API response:', {
+    log.dev('📥 Shipments API response:', {
       status: response.status,
       statusText: response.statusText,
       ok: response.ok
@@ -72,7 +73,7 @@ export const shipmentsApi = {
 
     const data = await response.json();
 
-    console.log('📊 Parsed shipments data:', {
+    log.dev('📊 Parsed shipments data:', {
       dataLength: data?.length,
       total,
       currentPage,

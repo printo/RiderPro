@@ -137,8 +137,9 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     return (
       <nav className={`desktop-navigation ${className}`}>
         <div className="nav-container">
-          <div className="nav-brand">
-            <h1>RiderPro</h1>
+          <div className="nav-brand flex items-center gap-2">
+            <img src="/favicon.png" alt="RiderPro Logo" className="h-8 w-8 rounded-md" />
+            <h1 className="text-lg font-bold">RiderPro</h1>
           </div>
 
           <div className="nav-items">
@@ -191,8 +192,9 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
           </span>
         </button>
 
-        <div className="header-title">
-          <h1>RiderPro</h1>
+        <div className="header-title flex items-center gap-2">
+          <img src="/favicon.png" alt="RiderPro Logo" className="h-6 w-6 rounded-sm" />
+          <h1 className="text-base font-bold">RiderPro</h1>
         </div>
 
         <div className="header-actions">

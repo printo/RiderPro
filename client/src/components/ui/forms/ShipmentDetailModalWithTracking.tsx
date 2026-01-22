@@ -11,8 +11,19 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CheckCircle, Package, Undo, XCircle, Truck, Navigation,
-  MapPin, Clock, AlertCircle, Loader2, Copy, ArrowLeft
+  MapPin, Clock, AlertCircle, Loader2, Copy, ArrowLeft,
+  RotateCcw
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { apiClient } from "@/services/ApiClient";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -182,7 +193,7 @@ function ShipmentDetailModalWithTracking({
       });
 
       setShowRevertConfirm(false);
-      onClose(); // Close the modal after successful revert
+      // Removed onClose() to keep the details sheet open so user can see the change
     } catch (error) {
       console.error('Failed to revert status:', error);
       // Don't close the modal on error so user can try again
@@ -496,6 +507,7 @@ function ShipmentDetailModalWithTracking({
 
           {/* Status Management Footer */}
           <div className="border-t border-border bg-muted/30 p-4">
+            {/* Standard Status Updates: Visible for everyone when shipment is active (Assigned/In Transit) */}
             {(shipment.status === "Assigned" || shipment.status === "In Transit") && (
               <div className="space-y-3">
                 <h4 className="font-medium text-center">Update Status</h4>
@@ -570,26 +582,57 @@ function ShipmentDetailModalWithTracking({
               </div>
             )}
 
-            {/* Revert Status for Delivered/Picked Up Shipments - Super Users Only */}
-            {(shipment.status === "Delivered" || shipment.status === "Picked Up") && user?.isSuperUser && (
-              <div className="space-y-3">
-                <h4 className="font-medium text-center text-orange-600 dark:text-orange-400">Status Management</h4>
-                <div className="flex justify-center">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowRevertConfirm(true)}
-                    disabled={isProcessing}
-                    className="h-12 px-8 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-900/20"
-                  >
-                    <Undo className="h-4 w-4 mr-2" />
-                    Revert to {getPreviousStatus()}
-                  </Button>
+            {/* Status Management: Visible for non-riders when shipment is completed/resolved */}
+            {(shipment.status === "Delivered" || shipment.status === "Picked Up" || shipment.status === "Cancelled" || shipment.status === "Returned") &&
+              (user?.isSuperUser || user?.isOpsTeam || user?.isStaff) && (
+                <div className="space-y-4">
+                  <h4 className="font-medium text-center text-orange-600 dark:text-orange-400">Status Management</h4>
+
+                  {/* Revert Action - Only for Delivered/Picked Up */}
+                  {(shipment.status === "Delivered" || shipment.status === "Picked Up") && (
+                    <div className="flex flex-col items-center gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowRevertConfirm(true)}
+                        disabled={isProcessing}
+                        className="h-12 px-8 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-900/20"
+                      >
+                        <Undo className="h-4 w-4 mr-2" />
+                        Revert to {getPreviousStatus()}
+                      </Button>
+                      <p className="text-xs text-muted-foreground text-center px-4">
+                        Use this option if you accidentally marked the shipment as {shipment.status.toLowerCase()}.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Additional Direct Actions for Admins */}
+                  <div className="grid grid-cols-2 gap-3 pt-2">
+                    {shipment.status !== "Cancelled" && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleStatusUpdateWithGPS("Cancelled")}
+                        disabled={isProcessing}
+                        className="h-10 border-red-200 text-red-700 hover:bg-red-50 text-xs"
+                      >
+                        <XCircle className="h-4 w-4 mr-2" />
+                        Force Cancel
+                      </Button>
+                    )}
+                    {shipment.status !== "Returned" && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleStatusUpdateWithGPS("Returned")}
+                        disabled={isProcessing}
+                        className="h-10 border-orange-200 text-orange-700 hover:bg-orange-50 text-xs"
+                      >
+                        <Undo className="h-4 w-4 mr-2" />
+                        Force Return
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground text-center">
-                  Use this option if you accidentally marked the shipment as {shipment.status.toLowerCase()}.
-                </p>
-              </div>
-            )}
+              )}
           </div>
         </SheetContent>
       </Sheet>
@@ -610,46 +653,46 @@ function ShipmentDetailModalWithTracking({
           onClose={() => setShowRemarksModal(false)}
           shipmentId={shipment.shipment_id}
           status={remarksStatus}
+          employeeId={employeeId}
         />
       )}
 
       {/* Revert Confirmation Dialog */}
-      {showRevertConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">Confirm Status Revert</h3>
-            <p className="text-muted-foreground mb-6">
+      <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Status Revert</AlertDialogTitle>
+            <AlertDialogDescription>
               Are you sure you want to revert this shipment from <strong>{shipment.status}</strong> back to <strong>{getPreviousStatus()}</strong>?
-            </p>
-            <div className="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setShowRevertConfirm(false)}
-                disabled={isProcessing}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleRevertStatus}
-                disabled={isProcessing}
-                className="bg-orange-600 hover:bg-orange-700"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Reverting...
-                  </>
-                ) : (
-                  <>
-                    <Undo className="h-4 w-4 mr-2" />
-                    Revert Status
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+              <br /><br />
+              This will move the shipment back to its previous active state.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleRevertStatus();
+              }}
+              disabled={isProcessing}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Reverting...
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Revert Status
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

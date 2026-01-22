@@ -1,9 +1,10 @@
 // server/index.ts
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { initializeAuth } from "./middleware/auth";
+import { registerRoutes } from "./routes/index.js";
+import { setupVite, serveStatic } from "./vite.js";
+import { initializeAuth } from "./middleware/auth.js";
 import cors from 'cors';
+import { log } from "../shared/utils/logger.js";
 
 const app = express();
 
@@ -11,8 +12,9 @@ const app = express();
 app.use(cors({
   origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://localhost:5000'],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['X-Total-Count', 'X-Total-Pages', 'X-Current-Page', 'X-Per-Page', 'X-Has-Next-Page', 'X-Has-Previous-Page'],
 }));
 
 // Body parsing middleware
@@ -43,7 +45,7 @@ app.use((req, res, next) => {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      log(logLine);
+      log.info(logLine);
     }
   });
 
@@ -113,21 +115,21 @@ app.get("/api-status", (req, res) => {
   }
 
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen(port, '0.0.0.0', () => {
-    console.log('\n=== RiderPro Delivery Management System ===');
-    console.log(`🚀 Server running on port ${port}`);
-    console.log(`🌐 Application: http://localhost:${port}`);
-    console.log(`📱 Mobile App: http://localhost:${port} (responsive design)`);
-    console.log(`📡 API Endpoints: http://localhost:${port}/api/*`);
-    console.log(`🔍 Health Check: http://localhost:${port}/health`);
-    console.log(`📊 Admin Panel: http://localhost:${port}/admin`);
-    console.log(`📦 Shipments: http://localhost:${port}/shipments`);
-    console.log(`⚙️  Settings: http://localhost:${port}/settings`);
-    console.log(`\n🔑 API Keys: Hardcoded (see admin panel for details)`);
-    console.log(`🗄️  Database: SQLite with consolidated schema`);
-    console.log(`🔄 Sync Status: Real-time external API integration`);
-    console.log(`📍 GPS Tracking: Auto-calculated distance tracking`);
-    console.log(`👥 Roles: Super User, Ops Team, Staff, Driver`);
-    console.log('===============================================\n');
+  server.listen(port, () => {
+    log.dev('\n=== RiderPro Delivery Management System ===');
+    log.dev(`🚀 Server running on port ${port}`);
+    log.dev(`🌐 Application: http://localhost:${port}`);
+    log.dev(`📱 Mobile App: http://localhost:${port} (responsive design)`);
+    log.dev(`📡 API Endpoints: http://localhost:${port}/api/*`);
+    log.dev(`🔍 Health Check: http://localhost:${port}/health`);
+    log.dev(`📊 Admin Panel: http://localhost:${port}/admin`);
+    log.dev(`📦 Shipments: http://localhost:${port}/shipments`);
+    log.dev(`⚙️  Settings: http://localhost:${port}/settings`);
+    log.dev(`\n🔑 API Keys: Hardcoded (see admin panel for details)`);
+    log.dev(`🗄️  Database: SQLite with consolidated schema`);
+    log.dev(`🔄 Sync Status: Real-time external API integration`);
+    log.dev(`📍 GPS Tracking: Auto-calculated distance tracking`);
+    log.dev(`👥 Roles: Super User, Ops Team, Staff, Driver`);
+    log.dev('===============================================\n');
   });
 })();

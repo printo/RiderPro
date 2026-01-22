@@ -1,5 +1,6 @@
 // client/src/services/ApiClient.ts
 import AuthService from './AuthService';
+import { log } from "../utils/logger.js";
 
 export interface ApiRequestConfig {
   url: string;
@@ -49,7 +50,7 @@ export class ApiClient {
   private refreshInProgress = false;
   private refreshAttemptTimestamp = 0;
   private readonly REFRESH_COOLDOWN = 5000; // 5 seconds cooldown between refresh attempts
-  private readonly BASE_URL = 'http://localhost:5000';
+  private readonly BASE_URL = '';
   private pendingRequests: Array<{
     config: ApiRequestConfig;
     resolve: (response: Response) => void;
@@ -96,7 +97,7 @@ export class ApiClient {
     const isAuthRequest = url.includes('/auth/');
 
     if (!isAuthRequest) {
-      console.log(`[ApiClient] ${method} ${fullUrl}`, data ? { data } : '');
+      log.dev(`[ApiClient] ${method} ${fullUrl}`, data ? { data } : '');
     }
 
     try {
@@ -104,7 +105,7 @@ export class ApiClient {
       const requestOptions = this.buildRequestOptions(method, data, skipAuth, headers);
 
       // Make the request
-      let response = await fetch(fullUrl, requestOptions);
+      const response = await fetch(fullUrl, requestOptions);
 
       // Handle 401 errors with automatic token refresh
       if (response.status === 401 && !isAuthRequest && !skipAuth) {
@@ -113,7 +114,7 @@ export class ApiClient {
 
       // Log response for debugging
       if (!isAuthRequest) {
-        console.log(`[ApiClient] Response (${response.status}):`, {
+        log.dev(`[ApiClient] Response (${response.status}):`, {
           status: response.status,
           statusText: response.statusText,
           url: response.url,
@@ -144,7 +145,7 @@ export class ApiClient {
 
       // Handle offline scenarios
       if (isNetworkError && this.isOffline) {
-        console.log('[ApiClient] Request failed while offline, queuing for retry');
+        log.dev('[ApiClient] Request failed while offline, queuing for retry');
 
         return new Promise((resolve, reject) => {
           this.queueForOfflineRetry(config, resolve, reject);
@@ -153,7 +154,7 @@ export class ApiClient {
 
       // Use enhanced retry logic with exponential backoff
       if (apiError.isRetryable && retryCount < this.MAX_RETRY_COUNT) {
-        console.log(`[ApiClient] Retryable error detected, using enhanced retry logic`);
+        log.dev(`[ApiClient] Retryable error detected, using enhanced retry logic`);
         return this.retryWithExponentialBackoff(config, apiError, retryCount);
       }
 
@@ -191,7 +192,7 @@ export class ApiClient {
     this.refreshAttemptTimestamp = now;
 
     try {
-      console.log('[ApiClient] Access token expired, attempting to refresh...');
+      log.dev('[ApiClient] Access token expired, attempting to refresh...');
       const refreshed = await AuthService.getInstance().refreshAccessToken();
 
       if (refreshed) {
@@ -206,7 +207,7 @@ export class ApiClient {
 
         // Only logout and redirect if we're not already on the login page
         if (!window.location.pathname.includes('/login')) {
-          console.log('[ApiClient] Session expired, redirecting to login...');
+          log.dev('[ApiClient] Session expired, redirecting to login...');
           AuthService.getInstance().logout();
           // Add a small delay to prevent immediate redirect
           setTimeout(() => {
@@ -260,7 +261,7 @@ export class ApiClient {
         // For network errors, don't logout but clear refresh state
         this.refreshInProgress = false;
         this.refreshAttemptTimestamp = 0;
-        console.log('[ApiClient] Network error during token refresh - preserving session');
+        log.dev('[ApiClient] Network error during token refresh - preserving session');
       }
 
       throw enhancedError;
@@ -273,7 +274,7 @@ export class ApiClient {
    * Retry request with new token after successful refresh
    */
   private async retryWithNewToken(config: ApiRequestConfig): Promise<Response> {
-    console.log('[ApiClient] Retrying request with new token...');
+    log.dev('[ApiClient] Retrying request with new token...');
 
     // Prevent infinite retry loops by marking this as a retry
     const retryConfig = {
@@ -541,7 +542,7 @@ export class ApiClient {
    */
   private async performGracefulLogout(reason: string): Promise<void> {
     try {
-      console.log(`[ApiClient] Performing graceful logout: ${reason}`);
+      log.dev(`[ApiClient] Performing graceful logout: ${reason}`);
 
       // Show countdown warning before logout
       this.showCountdownWarning(reason);
@@ -885,7 +886,7 @@ export class ApiClient {
    * Handle online event
    */
   private handleOnline(): void {
-    console.log('[ApiClient] Network connection restored');
+    log.dev('[ApiClient] Network connection restored');
     this.isOffline = false;
 
     // Process queued requests
@@ -902,7 +903,7 @@ export class ApiClient {
    * Handle offline event
    */
   private handleOffline(): void {
-    console.log('[ApiClient] Network connection lost');
+    log.dev('[ApiClient] Network connection lost');
     this.isOffline = true;
 
     // Start checking for connectivity restoration
@@ -937,7 +938,7 @@ export class ApiClient {
     // Minimum interval of 30 seconds to prevent excessive polling
     const safeInterval = Math.max(connectivityCheckInterval, 30000);
 
-    console.log(`[ApiClient] Starting connectivity checks every ${safeInterval / 1000} seconds`);
+    log.dev(`[ApiClient] Starting connectivity checks every ${safeInterval / 1000} seconds`);
 
     setInterval(async () => {
       if (!this.offlineDetectionEnabled) return;
@@ -1011,7 +1012,7 @@ export class ApiClient {
       const stored = localStorage.getItem('last_known_auth_state');
       if (stored) {
         this.lastKnownAuthState = JSON.parse(stored);
-        console.log('[ApiClient] Loaded last known auth state for offline use');
+        log.dev('[ApiClient] Loaded last known auth state for offline use');
       }
     } catch (error) {
       console.warn('[ApiClient] Failed to load last known auth state:', error);
@@ -1045,7 +1046,7 @@ export class ApiClient {
       return;
     }
 
-    console.log(`[ApiClient] Processing ${this.networkRetryQueue.length} queued requests`);
+    log.dev(`[ApiClient] Processing ${this.networkRetryQueue.length} queued requests`);
 
     // Remove expired requests
     const now = Date.now();
@@ -1093,7 +1094,7 @@ export class ApiClient {
       timestamp: Date.now()
     });
 
-    console.log(`[ApiClient] Queued request for offline retry (${this.networkRetryQueue.length} in queue)`);
+    log.dev(`[ApiClient] Queued request for offline retry (${this.networkRetryQueue.length} in queue)`);
   }
 
   /**
@@ -1121,11 +1122,11 @@ export class ApiClient {
     const maxDelay = 30000; // Cap at 30 seconds
     const delay = Math.min(baseDelay + jitter, maxDelay);
 
-    console.log(`[ApiClient] Retrying request in ${Math.round(delay)}ms (attempt ${attempt + 1}/${this.MAX_RETRY_COUNT})`);
+    log.dev(`[ApiClient] Retrying request in ${Math.round(delay)}ms (attempt ${attempt + 1}/${this.MAX_RETRY_COUNT})`);
 
     // For network errors, check if we're offline
     if (isNetworkError && this.isOffline) {
-      console.log('[ApiClient] Network error while offline, queuing for retry');
+      log.dev('[ApiClient] Network error while offline, queuing for retry');
 
       return new Promise((resolve, reject) => {
         this.queueForOfflineRetry(
@@ -1279,7 +1280,7 @@ export class ApiClient {
   public setConnectivityCheckInterval(intervalMs: number): void {
     const safeInterval = Math.max(intervalMs, 30000); // Minimum 30 seconds
     localStorage.setItem('connectivity_check_interval', safeInterval.toString());
-    console.log(`[ApiClient] Connectivity check interval updated to ${safeInterval / 1000} seconds`);
+    log.dev(`[ApiClient] Connectivity check interval updated to ${safeInterval / 1000} seconds`);
   }
 
   /**
@@ -1287,7 +1288,7 @@ export class ApiClient {
    */
   public disableConnectivityChecks(): void {
     this.offlineDetectionEnabled = false;
-    console.log('[ApiClient] Connectivity checks disabled');
+    log.dev('[ApiClient] Connectivity checks disabled');
   }
 
   /**
@@ -1295,7 +1296,7 @@ export class ApiClient {
    */
   public enableConnectivityChecks(): void {
     this.offlineDetectionEnabled = true;
-    console.log('[ApiClient] Connectivity checks enabled');
+    log.dev('[ApiClient] Connectivity checks enabled');
   }
 
   /**
@@ -1325,7 +1326,7 @@ export class ApiClient {
     });
 
     this.networkRetryQueue = [];
-    console.log(`[ApiClient] Cleared ${queuedCount} requests from offline queue`);
+    log.dev(`[ApiClient] Cleared ${queuedCount} requests from offline queue`);
   }
 
   /**

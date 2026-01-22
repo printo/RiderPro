@@ -558,7 +558,7 @@ class ExternalSyncService {
   private async sendMultipartPayload(payload: ExternalSyncPayload, attempt: number): Promise<boolean> {
     const startTime = Date.now();
     let totalFileSize = 0;
-    let processedFiles: string[] = [];
+    const processedFiles: string[] = [];
 
     try {
       log(`Sending multipart payload for shipment ${payload.shipmentId} (attempt ${attempt})`, 'external-sync');

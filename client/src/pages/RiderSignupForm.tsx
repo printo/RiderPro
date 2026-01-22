@@ -65,11 +65,9 @@ const RiderSignupForm = () => {
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background">
       <Card className="w-[90%] max-w-[400px] shadow-lg">
-        <CardHeader className="flex flex-col items-center gap-2">
-          <div className="rounded-full bg-primary/10 p-4">
-            <Package className="h-12 w-12 text-primary" />
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">Create Rider Account</h1>
+        <CardHeader className="flex flex-col items-center gap-3">
+          <img src="/favicon.png" alt="RiderPro Logo" className="h-20 w-20 rounded-2xl shadow-md border-2 border-background" />
+          <h1 className="text-3xl font-bold tracking-tight text-foreground text-center">Create Rider Account</h1>
           <p className="text-sm text-muted-foreground">
             Sign up to get started
           </p>

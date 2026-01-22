@@ -1,5 +1,6 @@
 import { GPSPosition } from './GPSTracker';
 import { ConflictResolutionService, DataConflict } from './ConflictResolutionService';
+import { log } from "../utils/logger.js";
 
 export interface OfflineGPSRecord {
   id: string;
@@ -68,8 +69,8 @@ export class OfflineStorageService {
         this.db = request.result;
         if (!this.initialized) {
           // Only log in development mode
-          if (process.env.NODE_ENV === 'development') {
-            console.log('IndexedDB initialized successfully');
+          if (import.meta.env.MODE === 'development') {
+            log.dev('IndexedDB initialized successfully');
           }
           this.initialized = true;
         }
@@ -96,7 +97,7 @@ export class OfflineStorageService {
           sessionStore.createIndex('status', 'status', { unique: false });
         }
 
-        console.log('IndexedDB schema created/updated');
+        log.dev('IndexedDB schema created/updated');
       };
     });
   }
@@ -106,14 +107,14 @@ export class OfflineStorageService {
    */
   private setupNetworkListeners(): void {
     window.addEventListener('online', () => {
-      console.log('Network connection restored');
+      log.dev('Network connection restored');
       this.syncStatus.isOnline = true;
       this.notifySyncListeners();
       this.startBackgroundSync();
     });
 
     window.addEventListener('offline', () => {
-      console.log('Network connection lost');
+      log.dev('Network connection lost');
       this.syncStatus.isOnline = false;
       this.notifySyncListeners();
     });
@@ -142,7 +143,7 @@ export class OfflineStorageService {
       const request = store.add(record);
 
       request.onsuccess = () => {
-        console.log('GPS record stored offline:', record.id);
+        log.dev('GPS record stored offline:', record.id);
         this.updatePendingCount();
         resolve(record.id);
       };
@@ -174,7 +175,7 @@ export class OfflineStorageService {
       const request = store.put(offlineSession);
 
       request.onsuccess = () => {
-        console.log('Route session stored offline:', session.id);
+        log.dev('Route session stored offline:', session.id);
         this.updatePendingCount();
         resolve();
       };
@@ -380,7 +381,7 @@ export class OfflineStorageService {
     this.notifySyncListeners();
 
     try {
-      console.log('Starting background sync...');
+      log.dev('Starting background sync...');
 
       // Sync route sessions first
       await this.syncRouteSessions();
@@ -389,7 +390,7 @@ export class OfflineStorageService {
       await this.syncGPSRecords();
 
       this.syncStatus.lastSyncTime = new Date();
-      console.log('Background sync completed successfully');
+      log.dev('Background sync completed successfully');
 
     } catch (error) {
       console.error('Background sync failed:', error);
@@ -405,7 +406,7 @@ export class OfflineStorageService {
    */
   private async syncRouteSessions(): Promise<void> {
     const unsyncedSessions = await this.getUnsyncedRouteSessions();
-    console.log(`Syncing ${unsyncedSessions.length} route sessions...`);
+    log.dev(`Syncing ${unsyncedSessions.length} route sessions...`);
 
     for (const session of unsyncedSessions) {
       try {
@@ -435,7 +436,7 @@ export class OfflineStorageService {
 
         if (response.ok) {
           await this.markRouteSessionSynced(session.id);
-          console.log(`Route session ${session.id} synced successfully`);
+          log.dev(`Route session ${session.id} synced successfully`);
         } else {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -453,7 +454,7 @@ export class OfflineStorageService {
    */
   private async syncGPSRecords(): Promise<void> {
     const unsyncedRecords = await this.getUnsyncedGPSRecords();
-    console.log(`Syncing ${unsyncedRecords.length} GPS records...`);
+    log.dev(`Syncing ${unsyncedRecords.length} GPS records...`);
 
     // Group records by session for batch sync
     const recordsBySession = new Map<string, OfflineGPSRecord[]>();
@@ -496,7 +497,7 @@ export class OfflineStorageService {
           for (const record of records) {
             await this.markGPSRecordSynced(record.id);
           }
-          console.log(`${records.length} GPS records synced for session ${sessionId}`);
+          log.dev(`${records.length} GPS records synced for session ${sessionId}`);
         } else {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -612,7 +613,7 @@ export class OfflineStorageService {
 
     return new Promise((resolve, reject) => {
       transaction.oncomplete = () => {
-        console.log('Synced records cleared');
+        log.dev('Synced records cleared');
         this.updatePendingCount();
         resolve();
       };
@@ -679,7 +680,7 @@ export class OfflineStorageService {
 
       case 'merge':
         // Apply merged data (would need server support for this)
-        console.log('Merge resolution not fully implemented yet');
+        log.dev('Merge resolution not fully implemented yet');
         break;
 
       case 'skip':
@@ -692,7 +693,7 @@ export class OfflineStorageService {
         break;
     }
 
-    console.log(`Applied conflict resolution for ${conflict.id}:`, resolution.action);
+    log.dev(`Applied conflict resolution for ${conflict.id}:`, resolution.action);
   }
 
   /**

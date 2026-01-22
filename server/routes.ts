@@ -25,6 +25,7 @@ import { externalSync } from "./services/externalSync.js";
 import { fieldMappingService } from "./services/FieldMappingService.js";
 import { payloadValidationService } from "./services/PayloadValidationService.js";
 import { webhookAuth, webhookSecurity, webhookLogger, webhookRateLimit, webhookPayloadLimit } from "./middleware/webhookAuth.js";
+import { log } from "../shared/utils/logger.js";
 
 
 // Create userdata database connection for authentication
@@ -160,6 +161,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Printo API Authentication (Proxy to avoid CORS)
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({
+          success: false,
+          message: 'Employee ID/Email and password are required'
+        });
+      }
+
+      // Import dynamically to avoid circular dependencies if any
+      const { authenticateUser } = await import('./middleware/auth.js');
+
+      const user = await authenticateUser(email, password);
+
+      res.json({
+        success: true,
+        message: 'Login successful',
+        access: user.accessToken,
+        refresh: user.refreshToken,
+        full_name: user.fullName,
+        is_staff: user.role === 'manager' || user.role === 'admin' || user.isStaff,
+        is_super_user: user.role === 'admin' || user.isSuperUser,
+        is_ops_team: user.isOpsTeam,
+        employee_id: user.employeeId
+      });
+    } catch (error: any) {
+      console.error('Printo login error:', error);
+      res.status(401).json({
+        success: false,
+        message: 'Login failed: ' + (error.message || 'Invalid credentials')
+      });
+    }
+  });
+
   // Local user login
   app.post('/api/auth/local-login', async (req, res) => {
     try {
@@ -182,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .get(riderId) as any;
 
       if (!user) {
-        console.log('User not found for riderId:', riderId);
+        log.warn('User not found for riderId:', riderId);
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials'
@@ -192,7 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check password using bcrypt
       const isValidPassword = await bcrypt.compare(password, user.password_hash);
       if (!isValidPassword) {
-        console.log('Invalid password for riderId:', riderId);
+        log.warn('Invalid password for riderId:', riderId);
         return res.status(401).json({
           success: false,
           message: 'Invalid credentials'
@@ -227,7 +265,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accessToken,
         refreshToken,
         fullName: user.full_name,
-        isApproved: user.is_approved
+        isApproved: user.is_approved,
+        is_super_user: user.role === 'is_super_user' || user.role === 'super_user' || user.role === 'admin',
+        is_staff: user.role === 'is_rider' || user.role === 'super_user' || user.role === 'is_super_user' || user.role === 'admin' || user.role === 'manager' || user.role === 'staff',
+        is_ops_team: user.role === 'is_super_user' || user.role === 'super_user' || user.role === 'admin' || user.role === 'ops_team',
+        employee_id: user.rider_id,
+        role: user.role
       });
     } catch (error: any) {
       console.error('Local login error:', error);
@@ -385,11 +428,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Dashboard endpoint
-  app.get('/api/dashboard', async (req, res) => {
+  app.get('/api/dashboard', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
-      const metrics = await storage.getDashboardMetrics();
+      // Determine if we should filter by employeeId
+      // SuperUser, OpsTeam, and Staff (mapped to isRider/Manager in client) see all data
+      let employeeIdFilter: string | undefined = undefined;
+
+      if (!req.user?.isSuperUser && !req.user?.isOpsTeam && !req.user?.isStaff) {
+        employeeIdFilter = req.user?.employeeId;
+      }
+
+      const metrics = await storage.getDashboardMetrics(employeeIdFilter);
       res.json(metrics);
     } catch (error: any) {
+      console.error('Dashboard metrics error:', error);
       res.status(500).json({ message: error.message });
     }
   });
@@ -783,7 +835,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.warn('Payload validation warnings:', validation.warnings);
         }
 
-        console.log(`Syncing shipment ${syncData.shipment_id} (${validation.size} bytes)`);
+        log.info(`Syncing shipment ${syncData.shipment_id} (${validation.size} bytes)`);
 
         // Send to external system
         const result = await externalApi.syncShipment(shipment);
@@ -963,7 +1015,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { ExternalApiService } = await import('./services/ExternalApiService.js');
       const externalApi = ExternalApiService.getInstance();
 
-      console.log(`Batch syncing ${shipments.length} shipments...`);
+      log.info(`Batch syncing ${shipments.length} shipments...`);
 
       const results = await externalApi.batchSyncShipments(shipments);
 
@@ -1528,7 +1580,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // For now, just store remarks in a simple way
       // In production, this would be a proper table
-      console.log(`Remarks for shipment ${shipmentId} (${status}):`, remarks);
+      log.debug(`Remarks for shipment ${shipmentId} (${status}):`, remarks);
 
       res.status(201).json({
         shipmentId,
@@ -1820,7 +1872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Store session (in production, this would use proper database storage)
-      console.log('Route session started:', session);
+      log.info('Route session started:', session);
 
       res.status(201).json({
         success: true,
@@ -1856,7 +1908,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Update session (in production, this would use proper database storage)
-      console.log('Route session stopped:', session);
+      log.info('Route session stopped:', session);
 
       res.json({
         success: true,
@@ -1894,7 +1946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       // Store coordinate (in production, this would use proper database storage)
-      console.log('GPS coordinate recorded:', coordinate);
+      log.debug('GPS coordinate recorded:', coordinate);
 
       res.status(201).json({
         success: true,
@@ -1910,14 +1962,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Record shipment event (pickup/delivery) for a session
-  app.post('/api/routes/shipment-event', async (req, res) => {
+  app.post('/api/routes/shipment-event', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
       const { sessionId, shipmentId, eventType, latitude, longitude } = req.body || {};
+      const employeeId = req.user?.employeeId;
 
-      if (!sessionId || !shipmentId || !eventType) {
+      if (!sessionId || !shipmentId || !eventType || !employeeId) {
         return res.status(400).json({
           success: false,
-          message: 'sessionId, shipmentId and eventType are required'
+          message: 'sessionId, shipmentId, eventType and employeeId are required'
         });
       }
 
@@ -1928,20 +1981,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const record = {
-        id: 'evt-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+      const record = await storage.recordShipmentEvent({
         sessionId,
         shipmentId,
         eventType,
-        latitude: latitude ?? null,
-        longitude: longitude ?? null,
-        timestamp: new Date().toISOString()
-      };
+        latitude: latitude ?? 0,
+        longitude: longitude ?? 0,
+        employeeId
+      });
 
-      console.log('Route shipment event recorded:', record);
-
-      return res.status(201).json({ success: true, record, message: 'Shipment event recorded' });
+      return res.status(201).json({
+        success: true,
+        record,
+        message: 'Shipment event recorded and coordinates updated'
+      });
     } catch (error: any) {
+      console.error('Record shipment event error:', error);
       return res.status(500).json({ success: false, message: error.message || 'Failed to record event' });
     }
   });
@@ -1998,7 +2053,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
 
           // Store coordinate (in production, this would use proper database storage)
-          console.log('Batch GPS coordinate recorded:', coordinate);
+          log.debug('Batch GPS coordinate recorded:', coordinate);
 
           results.push({ success: true, record: coordinate });
           successCount++;
@@ -2051,7 +2106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         syncedAt: new Date().toISOString()
       };
 
-      console.log('Offline session synced:', synced);
+      log.info('Offline session synced:', synced);
       return res.json({ success: true, session: synced, message: 'Session synced' });
     } catch (error: any) {
       return res.status(500).json({ success: false, message: error.message || 'Failed to sync session' });
@@ -2082,7 +2137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }));
 
-      console.log(`Offline coordinates synced for session ${sessionId}:`, results.length);
+      log.info(`Offline coordinates synced for session ${sessionId}:`, results.length);
       return res.json({ success: true, results, message: 'Coordinates synced' });
     } catch (error: any) {
       return res.status(500).json({ success: false, message: error.message || 'Failed to sync coordinates' });

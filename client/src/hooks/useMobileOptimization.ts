@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { log } from "../utils/logger.js";
 
 interface DeviceCapabilities {
   hasTouch: boolean;
@@ -189,7 +190,7 @@ export const useMobileOptimization = (options: UseMobileOptimizationOptions = {}
           battery.removeEventListener('dischargingtimechange', updateBattery);
         };
       } catch {
-        console.log('Battery API not supported');
+        log.dev('Battery API not supported');
       }
     };
 
@@ -248,7 +249,7 @@ export const useMobileOptimization = (options: UseMobileOptimizationOptions = {}
           await (screen.orientation as any).lock('portrait-primary');
         }
       } catch {
-        console.log('Orientation lock not supported or failed');
+        log.dev('Orientation lock not supported or failed');
       }
     };
 
@@ -356,14 +357,14 @@ export const useMobileOptimization = (options: UseMobileOptimizationOptions = {}
         return wakeLock;
       }
     } catch {
-      console.log('Wake lock not supported or failed');
+      log.dev('Wake lock not supported or failed');
     }
     return null;
   }, []);
 
   const addToHomeScreen = useCallback(() => {
     // Typically triggered by beforeinstallprompt event
-    console.log('Add to home screen functionality would be implemented here');
+    log.dev('Add to home screen functionality would be implemented here');
   }, []);
 
   const optimizeForBattery = useCallback(() => {

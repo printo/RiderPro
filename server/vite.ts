@@ -5,6 +5,7 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
+import { log as appLogger } from "../shared/utils/logger.js";
 
 const viteLogger = createLogger();
 
@@ -17,9 +18,9 @@ export function log(message: string, source = "express") {
   });
 
   if (source === 'scheduler') {
-    console.log(`⚙️  ${formattedTime} Database scheduler initialized`);
+    appLogger.dev(`⚙️  ${formattedTime} Database scheduler initialized`);
   } else {
-    console.log(`${formattedTime} [${source}] ${message}`);
+    appLogger.dev(`${formattedTime} [${source}] ${message}`);
   }
 }
 

@@ -297,7 +297,7 @@ function ShipmentsWithTracking() {
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">{errorMessage}</h3>
-                {process.env.NODE_ENV === "development" && (
+                {import.meta.env.MODE === "development" && (
                   <div className="mt-2 text-sm text-red-700">
                     <details>
                       <summary className="cursor-pointer text-sm">

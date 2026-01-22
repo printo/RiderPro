@@ -4,6 +4,7 @@ import { BatteryOptimizationService } from './BatteryOptimizationService';
 import { PerformanceMonitoringService } from './PerformanceMonitoringService';
 import { ErrorHandlingService } from './ErrorHandlingService';
 import { GPSErrorRecoveryService } from './GPSErrorRecoveryService';
+import { log } from "../utils/logger.js";
 
 export interface GPSPosition {
   latitude: number;
@@ -263,7 +264,7 @@ export class GPSTracker {
       }
     );
 
-    console.log(`GPS tracking started for session: ${sessionId}`);
+    log.dev(`GPS tracking started for session: ${sessionId}`);
   }
 
   /**
@@ -280,7 +281,7 @@ export class GPSTracker {
     this.onLocationUpdate = undefined;
     this.onError = undefined;
 
-    console.log('GPS tracking stopped');
+    log.dev('GPS tracking stopped');
   }
 
   /**
@@ -465,7 +466,7 @@ export class GPSTracker {
     // Listen for optimization changes
     this.batteryOptimization.addOptimizationListener((interval, reason) => {
       this.adaptiveTrackingInterval = interval;
-      console.log(`GPS tracking interval adjusted to ${interval}ms: ${reason}`);
+      log.dev(`GPS tracking interval adjusted to ${interval}ms: ${reason}`);
     });
 
     // Initial optimization check
@@ -490,7 +491,7 @@ export class GPSTracker {
 
     if (interval !== this.adaptiveTrackingInterval) {
       this.adaptiveTrackingInterval = interval;
-      console.log(`Adaptive tracking: ${reason} - interval: ${interval}ms`);
+      log.dev(`Adaptive tracking: ${reason} - interval: ${interval}ms`);
 
       // Restart tracking with new interval if needed
       if (this.watchId !== null) {

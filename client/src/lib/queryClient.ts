@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 import { apiClient, ApiRequestConfig } from '@/services/ApiClient';
+import { log } from "../utils/logger.js";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,7 +20,7 @@ export const apiRequest = async (
   url: string,
   data?: any
 ): Promise<Response> => {
-  console.log('🌐 apiRequest called:', {
+  log.dev('🌐 apiRequest called:', {
     method: method.toUpperCase(),
     url,
     hasData: !!data,
@@ -37,7 +38,7 @@ export const apiRequest = async (
   try {
     const response = await apiClient.request(config);
 
-    console.log('✅ apiRequest response:', {
+    log.dev('✅ apiRequest response:', {
       method: method.toUpperCase(),
       url,
       status: response.status,

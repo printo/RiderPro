@@ -1,6 +1,7 @@
 import { liveDb, replicaDb } from './connection.js';
 import { Shipment, InsertShipment, UpdateShipment, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType, FuelSetting, InsertFuelSetting, UpdateFuelSetting } from '@shared/schema';
 import { randomUUID } from 'crypto';
+import { calculateShipmentDistance } from '../utils/distanceCalculator.js';
 
 export class ShipmentQueries {
   private db: any;
@@ -72,7 +73,7 @@ export class ShipmentQueries {
     }
 
     if (filters.search) {
-      const condition = ` AND (customerName LIKE ? OR address LIKE ? OR id LIKE ?)`;
+      const condition = ` AND (customerName LIKE ? OR address LIKE ? OR shipment_id LIKE ?)`;
       countQuery += condition;
       dataQuery += condition;
       const searchTerm = `%${filters.search}%`;
@@ -107,8 +108,8 @@ export class ShipmentQueries {
   }
 
   getShipmentByExternalId(externalId: string): Shipment | null {
-    // Try to find by trackingNumber first (which stores external ID)
-    let shipment = this.db.prepare('SELECT * FROM shipments WHERE trackingNumber = ?').get(externalId);
+    // Try to find by shipment_id first (which IS the external ID in this system)
+    let shipment = this.db.prepare('SELECT * FROM shipments WHERE shipment_id = ?').get(externalId);
 
     // If not found and we have a piashipmentid column, try that too
     if (!shipment) {
@@ -135,7 +136,7 @@ export class ShipmentQueries {
         signature_url, photo_url, acknowledgment_captured_at,
         synced_to_external, last_sync_attempt, sync_error, sync_attempts,
         acknowledgment_captured_by, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // Map schema fields to database fields
@@ -181,7 +182,7 @@ export class ShipmentQueries {
           signature_url, photo_url, acknowledgment_captured_at,
           synced_to_external, last_sync_attempt, sync_error, sync_attempts,
           acknowledgment_captured_by, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       replicaStmt.run(
@@ -253,7 +254,7 @@ export class ShipmentQueries {
     if (trackingData.start_latitude !== undefined || trackingData.start_longitude !== undefined ||
       trackingData.stop_latitude !== undefined || trackingData.stop_longitude !== undefined) {
 
-      const { calculateShipmentDistance } = require('../utils/distanceCalculator');
+
 
       // Merge current data with new tracking data
       const mergedData = {
@@ -405,25 +406,19 @@ export class ShipmentQueries {
       return this.getShipmentById(shipment_id);
     }
 
-    const stmt = this.db.prepare(`
-      UPDATE shipments 
-      SET ${updateFields.join(', ')}
-      WHERE shipment_id = ?
-    `);
+    const query = `UPDATE shipments SET ${updateFields.join(', ')} WHERE shipment_id = ?`;
+    updateValues.push(shipment_id);
 
+    const stmt = this.db.prepare(query);
     const result = stmt.run(...updateValues);
 
     if (result.changes === 0) {
       return null;
     }
 
-    // Also update replica if updating live db
+    // Also update replica
     if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        UPDATE shipments 
-        SET ${updateFields.join(', ')}
-        WHERE shipment_id = ?
-      `);
+      const replicaStmt = replicaDb.prepare(query);
       replicaStmt.run(...updateValues);
     }
 
@@ -437,13 +432,13 @@ export class ShipmentQueries {
       const stmt = this.db.prepare(`
         UPDATE shipments 
         SET status = ?, updatedAt = ?
-        WHERE id = ?
+        WHERE shipment_id = ?
       `);
 
       const replicaStmt = replicaDb.prepare(`
         UPDATE shipments 
         SET status = ?, updatedAt = ?
-        WHERE id = ?
+        WHERE shipment_id = ?
       `);
 
       const now = new Date().toISOString();
@@ -463,7 +458,7 @@ export class ShipmentQueries {
     return totalUpdated;
   }
 
-  getDashboardMetrics(): DashboardMetrics {
+  getDashboardMetrics(employeeId?: string): DashboardMetrics {
     // Initialize default values for when there's no data
     const defaultMetrics: DashboardMetrics = {
       totalShipments: 0,
@@ -476,7 +471,11 @@ export class ShipmentQueries {
     };
 
     try {
-      const totalShipmentsResult = this.db.prepare('SELECT COUNT(*) as count FROM shipments').get();
+      // Build where clause for employee filtering
+      const whereClause = employeeId ? 'WHERE employeeId = ?' : '';
+      const params = employeeId ? [employeeId] : [];
+
+      const totalShipmentsResult = this.db.prepare(`SELECT COUNT(*) as count FROM shipments ${whereClause}`).get(...params);
       const totalShipments = totalShipmentsResult ? totalShipmentsResult.count : 0;
 
       // If there are no shipments, return default metrics
@@ -487,14 +486,16 @@ export class ShipmentQueries {
       const statusStats = this.db.prepare(`
         SELECT status, COUNT(*) as count 
         FROM shipments 
+        ${whereClause}
         GROUP BY status
-      `).all();
+      `).all(...params);
 
       const typeStats = this.db.prepare(`
         SELECT type, COUNT(*) as count 
         FROM shipments 
+        ${whereClause}
         GROUP BY type
-      `).all();
+      `).all(...params);
 
       const routeStats = this.db.prepare(`
         SELECT 
@@ -507,8 +508,9 @@ export class ShipmentQueries {
           SUM(CASE WHEN status = 'Assigned' AND type = 'pickup' THEN 1 ELSE 0 END) as pickupPending,
           SUM(CASE WHEN status = 'Assigned' AND type = 'delivery' THEN 1 ELSE 0 END) as deliveryPending
         FROM shipments 
+        ${whereClause}
         GROUP BY routeName
-      `).all();
+      `).all(...params);
 
       const statusBreakdown: Record<string, number> = {};
       let completed = 0;
@@ -859,6 +861,113 @@ export class ShipmentQueries {
     const stmt = this.db.prepare('SELECT * FROM fuel_settings WHERE id = ?');
     const fuelSetting = stmt.get(id);
     return fuelSetting || null;
+  }
+
+  recordShipmentEvent(event: {
+    sessionId: string;
+    shipmentId: string;
+    eventType: string;
+    latitude: number;
+    longitude: number;
+    employeeId: string;
+  }): any {
+    const now = new Date().toISOString();
+    const date = now.split('T')[0];
+
+    // 1. Record in route_tracking table
+    const stmt = this.db.prepare(`
+      INSERT INTO route_tracking (
+        session_id, employee_id, latitude, longitude, timestamp, 
+        event_type, shipment_id, date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const result = stmt.run(
+      event.sessionId,
+      event.employeeId,
+      event.latitude,
+      event.longitude,
+      now,
+      event.eventType,
+      event.shipmentId,
+      date
+    );
+
+    // 2. Update the shipment itself with the stop coordinates
+    this.updateShipmentTracking(event.shipmentId, {
+      stop_latitude: event.latitude,
+      stop_longitude: event.longitude
+    });
+
+    return { id: result.lastInsertRowid, ...event, timestamp: now };
+  }
+
+  startRouteSession(data: any): any {
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare(`
+      INSERT INTO route_sessions (
+        id, employee_id, status, start_time, start_latitude, start_longitude, shipment_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      data.id,
+      data.employeeId,
+      'active',
+      now,
+      data.startLatitude,
+      data.startLongitude,
+      data.shipmentId || null
+    );
+
+    return { ...data, startTime: now, status: 'active' };
+  }
+
+  stopRouteSession(data: any): any {
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare(`
+      UPDATE route_sessions 
+      SET status = 'completed', end_time = ?, end_latitude = ?, end_longitude = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(
+      now,
+      data.endLatitude,
+      data.endLongitude,
+      data.sessionId
+    );
+
+    return { ...data, endTime: now, status: 'completed' };
+  }
+
+  recordCoordinate(data: any): any {
+    const now = new Date().toISOString();
+    const date = now.split('T')[0];
+    const stmt = this.db.prepare(`
+      INSERT INTO route_tracking (
+        session_id, employee_id, latitude, longitude, timestamp, date
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    // In a real app we'd need employeeId here. 
+    // For now we'll try to find it from the session if not provided.
+    let employeeId = data.employeeId;
+    if (!employeeId) {
+      const session = this.db.prepare('SELECT employee_id FROM route_sessions WHERE id = ?').get(data.sessionId);
+      employeeId = session?.employee_id || 'unknown';
+    }
+
+    const result = stmt.run(
+      data.sessionId,
+      employeeId,
+      data.latitude,
+      data.longitude,
+      data.timestamp || now,
+      date
+    );
+
+    return { id: result.lastInsertRowid, ...data };
   }
 
   createFuelSetting(fuelSetting: InsertFuelSetting): FuelSetting {

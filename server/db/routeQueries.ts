@@ -1,6 +1,7 @@
 import { liveDb, replicaDb } from './connection.js';
 import { RouteTracking, InsertRouteTracking, RouteSession, GPSCoordinate, RouteAnalytics, RouteFilters } from '@shared/schema';
 import { randomUUID } from 'crypto';
+import { log } from "../../shared/utils/logger.js";
 
 export class RouteTrackingQueries {
   private db: any;
@@ -445,7 +446,7 @@ export class RouteTrackingQueries {
         );
       }
 
-      console.log(`Updated analytics for session ${sessionId}: ${totalDistance.toFixed(1)}km, ${shipmentsCompleted} shipments`);
+      log.dev(`Updated analytics for session ${sessionId}: ${totalDistance.toFixed(1)}km, ${shipmentsCompleted} shipments`);
 
     } catch (error) {
       console.error(`Failed to update analytics for session ${sessionId}:`, error);

@@ -1,3 +1,5 @@
+import { log } from "../utils/logger.js";
+
 /**
  * Health Check Optimization Service
  * 
@@ -75,7 +77,7 @@ class HealthCheckOptimizer {
   public updateConfig(newConfig: Partial<HealthCheckConfig>): void {
     this.config = { ...this.config, ...newConfig };
     this.saveConfigToStorage();
-    console.log('[HealthCheckOptimizer] Configuration updated:', this.config);
+    log.dev('[HealthCheckOptimizer] Configuration updated:', this.config);
   }
 
   /**
@@ -167,7 +169,7 @@ class HealthCheckOptimizer {
           30000 // Max 30 seconds
         );
 
-        console.log(`[HealthCheckOptimizer] Retrying ${endpoint} in ${delay}ms (attempt ${retryCount + 1})`);
+        log.dev(`[HealthCheckOptimizer] Retrying ${endpoint} in ${delay}ms (attempt ${retryCount + 1})`);
 
         // Wait before retry
         await new Promise(resolve => setTimeout(resolve, delay));

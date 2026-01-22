@@ -17,6 +17,7 @@ import IntegrationChecker from '../services/IntegrationChecker.js';
 import SystemMonitoringService from '../services/SystemMonitoringService';
 import { runStartupValidation, validateEnvironmentConfiguration, logSystemInfo } from '../startup/validation';
 import config from '../config';
+import { log } from "../../shared/utils/logger.js";
 
 interface ValidationOptions {
   verbose?: boolean;
@@ -53,64 +54,64 @@ class SystemValidator {
   }
 
   async runValidation(): Promise<boolean> {
-    console.log('🚀 Starting comprehensive system validation...\n');
+    log.dev('🚀 Starting comprehensive system validation...\n');
 
     let overallSuccess = true;
 
     try {
       // Step 1: Environment Configuration Validation
-      console.log('📋 Step 1: Environment Configuration Validation');
+      log.dev('📋 Step 1: Environment Configuration Validation');
       this.results.environment = this.validateEnvironment();
       if (!this.results.environment.valid) {
         overallSuccess = false;
-        console.log('❌ Environment validation failed');
-        this.results.environment.errors.forEach((error: string) => console.log(`  - ${error}`));
+        log.dev('❌ Environment validation failed');
+        this.results.environment.errors.forEach((error: string) => log.dev(`  - ${error}`));
       } else {
-        console.log('✅ Environment validation passed');
+        log.dev('✅ Environment validation passed');
       }
-      console.log('');
+      log.dev('');
 
       // Step 2: Startup Validation
-      console.log('🔧 Step 2: Startup Validation');
+      log.dev('🔧 Step 2: Startup Validation');
       this.results.startup = await runStartupValidation();
       if (!this.results.startup.success) {
         overallSuccess = false;
-        console.log('❌ Startup validation failed');
-        this.results.startup.errors.forEach((error: string) => console.log(`  - ${error}`));
+        log.dev('❌ Startup validation failed');
+        this.results.startup.errors.forEach((error: string) => log.dev(`  - ${error}`));
       } else {
-        console.log('✅ Startup validation passed');
+        log.dev('✅ Startup validation passed');
       }
-      console.log('');
+      log.dev('');
 
       // Step 3: System Validation
-      console.log('🔍 Step 3: System Validation');
+      log.dev('🔍 Step 3: System Validation');
       const systemValidator = SystemValidationService.getInstance(storage.getDatabase());
       this.results.system = await systemValidator.runFullValidation();
       if (this.results.system.overallStatus === 'FAIL') {
         overallSuccess = false;
-        console.log('❌ System validation failed');
+        log.dev('❌ System validation failed');
       } else {
-        console.log('✅ System validation passed');
+        log.dev('✅ System validation passed');
       }
-      console.log('');
+      log.dev('');
 
       // Step 4: Integration Testing
       if (!this.options.skipIntegration) {
-        console.log('🔧 Step 4: Integration Testing');
+        log.dev('🔧 Step 4: Integration Testing');
         const integrationChecker = IntegrationChecker.getInstance(storage.getDatabase());
         this.results.integration = await integrationChecker.runAllTests();
         if (this.results.integration.overallStatus === 'FAIL') {
           overallSuccess = false;
-          console.log('❌ Integration tests failed');
+          log.dev('❌ Integration tests failed');
         } else {
-          console.log('✅ Integration tests passed');
+          log.dev('✅ Integration tests passed');
         }
-        console.log('');
+        log.dev('');
       }
 
       // Step 5: Performance Validation
       if (!this.options.skipPerformance) {
-        console.log('⚡ Step 5: Performance Validation');
+        log.dev('⚡ Step 5: Performance Validation');
         const performanceMonitor = SystemMonitoringService.getInstance(storage.getDatabase(), config.monitoring);
         const metrics = await performanceMonitor.collectMetrics();
         const thresholdCheck = performanceMonitor.checkPerformanceThresholds(metrics);
@@ -123,12 +124,12 @@ class SystemValidator {
 
         if (!thresholdCheck.passed) {
           overallSuccess = false;
-          console.log('❌ Performance validation failed');
-          thresholdCheck.violations.forEach(violation => console.log(`  - ${violation}`));
+          log.dev('❌ Performance validation failed');
+          thresholdCheck.violations.forEach(violation => log.dev(`  - ${violation}`));
         } else {
-          console.log('✅ Performance validation passed');
+          log.dev('✅ Performance validation passed');
         }
-        console.log('');
+        log.dev('');
       }
 
       // Generate Report
@@ -137,24 +138,24 @@ class SystemValidator {
       }
 
       // Final Summary
-      console.log('📊 Validation Summary');
-      console.log('='.repeat(50));
-      console.log(`Overall Status: ${overallSuccess ? '✅ PASS' : '❌ FAIL'}`);
-      console.log(`Environment: ${this.results.environment.valid ? '✅' : '❌'}`);
-      console.log(`Startup: ${this.results.startup.success ? '✅' : '❌'}`);
-      console.log(`System: ${this.results.system.overallStatus === 'PASS' ? '✅' : '❌'}`);
+      log.dev('📊 Validation Summary');
+      log.dev('='.repeat(50));
+      log.dev(`Overall Status: ${overallSuccess ? '✅ PASS' : '❌ FAIL'}`);
+      log.dev(`Environment: ${this.results.environment.valid ? '✅' : '❌'}`);
+      log.dev(`Startup: ${this.results.startup.success ? '✅' : '❌'}`);
+      log.dev(`System: ${this.results.system.overallStatus === 'PASS' ? '✅' : '❌'}`);
       if (!this.options.skipIntegration) {
-        console.log(`Integration: ${this.results.integration.overallStatus === 'PASS' ? '✅' : '❌'}`);
+        log.dev(`Integration: ${this.results.integration.overallStatus === 'PASS' ? '✅' : '❌'}`);
       }
       if (!this.options.skipPerformance) {
-        console.log(`Performance: ${this.results.performance.passed ? '✅' : '❌'}`);
+        log.dev(`Performance: ${this.results.performance.passed ? '✅' : '❌'}`);
       }
-      console.log('='.repeat(50));
+      log.dev('='.repeat(50));
 
       if (overallSuccess) {
-        console.log('🎉 All validation checks passed! System is ready for deployment.');
+        log.dev('🎉 All validation checks passed! System is ready for deployment.');
       } else {
-        console.log('🚨 Some validation checks failed. Please review the issues above.');
+        log.dev('🚨 Some validation checks failed. Please review the issues above.');
       }
 
       return overallSuccess;
@@ -166,7 +167,7 @@ class SystemValidator {
   }
 
   private validateEnvironment() {
-    console.log('  Checking environment configuration...');
+    log.dev('  Checking environment configuration...');
     const envValidation = validateEnvironmentConfiguration();
 
     if (this.options.verbose) {
@@ -177,7 +178,7 @@ class SystemValidator {
   }
 
   private async generateValidationReport(): Promise<void> {
-    console.log('📄 Generating validation report...');
+    log.dev('📄 Generating validation report...');
 
     const timestamp = new Date().toISOString();
     const reportLines = [
@@ -265,9 +266,9 @@ class SystemValidator {
     if (this.options.outputFile) {
       const fs = await import('fs/promises');
       await fs.writeFile(this.options.outputFile, reportContent);
-      console.log(`  Report saved to: ${this.options.outputFile}`);
+      log.dev(`  Report saved to: ${this.options.outputFile}`);
     } else {
-      console.log('  Report generated (use --output-file to save to disk)');
+      log.dev('  Report generated (use --output-file to save to disk)');
     }
   }
 }
@@ -302,7 +303,7 @@ async function main() {
         break;
       case '--help':
       case '-h':
-        console.log(`
+        log.dev(`
 System Validation Script
 
 Usage: npm run validate-system [options]

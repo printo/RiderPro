@@ -4,12 +4,16 @@ A comprehensive delivery management system built with React, TypeScript, and Exp
 
 ## 🆕 Latest Updates
 
-### ✅ Enhanced User Interface & Experience (Latest)
-- **Pie Chart Analytics**: Beautiful status distribution charts with hover effects and percentages
-- **Responsive Design**: Mobile-optimized tabs and layouts for all screen sizes
-- **Smart Status Management**: Footer-style action buttons with GPS tracking integration
-- **Visual Feedback**: Blinking GPS icons, smooth animations, and intuitive interactions
-- **Access Control**: Super user-only revert functionality for status management
+### ✅ Enhanced Dashboard & Operations (Latest Overhaul)
+- **Responsive Dashboard Grid**: Optimized 2-column layout that auto-adjusts for mobile and desktop, ensuring all metrics are visible without excessive scrolling.
+- **Smart Completion Modal**: Moved smart completion settings into a sticky-header modal to prevent UI shifts and improve accessibility.
+- **Improved Sync Terminology**: Clarified sync statuses ("Cloud Server" vs "Local Network") for better operational understanding.
+- **Adaptive Metrics Grid**: Real-time session metrics (Distance, Speed, Points) now automatically reformat into a clean grid on smaller screens.
+- **Optimized Visual Containers**: All dashboard elements are now contained within a unified "White Box" design system for a more premium, organized look.
+
+### ✅ Cleanup & Maintenance
+- **File System Optimization**: Removed deprecated audit logs, duplicate configurations, and dictionary files to keep the repository lean and focused.
+- **Visual Consistency**: Standardized padding, borders, and shadows across all widget components.
 
 ### ✅ Advanced Shipment Management
 - **Real-time Status Updates**: Live shipment status tracking with GPS coordinates
@@ -130,6 +134,20 @@ npm run dev
 - **Sharp** for image processing and optimization
 - **Axios** with retry logic for external API calls
 - **Node-cron** for automated maintenance tasks
+
+## 📊 Data Flow & Storage
+
+The system employs a multi-layered data architecture designed for reliability and offline-first operations.
+
+### 1. Storage Layers
+- **In-Memory Cache (React Query)**: Most application data (Shipments, Vehicle Types, Metrics) is cached in memory for instant UI responsiveness.
+- **Persistent Local Storage (IndexedDB)**: Critical tracking data (GPS points, active sessions) is stored in the browser's IndexedDB (`RouteTrackingOffline`) to prevent data loss during network outages.
+- **Server-Side Database (SQLite)**: The final source of truth, using a dual database setup (live + replica) for high availability.
+
+### 2. Data Retrieval & Sync
+- **Centralized API Client**: A robust wrapper around `fetch` that handles authentication, token refreshes, and exponential backoff retries.
+- **Custom Hooks State Management**: Components interact with data through specialized hooks (`useShipments`, `useVehicleTypes`) that abstract away the complexity of caching and network state.
+- **Background Sync Engine**: Automatically detects network restoration and batches unsynced records from IndexedDB to the server, ensuring complete data integrity for field operations.
 
 ## 🏗️ Project Structure
 

@@ -80,7 +80,7 @@ function StatusDistributionPieChart({ statusBreakdown }: StatusDistributionPieCh
     <Card data-testid="card-status-chart">
       <CardContent className="pt-6">
         <h3 className="text-lg font-semibold text-foreground mb-4">Status Distribution</h3>
-        <div className="flex items-center justify-center space-x-8">
+        <div className="flex flex-col sm:flex-row items-center justify-center space-y-6 sm:space-y-0 sm:space-x-8">
           {/* Pie Chart */}
           <div className="flex-shrink-0">
             <svg width="160" height="160" viewBox="0 0 160 160" className="drop-shadow-sm">

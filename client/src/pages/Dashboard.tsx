@@ -2,14 +2,14 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import SyncStatusPanel from "@/components/sync/SyncStatusPanel";
-import SyncStatusIndicator from "@/components/sync/SyncStatusIndicator";
+
 import StatusDistributionPieChart from "@/components/analytics/StatusDistributionPieChart";
 import RoutePerformanceChart from "@/components/analytics/RoutePerformanceChart";
 import RouteSummary from "@/components/routes/RouteSummary";
 import RouteSessionControls from "@/components/routes/RouteSessionControls";
 import { Package, CheckCircle, Clock, HourglassIcon, Navigation, Wifi } from "lucide-react";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
-import { useRouteTracking } from "@/hooks/useRouteAPI";
+// import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { useAuth } from "@/hooks/useAuth";
 
 function Dashboard() {
@@ -17,7 +17,6 @@ function Dashboard() {
   const { user, logout } = useAuth();
 
   const employeeId = user?.employeeId || user?.username || "default-user";
-  const { hasActiveSession, activeSession } = useRouteTracking(employeeId);
 
   if (isLoading) {
     return (
@@ -66,7 +65,7 @@ function Dashboard() {
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800 dark:text-red-400">{errorMessage}</h3>
-              {process.env.NODE_ENV === 'development' && (
+              {import.meta.env.MODE === 'development' && (
                 <div className="mt-2 text-sm text-red-700 dark:text-red-400">
                   <p>Error details:</p>
                   <pre className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 rounded overflow-auto text-xs">
@@ -134,154 +133,106 @@ function Dashboard() {
         </p>
       </div>
 
-      {/* Route Tracking & Sync Status */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 min-w-0">
-            {/* Route Tracking Section */}
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-3">
-                <Navigation className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <h3 className="text-lg font-semibold">Route Tracking</h3>
-              </div>
-              <div className="space-y-4 min-w-0">
-                <RouteSessionControls
-                  employeeId={employeeId}
-                  onSessionStart={() => console.log("Route session started")}
-                  onSessionStop={() => console.log("Route session stopped")}
-                />
-                {hasActiveSession && (
-                  <Card className="bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
-                    <CardContent className="p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Navigation className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        <span className="text-sm font-medium text-blue-800 dark:text-blue-400">
-                          Active Session
-                        </span>
-                      </div>
-                      <p className="text-xs text-blue-600 dark:text-blue-400">
-                        GPS tracking active for deliveries
-                      </p>
-                      {activeSession && (
-                        <p className="text-xs text-blue-500 dark:text-blue-500 mt-1">
-                          ID: {activeSession.id.slice(-8)}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            </div>
-
-            {/* Sync Status Section */}
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-3">
-                <Wifi className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <h3 className="text-lg font-semibold">Sync Status</h3>
-              </div>
-              <div className="space-y-4 min-w-0">
-                {/* External Sync Status */}
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">External Sync</h4>
-                  <SyncStatusPanel />
+      <div className="bg-white dark:bg-card rounded-xl border border-border/60 shadow-sm p-4 sm:p-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+          {/* LEFT COLUMN: Key Metrics (Compact Grid on Mobile) */}
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-4 h-full">
+            <Card data-testid="card-total-shipments" className="shadow-sm border-border/60">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      Total Shipments
+                    </p>
+                    <p
+                      className="text-2xl sm:text-4xl font-extrabold text-foreground"
+                      data-testid="text-total-shipments"
+                    >
+                      {metrics.totalShipments}
+                    </p>
+                  </div>
+                  <div className="bg-primary/10 p-2 sm:p-3 rounded-xl">
+                    <Package className="text-primary h-6 w-6 sm:h-8 sm:w-8" />
+                  </div>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Offline Sync Status */}
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Offline Sync</h4>
-                  <SyncStatusIndicator showDetails={true} />
+            <Card data-testid="card-in-progress" className="shadow-sm border-border/60">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      In Progress
+                    </p>
+                    <p
+                      className="text-2xl sm:text-4xl font-extrabold text-amber-600 dark:text-amber-500"
+                      data-testid="text-in-progress"
+                    >
+                      {metrics.inProgress}
+                    </p>
+                  </div>
+                  <div className="bg-amber-100 dark:bg-amber-900/30 p-2 sm:p-3 rounded-xl">
+                    <Clock className="text-amber-600 dark:text-amber-500 h-6 w-6 sm:h-8 sm:w-8" />
+                  </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-completed" className="shadow-sm border-border/60">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      Completed
+                    </p>
+                    <p
+                      className="text-2xl sm:text-4xl font-extrabold text-green-600 dark:text-green-500"
+                      data-testid="text-completed"
+                    >
+                      {metrics.completed}
+                    </p>
+                  </div>
+                  <div className="bg-green-100 dark:bg-green-900/30 p-2 sm:p-3 rounded-xl">
+                    <CheckCircle className="text-green-600 dark:text-green-500 h-6 w-6 sm:h-8 sm:w-8" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card data-testid="card-pending" className="shadow-sm border-border/60">
+              <CardContent className="p-4 sm:p-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      Pending
+                    </p>
+                    <p
+                      className="text-2xl sm:text-4xl font-extrabold text-blue-600 dark:text-blue-500"
+                      data-testid="text-pending"
+                    >
+                      {metrics.pending}
+                    </p>
+                  </div>
+                  <div className="bg-blue-100 dark:bg-blue-900/30 p-2 sm:p-3 rounded-xl">
+                    <HourglassIcon className="text-blue-600 dark:text-blue-500 h-6 w-6 sm:h-8 sm:w-8" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Key Metrics Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <Card data-testid="card-total-shipments">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Total Shipments
-                </p>
-                <p
-                  className="text-2xl font-bold text-foreground"
-                  data-testid="text-total-shipments"
-                >
-                  {metrics.totalShipments}
-                </p>
-              </div>
-              <div className="bg-primary/10 p-3 rounded-lg">
-                <Package className="text-primary h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          {/* RIGHT COLUMN: Stacked Operations (Tracking & Sync) */}
+          <div className="flex flex-col gap-6 h-full">
+            <RouteSessionControls
+              employeeId={employeeId}
+              onSessionStart={() => console.log("Route session started")}
+              onSessionStop={() => console.log("Route session stopped")}
+            />
 
-        <Card data-testid="card-completed">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Completed
-                </p>
-                <p
-                  className="text-2xl font-bold text-green-600 dark:text-green-400"
-                  data-testid="text-completed"
-                >
-                  {metrics.completed}
-                </p>
-              </div>
-              <div className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg">
-                <CheckCircle className="text-green-600 dark:text-green-400 h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card data-testid="card-in-progress">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  In Progress
-                </p>
-                <p
-                  className="text-2xl font-bold text-yellow-600 dark:text-yellow-400"
-                  data-testid="text-in-progress"
-                >
-                  {metrics.inProgress}
-                </p>
-              </div>
-              <div className="bg-yellow-100 dark:bg-yellow-900/30 p-3 rounded-lg">
-                <Clock className="text-yellow-600 dark:text-yellow-400 h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card data-testid="card-pending">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Pending
-                </p>
-                <p
-                  className="text-2xl font-bold text-blue-600 dark:text-blue-400"
-                  data-testid="text-pending"
-                >
-                  {metrics.pending}
-                </p>
-              </div>
-              <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
-                <HourglassIcon className="text-blue-600 dark:text-blue-400 h-6 w-6" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <SyncStatusPanel className="flex-1" />
+          </div>
+        </div>
       </div>
 
       {/* Charts Section */}

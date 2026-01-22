@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { storage } from '../storage';
 import { AuthenticatedRequest } from './auth';
 import { logAuditEvent, AuditEventType } from './audit';
+import { log } from "../../shared/utils/logger.js";
 
 // Privacy consent types
 export enum ConsentType {
@@ -90,7 +91,7 @@ export const initializePrivacyManagement = () => {
 
     insertDefaultAnonymizationRules();
 
-    console.log('Privacy management system initialized');
+    log.dev('Privacy management system initialized');
   } catch (error) {
     console.error('Failed to initialize privacy management:', error);
   }

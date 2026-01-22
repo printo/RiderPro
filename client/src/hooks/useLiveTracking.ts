@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { RiderLocation } from '@/components/tracking/LiveTrackingMap';
+import { log } from "../utils/logger.js";
 
 interface LocationUpdate {
   type: 'location_update';
@@ -185,7 +186,7 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('WebSocket connected for live tracking');
+        log.dev('WebSocket connected for live tracking');
         setConnectionStatus('connected');
         setError(null);
         reconnectAttemptsRef.current = 0;
@@ -199,14 +200,14 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
       ws.onmessage = handleMessage;
 
       ws.onclose = (event) => {
-        console.log('WebSocket disconnected:', event.code, event.reason);
+        log.dev('WebSocket disconnected:', event.code, event.reason);
         setConnectionStatus('disconnected');
         wsRef.current = null;
 
         // Attempt to reconnect if not a clean close
         if (event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
-          console.log(`Attempting to reconnect (${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`);
+          log.dev(`Attempting to reconnect (${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`);
 
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();

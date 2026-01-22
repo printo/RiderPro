@@ -1,4 +1,6 @@
 import { Shipment } from '@shared/schema';
+import { log } from "../../shared/utils/logger.js";
+import { API_KEYS } from '../config/apiKeys.js';
 
 export interface ExternalSyncData {
   shipment_id: string;
@@ -55,7 +57,7 @@ export class ExternalApiService {
    * Rotates between available tokens for load balancing
    */
   private getAccessToken(): string {
-    const { API_KEYS } = require('../config/apiKeys.js');
+
     // Use a simple round-robin approach
     const tokens = [API_KEYS.ACCESS_TOKEN_1, API_KEYS.ACCESS_TOKEN_2];
     const randomIndex = Math.floor(Math.random() * tokens.length);
@@ -151,15 +153,15 @@ export class ExternalApiService {
       // Create optimized JSON payload
       const payload = JSON.stringify(syncData, null, 0); // Compact JSON for performance
 
-      console.log(`Syncing shipment ${syncData.shipment_id} to external API...`);
-      console.log('Payload size:', payload.length, 'bytes');
+      log.dev(`Syncing shipment ${syncData.shipment_id} to external API...`);
+      log.dev('Payload size:', payload.length, 'bytes');
 
       // Make API call with timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
       const accessToken = this.getAccessToken();
-      console.log(`Using access token: ${accessToken.substring(0, 10)}...`);
+      log.dev(`Using access token: ${accessToken.substring(0, 10)}...`);
 
       const response = await fetch(`${this.baseUrl}/shipments/sync`, {
         method: 'POST',
@@ -217,14 +219,14 @@ export class ExternalApiService {
         };
 
         const payload = JSON.stringify(batchPayload, null, 0);
-        console.log(`Batch syncing ${batch.length} shipments...`);
-        console.log('Batch payload size:', payload.length, 'bytes');
+        log.dev(`Batch syncing ${batch.length} shipments...`);
+        log.dev('Batch payload size:', payload.length, 'bytes');
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout * 2); // Longer timeout for batch
 
         const accessToken = this.getAccessToken();
-        console.log(`Using access token for batch sync: ${accessToken.substring(0, 10)}...`);
+        log.dev(`Using access token for batch sync: ${accessToken.substring(0, 10)}...`);
 
         const response = await fetch(`${this.baseUrl}/shipments/batch-sync`, {
           method: 'POST',
