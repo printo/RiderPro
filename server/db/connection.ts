@@ -517,32 +517,3 @@ export const syncToBackup = async () => {
   }
 };
 
-// Run initialization if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  (async () => {
-    try {
-      log.info('Starting database initialization...');
-      
-      // Check health first
-      const health = await checkDatabaseHealth();
-      if (!health.main) {
-        throw new Error('Main database connection failed');
-      }
-
-      // Initialize main database
-      await initTables();
-      
-      // Initialize backup database if in dev/alpha
-      if (isDevelopment || isLocalhost) {
-        await initBackupDatabase();
-        await syncToBackup();
-      }
-
-      log.info('✓ All databases initialized successfully');
-      process.exit(0);
-    } catch (error) {
-      log.error('Database initialization failed', error);
-      process.exit(1);
-    }
-  })();
-}
