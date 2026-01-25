@@ -4,7 +4,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes/index.js";
 import { setupVite, serveStatic } from "./vite.js";
 import { initializeAuth } from "./middleware/auth.js";
-import { initTables, initBackupDatabase, syncToBackup, checkDatabaseHealth } from "./db/connection.js";
+import { syncToBackup, checkDatabaseHealth } from "./db/connection.js";
 import cors from 'cors';
 import helmet from "helmet";
 import compression from "compression";
@@ -143,20 +143,22 @@ async function startServer() {
     }
 
     // Step 2: Initialize database tables
-    log.info('Initializing database tables...');
-    await initTables();
+    // Database initialization is now handled via explicit migration scripts
+    // Run 'npm run db:migrate' to initialize/update the database
+    log.info('Skipping auto-initialization of database tables (handled by migrations)');
 
     // Step 3: Initialize backup database (dev/alpha only)
     const isDev = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
     const isLocalOrAlpha = process.env.DEPLOYMENT_ENV === 'localhost' || process.env.DEPLOYMENT_ENV === 'alpha';
     
     if (isDev || isLocalOrAlpha) {
-      log.info('Initializing backup database for dev/alpha environment...');
-      await initBackupDatabase();
-      
       // Sync last 3 days of data
       log.info('Syncing recent data to backup database...');
-      await syncToBackup();
+      try {
+        await syncToBackup();
+      } catch (error) {
+        log.warn('Initial backup sync failed (backup DB might not be initialized)', error);
+      }
     }
 
     // Step 4: Initialize authentication

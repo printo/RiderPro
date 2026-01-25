@@ -1,4 +1,4 @@
-import { pool } from './connection.js';
+import { pool, backupPool, initTables, initBackupDatabase } from './connection.js';
 import { log } from "../../shared/utils/logger.js";
 import { PoolClient } from 'pg';
 
@@ -14,7 +14,9 @@ const migrations: Migration[] = [
     version: 1,
     name: 'initial_schema',
     up: async (_client) => {
-      log.info('Migration 1: Initial schema created by initTables()');
+      // For Main DB, initTables creates the full schema
+      log.info('Migration 1: Initializing Main DB Schema...');
+      await initTables();
     },
     down: async (client) => {
       await client.query('DROP TABLE IF EXISTS user_sessions CASCADE');
@@ -117,6 +119,8 @@ export const runMigrations = async () => {
   try {
     log.info('Starting migration process...');
     
+    // 1. Migrate Main Database
+    log.info('--- Checking Main Database ---');
     await createMigrationTable();
     const applied = await getAppliedMigrations();
     
@@ -129,8 +133,21 @@ export const runMigrations = async () => {
         log.info(`Migration ${migration.version} already applied, skipping`);
       }
     }
-    
-    log.info('✓ All migrations completed successfully');
+    log.info('✓ Main Database migrations completed successfully');
+
+    // 2. Initialize Backup Database (if available)
+    if (backupPool) {
+      log.info('--- Checking Backup Database ---');
+      try {
+        await initBackupDatabase();
+        log.info('✓ Backup Database initialized successfully');
+      } catch (error) {
+        log.warn('Failed to initialize Backup Database (it might not be available or needed)', error);
+      }
+    } else {
+        log.info('--- Backup Database not configured, skipping ---');
+    }
+
   } catch (error) {
     log.error('Migration process failed', error);
     throw error;
