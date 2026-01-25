@@ -8,18 +8,30 @@ const isProduction = process.env.NODE_ENV === 'production';
 const isLocalhost = process.env.DEPLOYMENT_ENV === 'localhost' || process.env.DEPLOYMENT_ENV === 'alpha';
 
 // Main database configuration
+const dbUrl = process.env.DATABASE_URL || 'postgres://postgres:password@localhost:5432/riderpro';
+const isSslDisabled = dbUrl.includes('sslmode=disable');
+
+// Log connection attempt for debugging
+if (isProduction) {
+  const sanitizedUrl = dbUrl.replace(/:[^:@]+@/, ':****@');
+  log.info(`Initializing DB connection. URL: ${sanitizedUrl}, SSL: ${!isSslDisabled ? 'Enabled' : 'Disabled'}`);
+}
+
 const mainDbConfig = {
-  connectionString: process.env.DATABASE_URL || 'postgres://postgres:password@localhost:5432/riderpro',
-  ssl: isProduction ? { rejectUnauthorized: false } : undefined,
+  connectionString: dbUrl,
+  ssl: isProduction && !isSslDisabled ? { rejectUnauthorized: false } : undefined,
   max: isProduction ? 20 : 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 };
 
 // Backup/replica database configuration (for dev/alpha environments only)
+const backupDbUrl = process.env.BACKUP_DATABASE_URL || 'postgres://postgres:password@localhost:5432/riderpro_backup';
+const isBackupSslDisabled = backupDbUrl.includes('sslmode=disable');
+
 const backupDbConfig = {
-  connectionString: process.env.BACKUP_DATABASE_URL || 'postgres://postgres:password@localhost:5432/riderpro_backup',
-  ssl: isProduction ? { rejectUnauthorized: false } : undefined,
+  connectionString: backupDbUrl,
+  ssl: isProduction && !isBackupSslDisabled ? { rejectUnauthorized: false } : undefined,
   max: 5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
