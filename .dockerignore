@@ -1,9 +1,22 @@
+# Node / build
 node_modules
 dist
+
+# Git / env
 .git
 .env
 .DS_Store
+
+# Local data
 data/*.db
 data/*.db-journal
+
+# Uploads
 uploads/*
 !uploads/.gitkeep
+
+# 🔥 MUST IGNORE CERTBOT & NGINX RUNTIME FILES
+nginx/certbot
+nginx/certbot/**
+nginx/conf.d/*.pem
+nginx/conf.d/*.key
