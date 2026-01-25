@@ -92,6 +92,28 @@ npm run check            # TypeScript check
 npm run lint             # Lint code
 ```
 
+## 🚀 Deployment (e2enetwork / SituationCommand)
+
+### Deploy new code
+```bash
+docker compose up -d --build
+```
+
+### Restart services
+```bash
+docker compose restart
+```
+
+### Reboot server
+```bash
+docker compose up -d
+```
+
+### 🔥 Nuclear reset
+```bash
+docker compose down --volumes  # ONLY if you accept data loss
+```
+
 ## 📁 Project Structure
 
 ```
