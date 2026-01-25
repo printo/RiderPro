@@ -182,7 +182,7 @@ app.get("/api-status", (req, res) => {
     }
 
     const port = parseInt(process.env.PORT || '5000', 10);
-    server.listen(port, () => {
+    server.listen(port, "0.0.0.0", () => {
       log.dev('\n=== RiderPro Delivery Management System ===');
       log.dev(`🚀 Server running on port ${port}`);
       log.dev(`🌐 Application: http://localhost:${port}`);
