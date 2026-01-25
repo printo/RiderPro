@@ -7,8 +7,8 @@ services:
         - VITE_ENABLE_CONSOLE_LOGS=true
         - VITE_LOG_LEVEL=INFO
     container_name: riderpro-app
-    ports:
-      - "5000:5000"
+    expose:
+      - "5000"
     volumes:
       - ./uploads:/app/uploads
     env_file:
@@ -31,6 +31,28 @@ services:
     restart: always
     command: /bin/sh docker-entrypoint.sh
     # command: sh -c "npm run build && npm start"
+
+  nginx:
+    image: nginx:alpine
+    container_name: riderpro-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    depends_on:
+      - app
+    restart: always
+
+  certbot:
+    image: certbot/certbot
+    container_name: riderpro-certbot
+    volumes:
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
   postgres:
     image: postgres:15-alpine
