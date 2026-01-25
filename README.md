@@ -1,6 +1,7 @@
 # RiderPro - Delivery Management System
 
-Complete PostgreSQL-based logistics platform with real-time GPS tracking, route optimization, and role-based access control.
+Complete PostgreSQL-based logistics platform with real-time GPS tracking, route
+optimization, and role-based access control.
 
 ## 🚀 Quick Start
 
@@ -14,6 +15,7 @@ npm run dev
 ```
 
 **That's it!** Docker will automatically:
+
 - ✅ Start PostgreSQL main database (port 5432)
 - ✅ Start PostgreSQL backup database (port 5433) - dev only
 - ✅ Initialize all tables and indexes
@@ -27,11 +29,13 @@ npm run dev
 ## 🗄️ Database (PostgreSQL 15)
 
 ### **Migration Complete: SQLite → PostgreSQL**
+
 - **Status**: ✅ Production ready
 - **Performance**: 20-100x faster queries
 - **Features**: Connection pooling, auto-sync backup (dev), optimized indexes
 
 ### Tables
+
 ```
 shipments          - External shipment data (unique: id)
 route_sessions     - Route tracking sessions
@@ -46,10 +50,12 @@ See [DATABASE.md](./DATABASE.md) for schema details.
 ## 🔑 Authentication & Roles
 
 ### Dual System
+
 1. **External API** (Printo) - Enterprise users
 2. **Local Database** - Self-hosted with approval workflow
 
 ### Roles & Access
+
 - **Super User**: Full access (all data + system config)
 - **Ops Team/Staff**: All shipments, all routes, all metrics
 - **Riders/Drivers**: Own shipments only, own routes only
@@ -57,6 +63,7 @@ See [DATABASE.md](./DATABASE.md) for schema details.
 ## 📊 Key Features
 
 ### Core
+
 - Real-time shipment tracking with GPS
 - Smart route optimization
 - Digital acknowledgments (photo + signature)
@@ -65,6 +72,7 @@ See [DATABASE.md](./DATABASE.md) for schema details.
 - Offline sync
 
 ### Technical
+
 - Role-based data filtering (query-level)
 - Automatic duplicate prevention (shipment ID uniqueness)
 - 3-day backup rotation (dev/alpha only)
@@ -94,22 +102,34 @@ npm run lint             # Lint code
 
 ## 🚀 Deployment (e2enetwork / SituationCommand)
 
-### Deploy new code
+### Deploy new code (Standard Procedure)
+
+Use this command after `git pull` to rebuild the container with the latest code.
+
 ```bash
 docker compose up -d --build
 ```
 
+_Note: The `--build` flag is critical to ensure the new code is compiled._
+
 ### Restart services
+
+Use this if the server is acting up but code hasn't changed.
+
 ```bash
 docker compose restart
 ```
 
 ### Reboot server
+
+Use this if the server was completely stopped or rebooted.
+
 ```bash
 docker compose up -d
 ```
 
 ### 🔥 Nuclear reset
+
 ```bash
 docker compose down --volumes  # ONLY if you accept data loss
 ```
@@ -135,6 +155,7 @@ RiderPro/
 ## 🔄 Data Flow
 
 ### External → Database
+
 ```
 Printo API → Webhook → Validation → PostgreSQL (main)
                                    ↓
@@ -142,20 +163,22 @@ Printo API → Webhook → Validation → PostgreSQL (main)
 ```
 
 ### Rider Updates → External
+
 ```
 Rider App → PostgreSQL → Async External API Call → Update sync status
 ```
 
 ### UI Data Access (Role-Based)
+
 ```
 User Login → Role Check → Filter queries by employeeId (riders) or all data (admin/ops)
 ```
 
 ## 🎯 Technology Stack
 
-**Frontend**: React 18, TypeScript, Vite, Tailwind CSS, TanStack Query  
-**Backend**: Node.js, Express, TypeScript  
-**Database**: PostgreSQL 15 with connection pooling  
+**Frontend**: React 18, TypeScript, Vite, Tailwind CSS, TanStack Query\
+**Backend**: Node.js, Express, TypeScript\
+**Database**: PostgreSQL 15 with connection pooling\
 **Infrastructure**: Docker, Docker Compose
 
 ## ⚙️ Environment Variables
@@ -177,17 +200,20 @@ JWT_SECRET=your-secret-key-32-chars-min
 ## 🆘 Troubleshooting
 
 ### "Connection refused"
+
 ```bash
 docker compose ps          # Check if PostgreSQL is running
 docker compose restart postgres
 ```
 
 ### "Tables not found"
+
 ```bash
 npm run db:init           # Manual initialization
 ```
 
 ### Check health
+
 ```bash
 curl http://localhost:5000/health
 ```
@@ -203,6 +229,6 @@ MIT License - see LICENSE file
 
 ---
 
-**Version**: PostgreSQL Migration Complete  
-**Date**: January 2026  
+**Version**: PostgreSQL Migration Complete\
+**Date**: January 2026\
 **Status**: ✅ Production Ready
