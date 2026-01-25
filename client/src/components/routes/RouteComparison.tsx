@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withChartErrorBoundary } from '@/components/ErrorBoundary';
+import { RouteSession } from '@shared/types';
 import {
   TrendingUp,
   TrendingDown,
@@ -19,27 +20,6 @@ import {
   Calendar,
   User
 } from 'lucide-react';
-
-interface RouteMetrics {
-  distance: number;
-  duration: number;
-  averageSpeed: number;
-  shipmentsCompleted: number;
-  fuelConsumption: number;
-  efficiency: number; // km per shipment
-  startTime: string;
-  endTime: string;
-}
-
-interface RouteSession {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  date: string;
-  metrics: RouteMetrics;
-  points: number;
-  status: 'completed' | 'active' | 'paused';
-}
 
 interface ComparisonMetric {
   name: string;
@@ -58,7 +38,7 @@ interface RouteComparisonProps {
 
 function RouteComparison({
   sessions,
-  onSessionSelect,
+  onSessionSelect: _onSessionSelect,
   onOptimizationSuggestion
 }: RouteComparisonProps) {
   const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
@@ -71,7 +51,7 @@ function RouteComparison({
       name: 'Distance',
       icon: <Route className="h-4 w-4" />,
       unit: 'km',
-      getValue: (session) => session.metrics.distance,
+      getValue: (session) => session.totalDistance || 0,
       format: (value) => `${value.toFixed(1)} km`,
       higherIsBetter: false
     },
@@ -79,7 +59,7 @@ function RouteComparison({
       name: 'Duration',
       icon: <Clock className="h-4 w-4" />,
       unit: 'hours',
-      getValue: (session) => session.metrics.duration / 3600,
+      getValue: (session) => (session.totalTime || 0) / 3600,
       format: (value) => {
         const hours = Math.floor(value);
         const minutes = Math.floor((value % 1) * 60);
@@ -91,7 +71,7 @@ function RouteComparison({
       name: 'Average Speed',
       icon: <Gauge className="h-4 w-4" />,
       unit: 'km/h',
-      getValue: (session) => session.metrics.averageSpeed,
+      getValue: (session) => session.averageSpeed || 0,
       format: (value) => `${value.toFixed(1)} km/h`,
       higherIsBetter: true
     },
@@ -99,7 +79,7 @@ function RouteComparison({
       name: 'Shipments',
       icon: <MapPin className="h-4 w-4" />,
       unit: 'count',
-      getValue: (session) => session.metrics.shipmentsCompleted,
+      getValue: (session) => session.shipmentsCompleted || 0,
       format: (value) => `${Math.round(value)}`,
       higherIsBetter: true
     },
@@ -107,7 +87,11 @@ function RouteComparison({
       name: 'Efficiency',
       icon: <Target className="h-4 w-4" />,
       unit: 'km/shipment',
-      getValue: (session) => session.metrics.efficiency,
+      getValue: (session) => {
+        const distance = session.totalDistance || 0;
+        const shipments = session.shipmentsCompleted || 1;
+        return distance / shipments;
+      },
       format: (value) => `${value.toFixed(2)} km/shipment`,
       higherIsBetter: false
     },
@@ -115,7 +99,12 @@ function RouteComparison({
       name: 'Fuel Consumption',
       icon: <Zap className="h-4 w-4" />,
       unit: 'L',
-      getValue: (session) => session.metrics.fuelConsumption,
+      getValue: (session) => {
+        // Calculate estimated fuel consumption based on distance and average efficiency
+        const distance = session.totalDistance || 0;
+        const estimatedFuelEfficiency = 8; // km per liter (default estimate)
+        return distance / estimatedFuelEfficiency;
+      },
       format: (value) => `${value.toFixed(1)} L`,
       higherIsBetter: false
     }
@@ -124,7 +113,7 @@ function RouteComparison({
   const filteredSessions = useMemo(() => {
     let filtered = sessions.filter(session => session.status === 'completed');
 
-    // Apply date filter
+    // Apply date filter using startTime
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -132,27 +121,30 @@ function RouteComparison({
 
     switch (filterBy) {
       case 'today':
-        filtered = filtered.filter(session => new Date(session.date) >= today);
+        filtered = filtered.filter(session => new Date(session.startTime) >= today);
         break;
       case 'week':
-        filtered = filtered.filter(session => new Date(session.date) >= weekAgo);
+        filtered = filtered.filter(session => new Date(session.startTime) >= weekAgo);
         break;
       case 'month':
-        filtered = filtered.filter(session => new Date(session.date) >= monthAgo);
+        filtered = filtered.filter(session => new Date(session.startTime) >= monthAgo);
         break;
     }
 
     // Apply sorting
     filtered.sort((a, b) => {
       switch (sortBy) {
-        case 'efficiency':
-          return a.metrics.efficiency - b.metrics.efficiency;
+        case 'efficiency': {
+          const aEfficiency = (a.totalDistance || 0) / (a.shipmentsCompleted || 1);
+          const bEfficiency = (b.totalDistance || 0) / (b.shipmentsCompleted || 1);
+          return aEfficiency - bEfficiency;
+        }
         case 'distance':
-          return a.metrics.distance - b.metrics.distance;
+          return (a.totalDistance || 0) - (b.totalDistance || 0);
         case 'duration':
-          return a.metrics.duration - b.metrics.duration;
+          return (a.totalTime || 0) - (b.totalTime || 0);
         case 'speed':
-          return b.metrics.averageSpeed - a.metrics.averageSpeed;
+          return (b.averageSpeed || 0) - (a.averageSpeed || 0);
         default:
           return 0;
       }
@@ -210,27 +202,34 @@ function RouteComparison({
     if (selectedSessionsData.length < 2) return [];
 
     const suggestions: string[] = [];
-    const bestSession = selectedSessionsData.reduce((best, current) =>
-      current.metrics.efficiency < best.metrics.efficiency ? current : best
+
+    // Calculate efficiency for each session
+    const sessionsWithEfficiency = selectedSessionsData.map(session => ({
+      ...session,
+      efficiency: (session.totalDistance || 0) / (session.shipmentsCompleted || 1)
+    }));
+
+    const bestSession = sessionsWithEfficiency.reduce((best, current) =>
+      current.efficiency < best.efficiency ? current : best
     );
 
-    const worstSession = selectedSessionsData.reduce((worst, current) =>
-      current.metrics.efficiency > worst.metrics.efficiency ? current : worst
+    const worstSession = sessionsWithEfficiency.reduce((worst, current) =>
+      current.efficiency > worst.efficiency ? current : worst
     );
 
     if (bestSession.id !== worstSession.id) {
-      const efficiencyDiff = ((worstSession.metrics.efficiency - bestSession.metrics.efficiency) / bestSession.metrics.efficiency) * 100;
+      const efficiencyDiff = ((worstSession.efficiency - bestSession.efficiency) / bestSession.efficiency) * 100;
 
       if (efficiencyDiff > 20) {
-        suggestions.push(`${worstSession.employeeName} could improve efficiency by ${efficiencyDiff.toFixed(1)}% by following ${bestSession.employeeName}'s route patterns`);
+        suggestions.push(`${worstSession.employeeName || 'Employee'} could improve efficiency by ${efficiencyDiff.toFixed(1)}% by following ${bestSession.employeeName || 'best performer'}'s route patterns`);
       }
 
-      if (bestSession.metrics.averageSpeed > worstSession.metrics.averageSpeed * 1.15) {
-        suggestions.push(`Consider route optimization for ${worstSession.employeeName} - average speed is ${((bestSession.metrics.averageSpeed / worstSession.metrics.averageSpeed - 1) * 100).toFixed(1)}% higher in best performing routes`);
+      if ((bestSession.averageSpeed || 0) > (worstSession.averageSpeed || 0) * 1.15) {
+        suggestions.push(`Consider route optimization for ${worstSession.employeeName || 'employee'} - average speed is ${(((bestSession.averageSpeed || 0) / (worstSession.averageSpeed || 1) - 1) * 100).toFixed(1)}% higher in best performing routes`);
       }
 
-      if (worstSession.metrics.distance > bestSession.metrics.distance * 1.2) {
-        suggestions.push(`${worstSession.employeeName}'s routes are ${((worstSession.metrics.distance / bestSession.metrics.distance - 1) * 100).toFixed(1)}% longer - consider route consolidation`);
+      if ((worstSession.totalDistance || 0) > (bestSession.totalDistance || 0) * 1.2) {
+        suggestions.push(`${worstSession.employeeName || 'Employee'}'s routes are ${(((worstSession.totalDistance || 0) / (bestSession.totalDistance || 1) - 1) * 100).toFixed(1)}% longer - consider route consolidation`);
       }
     }
 
@@ -258,7 +257,7 @@ function RouteComparison({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Filter by Date</label>
-              <Select value={filterBy} onValueChange={(value: any) => setFilterBy(value)}>
+              <Select value={filterBy} onValueChange={(value: 'all' | 'today' | 'week' | 'month') => setFilterBy(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -273,7 +272,7 @@ function RouteComparison({
 
             <div>
               <label className="text-sm font-medium mb-2 block">Sort by</label>
-              <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+              <Select value={sortBy} onValueChange={(value: 'efficiency' | 'distance' | 'duration' | 'speed') => setSortBy(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -288,7 +287,7 @@ function RouteComparison({
 
             <div>
               <label className="text-sm font-medium mb-2 block">Comparison Mode</label>
-              <Select value={comparisonMode} onValueChange={(value: any) => setComparisonMode(value)}>
+              <Select value={comparisonMode} onValueChange={(value: 'side-by-side' | 'overlay') => setComparisonMode(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -321,24 +320,24 @@ function RouteComparison({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-gray-500" />
-                    <span className="font-medium text-sm">{session.employeeName}</span>
+                    <span className="font-medium text-sm">{session.employeeName || 'Unknown'}</span>
                   </div>
                   <Badge variant="outline" className="text-xs">
-                    {session.metrics.efficiency.toFixed(1)} km/shipment
+                    {((session.totalDistance || 0) / (session.shipmentsCompleted || 1)).toFixed(1)} km/shipment
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-600">
                   <Calendar className="h-3 w-3" />
-                  <span>{new Date(session.date).toLocaleDateString()}</span>
+                  <span>{new Date(session.startTime).toLocaleDateString()}</span>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-gray-500">Distance:</span>
-                    <span className="ml-1 font-medium">{session.metrics.distance.toFixed(1)}km</span>
+                    <span className="ml-1 font-medium">{(session.totalDistance || 0).toFixed(1)}km</span>
                   </div>
                   <div>
                     <span className="text-gray-500">Shipments:</span>
-                    <span className="ml-1 font-medium">{session.metrics.shipmentsCompleted}</span>
+                    <span className="ml-1 font-medium">{session.shipmentsCompleted || 0}</span>
                   </div>
                 </div>
               </div>

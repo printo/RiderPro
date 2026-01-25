@@ -92,10 +92,14 @@ function RemarksModal({
       onClose();
       setRemarks("");
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : `Failed to update shipment to ${status}.`;
       toast({
         title: "Update Failed",
-        description: error.message || `Failed to update shipment to ${status}.`,
+        description: message,
         variant: "destructive",
       });
     },

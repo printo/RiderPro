@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -9,7 +9,6 @@ import {
   BarChart3,
   List,
   Settings,
-  Route,
   Map,
   Sun,
   Moon,
@@ -212,8 +211,8 @@ function FloatingActionMenu() {
                     variant="ghost"
                     className="h-14 flex items-center justify-start gap-3 rounded-xl transition-all duration-200 hover:scale-[1.02] hover:shadow-lg border border-transparent hover:border-red-200 group p-3 hover:bg-gradient-to-br hover:from-red-50 hover:to-red-100"
                     data-testid="button-logout"
-                    onClick={async () => {
-                      await logout();
+                    onClick={() => {
+                      logout();
                       window.location.href = '/login';
                     }}
                   >

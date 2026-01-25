@@ -1,17 +1,9 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
-
-interface RouteData {
-  total: number;
-  delivered: number;
-  pickedUp: number;
-  deliveryPending: number;
-  pickupPending: number;
-  cancelled: number;
-}
+import { RouteStatusBreakdown } from "@shared/types";
 
 interface RouteSummaryProps {
-  routeBreakdown: Record<string, RouteData>;
+  routeBreakdown: Record<string, RouteStatusBreakdown>;
 }
 
 function RouteSummary({ routeBreakdown }: RouteSummaryProps) {
@@ -76,7 +68,7 @@ function RouteSummary({ routeBreakdown }: RouteSummaryProps) {
                         className="text-blue-600 font-medium"
                         data-testid={`text-route-delivery-pending-${routeName}`}
                       >
-                        {routeData.deliveryPending}
+                        {routeData.deliveryPending || 0}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
@@ -85,7 +77,7 @@ function RouteSummary({ routeBreakdown }: RouteSummaryProps) {
                         className="text-orange-600 font-medium"
                         data-testid={`text-route-pickup-pending-${routeName}`}
                       >
-                        {routeData.pickupPending}
+                        {routeData.pickupPending || 0}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
@@ -94,7 +86,7 @@ function RouteSummary({ routeBreakdown }: RouteSummaryProps) {
                         className="text-red-600 font-medium"
                         data-testid={`text-route-cancelled-${routeName}`}
                       >
-                        {routeData.cancelled}
+                        {routeData.cancelled || 0}
                       </span>
                     </div>
                   </div>

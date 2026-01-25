@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { OfflineStorageService, SyncStatus } from '@/services/OfflineStorageService';
-import { GPSPosition } from '@/services/GPSTracker';
+import { OfflineStorageService } from '@/services/OfflineStorageService';
+import { DeviceSyncStatus as SyncStatus } from '@shared/types';
+import { GPSPosition } from '@shared/types';
 
 export interface OfflineSyncConfig {
   autoSyncInterval: number; // milliseconds

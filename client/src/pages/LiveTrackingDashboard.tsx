@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -10,11 +10,10 @@ import {
   Wifi,
   WifiOff,
   RefreshCw,
-  Settings,
   Maximize2,
   Minimize2
 } from 'lucide-react';
-import LiveTrackingMap, { RiderLocation } from '@/components/tracking/LiveTrackingMap';
+import LiveTrackingMap from '@/components/tracking/LiveTrackingMap';
 import RiderStatusPanel from '@/components/ui/status/RiderStatusPanel';
 import { useLiveTracking } from '@/hooks/useLiveTracking';
 

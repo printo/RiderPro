@@ -109,7 +109,7 @@ export function getFileUrl(filename: string, type: 'signature' | 'photo'): strin
 
 // Helper function to convert base64 to file
 export async function saveBase64File(base64Data: string, type: 'signature' | 'photo'): Promise<string> {
-  const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+  const matches = base64Data.match(new RegExp('^data:([A-Za-z-+/]+);base64,(.+)$'));
   if (!matches) {
     throw new Error('Invalid base64 data');
   }

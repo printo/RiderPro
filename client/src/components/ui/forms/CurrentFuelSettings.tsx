@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Fuel, Loader2, RefreshCw } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
-import { FuelSetting } from "@shared/schema";
+import { FuelSetting } from "@shared/types";
 
 interface CurrentFuelSettingsProps {
   className?: string;

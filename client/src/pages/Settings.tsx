@@ -2,33 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
-import SyncStatusPanel from '@/components/sync/SyncStatusPanel';
 import { useAuth } from '@/hooks/useAuth';
 import {
   User,
   Settings as SettingsIcon,
   LogOut,
-  Shield,
   Smartphone,
   Wifi,
   Battery,
   Key,
-  Mail,
   IdCard
 } from 'lucide-react';
-
-interface UserProfile {
-  fullName: string;
-  employeeId: string;
-  role: string;
-  isStaff: boolean;
-  isSuperUser: boolean;
-  isOpsTeam: boolean;
-  accessToken: string;
-  refreshToken: string;
-}
+import { UserProfile } from '@shared/types';
 
 function Settings() {
   const { user, logout } = useAuth();
@@ -40,10 +26,12 @@ function Settings() {
       setUserProfile({
         fullName: user.fullName,
         employeeId: user.employeeId,
+        email: user.email || '',
         role: user.role || 'driver',
         isStaff: user.isStaff || false,
         isSuperUser: user.isSuperUser || false,
         isOpsTeam: user.isOpsTeam || false,
+        isActive: !!user.isActive,
         accessToken: '', // Not exposed for security
         refreshToken: '' // Not exposed for security
       });

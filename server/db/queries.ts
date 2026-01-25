@@ -1,1098 +1,776 @@
-import { liveDb, replicaDb } from './connection.js';
-import { Shipment, InsertShipment, UpdateShipment, Acknowledgment, InsertAcknowledgment, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType, FuelSetting, InsertFuelSetting, UpdateFuelSetting } from '@shared/schema';
-import { randomUUID } from 'crypto';
-import { calculateShipmentDistance } from '../utils/distanceCalculator.js';
+import { pool } from './connection.js';
+// cspell:ignore ILIKE
+import { 
+  Shipment, InsertShipment, UpdateShipment, 
+  DashboardMetrics, ShipmentFilters, 
+  VehicleType, InsertVehicleType, UpdateVehicleType,
+  FuelSetting, InsertFuelSetting, UpdateFuelSetting,
+  InsertAcknowledgment, Acknowledgment, User, UserRole
+} from '@shared/types';
+import { log } from "../../shared/utils/logger.js";
+
+// Local interface definitions for types not yet in shared/types
+export interface FeatureFlag {
+  name: string;
+  enabled: boolean;
+  description?: string;
+  rollout_percentage: number;
+  target_users?: string;
+  target_roles?: string;
+  start_date?: string;
+  end_date?: string;
+  metadata?: string;
+  created_at: string;
+  updated_at: string;
+  updated_by?: string;
+}
+
+export interface InsertFeatureFlag {
+  name: string;
+  enabled?: boolean;
+  description?: string;
+  rollout_percentage?: number;
+  target_users?: string;
+  target_roles?: string;
+  start_date?: string;
+  end_date?: string;
+  metadata?: string;
+  updated_by?: string;
+}
+
+export interface UpdateFeatureFlag {
+  enabled?: boolean;
+  description?: string;
+  rollout_percentage?: number;
+  target_users?: string;
+  target_roles?: string;
+  start_date?: string;
+  end_date?: string;
+  metadata?: string;
+  updated_by?: string;
+}
+
+export interface SystemHealthMetric {
+  id: string;
+  metric_name: string;
+  metric_value: number;
+  metric_unit?: string;
+  timestamp: string;
+  created_at: string;
+}
+
+export interface UserSession {
+  id: string;
+  user_id: string;
+  access_token: string;
+  expires_at: string;
+  created_at: string;
+}
+
+// Helper types for User operations
+export type InsertUser = Omit<User, 'createdAt' | 'updatedAt' | 'lastLogin'> & {
+  lastLogin?: string;
+  accessToken?: string;
+  refreshToken?: string;
+};
+
+export type UpdateUser = Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>> & {
+  accessToken?: string;
+  refreshToken?: string;
+  lastLogin?: string;
+};
 
 export class ShipmentQueries {
-  private db: any;
-
-  constructor(useReplica = false) {
-    this.db = useReplica ? replicaDb : liveDb;
+  
+  constructor(_useReplica = false) {
+    // Postgres pool handles connections automatically
   }
 
   getDatabase() {
-    return this.db;
+    return pool;
   }
 
-  getAllShipments(filters: ShipmentFilters = {}): { data: Shipment[]; total: number } {
-    // Base query for counting total records
-    let countQuery = `
-      SELECT COUNT(*) as total FROM shipments 
-      WHERE 1=1
-    `;
+  // --- Shipment Operations ---
 
-    // Base query for fetching data
-    let dataQuery = `
-      SELECT * FROM shipments 
-      WHERE 1=1
-    `;
+  async getAllShipments(filters: ShipmentFilters = {}): Promise<{ data: Shipment[]; total: number }> {
+    let countQuery = `SELECT COUNT(*) as total FROM shipments WHERE 1=1`;
+    let dataQuery = `SELECT * FROM shipments WHERE 1=1`;
+    const params: (string | number)[] = [];
+    let paramIndex = 1;
 
-    const params: any[] = [];
-
-    // Apply filters
     if (filters.status) {
-      const condition = ` AND status = ?`;
-      countQuery += condition;
-      dataQuery += condition;
+      countQuery += ` AND status = $${paramIndex}`;
+      dataQuery += ` AND status = $${paramIndex}`;
       params.push(filters.status);
+      paramIndex++;
     }
 
     if (filters.priority) {
-      const condition = ` AND priority = ?`;
-      countQuery += condition;
-      dataQuery += condition;
+      countQuery += ` AND priority = $${paramIndex}`;
+      dataQuery += ` AND priority = $${paramIndex}`;
       params.push(filters.priority);
+      paramIndex++;
     }
 
     if (filters.type) {
-      const condition = ` AND type = ?`;
-      countQuery += condition;
-      dataQuery += condition;
+      countQuery += ` AND type = $${paramIndex}`;
+      dataQuery += ` AND type = $${paramIndex}`;
       params.push(filters.type);
+      paramIndex++;
     }
 
     if (filters.routeName) {
-      const condition = ` AND routeName = ?`;
-      countQuery += condition;
-      dataQuery += condition;
+      countQuery += ` AND "routeName" = $${paramIndex}`;
+      dataQuery += ` AND "routeName" = $${paramIndex}`;
       params.push(filters.routeName);
+      paramIndex++;
     }
 
     if (filters.date) {
-      const condition = ` AND DATE(deliveryTime) = ?`;
-      countQuery += condition;
-      dataQuery += condition;
+      countQuery += ` AND DATE("deliveryTime") = $${paramIndex}`;
+      dataQuery += ` AND DATE("deliveryTime") = $${paramIndex}`;
       params.push(filters.date);
+      paramIndex++;
     }
 
     if (filters.employeeId) {
-      const condition = ` AND employeeId = ?`;
-      countQuery += condition;
-      dataQuery += condition;
+      countQuery += ` AND "employeeId" = $${paramIndex}`;
+      dataQuery += ` AND "employeeId" = $${paramIndex}`;
       params.push(filters.employeeId);
+      paramIndex++;
     }
 
     if (filters.search) {
-      const condition = ` AND (customerName LIKE ? OR address LIKE ? OR shipment_id LIKE ?)`;
-      countQuery += condition;
-      dataQuery += condition;
-      const searchTerm = `%${filters.search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+      countQuery += ` AND ("customerName" ILIKE $${paramIndex} OR address ILIKE $${paramIndex} OR id ILIKE $${paramIndex})`;
+      dataQuery += ` AND ("customerName" ILIKE $${paramIndex} OR address ILIKE $${paramIndex} OR id ILIKE $${paramIndex})`;
+      params.push(`%${filters.search}%`);
+      paramIndex++;
     }
 
-    // Apply sorting (default to newest first)
-    const sortField = filters.sortField || 'createdAt';
+    const sortField = filters.sortField ? `"${filters.sortField}"` : '"createdAt"';
     const sortOrder = filters.sortOrder || 'DESC';
     dataQuery += ` ORDER BY ${sortField} ${sortOrder}`;
 
-    // Apply pagination
-    const page = Math.max(1, parseInt(filters.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(filters.limit as string) || 20));
+    const page = Math.max(1, parseInt(String(filters.page || 1)));
+    const limit = Math.min(100, Math.max(1, parseInt(String(filters.limit || 20))));
     const offset = (page - 1) * limit;
 
-    dataQuery += ` LIMIT ? OFFSET ?`;
+    dataQuery += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     const dataParams = [...params, limit, offset];
 
-    // Get total count
-    const totalResult = this.db.prepare(countQuery).get(...params);
-    const total = totalResult?.total || 0;
+    try {
+      const [countResult, dataResult] = await Promise.all([
+        pool.query(countQuery, params),
+        pool.query(dataQuery, dataParams)
+      ]);
 
-    // Get paginated data
-    const data = this.db.prepare(dataQuery).all(...dataParams);
-
-    return { data, total };
-  }
-
-  getShipmentById(shipment_id: string): Shipment | null {
-    return this.db.prepare('SELECT * FROM shipments WHERE shipment_id = ?').get(shipment_id) || null;
-  }
-
-  getShipmentByExternalId(externalId: string): Shipment | null {
-    // Try to find by shipment_id first (which IS the external ID in this system)
-    let shipment = this.db.prepare('SELECT * FROM shipments WHERE shipment_id = ?').get(externalId);
-
-    // If not found and we have a piashipmentid column, try that too
-    if (!shipment) {
-      try {
-        shipment = this.db.prepare('SELECT * FROM shipments WHERE piashipmentid = ?').get(externalId);
-      } catch (error) {
-        // piashipmentid column might not exist yet, ignore error
-      }
-    }
-
-    return shipment || null;
-  }
-
-  createShipment(shipment: InsertShipment): Shipment {
-    const now = new Date().toISOString();
-
-    const stmt = this.db.prepare(`
-      INSERT INTO shipments (
-        shipment_id, type, customerName, customerMobile, address, 
-        latitude, longitude, cost, deliveryTime, routeName, 
-        employeeId, status, priority, pickupAddress, weight, 
-        dimensions, specialInstructions,
-        start_latitude, start_longitude, stop_latitude, stop_longitude, km_travelled,
-        signature_url, photo_url, acknowledgment_captured_at,
-        synced_to_external, last_sync_attempt, sync_error, sync_attempts,
-        acknowledgment_captured_by, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    // Map schema fields to database fields
-    const customerName = shipment.customerName || shipment.recipientName || 'Unknown Customer';
-    const customerMobile = shipment.customerMobile || shipment.recipientPhone || '';
-    const address = shipment.address || shipment.deliveryAddress || '';
-    const cost = shipment.cost || 0;
-    const deliveryTime = shipment.deliveryTime || shipment.estimatedDeliveryTime || now;
-    const routeName = shipment.routeName || 'Default Route';
-    const employeeId = shipment.employeeId || 'default';
-    const priority = shipment.priority || 'medium';
-    const pickupAddress = shipment.pickupAddress || '';
-    const weight = shipment.weight || 0;
-    const dimensions = shipment.dimensions || '';
-
-    stmt.run(
-      shipment.shipment_id, shipment.type, customerName, customerMobile,
-      address, shipment.latitude || null, shipment.longitude || null,
-      cost, deliveryTime, routeName,
-      employeeId, shipment.status || 'Assigned', priority, pickupAddress,
-      weight, dimensions, shipment.specialInstructions || null,
-      shipment.start_latitude || null, shipment.start_longitude || null,
-      shipment.stop_latitude || null, shipment.stop_longitude || null,
-      shipment.km_travelled || 0,
-      shipment.signatureUrl || null, shipment.photoUrl || null, shipment.acknowledgment_captured_at || null,
-      false, // synced_to_external
-      null,  // last_sync_attempt
-      null,  // sync_error
-      0,     // sync_attempts
-      shipment.acknowledgment_captured_by || null, // acknowledgment_captured_by
-      now, now
-    );
-
-    // Also insert into replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        INSERT INTO shipments (
-          shipment_id, type, customerName, customerMobile, address, 
-          latitude, longitude, cost, deliveryTime, routeName, 
-          employeeId, status, priority, pickupAddress, weight, 
-          dimensions, specialInstructions,
-          start_latitude, start_longitude, stop_latitude, stop_longitude, km_travelled,
-          signature_url, photo_url, acknowledgment_captured_at,
-          synced_to_external, last_sync_attempt, sync_error, sync_attempts,
-          acknowledgment_captured_by, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      replicaStmt.run(
-        shipment.shipment_id, shipment.type, customerName, customerMobile,
-        address, shipment.latitude || null, shipment.longitude || null,
-        cost, deliveryTime, routeName,
-        employeeId, shipment.status || 'Assigned', priority, pickupAddress,
-        weight, dimensions, shipment.specialInstructions || null,
-        shipment.start_latitude || null, shipment.start_longitude || null,
-        shipment.stop_latitude || null, shipment.stop_longitude || null,
-        shipment.km_travelled || 0,
-        shipment.signatureUrl || null, shipment.photoUrl || null, shipment.acknowledgment_captured_at || null,
-        false, // synced_to_external
-        null,  // last_sync_attempt
-        null,  // sync_error
-        0,     // sync_attempts
-        shipment.acknowledgment_captured_by || null, // acknowledgment_captured_by
-        now, now
-      );
-    }
-
-    return this.getShipmentById(shipment.shipment_id)!;
-  }
-
-  updateShipmentTracking(shipment_id: string, trackingData: {
-    start_latitude?: number;
-    start_longitude?: number;
-    stop_latitude?: number;
-    stop_longitude?: number;
-    km_travelled?: number;
-    status?: string;
-    expectedDeliveryTime?: string;
-  }): Shipment | null {
-    const now = new Date().toISOString();
-
-    // Get current shipment data for distance calculation
-    const currentShipment = this.getShipmentById(shipment_id);
-    if (!currentShipment) return null;
-
-    const updateFields = [];
-    const values = [];
-
-    if (trackingData.start_latitude !== undefined) {
-      updateFields.push('start_latitude = ?');
-      values.push(trackingData.start_latitude);
-    }
-    if (trackingData.start_longitude !== undefined) {
-      updateFields.push('start_longitude = ?');
-      values.push(trackingData.start_longitude);
-    }
-    if (trackingData.stop_latitude !== undefined) {
-      updateFields.push('stop_latitude = ?');
-      values.push(trackingData.stop_latitude);
-    }
-    if (trackingData.stop_longitude !== undefined) {
-      updateFields.push('stop_longitude = ?');
-      values.push(trackingData.stop_longitude);
-    }
-    if (trackingData.status !== undefined) {
-      updateFields.push('status = ?');
-      values.push(trackingData.status);
-    }
-    if (trackingData.expectedDeliveryTime !== undefined) {
-      updateFields.push('deliveryTime = ?');
-      values.push(trackingData.expectedDeliveryTime);
-    }
-
-    // Auto-calculate distance if coordinates are provided
-    if (trackingData.start_latitude !== undefined || trackingData.start_longitude !== undefined ||
-      trackingData.stop_latitude !== undefined || trackingData.stop_longitude !== undefined) {
-
-
-
-      // Merge current data with new tracking data
-      const mergedData = {
-        start_latitude: trackingData.start_latitude ?? currentShipment.start_latitude,
-        start_longitude: trackingData.start_longitude ?? currentShipment.start_longitude,
-        stop_latitude: trackingData.stop_latitude ?? currentShipment.stop_latitude,
-        stop_longitude: trackingData.stop_longitude ?? currentShipment.stop_longitude,
-        km_travelled: currentShipment.km_travelled
+      return {
+        data: dataResult.rows,
+        total: parseInt(countResult.rows[0].total)
       };
-
-      const calculatedDistance = calculateShipmentDistance(mergedData);
-      updateFields.push('km_travelled = ?');
-      values.push(calculatedDistance);
-    } else if (trackingData.km_travelled !== undefined) {
-      // Use provided distance if no coordinates
-      updateFields.push('km_travelled = ?');
-      values.push(trackingData.km_travelled);
+    } catch (error) {
+      log.error('Error fetching shipments:', error);
+      throw error;
     }
-
-    if (updateFields.length === 0) {
-      return this.getShipmentById(shipment_id);
-    }
-
-    updateFields.push('updatedAt = ?');
-    values.push(now);
-    values.push(shipment_id);
-
-    const stmt = this.db.prepare(`
-      UPDATE shipments 
-      SET ${updateFields.join(', ')}
-      WHERE shipment_id = ?
-    `);
-
-    stmt.run(...values);
-
-    // Also update replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        UPDATE shipments 
-        SET ${updateFields.join(', ')}
-        WHERE shipment_id = ?
-      `);
-      replicaStmt.run(...values);
-    }
-
-    return this.getShipmentById(shipment_id);
   }
 
-  updateShipment(shipment_id: string, updates: UpdateShipment): Shipment | null {
-    const now = new Date().toISOString();
-
-    // Build dynamic update query based on provided fields
-    const updateFields: string[] = [];
-    const updateValues: any[] = [];
-
-    if (updates.status !== undefined) {
-      updateFields.push('status = ?');
-      updateValues.push(updates.status);
-    }
-
-    if (updates.priority !== undefined) {
-      updateFields.push('priority = ?');
-      updateValues.push(updates.priority);
-    }
-
-    if (updates.type !== undefined) {
-      updateFields.push('type = ?');
-      updateValues.push(updates.type);
-    }
-
-    if (updates.pickupAddress !== undefined) {
-      updateFields.push('pickupAddress = ?');
-      updateValues.push(updates.pickupAddress);
-    }
-
-    if (updates.deliveryAddress !== undefined || updates.address !== undefined) {
-      updateFields.push('address = ?');
-      updateValues.push(updates.deliveryAddress || updates.address);
-    }
-
-    if (updates.recipientName !== undefined || updates.customerName !== undefined) {
-      updateFields.push('customerName = ?');
-      updateValues.push(updates.recipientName || updates.customerName);
-    }
-
-    if (updates.recipientPhone !== undefined || updates.customerMobile !== undefined) {
-      updateFields.push('customerMobile = ?');
-      updateValues.push(updates.recipientPhone || updates.customerMobile);
-    }
-
-    if (updates.weight !== undefined) {
-      updateFields.push('weight = ?');
-      updateValues.push(updates.weight);
-    }
-
-    if (updates.dimensions !== undefined) {
-      updateFields.push('dimensions = ?');
-      updateValues.push(updates.dimensions);
-    }
-
-    if (updates.specialInstructions !== undefined) {
-      updateFields.push('specialInstructions = ?');
-      updateValues.push(updates.specialInstructions);
-    }
-
-    if (updates.estimatedDeliveryTime !== undefined || updates.deliveryTime !== undefined) {
-      updateFields.push('deliveryTime = ?');
-      updateValues.push(updates.estimatedDeliveryTime || updates.deliveryTime);
-    }
-
-    if (updates.actualDeliveryTime !== undefined) {
-      updateFields.push('actualDeliveryTime = ?');
-      updateValues.push(updates.actualDeliveryTime);
-    }
-
-    if (updates.latitude !== undefined) {
-      updateFields.push('latitude = ?');
-      updateValues.push(updates.latitude);
-    }
-
-    if (updates.longitude !== undefined) {
-      updateFields.push('longitude = ?');
-      updateValues.push(updates.longitude);
-    }
-
-    if (updates.cost !== undefined) {
-      updateFields.push('cost = ?');
-      updateValues.push(updates.cost);
-    }
-
-    if (updates.routeName !== undefined) {
-      updateFields.push('routeName = ?');
-      updateValues.push(updates.routeName);
-    }
-
-    if (updates.employeeId !== undefined) {
-      updateFields.push('employeeId = ?');
-      updateValues.push(updates.employeeId);
-    }
-
-    // Always update the updatedAt field
-    updateFields.push('updatedAt = ?');
-    updateValues.push(now);
-
-    // Add the shipment_id for the WHERE clause
-    updateValues.push(shipment_id);
-
-    if (updateFields.length === 1) { // Only updatedAt field
-      return this.getShipmentById(shipment_id);
-    }
-
-    const query = `UPDATE shipments SET ${updateFields.join(', ')} WHERE shipment_id = ?`;
-    updateValues.push(shipment_id);
-
-    const stmt = this.db.prepare(query);
-    const result = stmt.run(...updateValues);
-
-    if (result.changes === 0) {
-      return null;
-    }
-
-    // Also update replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(query);
-      replicaStmt.run(...updateValues);
-    }
-
-    return this.getShipmentById(shipment_id);
+  async getShipmentById(id: string): Promise<Shipment | undefined> {
+    const result = await pool.query('SELECT * FROM shipments WHERE id = $1', [id]);
+    return result.rows[0];
   }
 
-  batchUpdateShipments(updates: UpdateShipment[]): number {
-    let totalUpdated = 0;
+  async getShipmentByExternalId(externalId: string): Promise<Shipment | undefined> {
+    const result = await pool.query('SELECT * FROM shipments WHERE piashipmentid = $1', [externalId]);
+    return result.rows[0];
+  }
 
-    this.db.transaction(() => {
-      const stmt = this.db.prepare(`
-        UPDATE shipments 
-        SET status = ?, updatedAt = ?
-        WHERE shipment_id = ?
-      `);
+  async createShipment(shipment: InsertShipment): Promise<Shipment> {
+    const keys = Object.keys(shipment).map(k => `"${k}"`).join(', ');
+    const values = Object.values(shipment);
+    const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
 
-      const replicaStmt = replicaDb.prepare(`
-        UPDATE shipments 
-        SET status = ?, updatedAt = ?
-        WHERE shipment_id = ?
-      `);
+    // Use ON CONFLICT to prevent duplicates and update if exists
+    const updateKeys = Object.keys(shipment).filter(k => k !== 'id').map(k => `"${k}"`);
+    const updateClause = updateKeys.map(k => `${k} = EXCLUDED.${k}`).join(', ');
 
-      const now = new Date().toISOString();
+    const query = `
+      INSERT INTO shipments (${keys}) 
+      VALUES (${placeholders}) 
+      ON CONFLICT (id) DO UPDATE SET 
+        ${updateClause},
+        "updatedAt" = CURRENT_TIMESTAMP
+      RETURNING *
+    `;
+    const result = await pool.query(query, values);
+    return result.rows[0];
+  }
 
+  async updateShipment(id: string, updates: UpdateShipment): Promise<Shipment | undefined> {
+    const keys = Object.keys(updates);
+    if (keys.length === 0) return this.getShipmentById(id);
+
+    const setClause = keys.map((key, i) => `"${key}" = $${i + 2}`).join(', ');
+    const values = Object.values(updates);
+
+    const query = `UPDATE shipments SET ${setClause}, "updatedAt" = NOW() WHERE id = $1 RETURNING *`;
+    const result = await pool.query(query, [id, ...values]);
+    return result.rows[0];
+  }
+
+  async batchUpdateShipments(updates: UpdateShipment[]): Promise<number> {
+    if (updates.length === 0) return 0;
+    
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      let count = 0;
       for (const update of updates) {
-        if (update.status) { // Only update if status is provided
-          const result = stmt.run(update.status, now, update.shipment_id);
-          if (result.changes > 0) {
-            totalUpdated++;
-            // Also update replica
-            replicaStmt.run(update.status, now, update.shipment_id);
+        if (update.shipment_id) {
+          const keys = Object.keys(update).filter(k => k !== 'shipment_id');
+          if (keys.length > 0) {
+            const setClause = keys.map((key, i) => `"${key}" = $${i + 2}`).join(', ');
+            const values = keys.map(k => (update as unknown as Record<string, unknown>)[k]);
+            await client.query(
+              `UPDATE shipments SET ${setClause}, "updatedAt" = NOW() WHERE id = $1`,
+              [update.shipment_id, ...values]
+            );
+            count++;
           }
         }
       }
-    })();
-
-    return totalUpdated;
-  }
-
-  getDashboardMetrics(employeeId?: string): DashboardMetrics {
-    // Initialize default values for when there's no data
-    const defaultMetrics: DashboardMetrics = {
-      totalShipments: 0,
-      completed: 0,
-      inProgress: 0,
-      pending: 0,
-      statusBreakdown: {},
-      typeBreakdown: {},
-      routeBreakdown: {}
-    };
-
-    try {
-      // Build where clause for employee filtering
-      const whereClause = employeeId ? 'WHERE employeeId = ?' : '';
-      const params = employeeId ? [employeeId] : [];
-
-      const totalShipmentsResult = this.db.prepare(`SELECT COUNT(*) as count FROM shipments ${whereClause}`).get(...params);
-      const totalShipments = totalShipmentsResult ? totalShipmentsResult.count : 0;
-
-      // If there are no shipments, return default metrics
-      if (totalShipments === 0) {
-        return defaultMetrics;
-      }
-
-      const statusStats = this.db.prepare(`
-        SELECT status, COUNT(*) as count 
-        FROM shipments 
-        ${whereClause}
-        GROUP BY status
-      `).all(...params);
-
-      const typeStats = this.db.prepare(`
-        SELECT type, COUNT(*) as count 
-        FROM shipments 
-        ${whereClause}
-        GROUP BY type
-      `).all(...params);
-
-      const routeStats = this.db.prepare(`
-        SELECT 
-          routeName,
-          COUNT(*) as total,
-          SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END) as delivered,
-          SUM(CASE WHEN status = 'Picked Up' THEN 1 ELSE 0 END) as pickedUp,
-          SUM(CASE WHEN status = 'Assigned' THEN 1 ELSE 0 END) as pending,
-          SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
-          SUM(CASE WHEN status = 'Assigned' AND type = 'pickup' THEN 1 ELSE 0 END) as pickupPending,
-          SUM(CASE WHEN status = 'Assigned' AND type = 'delivery' THEN 1 ELSE 0 END) as deliveryPending
-        FROM shipments 
-        ${whereClause}
-        GROUP BY routeName
-      `).all(...params);
-
-      const statusBreakdown: Record<string, number> = {};
-      let completed = 0;
-      let inProgress = 0;
-      let pending = 0;
-
-      statusStats.forEach((stat: any) => {
-        statusBreakdown[stat.status] = stat.count;
-        if (stat.status === 'Delivered' || stat.status === 'Picked Up') {
-          completed += stat.count;
-        } else if (stat.status === 'In Transit') {
-          inProgress += stat.count;
-        } else if (stat.status === 'Assigned') {
-          pending += stat.count;
-        }
-      });
-
-      const typeBreakdown: Record<string, number> = {};
-      typeStats.forEach((stat: any) => {
-        typeBreakdown[stat.type] = stat.count;
-      });
-
-      const routeBreakdown: Record<string, any> = {};
-      routeStats.forEach((stat: any) => {
-        if (stat.routeName) { // Only add if routeName is not null/undefined
-          routeBreakdown[stat.routeName] = {
-            total: stat.total || 0,
-            delivered: stat.delivered || 0,
-            pickedUp: stat.pickedUp || 0,
-            pending: stat.pending || 0,
-            cancelled: stat.cancelled || 0,
-            pickupPending: stat.pickupPending || 0,
-            deliveryPending: stat.deliveryPending || 0,
-          };
-        }
-      });
-
-      return {
-        totalShipments,
-        completed,
-        inProgress,
-        pending,
-        statusBreakdown,
-        typeBreakdown,
-        routeBreakdown,
-      };
+      await client.query('COMMIT');
+      return count;
     } catch (error) {
-      console.error('Error fetching dashboard metrics:', error);
-      return defaultMetrics;
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
-  createAcknowledgment(acknowledgment: any): any {
-    // Update the shipment record with acknowledgment data
-    const stmt = this.db.prepare(`
-      UPDATE shipments SET 
-        signature_url = ?,
-        photo_url = ?,
-        acknowledgment_captured_at = ?,
-        acknowledgment_captured_by = ?
-      WHERE shipment_id = ?
-    `);
-
-    stmt.run(
-      acknowledgment.signature || null,
-      acknowledgment.photo || null,
-      acknowledgment.timestamp,
-      acknowledgment.capturedBy || null,
-      acknowledgment.shipmentId
-    );
-
-    // Return the updated shipment
-    return this.db.prepare('SELECT * FROM shipments WHERE shipment_id = ?').get(acknowledgment.shipmentId);
-  }
-
-  getAcknowledmentByShipmentId(shipmentId: string): any | null {
-    // Get acknowledgment data from shipments table
-    const shipment = this.db.prepare(`
-      SELECT signature_url, photo_url, acknowledgment_captured_at, acknowledgment_captured_by 
-      FROM shipments 
-      WHERE shipment_id = ?
-    `).get(shipmentId);
-
-    if (!shipment || !shipment.acknowledgment_captured_at) {
-      return null;
-    }
-
-    return {
-      signature: shipment.signature_url,
-      photo: shipment.photo_url,
-      timestamp: shipment.acknowledgment_captured_at,
-      capturedBy: shipment.acknowledgment_captured_by
-    };
-  }
-
-  resetDatabase(): void {
-    this.db.exec('DELETE FROM shipments');
-  }
-
-  cleanupOldData(daysToKeep: number = 3): void {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
-    const cutoffIso = cutoffDate.toISOString();
-
-    this.db.prepare('DELETE FROM acknowledgments WHERE timestamp < ?').run(cutoffIso);
-    this.db.prepare('DELETE FROM shipments WHERE createdAt < ?').run(cutoffIso);
-  }
-
-  /**
-   * Execute multiple operations in a single transaction for batch processing
-   * Provides atomicity for batch shipment operations
-   */
-  executeBatchTransaction<T>(operations: () => T): T {
-    const transaction = this.db.transaction(operations);
-    return transaction();
-  }
-
-  /**
-   * Batch create or update shipments with transaction support
-   * Returns results for each shipment operation
-   */
-  batchCreateOrUpdateShipments(shipments: Array<{ external: any, internal: any }>): Array<{
+  async batchCreateOrUpdateShipments(shipments: Array<{ external: { id: string }, internal: InsertShipment & { piashipmentid?: string, id?: string } }>): Promise<Array<{
     piashipmentid: string;
     internalId: string | null;
     status: 'created' | 'updated' | 'failed';
     message: string;
-  }> {
-    return this.executeBatchTransaction(() => {
-      const results = [];
+  }>> {
+    const results: Array<{
+      piashipmentid: string;
+      internalId: string | null;
+      status: 'created' | 'updated' | 'failed';
+      message: string;
+    }> = [];
 
-      for (const { external, internal } of shipments) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const item of shipments) {
         try {
-          // Check for existing shipment
-          const existing = this.getShipmentByExternalId(external.id);
+          // Check if exists by piashipmentid (external id) or id (internal id)
+          let existing: Shipment | undefined;
+          
+          if (item.internal.piashipmentid) {
+            const res = await client.query('SELECT * FROM shipments WHERE piashipmentid = $1', [item.internal.piashipmentid]);
+            existing = res.rows[0];
+          }
+          
+          if (!existing && item.internal.id) {
+            const res = await client.query('SELECT * FROM shipments WHERE id = $1', [item.internal.id]);
+            existing = res.rows[0];
+          }
 
           if (existing) {
-            // Update existing shipment
-            this.updateShipment(existing.shipment_id, {
-              shipment_id: existing.shipment_id,
-              status: internal.status,
-              priority: internal.priority,
-              customerName: internal.customerName,
-              customerMobile: internal.customerMobile,
-              address: internal.address,
-              latitude: internal.latitude,
-              longitude: internal.longitude,
-              cost: internal.cost,
-              deliveryTime: internal.deliveryTime,
-              routeName: internal.routeName,
-              employeeId: internal.employeeId,
-              pickupAddress: internal.pickupAddress,
-              weight: internal.weight,
-              dimensions: internal.dimensions,
-              specialInstructions: internal.specialInstructions
-            });
-
-            results.push({
-              piashipmentid: external.id,
-              internalId: existing.shipment_id,
-              status: 'updated' as const,
-              message: 'Shipment updated successfully'
-            });
+            // Update
+            const updates = { ...item.internal };
+            delete (updates as Record<string, unknown>).id;
+            
+            const keys = Object.keys(updates);
+            if (keys.length > 0) {
+              const setClause = keys.map((key, i) => `"${key}" = $${i + 2}`).join(', ');
+              const values = Object.values(updates);
+              await client.query(
+                `UPDATE shipments SET ${setClause}, "updatedAt" = NOW() WHERE id = $1`,
+                [existing.shipment_id, ...values]
+              );
+              results.push({
+                piashipmentid: item.external.id,
+                internalId: existing.shipment_id,
+                status: 'updated',
+                message: 'Shipment updated successfully'
+              });
+            } else {
+               results.push({
+                piashipmentid: item.external.id,
+                internalId: existing.shipment_id,
+                status: 'updated',
+                message: 'No changes needed'
+              });
+            }
           } else {
-            // Create new shipment
-            const newShipment = this.createShipment({
-              shipment_id: internal.piashipmentid || internal.id,
-              trackingNumber: internal.piashipmentid || internal.id,
-              type: internal.type,
-              customerName: internal.customerName,
-              customerMobile: internal.customerMobile,
-              address: internal.address,
-              latitude: internal.latitude,
-              longitude: internal.longitude,
-              cost: internal.cost,
-              deliveryTime: internal.deliveryTime,
-              routeName: internal.routeName,
-              employeeId: internal.employeeId,
-              status: internal.status,
-              priority: internal.priority || 'medium',
-              pickupAddress: internal.pickupAddress || '',
-              deliveryAddress: internal.address,
-              recipientName: internal.customerName,
-              recipientPhone: internal.customerMobile,
-              weight: internal.weight || 0,
-              dimensions: internal.dimensions || '',
-              specialInstructions: internal.specialInstructions,
-              estimatedDeliveryTime: internal.deliveryTime
-            });
+            // Create
+            const insertData = item.internal;
+            const keys = Object.keys(insertData).map(k => `"${k}"`).join(', ');
+            const values = Object.values(insertData);
+            const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
 
+            const res = await client.query(
+              `INSERT INTO shipments (${keys}) VALUES (${placeholders}) RETURNING id`,
+              values
+            );
+            
             results.push({
-              piashipmentid: external.id,
-              internalId: newShipment.shipment_id,
-              status: 'created' as const,
+              piashipmentid: item.external.id,
+              internalId: res.rows[0].id,
+              status: 'created',
               message: 'Shipment created successfully'
             });
           }
-        } catch (error: any) {
+        } catch (error) {
+          log.error(`Error processing shipment ${item.external.id}:`, error);
           results.push({
-            piashipmentid: external.id,
+            piashipmentid: item.external.id,
             internalId: null,
-            status: 'failed' as const,
-            message: error.message
+            status: 'failed',
+            message: error instanceof Error ? error.message : 'Unknown error'
           });
         }
       }
 
-      return results;
-    });
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    
+    return results;
   }
 
-  // Vehicle Types CRUD operations
-  getAllVehicleTypes(): VehicleType[] {
-    const stmt = this.db.prepare('SELECT * FROM vehicle_types ORDER BY name');
-    return stmt.all();
+  // --- Acknowledgment Operations ---
+
+  async createAcknowledgment(acknowledgment: InsertAcknowledgment): Promise<Acknowledgment> {
+    // Acknowledgments are now part of shipment record, but we update the fields
+    const query = `
+      UPDATE shipments 
+      SET "signature_url" = $1, "photo_url" = $2, "acknowledgment_captured_at" = $3, "acknowledgment_captured_by" = $4
+      WHERE id = $5
+      RETURNING *
+    `;
+    const result = await pool.query(query, [
+      acknowledgment.signatureUrl, 
+      acknowledgment.photoUrl, 
+      acknowledgment.acknowledgment_captured_at, 
+      acknowledgment.acknowledgment_captured_by,
+      acknowledgment.shipment_id
+    ]);
+    
+    // Return dummy Acknowledgment object to satisfy interface
+    const shipment = result.rows[0];
+    return {
+      id: shipment.id + '_ack',
+      shipment_id: shipment.id,
+      signatureUrl: shipment.signature_url,
+      photoUrl: shipment.photo_url,
+      acknowledgment_captured_at: shipment.acknowledgment_captured_at,
+      acknowledgment_captured_by: shipment.acknowledgment_captured_by,
+      createdAt: shipment.updatedAt,
+      updatedAt: shipment.updatedAt
+    };
   }
 
-  getVehicleTypeById(id: string): VehicleType | null {
-    const stmt = this.db.prepare('SELECT * FROM vehicle_types WHERE id = ?');
-    const vehicleType = stmt.get(id);
-    return vehicleType || null;
+  async getAcknowledmentByShipmentId(shipmentId: string): Promise<Acknowledgment | undefined> {
+    const result = await pool.query('SELECT * FROM shipments WHERE id = $1', [shipmentId]);
+    const shipment = result.rows[0];
+    if (!shipment || (!shipment.signature_url && !shipment.photo_url)) return undefined;
+
+    return {
+      id: shipment.id + '_ack',
+      shipment_id: shipment.id,
+      signatureUrl: shipment.signature_url,
+      photoUrl: shipment.photo_url,
+      acknowledgment_captured_at: shipment.acknowledgment_captured_at,
+      acknowledgment_captured_by: shipment.acknowledgment_captured_by,
+      createdAt: shipment.updatedAt,
+      updatedAt: shipment.updatedAt
+    };
   }
 
-  createVehicleType(vehicleType: InsertVehicleType): VehicleType {
-    const now = new Date().toISOString();
+  // --- Dashboard Metrics ---
 
-    const stmt = this.db.prepare(`
-      INSERT INTO vehicle_types (
-        id, name, fuel_efficiency, description, icon, fuel_type, co2_emissions, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      vehicleType.id,
-      vehicleType.name,
-      vehicleType.fuel_efficiency,
-      vehicleType.description || null,
-      vehicleType.icon || 'car',
-      vehicleType.fuel_type || 'petrol',
-      vehicleType.co2_emissions || null,
-      now,
-      now
-    );
-
-    // Also insert into replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        INSERT INTO vehicle_types (
-          id, name, fuel_efficiency, description, icon, fuel_type, co2_emissions, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      replicaStmt.run(
-        vehicleType.id,
-        vehicleType.name,
-        vehicleType.fuel_efficiency,
-        vehicleType.description || null,
-        vehicleType.icon || 'car',
-        vehicleType.fuel_type || 'petrol',
-        vehicleType.co2_emissions || null,
-        now,
-        now
-      );
+  async getDashboardMetrics(employeeId?: string): Promise<DashboardMetrics> {
+    let query = `
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN status = 'Delivered' THEN 1 END) as delivered,
+        COUNT(CASE WHEN status = 'In Transit' THEN 1 END) as in_transit,
+        COUNT(CASE WHEN status = 'Assigned' THEN 1 END) as assigned,
+        COUNT(CASE WHEN status = 'Picked Up' THEN 1 END) as picked_up,
+        COUNT(CASE WHEN status = 'Returned' THEN 1 END) as returned,
+        COUNT(CASE WHEN status = 'Cancelled' THEN 1 END) as cancelled
+      FROM shipments
+    `;
+    
+    const params: string[] = [];
+    if (employeeId) {
+      query += ` WHERE "employeeId" = $1`;
+      params.push(employeeId);
     }
 
-    return this.getVehicleTypeById(vehicleType.id)!;
+    const result = await pool.query(query, params);
+    const row = result.rows[0];
+    const total = parseInt(row.total);
+    const delivered = parseInt(row.delivered);
+    
+    return {
+      totalShipments: total,
+      completed: delivered,
+      inProgress: parseInt(row.in_transit),
+      pending: parseInt(row.assigned),
+      averageDeliveryTime: 0, // Would require more complex query
+      onTimeDeliveryRate: total > 0 ? (delivered / total) * 100 : 0,
+      statusBreakdown: {
+        'Assigned': parseInt(row.assigned),
+        'In Transit': parseInt(row.in_transit),
+        'Delivered': delivered,
+        'Picked Up': parseInt(row.picked_up),
+        'Returned': parseInt(row.returned),
+        'Cancelled': parseInt(row.cancelled)
+      }
+    };
   }
 
-  updateVehicleType(id: string, updates: UpdateVehicleType): VehicleType | null {
-    const now = new Date().toISOString();
+  // --- Vehicle Types ---
 
-    const updateFields = [];
-    const values = [];
-
-    if (updates.name !== undefined) {
-      updateFields.push('name = ?');
-      values.push(updates.name);
-    }
-    if (updates.fuel_efficiency !== undefined) {
-      updateFields.push('fuel_efficiency = ?');
-      values.push(updates.fuel_efficiency);
-    }
-    if (updates.description !== undefined) {
-      updateFields.push('description = ?');
-      values.push(updates.description);
-    }
-    if (updates.icon !== undefined) {
-      updateFields.push('icon = ?');
-      values.push(updates.icon);
-    }
-    if (updates.fuel_type !== undefined) {
-      updateFields.push('fuel_type = ?');
-      values.push(updates.fuel_type);
-    }
-    if (updates.co2_emissions !== undefined) {
-      updateFields.push('co2_emissions = ?');
-      values.push(updates.co2_emissions);
-    }
-
-    if (updateFields.length === 0) {
-      return this.getVehicleTypeById(id);
-    }
-
-    updateFields.push('updated_at = ?');
-    values.push(now);
-    values.push(id);
-
-    const stmt = this.db.prepare(`
-      UPDATE vehicle_types
-      SET ${updateFields.join(', ')}
-      WHERE id = ?
-    `);
-
-    stmt.run(...values);
-
-    // Also update replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        UPDATE vehicle_types
-        SET ${updateFields.join(', ')}
-        WHERE id = ?
-      `);
-      replicaStmt.run(...values);
-    }
-
-    return this.getVehicleTypeById(id);
+  async getAllVehicleTypes(): Promise<VehicleType[]> {
+    const result = await pool.query('SELECT * FROM vehicle_types ORDER BY name');
+    return result.rows;
   }
 
-  deleteVehicleType(id: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM vehicle_types WHERE id = ?');
-    const result = stmt.run(id);
-
-    // Also delete from replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare('DELETE FROM vehicle_types WHERE id = ?');
-      replicaStmt.run(id);
-    }
-
-    return result.changes > 0;
+  async getVehicleTypeById(id: string): Promise<VehicleType | undefined> {
+    const result = await pool.query('SELECT * FROM vehicle_types WHERE id = $1', [id]);
+    return result.rows[0];
   }
 
-  // Fuel Settings CRUD operations
-  getAllFuelSettings(): FuelSetting[] {
-    const stmt = this.db.prepare('SELECT * FROM fuel_settings ORDER BY effective_date DESC, fuel_type');
-    return stmt.all();
+  async createVehicleType(vehicleType: InsertVehicleType): Promise<VehicleType> {
+    const id = Math.random().toString(36).substring(2, 15);
+    const query = `
+      INSERT INTO vehicle_types (id, name, fuel_efficiency, description, icon, fuel_type, co2_emissions)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+    `;
+    const result = await pool.query(query, [
+      id, vehicleType.name, vehicleType.fuel_efficiency, vehicleType.description,
+      vehicleType.icon || 'car', vehicleType.fuel_type || 'petrol', vehicleType.co2_emissions
+    ]);
+    return result.rows[0];
   }
 
-  getFuelSettingById(id: string): FuelSetting | null {
-    const stmt = this.db.prepare('SELECT * FROM fuel_settings WHERE id = ?');
-    const fuelSetting = stmt.get(id);
-    return fuelSetting || null;
+  async updateVehicleType(id: string, updates: UpdateVehicleType): Promise<VehicleType | undefined> {
+    const keys = Object.keys(updates);
+    if (keys.length === 0) return this.getVehicleTypeById(id);
+
+    const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(', ');
+    const values = Object.values(updates);
+
+    const query = `UPDATE vehicle_types SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`;
+    const result = await pool.query(query, [id, ...values]);
+    return result.rows[0];
   }
 
-  recordShipmentEvent(event: {
+  async deleteVehicleType(id: string): Promise<boolean> {
+    const result = await pool.query('DELETE FROM vehicle_types WHERE id = $1', [id]);
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // --- Fuel Settings ---
+
+  async getAllFuelSettings(): Promise<FuelSetting[]> {
+    const result = await pool.query('SELECT * FROM fuel_settings ORDER BY effective_date DESC');
+    return result.rows;
+  }
+
+  async getFuelSettingById(id: string): Promise<FuelSetting | undefined> {
+    const result = await pool.query('SELECT * FROM fuel_settings WHERE id = $1', [id]);
+    return result.rows[0];
+  }
+
+  async createFuelSetting(fuelSetting: InsertFuelSetting): Promise<FuelSetting> {
+    const id = Math.random().toString(36).substring(2, 15);
+    const query = `
+      INSERT INTO fuel_settings (id, fuel_type, price_per_liter, currency, region, effective_date, is_active, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `;
+    const result = await pool.query(query, [
+      id, fuelSetting.fuel_type, fuelSetting.price_per_liter, fuelSetting.currency || 'USD',
+      fuelSetting.region, fuelSetting.effective_date, fuelSetting.is_active ?? true, fuelSetting.created_by
+    ]);
+    return result.rows[0];
+  }
+
+  async updateFuelSetting(id: string, updates: UpdateFuelSetting): Promise<FuelSetting | undefined> {
+    const keys = Object.keys(updates);
+    if (keys.length === 0) return this.getFuelSettingById(id);
+
+    const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(', ');
+    const values = Object.values(updates);
+
+    const query = `UPDATE fuel_settings SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`;
+    const result = await pool.query(query, [id, ...values]);
+    return result.rows[0];
+  }
+
+  async deleteFuelSetting(id: string): Promise<boolean> {
+    const result = await pool.query('DELETE FROM fuel_settings WHERE id = $1', [id]);
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // --- Route & Tracking Operations ---
+
+  async recordShipmentEvent(event: {
     sessionId: string;
     shipmentId: string;
     eventType: string;
     latitude: number;
     longitude: number;
     employeeId: string;
-  }): any {
-    const now = new Date().toISOString();
-    const date = now.split('T')[0];
-
-    // 1. Record in route_tracking table
-    const stmt = this.db.prepare(`
-      INSERT INTO route_tracking (
-        session_id, employee_id, latitude, longitude, timestamp, 
-        event_type, shipment_id, date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(
-      event.sessionId,
-      event.employeeId,
-      event.latitude,
-      event.longitude,
-      now,
-      event.eventType,
-      event.shipmentId,
-      date
-    );
-
-    // 2. Update the shipment itself with the stop coordinates
-    this.updateShipmentTracking(event.shipmentId, {
-      stop_latitude: event.latitude,
-      stop_longitude: event.longitude
-    });
-
-    return { id: result.lastInsertRowid, ...event, timestamp: now };
+  }): Promise<Record<string, unknown>> {
+    // Record in route_tracking
+    const query = `
+      INSERT INTO route_tracking (session_id, employee_id, latitude, longitude, timestamp, event_type, shipment_id)
+      VALUES ($1, $2, $3, $4, NOW(), $5, $6)
+      RETURNING *
+    `;
+    const result = await pool.query(query, [
+      event.sessionId, event.employeeId, event.latitude, event.longitude, event.eventType, event.shipmentId
+    ]);
+    return result.rows[0];
   }
 
-  startRouteSession(data: any): any {
-    const now = new Date().toISOString();
-    const stmt = this.db.prepare(`
-      INSERT INTO route_sessions (
-        id, employee_id, status, start_time, start_latitude, start_longitude, shipment_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
+  async startRouteSession(data: {
+    id: string;
+    employeeId: string;
+    startLatitude: number;
+    startLongitude: number;
+    shipmentId?: string;
+  }): Promise<Record<string, unknown>> {
+    const query = `
+      INSERT INTO route_sessions (id, employee_id, start_latitude, start_longitude, start_time, status)
+      VALUES ($1, $2, $3, $4, NOW(), 'active')
+      RETURNING *
+    `;
+    const result = await pool.query(query, [
+      data.id, data.employeeId, data.startLatitude, data.startLongitude
+    ]);
+    
+    if (data.shipmentId) {
+      await this.recordShipmentEvent({
+        sessionId: data.id,
+        shipmentId: data.shipmentId,
+        eventType: 'route_start',
+        latitude: data.startLatitude,
+        longitude: data.startLongitude,
+        employeeId: data.employeeId
+      });
+    }
 
-    stmt.run(
-      data.id,
-      data.employeeId,
-      'active',
-      now,
-      data.startLatitude,
-      data.startLongitude,
-      data.shipmentId || null
-    );
-
-    return { ...data, startTime: now, status: 'active' };
+    return result.rows[0];
   }
 
-  stopRouteSession(data: any): any {
-    const now = new Date().toISOString();
-    const stmt = this.db.prepare(`
+  async stopRouteSession(data: {
+    sessionId: string;
+    endLatitude: number;
+    endLongitude: number;
+  }): Promise<Record<string, unknown>> {
+    const query = `
       UPDATE route_sessions 
-      SET status = 'completed', end_time = ?, end_latitude = ?, end_longitude = ?
-      WHERE id = ?
-    `);
-
-    stmt.run(
-      now,
-      data.endLatitude,
-      data.endLongitude,
-      data.sessionId
-    );
-
-    return { ...data, endTime: now, status: 'completed' };
+      SET end_latitude = $2, end_longitude = $3, end_time = NOW(), status = 'completed'
+      WHERE id = $1
+      RETURNING *
+    `;
+    const result = await pool.query(query, [data.sessionId, data.endLatitude, data.endLongitude]);
+    return result.rows[0];
   }
 
-  recordCoordinate(data: any): any {
-    const now = new Date().toISOString();
-    const date = now.split('T')[0];
-    const stmt = this.db.prepare(`
-      INSERT INTO route_tracking (
-        session_id, employee_id, latitude, longitude, timestamp, date
-      ) VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    // In a real app we'd need employeeId here. 
-    // For now we'll try to find it from the session if not provided.
+  async recordCoordinate(data: {
+    sessionId: string;
+    latitude: number;
+    longitude: number;
+    timestamp?: string;
+    employeeId?: string;
+  }): Promise<Record<string, unknown>> {
+    const query = `
+      INSERT INTO route_tracking (session_id, employee_id, latitude, longitude, timestamp, event_type)
+      VALUES ($1, $2, $3, $4, $5, 'gps')
+      RETURNING *
+    `;
+    // We need employee_id, if not provided we might need to fetch it from session, but for now assuming it's provided or we can skip
+    // If employeeId is missing, try to get it from session
     let employeeId = data.employeeId;
     if (!employeeId) {
-      const session = this.db.prepare('SELECT employee_id FROM route_sessions WHERE id = ?').get(data.sessionId);
-      employeeId = session?.employee_id || 'unknown';
+      const session = await pool.query('SELECT employee_id FROM route_sessions WHERE id = $1', [data.sessionId]);
+      employeeId = session.rows[0]?.employee_id || 'unknown';
     }
 
-    const result = stmt.run(
-      data.sessionId,
-      employeeId,
-      data.latitude,
-      data.longitude,
-      data.timestamp || now,
-      date
-    );
-
-    return { id: result.lastInsertRowid, ...data };
+    const result = await pool.query(query, [
+      data.sessionId, employeeId, data.latitude, data.longitude, data.timestamp || new Date().toISOString()
+    ]);
+    return result.rows[0];
   }
 
-  createFuelSetting(fuelSetting: InsertFuelSetting): FuelSetting {
-    const now = new Date().toISOString();
-
-    const stmt = this.db.prepare(`
-      INSERT INTO fuel_settings (
-        id, fuel_type, price_per_liter, currency, region, effective_date, is_active, created_by, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    stmt.run(
-      fuelSetting.id,
-      fuelSetting.fuel_type,
-      fuelSetting.price_per_liter,
-      fuelSetting.currency || 'USD',
-      fuelSetting.region || null,
-      fuelSetting.effective_date,
-      fuelSetting.is_active !== undefined ? fuelSetting.is_active : true,
-      fuelSetting.created_by || null,
-      now,
-      now
-    );
-
-    // Also insert into replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        INSERT INTO fuel_settings (
-          id, fuel_type, price_per_liter, currency, region, effective_date, is_active, created_by, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      replicaStmt.run(
-        fuelSetting.id,
-        fuelSetting.fuel_type,
-        fuelSetting.price_per_liter,
-        fuelSetting.currency || 'USD',
-        fuelSetting.region || null,
-        fuelSetting.effective_date,
-        fuelSetting.is_active !== undefined ? fuelSetting.is_active : true,
-        fuelSetting.created_by || null,
-        now,
-        now
-      );
-    }
-
-    return this.getFuelSettingById(fuelSetting.id!)!;
+  // --- Feature Flags ---
+  
+  async getFeatureFlag(name: string): Promise<FeatureFlag | undefined> {
+    const result = await pool.query('SELECT * FROM feature_flags WHERE name = $1', [name]);
+    return result.rows[0];
   }
 
-  updateFuelSetting(id: string, updates: UpdateFuelSetting): FuelSetting | null {
-    const now = new Date().toISOString();
-
-    const updateFields = [];
-    const values = [];
-
-    if (updates.fuel_type !== undefined) {
-      updateFields.push('fuel_type = ?');
-      values.push(updates.fuel_type);
-    }
-
-    if (updates.price_per_liter !== undefined) {
-      updateFields.push('price_per_liter = ?');
-      values.push(updates.price_per_liter);
-    }
-
-    if (updates.currency !== undefined) {
-      updateFields.push('currency = ?');
-      values.push(updates.currency);
-    }
-
-    if (updates.region !== undefined) {
-      updateFields.push('region = ?');
-      values.push(updates.region);
-    }
-
-    if (updates.effective_date !== undefined) {
-      updateFields.push('effective_date = ?');
-      values.push(updates.effective_date);
-    }
-
-    if (updates.is_active !== undefined) {
-      updateFields.push('is_active = ?');
-      values.push(updates.is_active);
-    }
-
-    if (updateFields.length === 0) {
-      return this.getFuelSettingById(id);
-    }
-
-    updateFields.push('updated_at = ?');
-    values.push(now);
-    values.push(id);
-
-    const stmt = this.db.prepare(`
-      UPDATE fuel_settings
-      SET ${updateFields.join(', ')}
-      WHERE id = ?
-    `);
-
-    stmt.run(...values);
-
-    // Also update replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare(`
-        UPDATE fuel_settings
-        SET ${updateFields.join(', ')}
-        WHERE id = ?
-      `);
-      replicaStmt.run(...values);
-    }
-
-    return this.getFuelSettingById(id);
+  async getAllFeatureFlags(): Promise<FeatureFlag[]> {
+    const result = await pool.query('SELECT * FROM feature_flags ORDER BY name');
+    return result.rows;
   }
 
-  deleteFuelSetting(id: string): boolean {
-    const stmt = this.db.prepare('DELETE FROM fuel_settings WHERE id = ?');
-    const result = stmt.run(id);
+  async updateFeatureFlag(name: string, updates: UpdateFeatureFlag): Promise<FeatureFlag | undefined> {
+    const keys = Object.keys(updates);
+    if (keys.length === 0) return this.getFeatureFlag(name);
 
-    // Also delete from replica
-    if (this.db === liveDb) {
-      const replicaStmt = replicaDb.prepare('DELETE FROM fuel_settings WHERE id = ?');
-      replicaStmt.run(id);
-    }
+    const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(', ');
+    const values = Object.values(updates);
 
-    return result.changes > 0;
+    const query = `UPDATE feature_flags SET ${setClause}, updated_at = NOW() WHERE name = $1 RETURNING *`;
+    const result = await pool.query(query, [name, ...values]);
+    return result.rows[0];
   }
 
+  // --- System Health ---
+
+  async createSystemHealthMetric(metric: Omit<SystemHealthMetric, 'created_at'>): Promise<SystemHealthMetric> {
+    const query = `
+      INSERT INTO system_health_metrics (id, metric_name, metric_value, metric_unit, timestamp)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `;
+    const result = await pool.query(query, [
+      metric.id, metric.metric_name, metric.metric_value, metric.metric_unit, metric.timestamp
+    ]);
+    return result.rows[0];
+  }
+
+  async getSystemHealthMetrics(limit = 100): Promise<SystemHealthMetric[]> {
+    const result = await pool.query('SELECT * FROM system_health_metrics ORDER BY timestamp DESC LIMIT $1', [limit]);
+    return result.rows;
+  }
+
+  // --- User & Session Operations (for Auth) ---
+
+  async getUserByToken(token: string): Promise<User | undefined> {
+    const result = await pool.query('SELECT * FROM users WHERE access_token = $1', [token]);
+    return result.rows[0] ? this.mapDbUserToUser(result.rows[0]) : undefined;
+  }
+
+  async getUserById(id: string): Promise<User | undefined> {
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    return result.rows[0] ? this.mapDbUserToUser(result.rows[0]) : undefined;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const query = `
+      INSERT INTO users (
+        id, username, email, role, employee_id, full_name, 
+        access_token, refresh_token, is_active, 
+        is_super_user, is_ops_team, is_staff,
+        last_login
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *
+    `;
+    
+    const values = [
+      user.id, user.username, user.email, user.role, user.employeeId, user.fullName,
+      user.accessToken, user.refreshToken, user.isActive,
+      user.isSuperUser, user.isOpsTeam, user.isStaff,
+      user.lastLogin
+    ];
+
+    const result = await pool.query(query, values);
+    return this.mapDbUserToUser(result.rows[0]);
+  }
+
+  async updateUser(id: string, updates: UpdateUser): Promise<User | undefined> {
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.username) dbUpdates.username = updates.username;
+    if (updates.email) dbUpdates.email = updates.email;
+    if (updates.role) dbUpdates.role = updates.role;
+    if (updates.employeeId) dbUpdates.employee_id = updates.employeeId;
+    if (updates.fullName) dbUpdates.full_name = updates.fullName;
+    if (updates.accessToken) dbUpdates.access_token = updates.accessToken;
+    if (updates.refreshToken) dbUpdates.refresh_token = updates.refreshToken;
+    if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+    if (updates.isSuperUser !== undefined) dbUpdates.is_super_user = updates.isSuperUser;
+    if (updates.isOpsTeam !== undefined) dbUpdates.is_ops_team = updates.isOpsTeam;
+    if (updates.isStaff !== undefined) dbUpdates.is_staff = updates.isStaff;
+    if (updates.lastLogin) dbUpdates.last_login = updates.lastLogin;
+
+    const keys = Object.keys(dbUpdates);
+    if (keys.length === 0) return this.getUserById(id);
+
+    const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(', ');
+    const values = Object.values(dbUpdates);
+
+    const query = `UPDATE users SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`;
+    const result = await pool.query(query, [id, ...values]);
+    return result.rows[0] ? this.mapDbUserToUser(result.rows[0]) : undefined;
+  }
+
+  async createSession(session: UserSession): Promise<UserSession> {
+    const query = `
+      INSERT INTO user_sessions (id, user_id, access_token, expires_at)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `;
+    const result = await pool.query(query, [session.id, session.user_id, session.access_token, session.expires_at]);
+    return result.rows[0];
+  }
+
+  async getSessionByToken(token: string): Promise<UserSession | undefined> {
+    const result = await pool.query('SELECT * FROM user_sessions WHERE access_token = $1 AND expires_at > NOW()', [token]);
+    return result.rows[0];
+  }
+
+  async updateSession(id: string, token: string, expiresAt: string): Promise<UserSession | undefined> {
+     const query = `
+      UPDATE user_sessions 
+      SET access_token = $2, expires_at = $3 
+      WHERE id = $1
+      RETURNING *
+    `;
+    const result = await pool.query(query, [id, token, expiresAt]);
+    return result.rows[0];
+  }
+
+  async deleteExpiredSessions(): Promise<number> {
+    const result = await pool.query('DELETE FROM user_sessions WHERE expires_at < NOW()');
+    return result.rowCount ?? 0;
+  }
+
+  private mapDbUserToUser(row: Record<string, unknown>): User {
+    return {
+      id: row.id as string,
+      username: row.username as string,
+      email: row.email as string,
+      role: row.role as UserRole,
+      employeeId: row.employee_id as string,
+      fullName: row.full_name as string,
+      isActive: row.is_active as boolean,
+      isApproved: row.is_approved as boolean,
+      isRider: row.role === 'driver' || row.role === 'rider',
+      isSuperUser: row.is_super_user as boolean,
+      isOpsTeam: row.is_ops_team as boolean,
+      isStaff: row.is_staff as boolean,
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string
+    };
+  }
 }

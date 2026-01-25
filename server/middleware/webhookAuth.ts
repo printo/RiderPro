@@ -72,8 +72,9 @@ export class WebhookAuthMiddleware {
           timestamp: new Date().toISOString()
         });
 
-      } catch (error: any) {
-        log(`Webhook authentication error: ${error.message}`, 'webhook-auth');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        log(`Webhook authentication error: ${errorMessage}`, 'webhook-auth');
         return res.status(500).json({
           success: false,
           message: 'Webhook authentication error',
@@ -119,8 +120,9 @@ export class WebhookAuthMiddleware {
         Buffer.from(expectedSignature, 'hex')
       );
 
-    } catch (error: any) {
-      log(`HMAC validation error: ${error.message}`, 'webhook-auth');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log(`HMAC validation error: ${errorMessage}`, 'webhook-auth');
       return false;
     }
   }
@@ -144,8 +146,9 @@ export class WebhookAuthMiddleware {
         cred.username === username && cred.password === password
       );
 
-    } catch (error: any) {
-      log(`Basic auth validation error: ${error.message}`, 'webhook-auth');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log(`Basic auth validation error: ${errorMessage}`, 'webhook-auth');
       return false;
     }
   }
@@ -208,7 +211,7 @@ export class WebhookAuthMiddleware {
 
       // Override res.json to log response
       const originalJson = res.json;
-      res.json = function (body: any) {
+      res.json = function (body: unknown) {
         const duration = Date.now() - startTime;
         log(`Webhook response: ${res.statusCode} in ${duration}ms (source: ${req.webhookSource || 'unknown'})`, 'webhook-request');
 

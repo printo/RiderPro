@@ -1,5 +1,5 @@
 import { apiRequest } from "@/lib/queryClient";
-import { VehicleType, InsertVehicleType, UpdateVehicleType } from "@shared/schema";
+import { VehicleType, InsertVehicleType, UpdateVehicleType } from "@shared/types";
 
 export const vehicleTypesApi = {
   getVehicleTypes: async (): Promise<VehicleType[]> => {

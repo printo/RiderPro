@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +22,7 @@ import {
   Fuel,
   TrendingUp
 } from 'lucide-react';
-import { RouteAnalytics } from '@shared/schema';
+import { RouteAnalytics, EmployeeMetrics } from '@shared/types';
 import { DateRange } from 'react-day-picker';
 
 interface EmployeePerformanceTableProps {
@@ -30,23 +30,19 @@ interface EmployeePerformanceTableProps {
   dateRange?: DateRange;
 }
 
-type SortField = 'employeeId' | 'totalDistance' | 'totalTime' | 'averageSpeed' | 'fuelConsumed' | 'fuelCost' | 'shipmentsCompleted' | 'efficiency' | 'fuelEfficiency';
-type SortDirection = 'asc' | 'desc';
-
-interface EmployeeMetrics {
+interface EmployeeAggregateData {
   employeeId: string;
   totalDistance: number;
   totalTime: number;
-  averageSpeed: number;
   fuelConsumed: number;
   fuelCost: number;
   shipmentsCompleted: number;
-  efficiency: number;
-  workingDays: number;
-  avgDistancePerDay: number;
-  avgShipmentsPerDay: number;
-  fuelEfficiency: number;
+  workingDays: Set<string>;
+  records: RouteAnalytics[];
 }
+
+type SortField = 'employeeId' | 'totalDistance' | 'totalTime' | 'averageSpeed' | 'fuelConsumed' | 'fuelCost' | 'shipmentsCompleted' | 'efficiency' | 'fuelEfficiency';
+type SortDirection = 'asc' | 'desc';
 
 export default function EmployeePerformanceTable({
   data,
@@ -81,9 +77,9 @@ export default function EmployeePerformanceTable({
       acc[item.employeeId].records.push(item);
 
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, EmployeeAggregateData>);
 
-    return Object.values(employeeData).map((employee: any): EmployeeMetrics => {
+    return Object.values(employeeData).map((employee): EmployeeMetrics => {
       const workingDays = employee.workingDays.size;
       return {
         employeeId: employee.employeeId,
@@ -115,8 +111,8 @@ export default function EmployeePerformanceTable({
 
     // Apply sorting
     filtered.sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
+      const aValue = a[sortField] ?? 0;
+      const bValue = b[sortField] ?? 0;
 
       if (sortDirection === 'asc') {
         return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
@@ -298,56 +294,56 @@ export default function EmployeePerformanceTable({
                       <div className="flex flex-col">
                         <span className="font-medium">{employee.totalDistance.toFixed(1)} km</span>
                         <span className="text-xs text-muted-foreground">
-                          {employee.avgDistancePerDay.toFixed(1)} km/day
+                          {(employee.avgDistancePerDay ?? 0).toFixed(1)} km/day
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">{Math.round(employee.totalTime / 3600)} hrs</span>
+                        <span className="font-medium">{Math.round((employee.totalTime ?? 0) / 3600)} hrs</span>
                         <span className="text-xs text-muted-foreground">
-                          {Math.round(employee.totalTime / 3600 / employee.workingDays)} hrs/day
+                          {Math.round((employee.totalTime ?? 0) / 3600 / (employee.workingDays ?? 1))} hrs/day
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getPerformanceBadge(employee.averageSpeed, 'averageSpeed')}>
-                        {employee.averageSpeed.toFixed(1)} km/h
+                      <Badge variant={getPerformanceBadge(employee.averageSpeed ?? 0, 'averageSpeed')}>
+                        {(employee.averageSpeed ?? 0).toFixed(1)} km/h
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">{employee.shipmentsCompleted}</span>
+                        <span className="font-medium">{employee.shipmentsCompleted ?? 0}</span>
                         <span className="text-xs text-muted-foreground">
-                          {employee.avgShipmentsPerDay.toFixed(1)}/day
+                          {(employee.avgShipmentsPerDay ?? 0).toFixed(1)}/day
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">${employee.fuelCost.toFixed(2)}</span>
+                        <span className="font-medium">${(employee.fuelCost ?? 0).toFixed(2)}</span>
                         <span className="text-xs text-muted-foreground">
-                          {employee.fuelConsumed.toFixed(1)}L
+                          {(employee.fuelConsumed ?? 0).toFixed(1)}L
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getPerformanceBadge(employee.efficiency, 'efficiency')}>
-                        {employee.efficiency.toFixed(1)} km/shipment
+                      <Badge variant={getPerformanceBadge(employee.efficiency ?? 0, 'efficiency')}>
+                        {(employee.efficiency ?? 0).toFixed(1)} km/shipment
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {employee.workingDays} days
+                        {employee.workingDays ?? 0} days
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         <Badge
-                          variant={getPerformanceBadge(employee.fuelEfficiency, 'fuelEfficiency')}
+                          variant={getPerformanceBadge(employee.fuelEfficiency ?? 0, 'fuelEfficiency')}
                           className="text-xs"
                         >
-                          {employee.fuelEfficiency.toFixed(1)} km/L
+                          {(employee.fuelEfficiency ?? 0).toFixed(1)} km/L
                         </Badge>
                       </div>
                     </TableCell>
@@ -371,7 +367,7 @@ export default function EmployeePerformanceTable({
                   {/* Header */}
                   <div className="flex items-center justify-between">
                     <h3 className="font-semibold text-lg">Employee {employee.employeeId}</h3>
-                    <Badge variant="outline">{employee.workingDays} days</Badge>
+                    <Badge variant="outline">{employee.workingDays ?? 0} days</Badge>
                   </div>
 
                   {/* Key Metrics Grid */}
@@ -380,23 +376,23 @@ export default function EmployeePerformanceTable({
                       <MapPin className="h-4 w-4 text-blue-600" />
                       <div>
                         <p className="text-sm font-medium">{employee.totalDistance.toFixed(1)} km</p>
-                        <p className="text-xs text-muted-foreground">{employee.avgDistancePerDay.toFixed(1)} km/day</p>
+                        <p className="text-xs text-muted-foreground">{(employee.avgDistancePerDay ?? 0).toFixed(1)} km/day</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-green-600" />
                       <div>
-                        <p className="text-sm font-medium">{Math.round(employee.totalTime / 3600)} hrs</p>
-                        <p className="text-xs text-muted-foreground">{Math.round(employee.totalTime / 3600 / employee.workingDays)} hrs/day</p>
+                        <p className="text-sm font-medium">{Math.round((employee.totalTime ?? 0) / 3600)} hrs</p>
+                        <p className="text-xs text-muted-foreground">{Math.round((employee.totalTime ?? 0) / 3600 / (employee.workingDays ?? 1))} hrs/day</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <TrendingUp className="h-4 w-4 text-purple-600" />
                       <div>
-                        <Badge variant={getPerformanceBadge(employee.averageSpeed, 'averageSpeed')} className="text-xs">
-                          {employee.averageSpeed.toFixed(1)} km/h
+                        <Badge variant={getPerformanceBadge(employee.averageSpeed ?? 0, 'averageSpeed')} className="text-xs">
+                          {(employee.averageSpeed ?? 0).toFixed(1)} km/h
                         </Badge>
                         <p className="text-xs text-muted-foreground mt-1">Avg Speed</p>
                       </div>
@@ -405,8 +401,8 @@ export default function EmployeePerformanceTable({
                     <div className="flex items-center gap-2">
                       <Fuel className="h-4 w-4 text-orange-600" />
                       <div>
-                        <p className="text-sm font-medium">${employee.fuelCost.toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground">{employee.fuelConsumed.toFixed(1)}L</p>
+                        <p className="text-sm font-medium">${(employee.fuelCost ?? 0).toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">{(employee.fuelConsumed ?? 0).toFixed(1)}L</p>
                       </div>
                     </div>
                   </div>
@@ -415,17 +411,17 @@ export default function EmployeePerformanceTable({
                   <div className="flex flex-wrap gap-2">
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-muted-foreground">Shipments:</span>
-                      <span className="text-sm font-medium">{employee.shipmentsCompleted}</span>
-                      <span className="text-xs text-muted-foreground">({employee.avgShipmentsPerDay.toFixed(1)}/day)</span>
+                      <span className="text-sm font-medium">{employee.shipmentsCompleted ?? 0}</span>
+                      <span className="text-xs text-muted-foreground">({(employee.avgShipmentsPerDay ?? 0).toFixed(1)}/day)</span>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant={getPerformanceBadge(employee.efficiency, 'efficiency')} className="text-xs">
-                      {employee.efficiency.toFixed(1)} km/shipment
+                    <Badge variant={getPerformanceBadge(employee.efficiency ?? 0, 'efficiency')} className="text-xs">
+                      {(employee.efficiency ?? 0).toFixed(1)} km/shipment
                     </Badge>
-                    <Badge variant={getPerformanceBadge(employee.fuelEfficiency, 'fuelEfficiency')} className="text-xs">
-                      {employee.fuelEfficiency.toFixed(1)} km/L
+                    <Badge variant={getPerformanceBadge(employee.fuelEfficiency ?? 0, 'fuelEfficiency')} className="text-xs">
+                      {(employee.fuelEfficiency ?? 0).toFixed(1)} km/L
                     </Badge>
                   </div>
                 </div>
@@ -441,7 +437,7 @@ export default function EmployeePerformanceTable({
             </span>
             <span>
               Total: {employeeMetrics.reduce((sum, emp) => sum + emp.totalDistance, 0).toFixed(1)} km,
-              ${employeeMetrics.reduce((sum, emp) => sum + emp.fuelCost, 0).toFixed(2)} fuel cost
+              ${employeeMetrics.reduce((sum, emp) => sum + (emp.fuelCost ?? 0), 0).toFixed(2)} fuel cost
             </span>
           </div>
         )}

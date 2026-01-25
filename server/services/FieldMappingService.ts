@@ -56,6 +56,15 @@ export interface ExternalUpdatePayload {
   };
 }
 
+export interface AdditionalUpdateData {
+  deliveryNotes?: string;
+  signature?: string;
+  photo?: string;
+  sessionId?: string;
+  totalDistance?: number;
+  travelTime?: number;
+}
+
 // Internal database format (matches current schema)
 export interface InternalShipment {
   shipment_id: string;           // Primary key identifier
@@ -84,7 +93,7 @@ export interface InternalShipment {
 
 export interface ValidationError {
   field: string;
-  value: any;
+  value: unknown;
   message: string;
   code: string;
 }
@@ -92,7 +101,7 @@ export interface ValidationError {
 export interface ValidationResult {
   isValid: boolean;
   errors: ValidationError[];
-  sanitizedData?: any;
+  sanitizedData?: unknown;
 }
 
 /**
@@ -156,9 +165,10 @@ export class FieldMappingService {
       log(`Successfully mapped external shipment ${external.id} to internal ID ${internalId}`, 'field-mapping');
       return internal;
 
-    } catch (error: any) {
-      log(`Error mapping external to internal for shipment ${external.id}: ${error.message}`, 'field-mapping');
-      throw new Error(`Field mapping failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log(`Error mapping external to internal for shipment ${external.id}: ${errorMessage}`, 'field-mapping');
+      throw new Error(`Field mapping failed: ${errorMessage}`);
     }
   }
 
@@ -166,7 +176,7 @@ export class FieldMappingService {
    * Maps internal database format to external update format
    * Used when sending status updates back to external systems
    */
-  mapInternalToExternal(internal: InternalShipment, additionalData?: any): ExternalUpdatePayload {
+  mapInternalToExternal(internal: InternalShipment, additionalData?: AdditionalUpdateData): ExternalUpdatePayload {
     try {
       log(`Mapping internal shipment ${internal.shipment_id} to external update format`, 'field-mapping');
 
@@ -207,9 +217,10 @@ export class FieldMappingService {
       log(`Successfully mapped internal shipment ${internal.shipment_id} to external update`, 'field-mapping');
       return external;
 
-    } catch (error: any) {
-      log(`Error mapping internal to external for shipment ${internal.shipment_id}: ${error.message}`, 'field-mapping');
-      throw new Error(`Field mapping failed: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log(`Error mapping internal to external for shipment ${internal.shipment_id}: ${errorMessage}`, 'field-mapping');
+      throw new Error(`Field mapping failed: ${errorMessage}`);
     }
   }
 
@@ -311,14 +322,15 @@ export class FieldMappingService {
         sanitizedData: errors.length === 0 ? payload : undefined
       };
 
-    } catch (error: any) {
-      log(`Validation error for external payload: ${error.message}`, 'field-mapping');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log(`Validation error for external payload: ${errorMessage}`, 'field-mapping');
       return {
         isValid: false,
         errors: [{
           field: 'general',
           value: payload,
-          message: `Validation failed: ${error.message}`,
+          message: `Validation failed: ${errorMessage}`,
           code: 'VALIDATION_ERROR'
         }]
       };
@@ -383,12 +395,12 @@ export class FieldMappingService {
     });
   }
 
-  private sanitizeString(value: any): string {
+  private sanitizeString(value: unknown): string {
     if (value === null || value === undefined) return '';
     return String(value).trim();
   }
 
-  private sanitizeNumber(value: any, fieldName: string): number {
+  private sanitizeNumber(value: unknown, fieldName: string): number {
     const num = Number(value);
     if (isNaN(num)) {
       throw new Error(`Invalid number for field ${fieldName}: ${value}`);
@@ -396,7 +408,7 @@ export class FieldMappingService {
     return num;
   }
 
-  private sanitizeCoordinate(value: any, type: 'latitude' | 'longitude'): number | undefined {
+  private sanitizeCoordinate(value: unknown, type: 'latitude' | 'longitude'): number | undefined {
     if (value === null || value === undefined) return undefined;
 
     const num = Number(value);
@@ -408,11 +420,11 @@ export class FieldMappingService {
     return num;
   }
 
-  private sanitizeDateTime(value: any): string {
+  private sanitizeDateTime(value: unknown): string {
     if (!value) return new Date().toISOString();
 
     // Try to parse the date
-    const date = new Date(value);
+    const date = new Date(value as string | number | Date);
     if (isNaN(date.getTime())) {
       return new Date().toISOString();
     }
@@ -420,7 +432,7 @@ export class FieldMappingService {
     return date.toISOString();
   }
 
-  private sanitizePhoneNumber(value: any): string {
+  private sanitizePhoneNumber(value: unknown): string {
     if (!value) return '';
 
     // Basic phone number sanitization - remove non-digits except +
@@ -428,7 +440,7 @@ export class FieldMappingService {
     return cleaned;
   }
 
-  private sanitizeStatus(value: any): string {
+  private sanitizeStatus(value: unknown): string {
     const validStatuses = ['Assigned', 'In Transit', 'Delivered', 'Picked Up', 'Returned', 'Cancelled'];
     const status = String(value).trim();
 
@@ -449,10 +461,10 @@ export class FieldMappingService {
   }
 
   private isValidPhoneNumber(phone: string): boolean {
-    // Basic phone validation - should contain digits and optionally start with +
-    const phoneRegex = /^\+?[\d\s\-\(\)]{7,15}$/;
-    return phoneRegex.test(phone);
-  }
+  // Basic phone validation - should contain digits and optionally start with +
+  const phoneRegex = /^\+?[\d\s()\-\s]{7,15}$/;
+  return phoneRegex.test(phone);
+}
 
   private isValidStatus(status: string): boolean {
     const validStatuses = ['Assigned', 'In Transit', 'Delivered', 'Picked Up', 'Returned', 'Cancelled'];
@@ -463,24 +475,24 @@ export class FieldMappingService {
    * Maps field aliases for backward compatibility
    * Handles cases where external systems use different field names
    */
-  mapFieldAliases(payload: any): ExternalShipmentPayload {
-    const mapped = { ...payload };
+  mapFieldAliases(payload: Record<string, unknown>): ExternalShipmentPayload {
+    const mapped: Record<string, unknown> = { ...payload };
 
     // Handle common field aliases
-    if (payload.customerName && !payload.recipientName) {
-      mapped.recipientName = payload.customerName;
+    if (payload['customerName'] && !payload['recipientName']) {
+      mapped['recipientName'] = payload['customerName'];
     }
-    if (payload.customerMobile && !payload.recipientPhone) {
-      mapped.recipientPhone = payload.customerMobile;
+    if (payload['customerMobile'] && !payload['recipientPhone']) {
+      mapped['recipientPhone'] = payload['customerMobile'];
     }
-    if (payload.address && !payload.deliveryAddress) {
-      mapped.deliveryAddress = payload.address;
+    if (payload['address'] && !payload['deliveryAddress']) {
+      mapped['deliveryAddress'] = payload['address'];
     }
-    if (payload.deliveryTime && !payload.estimatedDeliveryTime) {
-      mapped.estimatedDeliveryTime = payload.deliveryTime;
+    if (payload['deliveryTime'] && !payload['estimatedDeliveryTime']) {
+      mapped['estimatedDeliveryTime'] = payload['deliveryTime'];
     }
 
-    return mapped as ExternalShipmentPayload;
+    return mapped as unknown as ExternalShipmentPayload;
   }
 
   /**

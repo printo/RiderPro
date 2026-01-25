@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { GPSTracker, GPSPosition, GPSError, GPSPermissionStatus } from '../services/GPSTracker';
+import { GPSTracker } from '../services/GPSTracker';
+import { GPSPosition, GPSError, GPSPermissionStatus } from '@shared/types';
 import { GPSErrorRecoveryService } from '../services/GPSErrorRecoveryService';
 import { ErrorHandlingService } from '../services/ErrorHandlingService';
 import { log } from "../utils/logger.js";

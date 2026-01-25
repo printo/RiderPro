@@ -1,4 +1,4 @@
-import { GPSError, GPSPosition } from './GPSTracker';
+import { GPSError, GPSPosition } from '@shared/types';
 import { ErrorHandlingService } from './ErrorHandlingService';
 
 export interface GPSRecoveryState {

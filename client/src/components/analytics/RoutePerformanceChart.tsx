@@ -1,15 +1,9 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { withChartErrorBoundary } from "@/components/ErrorBoundary";
-
-interface RouteData {
-  total: number;
-  delivered: number;
-  pickedUp: number;
-  pending: number;
-}
+import { RouteStatusBreakdown } from "@shared/types";
 
 interface RoutePerformanceChartProps {
-  routeBreakdown: Record<string, RouteData>;
+  routeBreakdown: Record<string, RouteStatusBreakdown>;
 }
 
 function RoutePerformanceChart({ routeBreakdown }: RoutePerformanceChartProps) {
@@ -41,7 +35,7 @@ function RoutePerformanceChart({ routeBreakdown }: RoutePerformanceChartProps) {
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>{data.delivered + data.pickedUp} completed</span>
-                  <span>{data.pending} pending</span>
+                  <span>{data.pending || 0} pending</span>
                 </div>
               </div>
             ))

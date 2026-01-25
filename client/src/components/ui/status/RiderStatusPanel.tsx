@@ -28,15 +28,6 @@ export default function RiderStatusPanel({
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'text-green-600';
-      case 'idle': return 'text-amber-600';
-      case 'offline': return 'text-gray-600';
-      default: return 'text-gray-600';
-    }
-  };
-
   const formatTimestamp = (timestamp: string) => {
     const now = new Date();
     const time = new Date(timestamp);

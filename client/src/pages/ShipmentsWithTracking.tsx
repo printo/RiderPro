@@ -1,33 +1,34 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense, lazy } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { shipmentsApi, type PaginatedResponse } from "@/apiClient/shipments";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Edit, RotateCcw, Navigation, MapPin, AlertCircle } from "lucide-react";
+import { Edit, RotateCcw, MapPin, AlertCircle } from "lucide-react";
 import ShipmentCardWithTracking from "@/components/shipments/ShipmentCardWithTracking";
 import ShipmentDetailModalWithTracking from "@/components/ui/forms/ShipmentDetailModalWithTracking";
 import BatchUpdateModal from "@/components/ui/forms/BatchUpdateModal";
-import RouteSessionControls from "@/components/routes/RouteSessionControls";
 import Filters from "@/components/Filters";
-import { Shipment, ShipmentFilters } from "@shared/schema";
+import { Shipment, ShipmentFilters } from "@shared/types";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
 
 // Lazy load the shipments list component
-const ShipmentsList = lazy(() => import("@/components/shipments/ShipmentsList"));
+// const ShipmentsList = lazy(() => import("@/components/shipments/ShipmentsList"));
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 
+type ExtendedShipmentFilters = ShipmentFilters & { employeeId?: string };
+
 function ShipmentsWithTracking() {
-  const [filters, setFilters] = useState<ShipmentFilters>({});
+  const [filters, setFilters] = useState<ExtendedShipmentFilters>({});
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const { toast } = useToast();
-  const { user: currentUser, isAuthenticated, authenticatedFetch, getAuthHeaders, logout } = useAuth();
+  const { user: currentUser, isAuthenticated, authenticatedFetch: _authenticatedFetch, getAuthHeaders } = useAuth();
 
   // Debug: Log component mount and auth state
   useEffect(() => {
@@ -57,7 +58,7 @@ function ShipmentsWithTracking() {
   const employeeId = currentUser?.employeeId || currentUser?.username || "";
 
   // Memoize effective filters so query key is stable
-  const effectiveFilters = useMemo(() => {
+  const effectiveFilters = useMemo<ExtendedShipmentFilters>(() => {
     return {
       ...filters,
       ...(currentUser?.role !== "admin" &&
@@ -65,7 +66,7 @@ function ShipmentsWithTracking() {
         employeeId
         ? { employeeId }
         : {}),
-    } as ShipmentFilters;
+    };
   }, [filters, currentUser?.role, employeeId]);
 
   // Lazy loading
@@ -106,7 +107,7 @@ function ShipmentsWithTracking() {
   }, []);
 
   // State for pagination
-  const [pagination, setPagination] = useState({
+  const [pagination, _setPagination] = useState({
     page: 1,
     limit: 20,
   });
@@ -165,15 +166,15 @@ function ShipmentsWithTracking() {
 
   const {
     data: shipments = [],
-    total = 0,
-    page = 1,
-    limit: pageSize = 20,
-    totalPages = 1,
-    hasNextPage = false,
-    hasPreviousPage = false
+    total: _total = 0,
+    page: _page = 1,
+    limit: _pageSize = 20,
+    totalPages: _totalPages = 1,
+    hasNextPage: _hasNextPage = false,
+    hasPreviousPage: _hasPreviousPage = false
   } = paginatedData;
 
-  const { hasActiveSession, activeSession } = useRouteTracking(employeeId);
+  const { hasActiveSession, activeSession: _activeSession } = useRouteTracking(employeeId);
 
   // Show welcome toast when shipments are loaded
   useEffect(() => {
@@ -201,20 +202,20 @@ function ShipmentsWithTracking() {
   };
 
   // Handle page change
-  const handlePageChange = (newPage: number) => {
-    setPagination(prev => ({
-      ...prev,
-      page: newPage,
-    }));
-  };
+  // const _handlePageChange = (newPage: number) => {
+  //   setPagination(prev => ({
+  //     ...prev,
+  //     page: newPage,
+  //   }));
+  // };
 
   // Handle page size change
-  const handlePageSizeChange = (newSize: number) => {
-    setPagination(prev => ({
-      page: 1, // Reset to first page when changing page size
-      limit: newSize,
-    }));
-  };
+  // const _handlePageSizeChange = (newSize: number) => {
+  //   setPagination(prev => ({
+  //     page: 1, // Reset to first page when changing page size
+  //     limit: newSize,
+  //   }));
+  // };
 
   const handleBatchUpdate = () => {
     if (selectedShipmentIds.length === 0) return;
@@ -241,7 +242,7 @@ function ShipmentsWithTracking() {
   }, [debouncedFilters, refetch, shouldLoadShipments]);
 
   // Handle filter changes
-  const handleFilterChange = useCallback((newFilters: Partial<ShipmentFilters>) => {
+  const handleFilterChange = useCallback((newFilters: Partial<ExtendedShipmentFilters>) => {
     setFilters(prev => ({
       ...prev,
       ...newFilters,
@@ -256,92 +257,7 @@ function ShipmentsWithTracking() {
     setShowRouteControls(prev => !prev);
   };
 
-  // Error banner
-  const renderErrorBanner = () => {
-    if (!error) return null;
 
-    console.error("Shipments error:", error);
-
-    let errorMessage = "Failed to load shipments. Please try again.";
-    let showRetry = true;
-
-    if (error instanceof Error) {
-      if (error.message.includes("401")) {
-        errorMessage = "Your session has expired. Please log in again.";
-        showRetry = false;
-      } else if (error.message.includes("NetworkError")) {
-        errorMessage = "Network error. Please check your internet connection.";
-      } else if (error.message.includes("500")) {
-        errorMessage = "Server error. Please try again later.";
-      }
-    }
-
-    return (
-      <Card className="mt-6">
-        <CardContent className="p-4">
-          <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg
-                  className="h-5 w-5 text-red-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">{errorMessage}</h3>
-                {import.meta.env.MODE === "development" && (
-                  <div className="mt-2 text-sm text-red-700">
-                    <details>
-                      <summary className="cursor-pointer text-sm">
-                        Show error details
-                      </summary>
-                      <pre className="mt-2 p-2 bg-red-100 rounded overflow-auto text-xs">
-                        {error instanceof Error ? error.message : JSON.stringify(error, null, 2)}
-                      </pre>
-                    </details>
-                  </div>
-                )}
-                <div className="mt-2 flex gap-2">
-                  {showRetry ? (
-                    <Button
-                      onClick={handleRefresh}
-                      variant="destructive"
-                      size="sm"
-                      className="mt-2"
-                      data-testid="button-retry"
-                    >
-                      <RotateCcw className="h-4 w-4 mr-2" />
-                      Retry Loading Shipments
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => {
-                        logout();
-                        window.location.href = "/login";
-                      }}
-                      variant="destructive"
-                      size="sm"
-                      className="mt-2"
-                    >
-                      Go to Login
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
 
   // Initial loading skeleton
   if (isLoading && shouldLoadShipments && !isFetching) {
@@ -400,18 +316,7 @@ function ShipmentsWithTracking() {
     );
   }
 
-  // Render filter section
-  const renderFilterSection = () => (
-    <Card className="shadow-sm mb-6">
-      <CardContent className="p-4">
-        <Filters
-          filters={filters}
-          onFiltersChange={handleFilterChange}
-          onClear={() => setFilters({})}
-        />
-      </CardContent>
-    </Card>
-  );
+
 
   // Render error state
   const renderErrorState = () => (
@@ -433,14 +338,7 @@ function ShipmentsWithTracking() {
     </Alert>
   );
 
-  // Render loading state
-  const renderLoadingState = () => (
-    <div className="space-y-4">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <Skeleton key={i} className="h-24 w-full" />
-      ))}
-    </div>
-  );
+
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -496,7 +394,7 @@ function ShipmentsWithTracking() {
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground" data-testid="text-no-shipments">
-              {filters.status || filters.type || filters.routeName || filters.date || (filters as any).employeeId
+              {filters.status || filters.type || filters.routeName || filters.date || filters.employeeId
                 ? "No shipments match the current filters. Try adjusting your filters."
                 : "No shipments available at the moment. Please check back later."}
             </p>

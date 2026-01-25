@@ -1,30 +1,20 @@
 import cron from 'node-cron';
-import { ShipmentQueries } from '../db/queries.js';
+import { pool } from '../db/connection.js';
 import { log } from '../vite.js';
 
-// Reset live database daily at midnight
-cron.schedule('0 0 * * *', () => {
+// Cleanup old route tracking data daily at 3 AM (keep last 30 days)
+cron.schedule('0 3 * * *', async () => {
   try {
-    log('Starting daily database reset...', 'scheduler');
-    const queries = new ShipmentQueries(false); // Live DB
-    queries.resetDatabase();
-    log('Live database reset completed successfully', 'scheduler');
+    log('Starting route data cleanup...', 'scheduler');
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 30);
+    
+    await pool.query('DELETE FROM route_tracking WHERE date < $1', [cutoffDate.toISOString().split('T')[0]]);
+    
+    log('Route data cleanup completed successfully', 'scheduler');
   } catch (error) {
-    console.error('Failed to reset live database:', error);
-    log(`Database reset failed: ${error}`, 'scheduler');
-  }
-});
-
-// Cleanup replica database daily at 1 AM (keep last 3 days)
-cron.schedule('0 1 * * *', () => {
-  try {
-    log('Starting replica database cleanup...', 'scheduler');
-    const replicaQueries = new ShipmentQueries(true); // Replica DB
-    replicaQueries.cleanupOldData(3);
-    log('Replica database cleanup completed successfully', 'scheduler');
-  } catch (error) {
-    console.error('Failed to cleanup replica database:', error);
-    log(`Database cleanup failed: ${error}`, 'scheduler');
+    console.error('Failed to cleanup route data:', error);
+    log(`Route cleanup failed: ${error}`, 'scheduler');
   }
 });
 

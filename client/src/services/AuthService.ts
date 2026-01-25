@@ -1,14 +1,6 @@
 // client/src/services/AuthService.ts
-import { User, UserRole } from '@/types/User';
+import { AuthUser, UserRole, AuthState } from '@shared/types';
 import { log } from "../utils/logger.js";
-
-interface AuthState {
-  user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-}
 
 interface ExternalAuthResponse {
   access: string;
@@ -40,6 +32,7 @@ class AuthService {
     user: null,
     accessToken: null,
     refreshToken: null,
+    token: null,
     isAuthenticated: false,
     isLoading: true,
   };
@@ -91,6 +84,7 @@ class AuthService {
             updatedAt: new Date().toISOString(),
           },
           accessToken,
+          token: accessToken,
           refreshToken,
           isAuthenticated: true,
           isLoading: false,
@@ -99,6 +93,7 @@ class AuthService {
         this.state = {
           user: null,
           accessToken: null,
+          token: null,
           refreshToken: null,
           isAuthenticated: false,
           isLoading: false,
@@ -458,11 +453,11 @@ class AuthService {
     return this.state.isAuthenticated && !!this.state.accessToken;
   }
 
-  public getUser(): User | null {
+  public getUser(): AuthUser | null {
     return this.state.user;
   }
 
-  public getAccessToken(): string | null {
+  public getAccessToken(): string | null | undefined {
     return this.state.accessToken;
   }
 

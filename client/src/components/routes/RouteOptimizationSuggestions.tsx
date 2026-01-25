@@ -1,60 +1,22 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { RouteData, OptimizationSuggestion } from '@shared/types';
 import {
   Target,
-  TrendingUp,
   Route,
   Clock,
-  Zap,
   MapPin,
   Lightbulb,
   CheckCircle,
   AlertTriangle,
-  BarChart3,
   Navigation,
   Fuel,
   Users
 } from 'lucide-react';
-
-interface RouteData {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  date: string;
-  distance: number;
-  duration: number;
-  shipmentsCompleted: number;
-  fuelConsumption: number;
-  averageSpeed: number;
-  efficiency: number; // km per shipment
-  points: Array<{
-    latitude: number;
-    longitude: number;
-    timestamp: string;
-  }>;
-}
-
-interface OptimizationSuggestion {
-  id: string;
-  type: 'route_consolidation' | 'speed_optimization' | 'fuel_efficiency' | 'time_management' | 'distance_reduction';
-  priority: 'high' | 'medium' | 'low';
-  title: string;
-  description: string;
-  potentialSavings: {
-    distance?: number; // km
-    time?: number; // minutes
-    fuel?: number; // liters
-    cost?: number; // currency
-  };
-  confidence: number; // 0-100
-  affectedEmployees: string[];
-  implementation: string;
-  effort: 'low' | 'medium' | 'high';
-}
 
 interface RouteOptimizationSuggestionsProps {
   routeData: RouteData[];
@@ -65,10 +27,10 @@ interface RouteOptimizationSuggestionsProps {
 export default function RouteOptimizationSuggestions({
   routeData,
   onImplementSuggestion,
-  onViewRouteDetails
+  onViewRouteDetails: _onViewRouteDetails
 }: RouteOptimizationSuggestionsProps) {
   const [selectedPriority, setSelectedPriority] = useState<'all' | 'high' | 'medium' | 'low'>('all');
-  const [selectedType, setSelectedType] = useState<'all' | OptimizationSuggestion['type']>('all');
+  const [selectedType] = useState<'all' | OptimizationSuggestion['type']>('all');
   const [implementedSuggestions, setImplementedSuggestions] = useState<Set<string>>(new Set());
 
   const suggestions = useMemo((): OptimizationSuggestion[] => {
@@ -96,7 +58,14 @@ export default function RouteOptimizationSuggestions({
       acc[route.employeeId].totalFuel += route.fuelConsumption;
 
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, {
+      name: string;
+      routes: RouteData[];
+      totalDistance: number;
+      totalTime: number;
+      totalShipments: number;
+      totalFuel: number;
+    }>);
 
     const employees = Object.values(employeeStats);
 
@@ -246,7 +215,12 @@ export default function RouteOptimizationSuggestions({
         fuel: (acc.fuel || 0) + (suggestion.potentialSavings.fuel || 0),
         cost: (acc.cost || 0) + (suggestion.potentialSavings.cost || 0)
       };
-    }, {} as any);
+    }, {
+      distance: 0,
+      time: 0,
+      fuel: 0,
+      cost: 0
+    });
   }, [filteredSuggestions]);
 
   const handleImplementSuggestion = (suggestionId: string) => {
@@ -350,7 +324,7 @@ export default function RouteOptimizationSuggestions({
                   key={priority}
                   variant={selectedPriority === priority ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setSelectedPriority(priority as any)}
+                  onClick={() => setSelectedPriority(priority as 'all' | 'high' | 'medium' | 'low')}
                 >
                   {priority.charAt(0).toUpperCase() + priority.slice(1)}
                 </Button>

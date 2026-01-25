@@ -3,6 +3,7 @@
     "client/src/**/*",
     "shared/**/*",
     "server/**/*",
+    "scripts/**/*",
     "vite.config.ts",
     "tailwind.config.ts",
     "drizzle.config.ts"
@@ -32,7 +33,7 @@
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "moduleResolution": "bundler",
-    "baseUrl": ".",
+    "ignoreDeprecations": "5.0",
     "types": [
       "node",
       "vite/client"

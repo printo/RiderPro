@@ -11,8 +11,9 @@ import {
   ExternalShipmentBatch,
   ExternalUpdatePayload,
   ShipmentReceptionResponse,
-  BatchSyncResult
-} from "@shared/schema";
+  BatchSyncResult,
+  Acknowledgment
+} from "@shared/types";
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -91,7 +92,7 @@ export const shipmentsApi = {
     };
   },
 
-  getShipment: async (id: string): Promise<{ shipment: Shipment; acknowledgment?: any }> => {
+  getShipment: async (id: string): Promise<{ shipment: Shipment; acknowledgment?: Acknowledgment }> => {
     const response = await apiRequest("GET", `/api/shipments/${id}`);
     return response.json();
   },

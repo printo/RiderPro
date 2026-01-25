@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { X, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import SignatureCanvas from "./SignatureCanvas";
 import { cn } from "@/lib/utils";
 import { withModalErrorBoundary } from "@/components/ErrorBoundary";
@@ -12,7 +12,7 @@ interface AcknowledgmentCaptureProps {
 }
 
 function AcknowledgmentCapture({
-  onClose,
+  onClose: _onClose,
   onSubmit,
   isSubmitting = false
 }: AcknowledgmentCaptureProps) {

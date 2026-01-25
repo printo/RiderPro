@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { shipmentsApi } from "@/apiClient/shipments";
-import { ShipmentFilters } from "@shared/schema";
+import { ShipmentFilters } from "@shared/types";
 
 export function useShipments(filters: ShipmentFilters = {}) {
   return useQuery({

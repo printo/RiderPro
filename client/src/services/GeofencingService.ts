@@ -1,4 +1,4 @@
-import { GPSPosition } from './GPSTracker';
+import { GPSPosition } from '@shared/types';
 import { log } from "../utils/logger.js";
 
 export interface GeofenceConfig {

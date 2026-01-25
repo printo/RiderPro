@@ -1,7 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
-import { storage } from '../storage';
-import { AuthenticatedRequest } from './auth';
-import { logAuditEvent, AuditEventType } from './audit';
+import { Request, Response } from 'express';
+import { pool } from '../db/connection';
 import { log } from "../../shared/utils/logger.js";
 
 // Privacy consent types
@@ -46,37 +44,37 @@ interface AnonymizationRule {
 }
 
 // Initialize privacy management
-export const initializePrivacyManagement = () => {
+export const initializePrivacyManagement = async () => {
   try {
-    storage.exec(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS privacy_settings (
         employee_id TEXT PRIMARY KEY,
-        gps_tracking_consent BOOLEAN DEFAULT 0,
-        data_analytics_consent BOOLEAN DEFAULT 0,
-        data_export_consent BOOLEAN DEFAULT 0,
-        performance_monitoring_consent BOOLEAN DEFAULT 0,
+        gps_tracking_consent BOOLEAN DEFAULT FALSE,
+        data_analytics_consent BOOLEAN DEFAULT FALSE,
+        data_export_consent BOOLEAN DEFAULT FALSE,
+        performance_monitoring_consent BOOLEAN DEFAULT FALSE,
         data_retention_days INTEGER DEFAULT 90,
         anonymize_after_days INTEGER,
-        consent_date TEXT,
-        last_updated TEXT DEFAULT (datetime('now')),
+        consent_date TIMESTAMP WITH TIME ZONE,
+        last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         ip_address TEXT,
         consent_version TEXT DEFAULT '1.0'
       )
     `);
 
-    storage.exec(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS data_anonymization_rules (
         id TEXT PRIMARY KEY,
         table_name TEXT NOT NULL,
         column_name TEXT NOT NULL,
         anonymization_type TEXT NOT NULL,
         replacement_value TEXT,
-        is_active BOOLEAN DEFAULT 1,
-        created_at TEXT DEFAULT (datetime('now'))
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
-    storage.exec(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS data_processing_log (
         id TEXT PRIMARY KEY,
         employee_id TEXT NOT NULL,
@@ -84,12 +82,12 @@ export const initializePrivacyManagement = () => {
         data_types TEXT,
         purpose TEXT,
         legal_basis TEXT,
-        processed_at TEXT DEFAULT (datetime('now')),
+        processed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         processed_by TEXT
       )
     `);
 
-    insertDefaultAnonymizationRules();
+    await insertDefaultAnonymizationRules();
 
     log.dev('Privacy management system initialized');
   } catch (error) {
@@ -98,7 +96,7 @@ export const initializePrivacyManagement = () => {
 };
 
 // Insert default anonymization rules
-const insertDefaultAnonymizationRules = () => {
+const insertDefaultAnonymizationRules = async () => {
   const defaultRules: Omit<AnonymizationRule, 'id'>[] = [
     {
       tableName: 'route_tracking',
@@ -120,26 +118,27 @@ const insertDefaultAnonymizationRules = () => {
     }
   ];
 
-  defaultRules.forEach(rule => {
+  for (const rule of defaultRules) {
     const ruleId = 'rule-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
     try {
-      storage.prepare(`
-        INSERT OR IGNORE INTO data_anonymization_rules 
+      await pool.query(`
+        INSERT INTO data_anonymization_rules 
         (id, table_name, column_name, anonymization_type, replacement_value, is_active)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (id) DO NOTHING
+      `, [
         ruleId,
         rule.tableName,
         rule.columnName,
         rule.anonymizationType,
         rule.replacementValue || null,
-        rule.isActive ? 1 : 0
-      );
-    } catch (error) {
-      // Ignore duplicate rules
+        rule.isActive
+      ]);
+    } catch (_error) {
+      // Ignore errors
     }
-  });
+  }
 }
 
 // Export functions for routes
@@ -147,9 +146,11 @@ export const getPrivacySettings = async (req: Request, res: Response) => {
   try {
     const { employeeId } = req.params;
 
-    const settings = storage.prepare(`
-      SELECT * FROM privacy_settings WHERE employee_id = ?
-    `).get(employeeId) as PrivacySettings | undefined;
+    const result = await pool.query(`
+      SELECT * FROM privacy_settings WHERE employee_id = $1
+    `, [employeeId]);
+
+    const settings = result.rows[0] as PrivacySettings | undefined;
 
     if (!settings) {
       return res.status(404).json({
@@ -176,20 +177,20 @@ export const updatePrivacySettings = async (req: Request, res: Response) => {
     const { employeeId } = req.params;
     const updates = req.body;
 
-    storage.prepare(`
+    await pool.query(`
       UPDATE privacy_settings 
-      SET gps_tracking_consent = ?, data_analytics_consent = ?, 
-          data_export_consent = ?, performance_monitoring_consent = ?,
-          data_retention_days = ?, updated_at = datetime('now')
-      WHERE employee_id = ?
-    `).run(
+      SET gps_tracking_consent = $1, data_analytics_consent = $2, 
+          data_export_consent = $3, performance_monitoring_consent = $4,
+          data_retention_days = $5, updated_at = NOW()
+      WHERE employee_id = $6
+    `, [
       updates.gpsTrackingConsent,
       updates.dataAnalyticsConsent,
       updates.dataExportConsent,
       updates.performanceMonitoringConsent,
       updates.dataRetentionDays,
       employeeId
-    );
+    ]);
 
     res.json({
       success: true,
@@ -208,14 +209,16 @@ export const getDataProcessingSummary = async (req: Request, res: Response) => {
   try {
     const { employeeId } = req.params;
 
-    const summary = storage.prepare(`
+    const result = await pool.query(`
       SELECT 
         COUNT(*) as total_records,
         MIN(timestamp) as earliest_record,
         MAX(timestamp) as latest_record
       FROM route_tracking 
-      WHERE employee_id = ?
-    `).get(employeeId);
+      WHERE employee_id = $1
+    `, [employeeId]);
+    
+    const summary = result.rows[0];
 
     res.json({
       success: true,
@@ -237,15 +240,15 @@ export const applyDataRetention = async (req: Request, res: Response) => {
 
     const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
 
-    const result = storage.prepare(`
+    const result = await pool.query(`
       DELETE FROM route_tracking 
-      WHERE employee_id = ? AND timestamp < ?
-    `).run(employeeId, cutoffDate);
+      WHERE employee_id = $1 AND timestamp < $2
+    `, [employeeId, cutoffDate]);
 
     res.json({
       success: true,
-      message: `Deleted ${result.changes} old records`,
-      deletedRecords: result.changes
+      message: `Deleted ${result.rowCount} old records`,
+      deletedRecords: result.rowCount
     });
   } catch (error) {
     res.status(500).json({
@@ -256,21 +259,27 @@ export const applyDataRetention = async (req: Request, res: Response) => {
   }
 };
 
-export const anonymizeData = (data: any[], tableName: string) => {
-  // Simple anonymization - replace sensitive fields
-  return data.map(record => {
-    const anonymized = { ...record };
+export const anonymizeData = (
+  data: Record<string, unknown>[],
+  tableName: string
+): Record<string, unknown>[] => {
+  return data.map(original => {
+    const anonymized: Record<string, unknown> = { ...original };
 
-    // Anonymize based on table
     if (tableName === 'route_tracking') {
-      if (anonymized.employee_id) {
-        anonymized.employee_id = `anon_${anonymized.employee_id.slice(-4)}`;
+      const empId = anonymized['employee_id'] as string | undefined;
+      if (typeof empId === 'string') {
+        anonymized['employee_id'] = `anon_${empId.slice(-4)}`;
       }
-      if (anonymized.latitude) {
-        anonymized.latitude = Math.round(anonymized.latitude * 100) / 100; // Reduce precision
+
+      const lat = anonymized['latitude'] as number | undefined;
+      if (typeof lat === 'number') {
+        anonymized['latitude'] = Math.round(lat * 100) / 100;
       }
-      if (anonymized.longitude) {
-        anonymized.longitude = Math.round(anonymized.longitude * 100) / 100; // Reduce precision
+
+      const lon = anonymized['longitude'] as number | undefined;
+      if (typeof lon === 'number') {
+        anonymized['longitude'] = Math.round(lon * 100) / 100;
       }
     }
 

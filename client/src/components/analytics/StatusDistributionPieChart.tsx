@@ -84,7 +84,7 @@ function StatusDistributionPieChart({ statusBreakdown }: StatusDistributionPieCh
           {/* Pie Chart */}
           <div className="flex-shrink-0">
             <svg width="160" height="160" viewBox="0 0 160 160" className="drop-shadow-sm">
-              {pieData.map(({ status, percentage }, index) => (
+              {pieData.map(({ status, percentage }, _index) => (
                 <path
                   key={status}
                   d={createPath(percentage)}

@@ -1,13 +1,13 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { shipmentsApi, type PaginatedResponse } from '@/apiClient/shipments';
-import { Shipment } from '@shared/schema';
+import { Shipment, ShipmentFilters } from '@shared/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import ShipmentCardWithTracking from './ShipmentCardWithTracking';
 import { withComponentErrorBoundary, ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface ShipmentsListProps {
-  filters: any;
+  filters: ShipmentFilters;
   onShipmentSelect: (shipment: Shipment) => void;
   selectedShipmentIds: string[];
   onSelectShipment: (id: string, selected: boolean) => void;
@@ -22,7 +22,7 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
   onShipmentSelect,
   selectedShipmentIds,
   onSelectShipment,
-  onSelectAll,
+  onSelectAll: _onSelectAll,
   onRefresh,
   isLoading: externalLoading,
   employeeId
@@ -39,7 +39,7 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  const { data: shipments = [], total = 0, page = 1, limit = 20, totalPages = 0 } = shipmentsData || {};
+  const { data: shipments = [], total = 0, page = 1, limit: _limit = 20, totalPages = 0 } = shipmentsData || {};
   const isLoading = externalLoading || isQueryLoading;
 
   // Handle refresh by calling both the local refetch and the parent's refresh

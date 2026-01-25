@@ -42,10 +42,10 @@ function logStep(step, description) {
 function runCommand(command, description, options = {}) {
   log(`   🔧 ${description}...`, 'blue');
   try {
-    execSync(command, { 
-      stdio: 'inherit', 
+    execSync(command, {
+      stdio: 'inherit',
       cwd: options.cwd || process.cwd(),
-      ...options 
+      ...options
     });
     log(`   ✅ ${description} completed`, 'green');
     return true;
@@ -69,7 +69,7 @@ function checkFileExists(filePath, description) {
 
 function checkEnvironment() {
   logStep('🔍', 'Environment Validation');
-  
+
   // Check Node.js version
   const nodeVersion = process.version;
   const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0]);
@@ -78,16 +78,16 @@ function checkEnvironment() {
     process.exit(1);
   }
   log(`   ✅ Node.js version: ${nodeVersion}`, 'green');
-  
+
   // Check npm version
   try {
     const npmVersion = execSync('npm --version', { encoding: 'utf8' }).trim();
     log(`   ✅ npm version: ${npmVersion}`, 'green');
-  } catch (error) {
+  } catch {
     log(`   ❌ npm not found or not working`, 'red');
     process.exit(1);
   }
-  
+
   // Check required files
   const requiredFiles = [
     'package.json',
@@ -95,11 +95,11 @@ function checkEnvironment() {
     'vite.config.ts',
     'tailwind.config.ts'
   ];
-  
+
   for (const file of requiredFiles) {
     checkFileExists(file, `Required file: ${file}`);
   }
-  
+
   // Check environment variables
   const envFile = '.env';
   if (!fs.existsSync(envFile)) {
@@ -112,37 +112,28 @@ function checkEnvironment() {
 
 function setupDatabases() {
   logStep('🗄️', 'Database Setup');
-  
-  // Create data directory if it doesn't exist
-  const dataDir = path.join(__dirname, '../data');
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-    log(`   ✅ Created data directory`, 'green');
-  }
-  
-  // Run database setup script
-  runCommand('node scripts/setup-databases.js', 'Database setup');
-  
-  // Verify database files were created
-  const dbFiles = ['main.db', 'replica.db', 'userdata.db'];
-  for (const dbFile of dbFiles) {
-    checkFileExists(`data/${dbFile}`, `Database file: ${dbFile}`);
+
+  // Verify database configuration
+  if (!process.env.DATABASE_URL) {
+      log(`   ⚠️  DATABASE_URL not found in environment`, 'yellow');
+  } else {
+      log(`   ✅ DATABASE_URL configured`, 'green');
   }
 }
 
 function installDependencies() {
   logStep('📦', 'Dependencies Installation');
-  
+
   // Clean install
   runCommand('npm ci', 'Clean install dependencies', { continueOnError: true });
-  
+
   // If clean install fails, try regular install
   if (!fs.existsSync('node_modules')) {
     runCommand('npm install', 'Install dependencies');
   }
-  
+
   // Verify critical dependencies
-  const criticalDeps = ['better-sqlite3', 'express', 'react', 'typescript'];
+  const criticalDeps = ['pg', 'express', 'react', 'typescript'];
   for (const dep of criticalDeps) {
     const depPath = `node_modules/${dep}`;
     if (fs.existsSync(depPath)) {
@@ -156,33 +147,33 @@ function installDependencies() {
 
 function runQualityChecks() {
   logStep('🔍', 'Quality Checks');
-  
+
   // Type checking
   runCommand('npm run check', 'TypeScript type checking', { continueOnError: true });
-  
+
   // Linting (if available)
   runCommand('npm run lint', 'Code linting', { continueOnError: true });
-  
+
   // Test (if available)
   runCommand('npm test', 'Run tests', { continueOnError: true });
 }
 
 function buildApplication() {
   logStep('🏗️', 'Application Build');
-  
+
   // Build client
   runCommand('npm run build', 'Frontend build');
-  
+
   // Verify build output
   const buildFiles = [
     'dist/index.html',
     'dist/assets'
   ];
-  
+
   for (const file of buildFiles) {
     checkFileExists(file, `Build output: ${file}`);
   }
-  
+
   // Check build size
   if (fs.existsSync('dist')) {
     const stats = fs.statSync('dist');
@@ -193,30 +184,28 @@ function buildApplication() {
 
 function validateProductionReadiness() {
   logStep('🚀', 'Production Readiness Validation');
-  
+
   // Check essential files
   const essentialFiles = [
     'dist/index.html',
-    'data/main.db',
-    'data/userdata.db',
     'server/index.ts'
   ];
-  
+
   let allFilesExist = true;
   for (const file of essentialFiles) {
     if (!checkFileExists(file, `Essential file: ${file}`)) {
       allFilesExist = false;
     }
   }
-  
+
   if (!allFilesExist) {
     log(`   ❌ Production readiness check failed`, 'red');
     process.exit(1);
   }
-  
+
   // Check environment configuration
   if (process.env.NODE_ENV === 'production') {
-    const requiredEnvVars = ['PORT', 'DATABASE_PATH'];
+    const requiredEnvVars = ['PORT', 'DATABASE_URL'];
     for (const envVar of requiredEnvVars) {
       if (!process.env[envVar]) {
         log(`   ⚠️  Production environment variable ${envVar} not set`, 'yellow');
@@ -225,12 +214,12 @@ function validateProductionReadiness() {
       }
     }
   }
-  
+
   // Memory and performance check
   const memUsage = process.memoryUsage();
   const memUsageMB = (memUsage.heapUsed / 1024 / 1024).toFixed(2);
   log(`   📊 Memory usage: ${memUsageMB} MB`, 'cyan');
-  
+
   if (parseFloat(memUsageMB) > 500) {
     log(`   ⚠️  High memory usage detected: ${memUsageMB} MB`, 'yellow');
   }
@@ -238,69 +227,66 @@ function validateProductionReadiness() {
 
 function showDeploymentInstructions() {
   logStep('📋', 'Deployment Instructions');
-  
+
   log(`   🚀 To start the application:`, 'cyan');
   log(`      npm start`, 'blue');
   log(`   `, 'reset');
-  
+
   log(`   🌐 Application will be available at:`, 'cyan');
   log(`      http://localhost:${process.env.PORT || 5000}`, 'blue');
   log(`   `, 'reset');
-  
-  log(`   📊 Database files:`, 'cyan');
-  log(`      • main.db (operational data)`, 'blue');
-  log(`      • replica.db (backup data)`, 'blue');
-  log(`      • userdata.db (user profiles)`, 'blue');
+
+  log(`   📊 Database:`, 'cyan');
+  log(`      • PostgreSQL connection configured`, 'blue');
   log(`   `, 'reset');
-  
+
   log(`   🔧 Maintenance commands:`, 'cyan');
-  log(`      • Database setup: node scripts/setup-databases.js`, 'blue');
   log(`      • Development mode: npm run dev`, 'blue');
   log(`      • Production mode: npm start`, 'blue');
 }
 
 async function main() {
   const startTime = Date.now();
-  
+
   log('🚀 RiderPro Build and Deploy Process', 'magenta');
   log('=====================================', 'magenta');
-  
+
   try {
     // Step 1: Environment validation
     checkEnvironment();
-    
+
     // Step 2: Database setup
     setupDatabases();
-    
+
     // Step 3: Dependencies installation
     installDependencies();
-    
+
     // Step 4: Quality checks
     runQualityChecks();
-    
+
     // Step 5: Build application
     buildApplication();
-    
+
     // Step 6: Production readiness validation
     validateProductionReadiness();
-    
+
     // Step 7: Show deployment instructions
     showDeploymentInstructions();
-    
+
     const endTime = Date.now();
     const duration = ((endTime - startTime) / 1000).toFixed(2);
-    
+
     log('\n🎉 Build and Deploy Process Completed Successfully!', 'green');
     log(`⏱️  Total time: ${duration} seconds`, 'cyan');
-    
+
     log('\n📋 Build Summary:', 'blue');
     log('  • Environment: Validated', 'green');
-    log('  • Database: Initialized (main.db, replica.db, userdata.db)', 'green');
+    log('  • Database: Configuration checked', 'green');
     log('  • Dependencies: Installed and verified', 'green');
     log('  • Quality: Type-checked and linted', 'green');
     log('  • Frontend: Built and optimized', 'green');
     log('  • Production: Ready for deployment', 'green');
-    
+
   } catch (error) {
     log(`\n❌ Build process failed: ${error.message}`, 'red');
     process.exit(1);

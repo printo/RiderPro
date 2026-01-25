@@ -1,35 +1,5 @@
 import { log } from "../utils/logger.js";
-
-export interface ErrorLog {
-  id: string;
-  timestamp: Date;
-  level: 'info' | 'warn' | 'error' | 'critical';
-  category: 'gps' | 'network' | 'storage' | 'ui' | 'api' | 'system';
-  message: string;
-  details?: any;
-  stack?: string;
-  userAgent?: string;
-  url?: string;
-  userId?: string;
-  sessionId?: string;
-  resolved: boolean;
-}
-
-export interface ErrorRecoveryAction {
-  type: 'retry' | 'fallback' | 'ignore' | 'notify';
-  description: string;
-  action: () => Promise<void> | void;
-}
-
-export interface ErrorHandlingConfig {
-  enableLogging: boolean;
-  enableRemoteLogging: boolean;
-  maxLocalLogs: number;
-  logRetentionDays: number;
-  enableAutoRecovery: boolean;
-  enableUserNotifications: boolean;
-  criticalErrorThreshold: number;
-}
+import { ErrorLog, ErrorRecoveryAction, ErrorHandlingConfig, ErrorStats } from '@shared/types';
 
 export class ErrorHandlingService {
   private logs: ErrorLog[] = [];
@@ -175,7 +145,7 @@ export class ErrorHandlingService {
   logError(
     category: ErrorLog['category'],
     message: string,
-    details?: any,
+    details?: unknown,
     stack?: string,
     sessionId?: string
   ): string {
@@ -188,7 +158,7 @@ export class ErrorHandlingService {
   logWarn(
     category: ErrorLog['category'],
     message: string,
-    details?: any,
+    details?: unknown,
     sessionId?: string
   ): string {
     return this.log('warn', category, message, details, undefined, sessionId);
@@ -200,7 +170,7 @@ export class ErrorHandlingService {
   logInfo(
     category: ErrorLog['category'],
     message: string,
-    details?: any,
+    details?: unknown,
     sessionId?: string
   ): string {
     return this.log('info', category, message, details, undefined, sessionId);
@@ -212,7 +182,7 @@ export class ErrorHandlingService {
   logCritical(
     category: ErrorLog['category'],
     message: string,
-    details?: any,
+    details?: unknown,
     stack?: string,
     sessionId?: string
   ): string {
@@ -231,7 +201,7 @@ export class ErrorHandlingService {
     level: ErrorLog['level'],
     category: ErrorLog['category'],
     message: string,
-    details?: any,
+    details?: unknown,
     stack?: string,
     sessionId?: string
   ): string {
@@ -291,7 +261,7 @@ export class ErrorHandlingService {
   /**
    * Handle critical errors
    */
-  private handleCriticalError(category: string, message: string, details?: any): void {
+  private handleCriticalError(category: string, message: string, details?: unknown): void {
     console.error('CRITICAL ERROR:', { category, message, details });
 
     // Check if we've hit the critical error threshold
@@ -312,7 +282,7 @@ export class ErrorHandlingService {
   /**
    * Attempt automatic error recovery
    */
-  private attemptAutoRecovery(category: string, message: string, details?: any): void {
+  private attemptAutoRecovery(category: string, message: string, _details?: unknown): void {
     const errorKey = `${category}_${message.toLowerCase().replace(/\s+/g, '_')}`;
     const actions = this.recoveryActions.get(errorKey);
 
@@ -400,15 +370,8 @@ export class ErrorHandlingService {
   /**
    * Get error statistics
    */
-  getErrorStats(): {
-    total: number;
-    byLevel: Record<string, number>;
-    byCategory: Record<string, number>;
-    recentErrors: number;
-    resolvedErrors: number;
-    criticalErrors: number;
-  } {
-    const stats = {
+  getErrorStats(): ErrorStats {
+    const stats: ErrorStats = {
       total: this.logs.length,
       byLevel: {} as Record<string, number>,
       byCategory: {} as Record<string, number>,
@@ -524,8 +487,8 @@ export class ErrorHandlingService {
     try {
       const stored = localStorage.getItem('route_tracking_error_logs');
       if (stored) {
-        const logs = JSON.parse(stored);
-        this.logs = logs.map((log: any) => ({
+        const logs = JSON.parse(stored) as (Omit<ErrorLog, 'timestamp'> & { timestamp: string })[];
+        this.logs = logs.map((log) => ({
           ...log,
           timestamp: new Date(log.timestamp)
         }));

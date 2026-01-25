@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { vehicleTypesApi } from "@/apiClient/vehicleTypes";
-import { VehicleType, InsertVehicleType, UpdateVehicleType } from "@shared/schema";
+import { InsertVehicleType, UpdateVehicleType } from "@shared/types";
 import { useToast } from "@/hooks/use-toast";
 
 export function useVehicleTypes() {
@@ -24,10 +24,11 @@ export function useCreateVehicleType() {
         description: "Vehicle type created successfully",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : null;
       toast({
         title: "Error",
-        description: error.message || "Failed to create vehicle type",
+        description: message || "Failed to create vehicle type",
         variant: "destructive",
       });
     },
@@ -48,10 +49,11 @@ export function useUpdateVehicleType() {
         description: "Vehicle type updated successfully",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : null;
       toast({
         title: "Error",
-        description: error.message || "Failed to update vehicle type",
+        description: message || "Failed to update vehicle type",
         variant: "destructive",
       });
     },
@@ -71,10 +73,11 @@ export function useDeleteVehicleType() {
         description: "Vehicle type deleted successfully",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : null;
       toast({
         title: "Error",
-        description: error.message || "Failed to delete vehicle type",
+        description: message || "Failed to delete vehicle type",
         variant: "destructive",
       });
     },

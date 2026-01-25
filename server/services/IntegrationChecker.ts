@@ -1,11 +1,11 @@
-import { Database } from 'better-sqlite3';
+import { pool } from '../db/connection';
 import config from '../config';
 import { log } from "../../shared/utils/logger.js";
 
 interface IntegrationTest {
   name: string;
   description: string;
-  execute: () => Promise<{ passed: boolean; message: string; details?: any }>;
+  execute: () => Promise<{ passed: boolean; message: string; details?: unknown }>;
 }
 
 interface IntegrationReport {
@@ -16,7 +16,7 @@ interface IntegrationReport {
     description: string;
     passed: boolean;
     message: string;
-    details?: any;
+    details?: unknown;
     executionTime: number;
   }>;
   summary: {
@@ -28,20 +28,15 @@ interface IntegrationReport {
 
 class IntegrationChecker {
   private static instance: IntegrationChecker;
-  private db: Database;
   private tests: IntegrationTest[] = [];
 
-  private constructor(database: Database) {
-    this.db = database;
+  private constructor() {
     this.initializeTests();
   }
 
-  public static getInstance(database?: Database): IntegrationChecker {
+  public static getInstance(): IntegrationChecker {
     if (!IntegrationChecker.instance) {
-      if (!database) {
-        throw new Error('Database required for first initialization');
-      }
-      IntegrationChecker.instance = new IntegrationChecker(database);
+      IntegrationChecker.instance = new IntegrationChecker();
     }
     return IntegrationChecker.instance;
   }
@@ -141,56 +136,66 @@ class IntegrationChecker {
     return report;
   }
 
-  private async testShipmentRouteIntegration(): Promise<{ passed: boolean; message: string; details?: any }> {
+  private async testShipmentRouteIntegration(): Promise<{ passed: boolean; message: string; details?: unknown }> {
     try {
       // Create a test shipment
       const testShipmentId = 'integration-test-' + Date.now();
       const testEmployeeId = 'test-employee-' + Date.now();
 
       // Insert test shipment
-      const shipmentStmt = this.db.prepare(`
-        INSERT INTO shipments (id, employee_id, pickup_address, delivery_address, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
+      const shipmentQuery = `
+        INSERT INTO shipments (id, "employeeId", "pickupAddress", address, status, "createdAt", type, "customerName", "customerMobile", cost, "deliveryTime", "routeName", "updatedAt")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `;
 
-      shipmentStmt.run(
+      // Note: Adapted to match schema in connection.ts which has specific NOT NULL fields
+      await pool.query(shipmentQuery, [
         testShipmentId,
         testEmployeeId,
         'Test Pickup Address',
         'Test Delivery Address',
-        'pending',
+        'Assigned', // Matches CHECK constraint
+        new Date().toISOString(),
+        'delivery', // Type
+        'Test Customer', // Customer Name
+        '1234567890', // Customer Mobile
+        10.0, // Cost
+        new Date().toISOString(), // Delivery Time
+        'Test Route', // Route Name
         new Date().toISOString()
-      );
+      ]);
 
       // If route tracking is enabled, test route session creation
       let routeSessionCreated = false;
       if (config.routeTracking.enabled && config.featureFlags.routeTracking) {
         try {
           const routeSessionId = 'route-session-' + Date.now();
-          const routeStmt = this.db.prepare(`
-            INSERT INTO route_sessions (id, employee_id, shipment_id, status, started_at)
-            VALUES (?, ?, ?, ?, ?)
-          `);
+          const routeQuery = `
+            INSERT INTO route_sessions (id, employee_id, status, start_time, start_latitude, start_longitude)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `;
 
-          routeStmt.run(
+          await pool.query(routeQuery, [
             routeSessionId,
             testEmployeeId,
-            testShipmentId,
             'active',
-            new Date().toISOString()
-          );
+            new Date().toISOString(),
+            0, // start_latitude
+            0  // start_longitude
+          ]);
 
           routeSessionCreated = true;
 
           // Cleanup route session
-          this.db.prepare('DELETE FROM route_sessions WHERE id = ?').run(routeSessionId);
-        } catch (routeError) {
+          await pool.query('DELETE FROM route_sessions WHERE id = $1', [routeSessionId]);
+        } catch (_routeError) {
           // Route tracking might not be fully set up, which is okay
+          console.error('Route session creation failed in integration test:', _routeError);
         }
       }
 
       // Cleanup shipment
-      this.db.prepare('DELETE FROM shipments WHERE id = ?').run(testShipmentId);
+      await pool.query('DELETE FROM shipments WHERE id = $1', [testShipmentId]);
 
       return {
         passed: true,
@@ -211,7 +216,7 @@ class IntegrationChecker {
     }
   }
 
-  private async testRouteTrackingIsolation(): Promise<{ passed: boolean; message: string; details?: any }> {
+  private async testRouteTrackingIsolation(): Promise<{ passed: boolean; message: string; details?: unknown }> {
     try {
       // Store original state
       const originalRouteTracking = config.routeTracking.enabled;
@@ -225,31 +230,38 @@ class IntegrationChecker {
       const testShipmentId = 'isolation-test-' + Date.now();
 
       try {
-        const shipmentStmt = this.db.prepare(`
-          INSERT INTO shipments (id, employee_id, pickup_address, delivery_address, status, created_at)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `);
+        const shipmentQuery = `
+          INSERT INTO shipments (id, "employeeId", "pickupAddress", address, status, "createdAt", type, "customerName", "customerMobile", cost, "deliveryTime", "routeName", "updatedAt")
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        `;
 
-        shipmentStmt.run(
+        await pool.query(shipmentQuery, [
           testShipmentId,
           'test-employee',
           'Test Pickup',
           'Test Delivery',
-          'pending',
+          'Assigned',
+          new Date().toISOString(),
+          'delivery',
+          'Test Customer',
+          '1234567890',
+          10.0,
+          new Date().toISOString(),
+          'Test Route',
           new Date().toISOString()
-        );
+        ]);
 
         // Verify shipment was created
-        const retrievedShipment = this.db.prepare('SELECT * FROM shipments WHERE id = ?').get(testShipmentId);
-        if (!retrievedShipment) {
+        const result = await pool.query('SELECT * FROM shipments WHERE id = $1', [testShipmentId]);
+        if (result.rows.length === 0) {
           throw new Error('Shipment was not created when route tracking is disabled');
         }
 
         // Update shipment status
-        this.db.prepare('UPDATE shipments SET status = ? WHERE id = ?').run('completed', testShipmentId);
+        await pool.query('UPDATE shipments SET status = $1 WHERE id = $2', ['Delivered', testShipmentId]);
 
         // Cleanup
-        this.db.prepare('DELETE FROM shipments WHERE id = ?').run(testShipmentId);
+        await pool.query('DELETE FROM shipments WHERE id = $1', [testShipmentId]);
 
         // Restore original state
         config.routeTracking.enabled = originalRouteTracking;
@@ -282,17 +294,17 @@ class IntegrationChecker {
     }
   }
 
-  private async testDatabaseConsistency(): Promise<{ passed: boolean; message: string; details?: any }> {
+  private async testDatabaseConsistency(): Promise<{ passed: boolean; message: string; details?: unknown }> {
     try {
       // Check that all required tables exist
-      const requiredTables = ['shipments', 'employees'];
-      const optionalTables = ['route_sessions', 'gps_coordinates', 'feature_flags', 'audit_logs'];
+      const requiredTables = ['shipments']; // employees table not in connection.ts schema
+      const optionalTables = ['route_sessions', 'route_tracking', 'feature_flags', 'users'];
 
-      const existingTables = this.db.prepare(`
-        SELECT name FROM sqlite_master WHERE type='table'
-      `).all() as any[];
-
-      const tableNames = existingTables.map(t => t.name);
+      const result = await pool.query(`
+        SELECT table_name as name FROM information_schema.tables WHERE table_schema = 'public'
+      `);
+      
+      const tableNames = result.rows.map(t => t.name);
       const missingRequired = requiredTables.filter(table => !tableNames.includes(table));
       const presentOptional = optionalTables.filter(table => tableNames.includes(table));
 
@@ -308,27 +320,39 @@ class IntegrationChecker {
       if (tableNames.includes('route_sessions') && tableNames.includes('shipments')) {
         try {
           // Test foreign key constraint
-          const testId = 'fk-test-' + Date.now();
+          const _testId = 'fk-test-' + Date.now();
 
-          // This should fail due to foreign key constraint
+          // This should fail due to NOT NULL constraint on employee_id or other fields, 
+          // but specifically we want to test that invalid inserts fail.
+          // In Postgres, FKs are enforced.
+          
           try {
-            this.db.prepare(`
-              INSERT INTO route_sessions (id, employee_id, shipment_id, status, started_at)
-              VALUES (?, ?, ?, ?, ?)
-            `).run(testId, 'nonexistent-employee', 'nonexistent-shipment', 'active', new Date().toISOString());
-
-            // If we get here, foreign key constraints might not be working
-            this.db.prepare('DELETE FROM route_sessions WHERE id = ?').run(testId);
-
+             // Try to insert a route session with minimal fields but without valid references if any FKs exist.
+             // connection.ts route_sessions doesn't have FK to employees or shipments strictly defined in CREATE TABLE 
+             // (only employee_id is a field, not a FK in the SQL shown in connection.ts line 73).
+             // Wait, connection.ts line 73: employee_id VARCHAR(255) NOT NULL. No REFERENCES.
+             // So FK constraint might NOT exist for employee_id.
+             // However, route_tracking has session_id REFERENCES route_sessions(id).
+             
+             // Let's test route_tracking FK.
+             await pool.query(`
+               INSERT INTO route_tracking (session_id, employee_id, latitude, longitude, timestamp)
+               VALUES ($1, $2, $3, $4, $5)
+             `, ['nonexistent-session', 'emp', 0, 0, new Date().toISOString()]);
+            
+            // If we get here, foreign key constraints might not be working or not defined
+            // Cleanup just in case
+            await pool.query('DELETE FROM route_tracking WHERE session_id = $1', ['nonexistent-session']);
+            
             return {
               passed: false,
-              message: 'Foreign key constraints not properly enforced',
+              message: 'Foreign key constraints not properly enforced (route_tracking -> route_sessions)',
               details: { constraintTest: 'failed' }
             };
-          } catch (fkError) {
+          } catch (_fkError) {
             // This is expected - foreign key constraint should prevent the insert
           }
-        } catch (error) {
+        } catch (_error) {
           // Foreign key test failed, but this might be okay depending on setup
         }
       }
@@ -352,8 +376,11 @@ class IntegrationChecker {
     }
   }
 
-  private async testFeatureFlagIntegration(): Promise<{ passed: boolean; message: string; details?: any }> {
-    try {
+  // ... (keeping other methods but replacing with pool queries)
+
+  private async testFeatureFlagIntegration(): Promise<{ passed: boolean; message: string; details?: unknown }> {
+     // ... (implementation below)
+     try {
       const originalState = config.featureFlags.routeTracking;
 
       // Test toggling feature flag
@@ -401,11 +428,9 @@ class IntegrationChecker {
     }
   }
 
-  private async testApiEndpointIntegration(): Promise<{ passed: boolean; message: string; details?: any }> {
+  private async testApiEndpointIntegration(): Promise<{ passed: boolean; message: string; details?: unknown }> {
+     // This method doesn't use DB, so mostly fine, but I'll include it to be safe
     try {
-      // This is a basic check - in a real scenario, you'd make HTTP requests
-      // For now, we'll just verify the route files exist and can be imported
-
       const expectedRoutes = [
         'shipments',
         'routes',
@@ -414,8 +439,6 @@ class IntegrationChecker {
         'validation'
       ];
 
-      // Since we can't easily test HTTP endpoints without starting the server,
-      // we'll just verify the configuration is consistent
       const apiConfig = {
         routeTrackingEnabled: config.routeTracking.enabled,
         featureFlagsEnabled: config.featureFlags.routeTracking,
@@ -441,7 +464,7 @@ class IntegrationChecker {
     }
   }
 
-  private async testDataFlowIntegrity(): Promise<{ passed: boolean; message: string; details?: any }> {
+  private async testDataFlowIntegrity(): Promise<{ passed: boolean; message: string; details?: unknown }> {
     try {
       // Test the complete data flow from shipment creation to route tracking
       const testData = {
@@ -451,69 +474,81 @@ class IntegrationChecker {
       };
 
       // Step 1: Create shipment
-      const shipmentStmt = this.db.prepare(`
-        INSERT INTO shipments (id, employee_id, pickup_address, delivery_address, status, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
+      const shipmentQuery = `
+        INSERT INTO shipments (id, "employeeId", "pickupAddress", address, status, "createdAt", type, "customerName", "customerMobile", cost, "deliveryTime", "routeName", "updatedAt")
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `;
 
-      shipmentStmt.run(
+      await pool.query(shipmentQuery, [
         testData.shipmentId,
         testData.employeeId,
         'Test Pickup',
         'Test Delivery',
-        'pending',
+        'Assigned',
+        new Date().toISOString(),
+        'delivery',
+        'Test Customer',
+        '1234567890',
+        10.0,
+        new Date().toISOString(),
+        'Test Route',
         new Date().toISOString()
-      );
+      ]);
 
       // Step 2: If route tracking is enabled, create route session
       let routeSessionCreated = false;
       if (config.routeTracking.enabled && config.featureFlags.routeTracking) {
         try {
-          const routeStmt = this.db.prepare(`
-            INSERT INTO route_sessions (id, employee_id, shipment_id, status, started_at)
-            VALUES (?, ?, ?, ?, ?)
-          `);
+          const routeQuery = `
+            INSERT INTO route_sessions (id, employee_id, status, start_time, start_latitude, start_longitude)
+            VALUES ($1, $2, $3, $4, $5, $6)
+          `;
 
-          routeStmt.run(
+          await pool.query(routeQuery, [
             testData.routeSessionId,
             testData.employeeId,
-            testData.shipmentId,
             'active',
-            new Date().toISOString()
-          );
+            new Date().toISOString(),
+            0,
+            0
+          ]);
 
           routeSessionCreated = true;
 
           // Step 3: Add GPS coordinates if route session exists
-          if (this.db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='gps_coordinates'").get()) {
-            const gpsStmt = this.db.prepare(`
-              INSERT INTO gps_coordinates (id, route_session_id, latitude, longitude, timestamp, accuracy)
-              VALUES (?, ?, ?, ?, ?, ?)
-            `);
+          // Check if route_tracking table exists
+          const tableCheck = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'route_tracking'");
+          
+          if (tableCheck.rows.length > 0) {
+            const gpsQuery = `
+              INSERT INTO route_tracking (session_id, employee_id, latitude, longitude, timestamp, accuracy)
+              VALUES ($1, $2, $3, $4, $5, $6)
+            `;
 
-            gpsStmt.run(
-              'gps-' + Date.now(),
+            await pool.query(gpsQuery, [
               testData.routeSessionId,
+              testData.employeeId,
               40.7128,
               -74.0060,
               new Date().toISOString(),
               10
-            );
+            ]);
           }
 
           // Cleanup route session and GPS data
-          this.db.prepare('DELETE FROM gps_coordinates WHERE route_session_id = ?').run(testData.routeSessionId);
-          this.db.prepare('DELETE FROM route_sessions WHERE id = ?').run(testData.routeSessionId);
-        } catch (routeError) {
+          await pool.query('DELETE FROM route_tracking WHERE session_id = $1', [testData.routeSessionId]);
+          await pool.query('DELETE FROM route_sessions WHERE id = $1', [testData.routeSessionId]);
+        } catch (_routeError) {
           // Route tracking might not be fully configured
+           console.error('Data flow route error:', _routeError);
         }
       }
 
       // Step 4: Update shipment status
-      this.db.prepare('UPDATE shipments SET status = ? WHERE id = ?').run('completed', testData.shipmentId);
+      await pool.query('UPDATE shipments SET status = $1 WHERE id = $2', ['Delivered', testData.shipmentId]);
 
       // Cleanup shipment
-      this.db.prepare('DELETE FROM shipments WHERE id = ?').run(testData.shipmentId);
+      await pool.query('DELETE FROM shipments WHERE id = $1', [testData.shipmentId]);
 
       return {
         passed: true,

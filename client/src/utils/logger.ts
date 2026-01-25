@@ -49,7 +49,7 @@ class ClientLogger {
     return this.isDevelopment() || import.meta.env.VITE_ENABLE_CONSOLE_LOGS === 'true';
   }
 
-  private formatMessage(level: string, message: string, ...args: any[]): string {
+  private formatMessage(level: string, message: string, ...args: unknown[]): string {
     const timestamp = new Date().toISOString();
     const prefix = `[${timestamp}] [${level}]`;
     return args.length > 0 ? `${prefix} ${message}` : `${prefix} ${message}`;
@@ -59,7 +59,7 @@ class ClientLogger {
     return level <= this.config.level;
   }
 
-  error(message: string, ...args: any[]): void {
+  error(message: string, ...args: unknown[]): void {
     if (!this.shouldLog(LogLevel.ERROR)) return;
 
     if (this.config.enableConsole) {
@@ -67,7 +67,7 @@ class ClientLogger {
     }
   }
 
-  warn(message: string, ...args: any[]): void {
+  warn(message: string, ...args: unknown[]): void {
     if (!this.shouldLog(LogLevel.WARN)) return;
 
     if (this.config.enableConsole) {
@@ -75,7 +75,7 @@ class ClientLogger {
     }
   }
 
-  info(message: string, ...args: any[]): void {
+  info(message: string, ...args: unknown[]): void {
     if (!this.shouldLog(LogLevel.INFO)) return;
 
     if (this.config.enableConsole) {
@@ -83,7 +83,7 @@ class ClientLogger {
     }
   }
 
-  debug(message: string, ...args: any[]): void {
+  debug(message: string, ...args: unknown[]): void {
     if (!this.shouldLog(LogLevel.DEBUG)) return;
 
     if (this.config.enableConsole) {
@@ -92,7 +92,7 @@ class ClientLogger {
   }
 
   // Convenience method for development-only logs
-  dev(message: string, ...args: any[]): void {
+  dev(message: string, ...args: unknown[]): void {
     if (this.config.isDevelopment) {
       console.log(`[DEV] ${message}`, ...args);
     }
@@ -104,9 +104,9 @@ export const logger = new ClientLogger();
 
 // Export convenience functions
 export const log = {
-  error: (message: string, ...args: any[]) => logger.error(message, ...args),
-  warn: (message: string, ...args: any[]) => logger.warn(message, ...args),
-  info: (message: string, ...args: any[]) => logger.info(message, ...args),
-  debug: (message: string, ...args: any[]) => logger.debug(message, ...args),
-  dev: (message: string, ...args: any[]) => logger.dev(message, ...args),
+  error: (message: string, ...args: unknown[]) => logger.error(message, ...args),
+  warn: (message: string, ...args: unknown[]) => logger.warn(message, ...args),
+  info: (message: string, ...args: unknown[]) => logger.info(message, ...args),
+  debug: (message: string, ...args: unknown[]) => logger.debug(message, ...args),
+  dev: (message: string, ...args: unknown[]) => logger.dev(message, ...args),
 };

@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
+import { RouteSession, RoutePoint, RouteData } from '@shared/types';
 import {
   Route,
   BarChart3,
   Target,
-  Calendar,
   Download,
   RefreshCw,
   MapPin,
@@ -21,48 +21,6 @@ import RouteComparison from '@/components/routes/RouteComparison';
 import RouteOptimizationSuggestions from '@/components/routes/RouteOptimizationSuggestions';
 
 // Mock data interfaces (in real app, these would come from API)
-interface RoutePoint {
-  id: string;
-  latitude: number;
-  longitude: number;
-  timestamp: string;
-  accuracy?: number;
-  speed?: number;
-  eventType?: 'pickup' | 'delivery' | 'gps';
-  shipmentId?: string;
-}
-
-interface RouteSession {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  startTime: string;
-  endTime?: string;
-  status: 'active' | 'completed' | 'paused';
-  totalDistance: number;
-  totalTime: number;
-  averageSpeed: number;
-  points: RoutePoint[];
-  shipmentsCompleted: number;
-}
-
-interface RouteData {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  date: string;
-  distance: number;
-  duration: number;
-  shipmentsCompleted: number;
-  fuelConsumption: number;
-  averageSpeed: number;
-  efficiency: number;
-  points: Array<{
-    latitude: number;
-    longitude: number;
-    timestamp: string;
-  }>;
-}
 
 function RouteVisualizationPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -71,7 +29,7 @@ function RouteVisualizationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
-  const mobileOptimization = useMobileOptimization({
+  const _mobileOptimization = useMobileOptimization({
     enableGestures: true,
     enableBatteryMonitoring: true,
     enableNetworkMonitoring: true
@@ -90,7 +48,7 @@ function RouteVisualizationPage() {
       const sessions: RouteSession[] = [];
       const data: RouteData[] = [];
 
-      employees.forEach((employee, empIndex) => {
+      employees.forEach((employee, _empIndex) => {
         // Generate 5-10 sessions per employee over the last 30 days
         const sessionCount = 5 + Math.floor(Math.random() * 6);
 
@@ -144,7 +102,11 @@ function RouteVisualizationPage() {
             totalTime: duration,
             averageSpeed,
             points,
-            shipmentsCompleted
+            shipmentsCompleted,
+            startLatitude: startLat,
+            startLongitude: startLng,
+            createdAt: startTime.toISOString(),
+            updatedAt: endTime.toISOString()
           };
 
           const routeDataItem: RouteData = {
@@ -233,9 +195,9 @@ function RouteVisualizationPage() {
     );
   }
 
-  const isMobile = mobileOptimization.deviceCapabilities.screenSize === 'small';
-  const batteryOptimizations = mobileOptimization.optimizeForBattery();
-  const networkOptimizations = mobileOptimization.optimizeForNetwork();
+  const isMobile = _mobileOptimization.deviceCapabilities.screenSize === 'small';
+  const _batteryOptimizations = _mobileOptimization.optimizeForBattery();
+  const _networkOptimizations = _mobileOptimization.optimizeForNetwork();
 
   return (
     <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 ${isMobile ? 'mobile-layout' : ''}`}>
@@ -368,31 +330,14 @@ function RouteVisualizationPage() {
             sessions={routeSessions}
             onSessionSelect={handleSessionSelect}
             showComparison={!isMobile} // Hide comparison on mobile for better performance
-            autoPlay={!batteryOptimizations.reduceAnimations} // Disable autoplay on low battery
+            autoPlay={!_batteryOptimizations.reduceAnimations} // Disable autoplay on low battery
             className={isMobile ? 'mobile-optimized' : ''}
           />
         </TabsContent>
 
         <TabsContent value="comparison" className="mt-6">
           <RouteComparison
-            sessions={routeData.map(data => ({
-              id: data.id,
-              employeeId: data.employeeId,
-              employeeName: data.employeeName,
-              date: data.date,
-              metrics: {
-                distance: data.distance,
-                duration: data.duration,
-                averageSpeed: data.averageSpeed,
-                shipmentsCompleted: data.shipmentsCompleted,
-                fuelConsumption: data.fuelConsumption,
-                efficiency: data.efficiency,
-                startTime: routeSessions.find(s => s.id === data.id)?.startTime || '',
-                endTime: routeSessions.find(s => s.id === data.id)?.endTime || ''
-              },
-              points: data.points.length,
-              status: 'completed' as const
-            }))}
+            sessions={routeSessions}
             onSessionSelect={handleViewRouteDetails}
           />
         </TabsContent>

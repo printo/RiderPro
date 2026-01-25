@@ -19,7 +19,7 @@ export function registerRouteTrackingRoutes(app: Express): void {
         employeeId,
         startLatitude: parseFloat(startLatitude),
         startLongitude: parseFloat(startLongitude),
-        shipmentId: shipmentId ? parseInt(shipmentId) : null
+        shipmentId: shipmentId ? String(shipmentId) : undefined
       };
 
       const session = await storage.startRouteSession(sessionData);
@@ -30,8 +30,9 @@ export function registerRouteTrackingRoutes(app: Express): void {
         session,
         message: 'Route session started successfully'
       });
-    } catch (error: any) {
-      log.error('Error starting route session:', error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error('Error starting route session:', message);
       res.status(500).json({
         success: false,
         message: 'Failed to start route session'
@@ -58,8 +59,9 @@ export function registerRouteTrackingRoutes(app: Express): void {
         session,
         message: 'Route session stopped successfully'
       });
-    } catch (error: any) {
-      log.error('Error stopping route session:', error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error('Error stopping route session:', message);
       res.status(500).json({
         success: false,
         message: 'Failed to stop route session'
@@ -91,8 +93,9 @@ export function registerRouteTrackingRoutes(app: Express): void {
         record,
         message: 'GPS coordinate recorded successfully'
       });
-    } catch (error: any) {
-      log.error('Error recording GPS coordinate:', error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error('Error recording GPS coordinate:', message);
       res.status(500).json({
         success: false,
         message: 'Failed to record GPS coordinate'
@@ -126,8 +129,9 @@ export function registerRouteTrackingRoutes(app: Express): void {
         record,
         message: 'Shipment event recorded and coordinates updated'
       });
-    } catch (error: any) {
-      log.error('Error recording shipment event:', error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error('Error recording shipment event:', message);
       return res.status(500).json({ success: false, message: 'Failed to record shipment event' });
     }
   });
@@ -137,16 +141,16 @@ export function registerRouteTrackingRoutes(app: Express): void {
     try {
       const { sessionId } = req.params;
 
-      // In a real app, we'd fetch from DB. For now, let's at least return something sensible.
-      const session = await storage.getDatabase().prepare('SELECT * FROM route_sessions WHERE id = ?').get(sessionId);
+      const session = await storage.getRouteSession(sessionId);
 
       if (!session) {
         return res.status(404).json({ success: false, message: 'Session not found' });
       }
 
       res.json({ success: true, session });
-    } catch (error: any) {
-      log.error('Error fetching session:', error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error('Error fetching session:', message);
       res.status(500).json({ success: false, message: 'Failed to fetch session' });
     }
   });
@@ -164,22 +168,29 @@ export function registerRouteTrackingRoutes(app: Express): void {
         });
       }
 
-      const results = await Promise.all(coordinates.map(async (coord: any) => {
+      const results = await Promise.all(coordinates.map(async (coord: {
+        sessionId: string;
+        employeeId?: number;
+        latitude: string | number;
+        longitude: string | number;
+        accuracy?: string | number;
+        speed?: string | number;
+        timestamp?: string;
+      }) => {
         try {
           const record = await storage.recordCoordinate({
             sessionId: coord.sessionId,
-            employeeId: employeeId || coord.employeeId,
-            latitude: parseFloat(coord.latitude),
-            longitude: parseFloat(coord.longitude),
-            accuracy: coord.accuracy ? parseFloat(coord.accuracy) : null,
-            speed: coord.speed ? parseFloat(coord.speed) : null,
+            employeeId: employeeId || (coord.employeeId ? String(coord.employeeId) : undefined),
+            latitude: parseFloat(String(coord.latitude)),
+            longitude: parseFloat(String(coord.longitude)),
             timestamp: coord.timestamp || new Date().toISOString()
           });
 
           return { success: true, record };
-        } catch (error: any) {
-          log.error('Error processing coordinate:', error.message);
-          return { success: false, error: error.message };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          log.error('Error processing coordinate:', message);
+          return { success: false, error: message };
         }
       }));
 
@@ -188,8 +199,9 @@ export function registerRouteTrackingRoutes(app: Express): void {
         results,
         message: `Processed ${results.length} coordinates`
       });
-    } catch (error: any) {
-      log.error('Error processing batch coordinates:', error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error('Error processing batch coordinates:', message);
       res.status(500).json({
         success: false,
         message: 'Failed to process batch coordinates'
@@ -200,15 +212,19 @@ export function registerRouteTrackingRoutes(app: Express): void {
   // Offline sync: sync a route session created while offline
   app.post('/api/routes/sync-session', authenticate, async (req: AuthenticatedRequest, res) => {
     try {
-      const { id, startTime, endTime, status, startLatitude, startLongitude, endLatitude, endLongitude, shipmentId } = req.body || {};
+      const { id, endTime, status, startLatitude, startLongitude, endLatitude, endLongitude, shipmentId } = req.body || {};
       const employeeId = req.user?.employeeId;
+
+      if (!employeeId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
 
       const session = await storage.startRouteSession({
         id,
         employeeId,
         startLatitude,
         startLongitude,
-        shipmentId
+        shipmentId: shipmentId ? String(shipmentId) : undefined
       });
 
       if (status === 'completed' || endTime) {
@@ -220,8 +236,9 @@ export function registerRouteTrackingRoutes(app: Express): void {
       }
 
       return res.json({ success: true, session, message: 'Session synced' });
-    } catch (error: any) {
-      log.error('Error syncing session:', error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error('Error syncing session:', message);
       return res.status(500).json({ success: false, message: 'Failed to sync session' });
     }
   });
@@ -232,22 +249,29 @@ export function registerRouteTrackingRoutes(app: Express): void {
       const { sessionId, coordinates } = req.body || {};
       const employeeId = req.user?.employeeId;
 
-      const results = await Promise.all((coordinates || []).map(async (coord: any) => {
+      const results = await Promise.all((coordinates || []).map(async (coord: {
+        sessionId: string;
+        employeeId?: number;
+        latitude: string | number;
+        longitude: string | number;
+        accuracy?: string | number;
+        speed?: string | number;
+        timestamp?: string;
+      }) => {
         return await storage.recordCoordinate({
           sessionId,
           employeeId,
-          latitude: parseFloat(coord.latitude),
-          longitude: parseFloat(coord.longitude),
-          accuracy: coord.accuracy ? parseFloat(coord.accuracy) : null,
-          speed: coord.speed ? parseFloat(coord.speed) : null,
+          latitude: parseFloat(String(coord.latitude)),
+          longitude: parseFloat(String(coord.longitude)),
           timestamp: coord.timestamp
         });
       }));
 
       log.info(`Offline coordinates synced for session ${sessionId}:`, results.length);
       return res.json({ success: true, results, message: 'Coordinates synced' });
-    } catch (error: any) {
-      log.error('Error syncing coordinates:', error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.error('Error syncing coordinates:', message);
       return res.status(500).json({ success: false, message: 'Failed to sync coordinates' });
     }
   });

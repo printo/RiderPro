@@ -5,7 +5,6 @@ import { registerAuthRoutes } from "./auth.js";
 import { registerShipmentRoutes } from "./shipments.js";
 import { registerVehicleRoutes } from "./vehicles.js";
 import { registerRouteTrackingRoutes } from "./routeTracking.js";
-import { registerUserManagementRoutes } from "./userManagement.js";
 import { registerSyncRoutes } from "./sync.js";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -15,7 +14,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerShipmentRoutes(app);
   registerVehicleRoutes(app);
   registerRouteTrackingRoutes(app);
-  registerUserManagementRoutes(app);
   registerSyncRoutes(app);
 
   // Create HTTP server

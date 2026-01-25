@@ -1,5 +1,6 @@
-import { ShipmentQueries } from './db/queries.js';
-import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType, FuelSetting, InsertFuelSetting, UpdateFuelSetting, Acknowledgment, InsertAcknowledgment } from '@shared/schema';
+import { ShipmentQueries, UserSession, InsertUser, UpdateUser, FeatureFlag, UpdateFeatureFlag, SystemHealthMetric } from './db/queries.js';
+import { RouteTrackingQueries } from './db/routeQueries.js';
+import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType, FuelSetting, InsertFuelSetting, UpdateFuelSetting, Acknowledgment, InsertAcknowledgment, User, GPSCoordinate, RouteSession, RouteTracking, RouteAnalytics, RouteFilters } from '@shared/types';
 
 export interface PaginatedResponse<T> {
   data: T[];
@@ -14,7 +15,7 @@ export interface IStorage {
   createShipment(shipment: InsertShipment): Promise<Shipment>;
   updateShipment(id: string, updates: UpdateShipment): Promise<Shipment | undefined>;
   batchUpdateShipments(updates: BatchUpdate): Promise<number>;
-  batchCreateOrUpdateShipments(shipments: Array<{ external: any, internal: any }>): Promise<Array<{
+  batchCreateOrUpdateShipments(shipments: Array<{ external: { id: string }, internal: InsertShipment & { piashipmentid?: string, id?: string } }>): Promise<Array<{
     piashipmentid: string;
     internalId: string | null;
     status: 'created' | 'updated' | 'failed';
@@ -28,20 +29,41 @@ export interface IStorage {
     latitude: number;
     longitude: number;
     employeeId: string;
-  }): Promise<any>;
+  }): Promise<Record<string, unknown>>;
 
-  startRouteSession(data: any): Promise<any>;
-  stopRouteSession(data: any): Promise<any>;
-  recordCoordinate(data: any): Promise<any>;
+  startRouteSession(data: {
+    id: string;
+    employeeId: string;
+    startLatitude: number;
+    startLongitude: number;
+    shipmentId?: string;
+  }): Promise<Record<string, unknown>>;
 
+  stopRouteSession(data: {
+    sessionId: string;
+    endLatitude: number;
+    endLongitude: number;
+  }): Promise<Record<string, unknown>>;
 
+  recordCoordinate(data: {
+    sessionId: string;
+    latitude: number;
+    longitude: number;
+    timestamp?: string;
+    employeeId?: string;
+  }): Promise<Record<string, unknown>>;
 
-  // Acknowledgment operations (now integrated into shipments table)
-  createAcknowledgment(acknowledgment: any): Promise<any>;
-  getAcknowledgmentByShipmentId(shipmentId: string): Promise<any | undefined>;
+  // Route Query Operations
+  getRouteSession(sessionId: string): Promise<RouteSession | null>;
+  getSessionCoordinates(sessionId: string): Promise<RouteTracking[]>;
+  getRouteAnalytics(filters?: RouteFilters): Promise<RouteAnalytics[]>;
+
+  // Acknowledgment operations
+  createAcknowledgment(acknowledgment: InsertAcknowledgment): Promise<Acknowledgment>;
+  getAcknowledgmentByShipmentId(shipmentId: string): Promise<Acknowledgment | undefined>;
 
   // Dashboard operations
-  getDashboardMetrics(): Promise<DashboardMetrics>;
+  getDashboardMetrics(employeeId?: string): Promise<DashboardMetrics>;
 
   // Vehicle Types operations
   getVehicleTypes(): Promise<VehicleType[]>;
@@ -56,122 +78,137 @@ export interface IStorage {
   createFuelSetting(fuelSetting: InsertFuelSetting): Promise<FuelSetting>;
   updateFuelSetting(id: string, updates: UpdateFuelSetting): Promise<FuelSetting | undefined>;
   deleteFuelSetting(id: string): Promise<boolean>;
+
+  // Feature Flags
+  getFeatureFlag(name: string): Promise<FeatureFlag | undefined>;
+  getAllFeatureFlags(): Promise<FeatureFlag[]>;
+  updateFeatureFlag(name: string, updates: UpdateFeatureFlag): Promise<FeatureFlag | undefined>;
+
+  // System Health
+  createSystemHealthMetric(metric: Omit<SystemHealthMetric, 'created_at'>): Promise<SystemHealthMetric>;
+  getSystemHealthMetrics(limit?: number): Promise<SystemHealthMetric[]>;
+
+  // User & Session (Auth)
+  getUserByToken(token: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, updates: UpdateUser): Promise<User | undefined>;
+  createSession(session: UserSession): Promise<UserSession>;
+  getSessionByToken(token: string): Promise<UserSession | undefined>;
+  updateSession(id: string, token: string, expiresAt: string): Promise<UserSession | undefined>;
+  deleteExpiredSessions(): Promise<number>;
 }
 
-export class SqliteStorage implements IStorage {
-  private liveQueries: ShipmentQueries;
-  private replicaQueries: ShipmentQueries;
+export class DbStorage implements IStorage {
+  private queries: ShipmentQueries;
+  private routeQueries: RouteTrackingQueries;
 
   constructor() {
-    // In development mode, primary operations use replica DB
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    this.liveQueries = new ShipmentQueries(isDevelopment);
-    this.replicaQueries = new ShipmentQueries(!isDevelopment);
+    this.queries = new ShipmentQueries();
+    this.routeQueries = new RouteTrackingQueries();
   }
 
-  // Expose database for validation services
+  // Expose pool for rare cases where direct access is needed (try to avoid)
   getDatabase() {
-    return this.liveQueries.getDatabase();
+    return this.queries.getDatabase();
   }
 
-  // Direct database access methods for compatibility
-  prepare(sql: string) {
-    return this.liveQueries.getDatabase().prepare(sql);
+  // Route Query Implementations
+  async getRouteSession(sessionId: string): Promise<RouteSession | null> {
+    return this.routeQueries.getRouteSession(sessionId);
   }
 
-  exec(sql: string) {
-    return this.liveQueries.getDatabase().exec(sql);
+  async getSessionCoordinates(sessionId: string): Promise<RouteTracking[]> {
+    return this.routeQueries.getSessionCoordinates(sessionId);
+  }
+
+  async getRouteAnalytics(filters?: RouteFilters): Promise<RouteAnalytics[]> {
+    return this.routeQueries.getRouteAnalytics(filters);
   }
 
   async getShipments(filters?: ShipmentFilters): Promise<PaginatedResponse<Shipment>> {
-    return this.liveQueries.getAllShipments(filters);
+    return this.queries.getAllShipments(filters);
   }
 
   async getShipment(id: string): Promise<Shipment | undefined> {
-    const shipment = this.liveQueries.getShipmentById(id);
-    return shipment || undefined;
+    return this.queries.getShipmentById(id);
   }
 
   async getShipmentByExternalId(externalId: string): Promise<Shipment | undefined> {
-    const shipment = this.liveQueries.getShipmentByExternalId(externalId);
-    return shipment || undefined;
+    return this.queries.getShipmentByExternalId(externalId);
   }
 
   async createShipment(shipment: InsertShipment): Promise<Shipment> {
-    return this.liveQueries.createShipment(shipment);
+    return this.queries.createShipment(shipment);
   }
 
   async updateShipment(id: string, updates: UpdateShipment): Promise<Shipment | undefined> {
-    const shipment = this.liveQueries.updateShipment(id, updates);
-    return shipment || undefined;
+    return this.queries.updateShipment(id, updates);
   }
 
   async batchUpdateShipments(updates: BatchUpdate): Promise<number> {
-    return this.liveQueries.batchUpdateShipments(updates.updates);
+    return this.queries.batchUpdateShipments(updates.updates);
   }
 
-  async batchCreateOrUpdateShipments(shipments: Array<{ external: any, internal: any }>): Promise<Array<{
+  async batchCreateOrUpdateShipments(shipments: Array<{ external: { id: string }, internal: InsertShipment & { piashipmentid?: string, id?: string } }>): Promise<Array<{
     piashipmentid: string;
     internalId: string | null;
     status: 'created' | 'updated' | 'failed';
     message: string;
   }>> {
-    return this.liveQueries.batchCreateOrUpdateShipments(shipments);
+    return this.queries.batchCreateOrUpdateShipments(shipments);
   }
 
   async createAcknowledgment(acknowledgment: InsertAcknowledgment): Promise<Acknowledgment> {
-    return this.liveQueries.createAcknowledgment(acknowledgment);
+    return this.queries.createAcknowledgment(acknowledgment);
   }
 
   async getAcknowledgmentByShipmentId(shipmentId: string): Promise<Acknowledgment | undefined> {
-    const acknowledgment = this.liveQueries.getAcknowledmentByShipmentId(shipmentId);
-    return acknowledgment || undefined;
+    return this.queries.getAcknowledmentByShipmentId(shipmentId);
   }
 
   async getDashboardMetrics(employeeId?: string): Promise<DashboardMetrics> {
-    return this.liveQueries.getDashboardMetrics(employeeId);
+    return this.queries.getDashboardMetrics(employeeId);
   }
 
-  // Vehicle Types operations
   async getVehicleTypes(): Promise<VehicleType[]> {
-    return this.liveQueries.getAllVehicleTypes();
+    return this.queries.getAllVehicleTypes();
   }
 
   async getVehicleType(id: string): Promise<VehicleType | undefined> {
-    const vehicleType = this.liveQueries.getVehicleTypeById(id);
-    return vehicleType || undefined;
+    return this.queries.getVehicleTypeById(id);
   }
 
   async createVehicleType(vehicleType: InsertVehicleType): Promise<VehicleType> {
-    return this.liveQueries.createVehicleType(vehicleType);
+    return this.queries.createVehicleType(vehicleType);
   }
 
   async updateVehicleType(id: string, updates: UpdateVehicleType): Promise<VehicleType | undefined> {
-    const vehicleType = this.liveQueries.updateVehicleType(id, updates);
-    return vehicleType || undefined;
+    return this.queries.updateVehicleType(id, updates);
   }
 
   async deleteVehicleType(id: string): Promise<boolean> {
-    return this.liveQueries.deleteVehicleType(id);
+    return this.queries.deleteVehicleType(id);
   }
 
-  // Fuel Settings operations
   async getFuelSettings(): Promise<FuelSetting[]> {
-    return this.liveQueries.getAllFuelSettings();
+    return this.queries.getAllFuelSettings();
   }
 
   async getFuelSetting(id: string): Promise<FuelSetting | undefined> {
-    const fuelSetting = this.liveQueries.getFuelSettingById(id);
-    return fuelSetting || undefined;
+    return this.queries.getFuelSettingById(id);
   }
 
   async createFuelSetting(fuelSetting: InsertFuelSetting): Promise<FuelSetting> {
-    return this.liveQueries.createFuelSetting(fuelSetting);
+    return this.queries.createFuelSetting(fuelSetting);
   }
 
   async updateFuelSetting(id: string, updates: UpdateFuelSetting): Promise<FuelSetting | undefined> {
-    const fuelSetting = this.liveQueries.updateFuelSetting(id, updates);
-    return fuelSetting || undefined;
+    return this.queries.updateFuelSetting(id, updates);
+  }
+
+  async deleteFuelSetting(id: string): Promise<boolean> {
+    return this.queries.deleteFuelSetting(id);
   }
 
   async recordShipmentEvent(event: {
@@ -181,26 +218,128 @@ export class SqliteStorage implements IStorage {
     latitude: number;
     longitude: number;
     employeeId: string;
-  }): Promise<any> {
-    return this.liveQueries.recordShipmentEvent(event);
+  }): Promise<Record<string, unknown>> {
+    const result = await this.routeQueries.recordShipmentEvent(
+      event.sessionId,
+      event.shipmentId,
+      event.eventType as 'pickup' | 'delivery',
+      event.latitude,
+      event.longitude
+    );
+    return result as unknown as Record<string, unknown>;
   }
 
-  async startRouteSession(data: any): Promise<any> {
-    return this.liveQueries.startRouteSession(data);
+  async startRouteSession(data: {
+    id: string;
+    employeeId: string;
+    startLatitude: number;
+    startLongitude: number;
+    shipmentId?: string;
+  }): Promise<Record<string, unknown>> {
+    const session = await this.routeQueries.createRouteSession(
+      data.employeeId,
+      data.startLatitude,
+      data.startLongitude,
+      data.id
+    );
+
+    if (data.shipmentId) {
+      await this.routeQueries.recordShipmentEvent(
+        data.id,
+        data.shipmentId,
+        'pickup', // Assuming pickup on start, or should it be 'route_start'? RouteTrackingQueries expects 'pickup' | 'delivery'
+        data.startLatitude,
+        data.startLongitude
+      );
+    }
+
+    return session as unknown as Record<string, unknown>;
   }
 
-  async stopRouteSession(data: any): Promise<any> {
-    return this.liveQueries.stopRouteSession(data);
+  async stopRouteSession(data: {
+    sessionId: string;
+    endLatitude: number;
+    endLongitude: number;
+  }): Promise<Record<string, unknown>> {
+    const session = await this.routeQueries.stopRouteSession(
+      data.sessionId,
+      data.endLatitude,
+      data.endLongitude
+    );
+    return session as unknown as Record<string, unknown>;
   }
 
-  async recordCoordinate(data: any): Promise<any> {
-    return this.liveQueries.recordCoordinate(data);
+  async recordCoordinate(data: {
+    sessionId: string;
+    latitude: number;
+    longitude: number;
+    timestamp?: string;
+    employeeId?: string;
+  }): Promise<Record<string, unknown>> {
+    const coord: GPSCoordinate = {
+      sessionId: data.sessionId,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      timestamp: data.timestamp || new Date().toISOString()
+    };
+    const result = await this.routeQueries.recordGPSCoordinate(coord);
+    return result as unknown as Record<string, unknown>;
   }
 
-  async deleteFuelSetting(id: string): Promise<boolean> {
-    return this.liveQueries.deleteFuelSetting(id);
+  // Feature Flags
+  async getFeatureFlag(name: string): Promise<FeatureFlag | undefined> {
+    return this.queries.getFeatureFlag(name);
   }
 
+  async getAllFeatureFlags(): Promise<FeatureFlag[]> {
+    return this.queries.getAllFeatureFlags();
+  }
+
+  async updateFeatureFlag(name: string, updates: UpdateFeatureFlag): Promise<FeatureFlag | undefined> {
+    return this.queries.updateFeatureFlag(name, updates);
+  }
+
+  // System Health
+  async createSystemHealthMetric(metric: Omit<SystemHealthMetric, 'created_at'>): Promise<SystemHealthMetric> {
+    return this.queries.createSystemHealthMetric(metric);
+  }
+
+  async getSystemHealthMetrics(limit?: number): Promise<SystemHealthMetric[]> {
+    return this.queries.getSystemHealthMetrics(limit);
+  }
+
+  // User & Session
+  async getUserByToken(token: string): Promise<User | undefined> {
+    return this.queries.getUserByToken(token);
+  }
+
+  async getUserById(id: string): Promise<User | undefined> {
+    return this.queries.getUserById(id);
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    return this.queries.createUser(user);
+  }
+
+  async updateUser(id: string, updates: UpdateUser): Promise<User | undefined> {
+    return this.queries.updateUser(id, updates);
+  }
+
+  async createSession(session: UserSession): Promise<UserSession> {
+    return this.queries.createSession(session);
+  }
+
+  async getSessionByToken(token: string): Promise<UserSession | undefined> {
+    return this.queries.getSessionByToken(token);
+  }
+
+  async updateSession(id: string, token: string, expiresAt: string): Promise<UserSession | undefined> {
+    return this.queries.updateSession(id, token, expiresAt);
+  }
+
+  async deleteExpiredSessions(): Promise<number> {
+    return this.queries.deleteExpiredSessions();
+  }
 }
 
-export const storage = new SqliteStorage();
+export const storage = new DbStorage();

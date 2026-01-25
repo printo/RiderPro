@@ -1,4 +1,4 @@
-import { Shipment } from '@shared/schema';
+import { Shipment } from '@shared/types';
 import { log } from "../../shared/utils/logger.js";
 import { API_KEYS } from '../config/apiKeys.js';
 
@@ -191,13 +191,14 @@ export class ExternalApiService {
         synced_at: new Date().toISOString()
       };
 
-    } catch (error: any) {
-      console.error('External API sync failed:', error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      console.error('External API sync failed:', errorMessage);
 
       return {
         success: false,
         message: 'Failed to sync to external system',
-        error: error.message
+        error: errorMessage
       };
     }
   }
@@ -259,15 +260,16 @@ export class ExternalApiService {
           });
         });
 
-      } catch (error: any) {
-        console.error('Batch sync failed:', error);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        console.error('Batch sync failed:', errorMessage);
 
         // Mark all in batch as failed
         batch.forEach(() => {
           results.push({
             success: false,
             message: 'Batch sync failed',
-            error: error.message
+            error: errorMessage
           });
         });
       }

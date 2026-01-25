@@ -1,4 +1,4 @@
-import { RouteTracking } from '@shared/schema';
+import { RouteTracking, EmployeePerformanceMetrics, FuelAnalyticsData } from '@shared/types';
 import { DistanceCalculator } from './DistanceCalculator';
 
 export interface AggregationFilters {
@@ -7,22 +7,6 @@ export interface AggregationFilters {
   endDate?: string;
   routeNames?: string[];
   vehicleTypes?: string[];
-}
-
-export interface EmployeePerformanceMetrics {
-  employeeId: string;
-  totalDistance: number;
-  totalTime: number;
-  totalFuelConsumed: number;
-  totalFuelCost: number;
-  totalShipmentsCompleted: number;
-  averageSpeed: number;
-  efficiency: number; // km per shipment
-  workingDays: number;
-  averageDistancePerDay: number;
-  averageShipmentsPerDay: number;
-  fuelEfficiencyRating: 'excellent' | 'good' | 'average' | 'poor';
-  performanceScore: number; // 0-100
 }
 
 export interface RoutePerformanceMetrics {
@@ -55,32 +39,6 @@ export interface TimeBasedMetrics {
   }>;
 }
 
-export interface FuelAnalyticsData {
-  totalFuelConsumed: number;
-  totalFuelCost: number;
-  averageFuelEfficiency: number; // km per liter
-  costPerKm: number;
-  fuelPerKm: number;
-  byVehicleType: Record<string, {
-    fuelConsumed: number;
-    fuelCost: number;
-    efficiency: number;
-    distance: number;
-  }>;
-  byEmployee: Record<string, {
-    fuelConsumed: number;
-    fuelCost: number;
-    efficiency: number;
-    distance: number;
-  }>;
-  trends: Array<{
-    period: string;
-    consumption: number;
-    cost: number;
-    efficiency: number;
-  }>;
-}
-
 export interface ComparisonMetrics {
   current: TimeBasedMetrics;
   previous: TimeBasedMetrics;
@@ -93,6 +51,13 @@ export interface ComparisonMetrics {
     speed: { value: number; percentage: number };
   };
   trend: 'improving' | 'declining' | 'stable';
+}
+
+export interface FuelMetrics {
+  fuelConsumed: number;
+  fuelCost: number;
+  efficiency: number;
+  distance: number;
 }
 
 export class RouteDataAggregator {
@@ -251,7 +216,7 @@ export class RouteDataAggregator {
 
     // Group by vehicle type
     const vehicleGroups = this.groupByVehicleType(filteredData);
-    const byVehicleType: Record<string, any> = {};
+    const byVehicleType: Record<string, FuelMetrics> = {};
 
     Object.entries(vehicleGroups).forEach(([vehicleType, coordinates]) => {
       const distance = this.calculateTotalDistance(coordinates);
@@ -268,7 +233,7 @@ export class RouteDataAggregator {
 
     // Group by employee
     const employeeGroups = this.groupByEmployee(filteredData);
-    const byEmployee: Record<string, any> = {};
+    const byEmployee: Record<string, FuelMetrics> = {};
 
     Object.entries(employeeGroups).forEach(([employeeId, coordinates]) => {
       const distance = this.calculateTotalDistance(coordinates);
@@ -301,7 +266,7 @@ export class RouteDataAggregator {
     return {
       totalFuelConsumed: Math.round(totalFuelConsumed * 100) / 100,
       totalFuelCost: Math.round(totalFuelCost * 100) / 100,
-      averageFuelEfficiency: Math.round(averageFuelEfficiency * 100) / 100,
+      averageEfficiency: Math.round(averageFuelEfficiency * 100) / 100,
       costPerKm: Math.round(costPerKm * 1000) / 1000, // 3 decimal places for cost
       fuelPerKm: Math.round(fuelPerKm * 1000) / 1000,
       byVehicleType,

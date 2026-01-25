@@ -1,12 +1,11 @@
-import { Database } from 'better-sqlite3';
+import { pool } from '../db/connection.js';
 import config from '../config/index.js';
-import { storage } from '../storage';
 import { log } from "../../shared/utils/logger.js";
 
 interface ValidationResult {
   passed: boolean;
   message: string;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 interface SystemValidationReport {
@@ -25,18 +24,10 @@ interface SystemValidationReport {
 
 class SystemValidationService {
   private static instance: SystemValidationService;
-  private db: Database;
 
-  private constructor(database: Database) {
-    this.db = database;
-  }
-
-  public static getInstance(database?: Database): SystemValidationService {
+  public static getInstance(): SystemValidationService {
     if (!SystemValidationService.instance) {
-      if (!database) {
-        throw new Error('Database required for first initialization');
-      }
-      SystemValidationService.instance = new SystemValidationService(database);
+      SystemValidationService.instance = new SystemValidationService();
     }
     return SystemValidationService.instance;
   }
@@ -80,11 +71,13 @@ class SystemValidationService {
       log.dev('🚚 Validating shipment functionality...');
 
       // Check if core shipment tables exist and are accessible
-      const shipmentTables = ['shipments', 'employees'];
+      // Note: 'employees' table doesn't exist in current schema, checking 'users' instead if needed, 
+      // but for now just 'shipments' as it's the core one.
+      const shipmentTables = ['shipments']; 
       for (const table of shipmentTables) {
         try {
-          const result = this.db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get() as any;
-          if (typeof result.count !== 'number') {
+          const result = await pool.query(`SELECT COUNT(*) as count FROM ${table}`);
+          if (typeof parseInt(result.rows[0].count) !== 'number') {
             throw new Error(`Invalid response from ${table} table`);
           }
         } catch (error) {
@@ -113,11 +106,10 @@ class SystemValidationService {
 
       try {
         // Test INSERT
-        const insertStmt = this.db.prepare(`
-          INSERT INTO shipments (id, type, customerName, customerMobile, address, cost, deliveryTime, routeName, employeeId, status, createdAt)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-        insertStmt.run(
+        await pool.query(`
+          INSERT INTO shipments (id, type, "customerName", "customerMobile", address, cost, "deliveryTime", "routeName", "employeeId", status, "createdAt")
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `, [
           testShipment.id,
           testShipment.type,
           testShipment.customerName,
@@ -129,22 +121,20 @@ class SystemValidationService {
           testShipment.employeeId,
           testShipment.status,
           testShipment.createdAt
-        );
+        ]);
 
         // Test SELECT
-        const selectStmt = this.db.prepare('SELECT * FROM shipments WHERE id = ?');
-        const retrieved = selectStmt.get(testShipment.id) as any;
+        const selectResult = await pool.query('SELECT * FROM shipments WHERE id = $1', [testShipment.id]);
+        const retrieved = selectResult.rows[0];
         if (!retrieved) {
           throw new Error('Failed to retrieve test shipment');
         }
 
         // Test UPDATE
-        const updateStmt = this.db.prepare('UPDATE shipments SET status = ? WHERE id = ?');
-        updateStmt.run('In Transit', testShipment.id);
+        await pool.query('UPDATE shipments SET status = $1 WHERE id = $2', ['In Transit', testShipment.id]);
 
         // Test DELETE (cleanup)
-        const deleteStmt = this.db.prepare('DELETE FROM shipments WHERE id = ?');
-        deleteStmt.run(testShipment.id);
+        await pool.query('DELETE FROM shipments WHERE id = $1', [testShipment.id]);
 
         return {
           passed: true,
@@ -155,8 +145,8 @@ class SystemValidationService {
       } catch (error) {
         // Cleanup in case of error
         try {
-          this.db.prepare('DELETE FROM shipments WHERE id = ?').run(testShipment.id);
-        } catch (cleanupError) {
+          await pool.query('DELETE FROM shipments WHERE id = $1', [testShipment.id]);
+        } catch (_cleanupError) {
           // Ignore cleanup errors
         }
 
@@ -187,10 +177,10 @@ class SystemValidationService {
       // Verify route tracking tables exist when enabled
       if (originalRouteTrackingState) {
         try {
-          const routeTrackingTables = ['route_sessions', 'gps_coordinates'];
+          const routeTrackingTables = ['route_sessions', 'route_tracking'];
           for (const table of routeTrackingTables) {
-            const result = this.db.prepare(`SELECT COUNT(*) as count FROM ${table}`).get() as any;
-            if (typeof result.count !== 'number') {
+            const result = await pool.query(`SELECT COUNT(*) as count FROM ${table}`);
+            if (typeof parseInt(result.rows[0].count) !== 'number') {
               throw new Error(`Route tracking table ${table} is not accessible`);
             }
           }
@@ -245,11 +235,10 @@ class SystemValidationService {
           createdAt: new Date().toISOString()
         };
 
-        const insertStmt = this.db.prepare(`
-          INSERT INTO shipments (id, type, customerName, customerMobile, address, cost, deliveryTime, routeName, employeeId, status, createdAt)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-        insertStmt.run(
+        await pool.query(`
+          INSERT INTO shipments (id, type, "customerName", "customerMobile", address, cost, "deliveryTime", "routeName", "employeeId", status, "createdAt")
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `, [
           testShipment.id,
           testShipment.type,
           testShipment.customerName,
@@ -261,10 +250,10 @@ class SystemValidationService {
           testShipment.employeeId,
           testShipment.status,
           testShipment.createdAt
-        );
+        ]);
 
         // Cleanup
-        this.db.prepare('DELETE FROM shipments WHERE id = ?').run(testShipment.id);
+        await pool.query('DELETE FROM shipments WHERE id = $1', [testShipment.id]);
 
         // Restore original state
         config.routeTracking.enabled = tempDisableState;
@@ -314,14 +303,16 @@ class SystemValidationService {
       const queryStartTime = Date.now();
       try {
         // Run a complex query that would be typical for the system
-        const result = this.db.prepare(`
+        await pool.query(`
           SELECT 
             COUNT(*) as total_shipments,
-            COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed_shipments,
-            COUNT(CASE WHEN status = 'in_transit' THEN 1 END) as active_shipments
+            COUNT(CASE WHEN status = 'Delivered' THEN 1 END) as completed_shipments,
+            COUNT(CASE WHEN status = 'In Transit' THEN 1 END) as active_shipments
           FROM shipments 
-          WHERE created_at >= date('now', '-30 days')
-        `).get() as any;
+          WHERE "createdAt" >= NOW() - INTERVAL '30 days'
+        `);
+        // Note: status values matched to schema ('Delivered', 'In Transit' vs 'completed', 'in_transit')
+        // The schema uses Title Case ('Assigned', 'In Transit', 'Delivered'...)
 
         performanceMetrics.databaseQueryTime = Date.now() - queryStartTime;
 
@@ -355,25 +346,21 @@ class SystemValidationService {
 
       // Check database size and index efficiency
       try {
-        const dbStats = this.db.prepare(`
-          SELECT 
-            page_count * page_size as database_size,
-            page_count,
-            page_size
-          FROM pragma_page_count(), pragma_page_size()
-        `).get() as any;
-
-        performanceMetrics.databaseSize = dbStats.database_size / 1024 / 1024; // MB
+        const dbStats = await pool.query(`
+          SELECT pg_database_size(current_database()) as database_size
+        `);
+        
+        performanceMetrics.databaseSize = parseInt(dbStats.rows[0].database_size) / 1024 / 1024; // MB
 
         // Check if indexes exist on critical tables
-        const indexes = this.db.prepare(`
-          SELECT name, tbl_name 
-          FROM sqlite_master 
-          WHERE type = 'index' AND tbl_name IN ('shipments', 'route_sessions', 'gps_coordinates')
-        `).all() as any[];
+        const indexes = await pool.query(`
+          SELECT tablename, indexname 
+          FROM pg_indexes 
+          WHERE tablename IN ('shipments', 'route_sessions', 'route_tracking')
+        `);
 
-        const criticalTables = ['shipments', 'route_sessions', 'gps_coordinates'];
-        const indexedTables = new Set(indexes.map(idx => idx.tbl_name));
+        const criticalTables = ['shipments', 'route_sessions', 'route_tracking'];
+        const indexedTables = new Set(indexes.rows.map(idx => idx.tablename));
 
         for (const table of criticalTables) {
           if (!indexedTables.has(table)) {

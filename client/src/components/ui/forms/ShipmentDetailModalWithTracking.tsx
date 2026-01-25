@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Shipment } from "@shared/schema";
+import type { Shipment } from "@shared/types";
 import {
   Sheet,
   SheetContent,
@@ -33,7 +33,6 @@ import { useGPSTracking } from "@/hooks/useGPSTracking";
 import { useAuth } from "@/hooks/useAuth";
 import RemarksModal from "@/components/ui/forms/RemarksModal";
 import AcknowledgmentCapture from "@/components/AcknowledgmentCapture";
-import { cn } from "@/lib/utils";
 
 type ShipmentWithAcknowledgment = Shipment & {
   acknowledgment?: {
@@ -90,10 +89,14 @@ function ShipmentDetailModalWithTracking({
         description: "Shipment status has been updated successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update shipment status.";
       toast({
         title: "Update Failed",
-        description: error.message || "Failed to update shipment status.",
+        description: message,
         variant: "destructive",
       });
     },

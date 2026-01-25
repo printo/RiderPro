@@ -6,7 +6,7 @@ import { Captcha } from '@/components/ui/Captcha';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Package, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { ButtonLoader } from '@/components/ui/Loader';
 
 const RiderSignupForm = () => {
@@ -55,7 +55,7 @@ const RiderSignupForm = () => {
       } else {
         setError(result.message);
       }
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to create account. Please try again.');
     } finally {
       setIsSubmitting(false);

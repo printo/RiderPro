@@ -1,10 +1,9 @@
-// client/src/pages/Login.tsx
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Package, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { ButtonLoader } from "@/components/ui/Loader";
 import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";

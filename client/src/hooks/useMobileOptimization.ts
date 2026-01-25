@@ -48,6 +48,54 @@ interface UseMobileOptimizationOptions {
   swipeThreshold?: number;
 }
 
+// Extended interfaces for experimental/non-standard APIs
+interface NetworkInformation extends EventTarget {
+  type?: string;
+  effectiveType?: string;
+  downlink?: number;
+  rtt?: number;
+  saveData?: boolean;
+}
+
+interface NavigatorWithConnection {
+  connection?: NetworkInformation;
+  mozConnection?: NetworkInformation;
+  webkitConnection?: NetworkInformation;
+}
+
+interface BatteryManager extends EventTarget {
+  level: number;
+  charging: boolean;
+  chargingTime: number;
+  dischargingTime: number;
+}
+
+interface NavigatorWithBattery {
+  getBattery(): Promise<BatteryManager>;
+}
+
+interface NavigatorWithStandalone {
+  standalone?: boolean;
+}
+
+interface WakeLockSentinel extends EventTarget {
+  released: boolean;
+  type: 'screen';
+  release(): Promise<void>;
+}
+
+interface WakeLock {
+  request(type: 'screen'): Promise<WakeLockSentinel>;
+}
+
+interface NavigatorWithWakeLock {
+  wakeLock: WakeLock;
+}
+
+interface ScreenOrientationWithLock {
+  lock(orientation: 'any' | 'natural' | 'landscape' | 'portrait' | 'portrait-primary' | 'portrait-secondary' | 'landscape-primary' | 'landscape-secondary'): Promise<void>;
+}
+
 export const useMobileOptimization = (options: UseMobileOptimizationOptions = {}) => {
   const {
     enableGestures = true,
@@ -108,7 +156,7 @@ export const useMobileOptimization = (options: UseMobileOptimizationOptions = {}
       hasBattery: 'getBattery' in navigator,
       isStandalone:
         window.matchMedia('(display-mode: standalone)').matches ||
-        (window.navigator as any).standalone === true,
+        (window.navigator as unknown as NavigatorWithStandalone).standalone === true,
       pixelRatio: window.devicePixelRatio || 1,
       screenSize:
         window.innerWidth < 480 ? 'small' : window.innerWidth < 768 ? 'medium' : 'large',
@@ -123,9 +171,9 @@ export const useMobileOptimization = (options: UseMobileOptimizationOptions = {}
 
     const updateNetworkInfo = () => {
       const connection =
-        (navigator as any).connection ||
-        (navigator as any).mozConnection ||
-        (navigator as any).webkitConnection;
+        (navigator as unknown as NavigatorWithConnection).connection ||
+        (navigator as unknown as NavigatorWithConnection).mozConnection ||
+        (navigator as unknown as NavigatorWithConnection).webkitConnection;
 
       setNetworkInfo({
         isOnline: navigator.onLine,
@@ -143,7 +191,7 @@ export const useMobileOptimization = (options: UseMobileOptimizationOptions = {}
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    const connection = (navigator as any).connection;
+    const connection = (navigator as unknown as NavigatorWithConnection).connection;
     if (connection) {
       connection.addEventListener('change', handleConnectionChange);
     }
@@ -165,7 +213,7 @@ export const useMobileOptimization = (options: UseMobileOptimizationOptions = {}
 
     const updateBatteryInfo = async () => {
       try {
-        const battery = await (navigator as any).getBattery();
+        const battery = await (navigator as unknown as NavigatorWithBattery).getBattery();
 
         const updateBattery = () => {
           setBatteryInfo({
@@ -246,7 +294,7 @@ export const useMobileOptimization = (options: UseMobileOptimizationOptions = {}
     const lockOrientation = async () => {
       try {
         if (screen.orientation && 'lock' in screen.orientation) {
-          await (screen.orientation as any).lock('portrait-primary');
+          await (screen.orientation as unknown as ScreenOrientationWithLock).lock('portrait-primary');
         }
       } catch {
         log.dev('Orientation lock not supported or failed');
@@ -353,7 +401,7 @@ export const useMobileOptimization = (options: UseMobileOptimizationOptions = {}
   const requestWakeLock = useCallback(async () => {
     try {
       if ('wakeLock' in navigator) {
-        const wakeLock = await (navigator as any).wakeLock.request('screen');
+        const wakeLock = await (navigator as unknown as NavigatorWithWakeLock).wakeLock.request('screen');
         return wakeLock;
       }
     } catch {

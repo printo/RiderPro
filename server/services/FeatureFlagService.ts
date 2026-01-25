@@ -1,4 +1,4 @@
-import { Database } from 'better-sqlite3';
+import { pool } from '../db/connection';
 import config, { FeatureFlags } from '../config';
 import { log } from "../../shared/utils/logger.js";
 
@@ -12,7 +12,7 @@ interface FeatureFlagConfig {
   targetRoles?: string[];
   startDate?: string;
   endDate?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Feature flag evaluation context
@@ -22,59 +22,69 @@ interface EvaluationContext {
   employeeId?: string;
   environment?: string;
   timestamp?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Feature flag evaluation result
 interface EvaluationResult {
   enabled: boolean;
   reason: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
+}
+
+// Raw DB row type
+interface FeatureFlagRow {
+  name: string;
+  enabled: boolean;
+  description: string | null;
+  rollout_percentage: number | null;
+  target_users: string | null;
+  target_roles: string | null;
+  start_date: Date | null;
+  end_date: Date | null;
+  metadata: string | null;
 }
 
 class FeatureFlagService {
   private static instance: FeatureFlagService;
-  private db: Database;
   private cache: Map<string, FeatureFlagConfig> = new Map();
   private cacheExpiry: number = 5 * 60 * 1000; // 5 minutes
   private lastCacheUpdate: number = 0;
   private listeners: Map<string, ((enabled: boolean) => void)[]> = new Map();
 
-  private constructor(database: Database) {
-    this.db = database;
+  private constructor() {
     this.initializeFeatureFlags();
     this.loadFeatureFlags();
   }
 
-  public static getInstance(database?: Database): FeatureFlagService {
+  public static getInstance(): FeatureFlagService {
     if (!FeatureFlagService.instance) {
-      if (!database) {
-        throw new Error('Database required for first initialization');
-      }
-      FeatureFlagService.instance = new FeatureFlagService(database);
+      FeatureFlagService.instance = new FeatureFlagService();
     }
     return FeatureFlagService.instance;
   }
 
-  private initializeFeatureFlags(): void {
+  private async initializeFeatureFlags(): Promise<void> {
     try {
       // Ensure feature flags table exists
-      this.db.exec(`
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS feature_flags (
-          name TEXT PRIMARY KEY,
-          enabled BOOLEAN NOT NULL DEFAULT 0,
+          name VARCHAR(255) PRIMARY KEY,
+          enabled BOOLEAN NOT NULL DEFAULT FALSE,
           description TEXT,
           rollout_percentage INTEGER DEFAULT 0,
           target_users TEXT,
           target_roles TEXT,
-          start_date TEXT,
-          end_date TEXT,
+          start_date TIMESTAMP WITH TIME ZONE,
+          end_date TIMESTAMP WITH TIME ZONE,
           metadata TEXT,
-          created_at TEXT DEFAULT (datetime('now')),
-          updated_at TEXT DEFAULT (datetime('now')),
-          updated_by TEXT
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+          updated_by VARCHAR(255)
         );
-
+      `);
+      
+      await pool.query(`
         CREATE INDEX IF NOT EXISTS idx_feature_flags_enabled 
           ON feature_flags(enabled);
       `);
@@ -85,24 +95,26 @@ class FeatureFlagService {
     }
   }
 
-  private loadFeatureFlags(): void {
+  private async loadFeatureFlags(): Promise<void> {
     try {
-      const flags = this.db.prepare(`
+      const result = await pool.query(`
         SELECT * FROM feature_flags
-      `).all() as any[];
+      `);
+      
+      const flags = result.rows as FeatureFlagRow[];
 
       this.cache.clear();
       flags.forEach(flag => {
         const config: FeatureFlagConfig = {
           name: flag.name,
-          enabled: Boolean(flag.enabled),
-          description: flag.description,
-          rolloutPercentage: flag.rollout_percentage,
+          enabled: flag.enabled,
+          description: flag.description ?? undefined,
+          rolloutPercentage: flag.rollout_percentage ?? undefined,
           targetUsers: flag.target_users ? JSON.parse(flag.target_users) : undefined,
           targetRoles: flag.target_roles ? JSON.parse(flag.target_roles) : undefined,
-          startDate: flag.start_date,
-          endDate: flag.end_date,
-          metadata: flag.metadata ? JSON.parse(flag.metadata) : undefined
+          startDate: flag.start_date ? new Date(flag.start_date).toISOString() : undefined,
+          endDate: flag.end_date ? new Date(flag.end_date).toISOString() : undefined,
+          metadata: flag.metadata ? (JSON.parse(flag.metadata) as Record<string, unknown>) : undefined
         };
         this.cache.set(flag.name, config);
       });
@@ -114,19 +126,19 @@ class FeatureFlagService {
     }
   }
 
-  private refreshCacheIfNeeded(): void {
+  private async refreshCacheIfNeeded(): Promise<void> {
     if (Date.now() - this.lastCacheUpdate > this.cacheExpiry) {
-      this.loadFeatureFlags();
+      await this.loadFeatureFlags();
     }
   }
 
-  public isEnabled(flagName: string, context?: EvaluationContext): boolean {
-    const result = this.evaluate(flagName, context);
+  public async isEnabled(flagName: string, context?: EvaluationContext): Promise<boolean> {
+    const result = await this.evaluate(flagName, context);
     return result.enabled;
   }
 
-  public evaluate(flagName: string, context?: EvaluationContext): EvaluationResult {
-    this.refreshCacheIfNeeded();
+  public async evaluate(flagName: string, context?: EvaluationContext): Promise<EvaluationResult> {
+    await this.refreshCacheIfNeeded();
 
     // Check if flag exists in cache
     const flag = this.cache.get(flagName);
@@ -256,18 +268,29 @@ class FeatureFlagService {
     return Math.abs(hash);
   }
 
-  public createFlag(flag: Omit<FeatureFlagConfig, 'name'> & { name: string }, updatedBy?: string): boolean {
+  public async createFlag(flag: Omit<FeatureFlagConfig, 'name'> & { name: string }, updatedBy?: string): Promise<boolean> {
     try {
-      const stmt = this.db.prepare(`
-        INSERT OR REPLACE INTO feature_flags 
+      const query = `
+        INSERT INTO feature_flags 
         (name, enabled, description, rollout_percentage, target_users, target_roles, 
          start_date, end_date, metadata, updated_at, updated_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
-      `);
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, $10)
+        ON CONFLICT (name) DO UPDATE SET
+        enabled = EXCLUDED.enabled,
+        description = EXCLUDED.description,
+        rollout_percentage = EXCLUDED.rollout_percentage,
+        target_users = EXCLUDED.target_users,
+        target_roles = EXCLUDED.target_roles,
+        start_date = EXCLUDED.start_date,
+        end_date = EXCLUDED.end_date,
+        metadata = EXCLUDED.metadata,
+        updated_at = CURRENT_TIMESTAMP,
+        updated_by = EXCLUDED.updated_by
+      `;
 
-      stmt.run(
+      await pool.query(query, [
         flag.name,
-        flag.enabled ? 1 : 0,
+        flag.enabled,
         flag.description || null,
         flag.rolloutPercentage || 0,
         flag.targetUsers ? JSON.stringify(flag.targetUsers) : null,
@@ -276,7 +299,7 @@ class FeatureFlagService {
         flag.endDate || null,
         flag.metadata ? JSON.stringify(flag.metadata) : null,
         updatedBy || null
-      );
+      ]);
 
       // Update cache
       this.cache.set(flag.name, flag);
@@ -292,7 +315,7 @@ class FeatureFlagService {
     }
   }
 
-  public updateFlag(name: string, updates: Partial<FeatureFlagConfig>, updatedBy?: string): boolean {
+  public async updateFlag(name: string, updates: Partial<FeatureFlagConfig>, updatedBy?: string): Promise<boolean> {
     try {
       const current = this.cache.get(name);
       if (!current) {
@@ -301,23 +324,23 @@ class FeatureFlagService {
 
       const updated = { ...current, ...updates };
 
-      const stmt = this.db.prepare(`
+      const query = `
         UPDATE feature_flags SET
-          enabled = ?,
-          description = ?,
-          rollout_percentage = ?,
-          target_users = ?,
-          target_roles = ?,
-          start_date = ?,
-          end_date = ?,
-          metadata = ?,
-          updated_at = datetime('now'),
-          updated_by = ?
-        WHERE name = ?
-      `);
+          enabled = $1,
+          description = $2,
+          rollout_percentage = $3,
+          target_users = $4,
+          target_roles = $5,
+          start_date = $6,
+          end_date = $7,
+          metadata = $8,
+          updated_at = CURRENT_TIMESTAMP,
+          updated_by = $9
+        WHERE name = $10
+      `;
 
-      stmt.run(
-        updated.enabled ? 1 : 0,
+      await pool.query(query, [
+        updated.enabled,
         updated.description || null,
         updated.rolloutPercentage || 0,
         updated.targetUsers ? JSON.stringify(updated.targetUsers) : null,
@@ -327,7 +350,7 @@ class FeatureFlagService {
         updated.metadata ? JSON.stringify(updated.metadata) : null,
         updatedBy || null,
         name
-      );
+      ]);
 
       // Update cache
       this.cache.set(name, updated);
@@ -345,12 +368,11 @@ class FeatureFlagService {
     }
   }
 
-  public deleteFlag(name: string): boolean {
+  public async deleteFlag(name: string): Promise<boolean> {
     try {
-      const stmt = this.db.prepare('DELETE FROM feature_flags WHERE name = ?');
-      const result = stmt.run(name);
+      const result = await pool.query('DELETE FROM feature_flags WHERE name = $1', [name]);
 
-      if (result.changes > 0) {
+      if ((result.rowCount || 0) > 0) {
         this.cache.delete(name);
         log.dev(`✓ Feature flag '${name}' deleted`);
         return true;
@@ -362,17 +384,17 @@ class FeatureFlagService {
     }
   }
 
-  public getAllFlags(): FeatureFlagConfig[] {
-    this.refreshCacheIfNeeded();
+  public async getAllFlags(): Promise<FeatureFlagConfig[]> {
+    await this.refreshCacheIfNeeded();
     return Array.from(this.cache.values());
   }
 
-  public getFlag(name: string): FeatureFlagConfig | undefined {
-    this.refreshCacheIfNeeded();
+  public async getFlag(name: string): Promise<FeatureFlagConfig | undefined> {
+    await this.refreshCacheIfNeeded();
     return this.cache.get(name);
   }
 
-  public toggleFlag(name: string, updatedBy?: string): boolean {
+  public async toggleFlag(name: string, updatedBy?: string): Promise<boolean> {
     const flag = this.cache.get(name);
     if (!flag) {
       return false;
@@ -381,7 +403,7 @@ class FeatureFlagService {
     return this.updateFlag(name, { enabled: !flag.enabled }, updatedBy);
   }
 
-  public setRolloutPercentage(name: string, percentage: number, updatedBy?: string): boolean {
+  public async setRolloutPercentage(name: string, percentage: number, updatedBy?: string): Promise<boolean> {
     if (percentage < 0 || percentage > 100) {
       throw new Error('Rollout percentage must be between 0 and 100');
     }
@@ -389,7 +411,7 @@ class FeatureFlagService {
     return this.updateFlag(name, { rolloutPercentage: percentage }, updatedBy);
   }
 
-  public addTargetUser(name: string, userId: string, updatedBy?: string): boolean {
+  public async addTargetUser(name: string, userId: string, updatedBy?: string): Promise<boolean> {
     const flag = this.cache.get(name);
     if (!flag) {
       return false;
@@ -403,7 +425,7 @@ class FeatureFlagService {
     return true;
   }
 
-  public removeTargetUser(name: string, userId: string, updatedBy?: string): boolean {
+  public async removeTargetUser(name: string, userId: string, updatedBy?: string): Promise<boolean> {
     const flag = this.cache.get(name);
     if (!flag || !flag.targetUsers) {
       return false;
@@ -413,7 +435,7 @@ class FeatureFlagService {
     return this.updateFlag(name, { targetUsers }, updatedBy);
   }
 
-  public addTargetRole(name: string, role: string, updatedBy?: string): boolean {
+  public async addTargetRole(name: string, role: string, updatedBy?: string): Promise<boolean> {
     const flag = this.cache.get(name);
     if (!flag) {
       return false;
@@ -427,7 +449,7 @@ class FeatureFlagService {
     return true;
   }
 
-  public removeTargetRole(name: string, role: string, updatedBy?: string): boolean {
+  public async removeTargetRole(name: string, role: string, updatedBy?: string): Promise<boolean> {
     const flag = this.cache.get(name);
     if (!flag || !flag.targetRoles) {
       return false;
@@ -469,7 +491,7 @@ class FeatureFlagService {
     }
   }
 
-  public getEvaluationStats(flagName: string, days: number = 7): {
+  public getEvaluationStats(flagName: string, _days: number = 7): {
     totalEvaluations: number;
     enabledCount: number;
     disabledCount: number;
@@ -485,19 +507,19 @@ class FeatureFlagService {
     };
   }
 
-  public exportFlags(): string {
-    const flags = this.getAllFlags();
+  public async exportFlags(): Promise<string> {
+    const flags = await this.getAllFlags();
     return JSON.stringify(flags, null, 2);
   }
 
-  public importFlags(flagsJson: string, updatedBy?: string): { success: number; failed: number; errors: string[] } {
+  public async importFlags(flagsJson: string, updatedBy?: string): Promise<{ success: number; failed: number; errors: string[] }> {
     const result = { success: 0, failed: 0, errors: [] as string[] };
 
     try {
       const flags = JSON.parse(flagsJson) as FeatureFlagConfig[];
 
       for (const flag of flags) {
-        if (this.createFlag(flag, updatedBy)) {
+        if (await this.createFlag(flag, updatedBy)) {
           result.success++;
         } else {
           result.failed++;

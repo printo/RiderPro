@@ -27,6 +27,20 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Separate vendor libraries
+          vendor: ['react', 'react-dom'],
+          // Separate UI components
+          ui: ['lucide-react', 'recharts'],
+          // Separate mapping libraries
+          maps: ['leaflet', 'react-leaflet'],
+        },
+      },
+    },
+    // Increase chunk size warning limit
+    chunkSizeWarningLimit: 1000,
   },
   server: {
     port: 5000,

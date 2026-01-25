@@ -22,7 +22,7 @@ const replacements = [
     replacement: "log.info(`Syncing shipment ${syncData.shipment_id} (${validation.size} bytes)`);"
   },
   {
-    pattern: /console\.log\(`Batch syncing \${shipments\.length\} shipments\.\.\.\`\);/g,
+    pattern: /console\.log\(`Batch syncing \${shipments\.length\} shipments\.\.\.`\);/g,
     replacement: "log.info(`Batch syncing ${shipments.length} shipments...`);"
   },
   {
@@ -72,7 +72,6 @@ function replaceInFile(filePath) {
     // Add import if file contains console.log and doesn't have logger import
     if (content.includes('console.log') && !content.includes('from "../../shared/utils/logger.js"') && !content.includes('from "../shared/utils/logger.js"')) {
       // Determine the correct import path based on file location
-      const relativePath = path.relative(path.dirname(filePath), path.join(__dirname, '..'));
       const importPath = filePath.includes('server/') ?
         '../../shared/utils/logger.js' :
         '../shared/utils/logger.js';

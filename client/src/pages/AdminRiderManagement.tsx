@@ -1,16 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'wouter';
-
-interface Rider {
-  id: string;
-  rider_id: string;
-  full_name: string;
-  email: string;
-  is_active: boolean;
-  created_at: string;
-  last_login_at: string | null;
-  is_super_user: boolean;
-}
+import { Rider } from '@shared/types';
 
 const AdminRiderManagement = () => {
   const [riders, setRiders] = useState<Rider[]>([]);
@@ -65,7 +55,7 @@ const AdminRiderManagement = () => {
         // Using mock data for now
         setRiders(mockRiders);
         setIsLoading(false);
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to load riders');
         setIsLoading(false);
       }
@@ -80,7 +70,7 @@ const AdminRiderManagement = () => {
         // TODO: Implement password reset API call
         console.log('Reset password for rider:', riderId);
         alert('Password reset link has been sent to the rider\'s email');
-      } catch (err) {
+      } catch (_err) {
         setError('Failed to reset password');
       }
     }
@@ -95,7 +85,7 @@ const AdminRiderManagement = () => {
           rider.id === riderId ? { ...rider, is_active: !currentStatus } : rider
         )
       );
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to update rider status');
     }
   };
@@ -114,7 +104,7 @@ const AdminRiderManagement = () => {
           rider.id === riderId ? { ...rider, is_super_user: !currentStatus } : rider
         )
       );
-    } catch (err) {
+    } catch (_err) {
       setError('Failed to update admin privileges');
     }
   };
@@ -251,8 +241,8 @@ const AdminRiderManagement = () => {
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
                           <span
                             className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${rider.is_active
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
                               }`}
                           >
                             {rider.is_active ? 'Active' : 'Inactive'}
@@ -261,8 +251,8 @@ const AdminRiderManagement = () => {
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
                           <span
                             className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${rider.is_super_user
-                                ? 'bg-purple-100 text-purple-800'
-                                : 'bg-gray-100 text-gray-800'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-gray-100 text-gray-800'
                               }`}
                           >
                             {rider.is_super_user ? 'Super User' : 'Rider'}
@@ -283,11 +273,11 @@ const AdminRiderManagement = () => {
                             </button>
                             <button
                               onClick={() =>
-                                toggleUserStatus(rider.id, rider.is_active)
+                                toggleUserStatus(rider.id, rider.is_active || false)
                               }
                               className={`ml-4 ${rider.is_active
-                                  ? 'text-yellow-600 hover:text-yellow-900'
-                                  : 'text-green-600 hover:text-green-900'
+                                ? 'text-yellow-600 hover:text-yellow-900'
+                                : 'text-green-600 hover:text-green-900'
                                 }`}
                             >
                               {rider.is_active ? 'Deactivate' : 'Activate'}
@@ -295,11 +285,11 @@ const AdminRiderManagement = () => {
                             {currentUserRole === 'super_user' && (
                               <button
                                 onClick={() =>
-                                  toggleSuperUserStatus(rider.id, rider.is_super_user)
+                                  toggleSuperUserStatus(rider.id, !!rider.is_super_user)
                                 }
                                 className={`ml-4 ${rider.is_super_user
-                                    ? 'text-red-600 hover:text-red-900'
-                                    : 'text-green-600 hover:text-green-900'
+                                  ? 'text-red-600 hover:text-red-900'
+                                  : 'text-green-600 hover:text-green-900'
                                   }`}
                                 title={rider.is_super_user ? 'Remove Super User' : 'Make Super User'}
                               >

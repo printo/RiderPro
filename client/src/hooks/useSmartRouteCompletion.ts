@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GeofencingService, GeofenceEvent } from '@/services/GeofencingService';
-import { GPSPosition } from '@/services/GPSTracker';
+import { GPSPosition } from '@shared/types';
 import { RouteCompletionData } from '@/components/routes/RouteCompletionDialog';
 import { log } from "../utils/logger.js";
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -14,8 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { FuelSetting, InsertFuelSetting, UpdateFuelSetting } from "@shared/schema";
-import { Plus, Edit, Trash2, Fuel, Save, X } from "lucide-react";
+import { FuelSetting, InsertFuelSetting, UpdateFuelSetting } from "@shared/types";
+import { Edit, Trash2, Fuel, Save, X } from "lucide-react";
 import { withModalErrorBoundary } from "@/components/ErrorBoundary";
 
 interface FuelSettingsModalProps {
@@ -39,7 +39,7 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
   const queryClient = useQueryClient();
 
   // Fetch fuel settings
-  const { data: fuelSettings = [], isLoading, refetch } = useQuery({
+  const { data: fuelSettings = [], isLoading } = useQuery({
     queryKey: ['/api/fuel-settings'],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/fuel-settings");
@@ -62,7 +62,7 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
       });
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Failed to Add Fuel Setting",
         description: error.message || "Failed to add fuel setting.",
@@ -85,7 +85,7 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
       });
       resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Failed to Update Fuel Setting",
         description: error.message || "Failed to update fuel setting.",
@@ -107,7 +107,7 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
         description: "Fuel setting has been deleted successfully.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Failed to Delete Fuel Setting",
         description: error.message || "Failed to delete fuel setting.",

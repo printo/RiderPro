@@ -1,5 +1,5 @@
-import { GPSPosition } from './GPSTracker';
-import { RouteTracking } from '@shared/schema';
+import { GPSPosition } from '@shared/types';
+import { RouteTracking } from '@shared/types';
 
 export interface DistanceCalculationResult {
   totalDistance: number; // in kilometers

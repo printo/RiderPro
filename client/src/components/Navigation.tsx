@@ -1,18 +1,9 @@
-import { Link, useLocation } from "wouter";
-import { Truck } from "lucide-react";
+import { Link } from "wouter";
 import { useAuth } from "../hooks/useAuth";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 
 function Navigation() {
-  const [location] = useLocation();
   const { user } = useAuth();
-
-  const isActive = (path: string) => {
-    if (path === "/" && (location === "/" || location === "/dashboard")) {
-      return true;
-    }
-    return location === path;
-  };
 
   return (
     <>

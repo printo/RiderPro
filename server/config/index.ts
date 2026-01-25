@@ -1,5 +1,4 @@
 import dotenv from 'dotenv';
-import path from 'path';
 import { log } from "../../shared/utils/logger.js";
 
 // Load environment variables
@@ -43,16 +42,13 @@ export interface FeatureFlags {
 
 // Database configuration
 export interface DatabaseConfig {
-  path: string;
-  backupEnabled: boolean;
-  backupInterval: number; // hours
-  maxBackups: number;
-  vacuumInterval: number; // hours
-  walMode: boolean;
-  journalMode: 'DELETE' | 'TRUNCATE' | 'PERSIST' | 'MEMORY' | 'WAL' | 'OFF';
-  synchronous: 'OFF' | 'NORMAL' | 'FULL' | 'EXTRA';
-  cacheSize: number; // KB
-  tempStore: 'DEFAULT' | 'FILE' | 'MEMORY';
+  url: string;
+  backupUrl?: string;
+  maxConnections: number;
+  idleTimeoutMs: number;
+  connectionTimeoutMs: number;
+  ssl: boolean;
+  statementTimeoutMs: number;
 }
 
 // Security configuration
@@ -167,13 +163,12 @@ const createConfig = (): AppConfig => {
   const environment = getEnvironment();
   const isDevelopment = environment === 'development';
   const isProduction = environment === 'production';
-  const isTest = environment === 'test';
 
   return {
     environment,
     port: parseNumber(process.env.PORT, 3001),
     host: process.env.HOST || '0.0.0.0',
-    logLevel: (process.env.LOG_LEVEL as any) || (isDevelopment ? 'debug' : 'info'),
+    logLevel: (process.env.LOG_LEVEL as 'error' | 'warn' | 'info' | 'debug' | undefined) || (isDevelopment ? 'debug' : 'info'),
 
     routeTracking: {
       enabled: parseBoolean(process.env.ROUTE_TRACKING_ENABLED, true),
@@ -207,16 +202,13 @@ const createConfig = (): AppConfig => {
     },
 
     database: {
-      path: process.env.DATABASE_PATH || (isTest ? ':memory:' : './data/main.db'),
-      backupEnabled: parseBoolean(process.env.DB_BACKUP_ENABLED, isProduction),
-      backupInterval: parseNumber(process.env.DB_BACKUP_INTERVAL, 24),
-      maxBackups: parseNumber(process.env.DB_MAX_BACKUPS, 7),
-      vacuumInterval: parseNumber(process.env.DB_VACUUM_INTERVAL, 168), // weekly
-      walMode: parseBoolean(process.env.DB_WAL_MODE, true),
-      journalMode: (process.env.DB_JOURNAL_MODE as any) || 'WAL',
-      synchronous: (process.env.DB_SYNCHRONOUS as any) || 'NORMAL',
-      cacheSize: parseNumber(process.env.DB_CACHE_SIZE, 10000),
-      tempStore: (process.env.DB_TEMP_STORE as any) || 'MEMORY'
+      url: process.env.DATABASE_URL || 'postgres://postgres:password@localhost:5432/riderpro',
+      backupUrl: process.env.BACKUP_DATABASE_URL,
+      maxConnections: isProduction ? 20 : 10,
+      idleTimeoutMs: 30000,
+      connectionTimeoutMs: 2000,
+      ssl: isProduction,
+      statementTimeoutMs: parseNumber(process.env.DB_STATEMENT_TIMEOUT, 30000)
     },
 
     security: {
@@ -380,6 +372,7 @@ export const getConfigSummary = () => {
       .filter(([, enabled]) => enabled)
       .map(([feature]) => feature),
     monitoringEnabled: monitoring.enabled,
-    databasePath: database.path
+    databaseUrl: database.url,
+    databaseBackup: database.backupUrl ? 'enabled' : 'disabled'
   };
 };

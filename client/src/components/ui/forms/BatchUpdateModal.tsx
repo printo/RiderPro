@@ -35,19 +35,23 @@ function BatchUpdateModal({
       const response = await apiRequest("PATCH", "/api/shipments/batch", { updates });
       return response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data: { updatedCount?: number } | undefined) => {
       queryClient.invalidateQueries({ queryKey: ["/api/shipments/fetch"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
       toast({
         title: "Batch Update Successful",
-        description: `${data.updatedCount} shipments updated to ${selectedStatus}.`,
+        description: `${data?.updatedCount ?? 0} shipments updated to ${selectedStatus}.`,
       });
       onSuccess();
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to update shipments.";
       toast({
         title: "Batch Update Failed",
-        description: error.message || "Failed to update shipments.",
+        description: message,
         variant: "destructive",
       });
     },

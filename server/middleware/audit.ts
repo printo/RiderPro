@@ -1,7 +1,10 @@
-import { Request, Response, NextFunction } from 'express';
-import { storage } from '../storage';
+import { pool } from '../db/connection';
+import { NextFunction, Response } from 'express';
 import { AuthenticatedRequest } from './auth';
 import { log } from "../../shared/utils/logger.js";
+
+// Type for JSON response body
+type JsonResponse = Record<string, unknown> | unknown;
 
 // Audit event types
 export enum AuditEventType {
@@ -40,6 +43,11 @@ export enum AuditEventType {
   SUSPICIOUS_ACTIVITY = 'suspicious_activity'
 }
 
+// Type for audit log details
+type AuditLogDetails = {
+  [key: string]: string | number | boolean | null | undefined | AuditLogDetails | AuditLogDetails[];
+};
+
 // Audit log entry interface
 interface AuditLogEntry {
   id: string;
@@ -50,7 +58,7 @@ interface AuditLogEntry {
   resourceType?: string;
   resourceId?: string;
   action: string;
-  details: Record<string, any>;
+  details: AuditLogDetails | string;
   ipAddress?: string;
   userAgent?: string;
   timestamp: string;
@@ -59,10 +67,10 @@ interface AuditLogEntry {
 }
 
 // Initialize audit logging
-export const initializeAuditLogging = () => {
+export const initializeAuditLogging = async () => {
   try {
     // Create audit_logs table
-    storage.exec(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS audit_logs (
         id TEXT PRIMARY KEY,
         event_type TEXT NOT NULL,
@@ -75,14 +83,14 @@ export const initializeAuditLogging = () => {
         details TEXT, -- JSON string
         ip_address TEXT,
         user_agent TEXT,
-        timestamp TEXT DEFAULT (datetime('now')),
+        timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         success BOOLEAN NOT NULL,
         error_message TEXT
       )
     `);
 
     // Create indexes for better query performance
-    storage.exec(`
+    await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp);
       CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
       CREATE INDEX IF NOT EXISTS idx_audit_logs_event_type ON audit_logs(event_type);
@@ -96,7 +104,7 @@ export const initializeAuditLogging = () => {
 };
 
 // Log audit event
-export const logAuditEvent = (entry: Partial<AuditLogEntry> & {
+export const logAuditEvent = async (entry: Partial<AuditLogEntry> & {
   eventType: AuditEventType;
   action: string;
   success: boolean;
@@ -121,12 +129,12 @@ export const logAuditEvent = (entry: Partial<AuditLogEntry> & {
       errorMessage: entry.errorMessage
     };
 
-    storage.prepare(`
+    await pool.query(`
       INSERT INTO audit_logs (
         id, event_type, user_id, username, employee_id, resource_type, resource_id,
         action, details, ip_address, user_agent, timestamp, success, error_message
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    `, [
       auditEntry.id,
       auditEntry.eventType,
       auditEntry.userId,
@@ -139,9 +147,9 @@ export const logAuditEvent = (entry: Partial<AuditLogEntry> & {
       auditEntry.ipAddress,
       auditEntry.userAgent,
       auditEntry.timestamp,
-      auditEntry.success ? 1 : 0,
+      auditEntry.success,
       auditEntry.errorMessage
-    );
+    ]);
 
     // Log to console for development (remove in production)
     if (process.env.NODE_ENV !== 'production') {
@@ -163,7 +171,14 @@ export const auditRouteDataAccess = (eventType: AuditEventType, resourceType: st
     // Store original res.json to intercept response
     const originalJson = res.json;
 
-    res.json = function (body: any) {
+    res.json = function (body: JsonResponse) {
+      // Create a safe version of the response body for logging
+      const safeBody = body && typeof body === 'object' 
+        ? JSON.parse(JSON.stringify(body, (key, value) => 
+            typeof value === 'bigint' ? value.toString() : value
+          ))
+        : body;
+
       // Log the audit event
       logAuditEvent({
         eventType,
@@ -171,18 +186,22 @@ export const auditRouteDataAccess = (eventType: AuditEventType, resourceType: st
         username: req.user?.username,
         employeeId: req.user?.employeeId,
         resourceType,
-        resourceId: req.params.id || req.query.employeeId as string,
+        resourceId: req.params.id,
         action: `${req.method} ${req.path}`,
         details: {
-          query: req.query,
+          method: req.method,
+          path: req.path,
           params: req.params,
-          responseSize: JSON.stringify(body).length
+          query: req.query as unknown as AuditLogDetails,
+          statusCode: res.statusCode,
+          response: safeBody
         },
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent') || undefined,
         success: res.statusCode < 400
       });
 
+      // Call the original function
       return originalJson.call(this, body);
     };
 
@@ -192,24 +211,32 @@ export const auditRouteDataAccess = (eventType: AuditEventType, resourceType: st
 
 // Middleware to log authentication events
 export const auditAuthEvent = (eventType: AuditEventType) => {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     const originalJson = res.json;
 
-    res.json = function (body: any) {
+    res.json = function (body: JsonResponse) {
       const success = res.statusCode < 400;
+      const errorMessage = success ? undefined : 
+        (body && typeof body === 'object' && 'message' in body && typeof body.message === 'string') 
+          ? body.message 
+          : 'Unknown error';
 
       logAuditEvent({
         eventType,
-        username: req.body.username || req.body.email,
+        userId: req.user?.id,
+        username: req.user?.username,
+        employeeId: req.user?.employeeId,
         action: `${req.method} ${req.path}`,
         details: {
-          loginAttempt: req.body.username || req.body.email,
+          method: req.method,
+          path: req.path,
+          statusCode: res.statusCode,
           success
         },
-        ipAddress: req.ip || req.connection.remoteAddress,
-        userAgent: req.get('User-Agent'),
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent') || undefined,
         success,
-        errorMessage: success ? undefined : body.message
+        errorMessage
       });
 
       return originalJson.call(this, body);
@@ -220,7 +247,7 @@ export const auditAuthEvent = (eventType: AuditEventType) => {
 };
 
 // Get audit logs with filtering
-export const getAuditLogs = (filters: {
+export const getAuditLogs = async (filters: {
   userId?: string;
   employeeId?: string;
   eventType?: AuditEventType;
@@ -230,58 +257,59 @@ export const getAuditLogs = (filters: {
   offset?: number;
 }) => {
   try {
-    let query = `
+    let paramIndex = 1;
+    let auditQuery = `
       SELECT 
         id, event_type, user_id, username, employee_id, resource_type, resource_id,
         action, details, ip_address, user_agent, timestamp, success, error_message
       FROM audit_logs
       WHERE 1=1
     `;
-
-    const params: any[] = [];
+    const queryParams: (string | number)[] = [];
 
     if (filters.userId) {
-      query += ' AND user_id = ?';
-      params.push(filters.userId);
+      auditQuery += ` AND user_id = $${paramIndex++}`;
+      queryParams.push(filters.userId);
     }
 
     if (filters.employeeId) {
-      query += ' AND employee_id = ?';
-      params.push(filters.employeeId);
+      auditQuery += ` AND employee_id = $${paramIndex++}`;
+      queryParams.push(filters.employeeId);
     }
 
     if (filters.eventType) {
-      query += ' AND event_type = ?';
-      params.push(filters.eventType);
+      auditQuery += ` AND event_type = $${paramIndex++}`;
+      queryParams.push(filters.eventType);
     }
 
     if (filters.startDate) {
-      query += ' AND timestamp >= ?';
-      params.push(filters.startDate);
+      auditQuery += ` AND timestamp >= $${paramIndex++}`;
+      queryParams.push(filters.startDate);
     }
 
     if (filters.endDate) {
-      query += ' AND timestamp <= ?';
-      params.push(filters.endDate);
+      auditQuery += ` AND timestamp <= $${paramIndex++}`;
+      queryParams.push(filters.endDate);
     }
 
-    query += ' ORDER BY timestamp DESC';
+    auditQuery += ' ORDER BY timestamp DESC';
 
     if (filters.limit) {
-      query += ' LIMIT ?';
-      params.push(filters.limit);
+      auditQuery += ` LIMIT $${paramIndex++}`;
+      queryParams.push(filters.limit);
 
       if (filters.offset) {
-        query += ' OFFSET ?';
-        params.push(filters.offset);
+        auditQuery += ` OFFSET $${paramIndex++}`;
+        queryParams.push(filters.offset);
       }
     }
 
-    const logs = storage.prepare(query).all(...params) as any[];
+    const result = await pool.query(auditQuery, queryParams);
+    const logs = result.rows;
 
     return logs.map(log => ({
       ...log,
-      details: JSON.parse(log.details || '{}'),
+      details: typeof log.details === 'string' ? JSON.parse(log.details) : log.details,
       success: Boolean(log.success)
     }));
   } catch (error) {
@@ -291,42 +319,44 @@ export const getAuditLogs = (filters: {
 };
 
 // Get audit statistics
-export const getAuditStatistics = (filters: {
+export const getAuditStatistics = async (filters: {
   startDate?: string;
   endDate?: string;
   employeeId?: string;
 }) => {
   try {
+    let paramIndex = 1;
     let query = `
       SELECT 
         event_type,
         COUNT(*) as count,
-        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful,
-        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed
+        SUM(CASE WHEN success = true THEN 1 ELSE 0 END) as successful,
+        SUM(CASE WHEN success = false THEN 1 ELSE 0 END) as failed
       FROM audit_logs
       WHERE 1=1
     `;
 
-    const params: any[] = [];
+    const params: (string | number)[] = [];
 
     if (filters.startDate) {
-      query += ' AND timestamp >= ?';
+      query += ` AND timestamp >= $${paramIndex++}`;
       params.push(filters.startDate);
     }
 
     if (filters.endDate) {
-      query += ' AND timestamp <= ?';
+      query += ` AND timestamp <= $${paramIndex++}`;
       params.push(filters.endDate);
     }
 
     if (filters.employeeId) {
-      query += ' AND employee_id = ?';
+      query += ` AND employee_id = $${paramIndex++}`;
       params.push(filters.employeeId);
     }
 
     query += ' GROUP BY event_type ORDER BY count DESC';
 
-    const stats = storage.prepare(query).all(...params) as any[];
+    const statsResult = await pool.query(query, params);
+    const stats = statsResult.rows;
 
     // Get total counts
     const totalQuery = `
@@ -335,13 +365,14 @@ export const getAuditStatistics = (filters: {
         COUNT(DISTINCT user_id) as unique_users,
         COUNT(DISTINCT employee_id) as unique_employees
       FROM audit_logs
-      WHERE timestamp >= ? AND timestamp <= ?
+      WHERE timestamp >= $1 AND timestamp <= $2
     `;
 
     const startDate = filters.startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const endDate = filters.endDate || new Date().toISOString();
 
-    const totals = storage.prepare(totalQuery).get(startDate, endDate) as any;
+    const totalsResult = await pool.query(totalQuery, [startDate, endDate]);
+    const totals = totalsResult.rows[0];
 
     return {
       eventTypes: stats,
@@ -354,24 +385,24 @@ export const getAuditStatistics = (filters: {
 };
 
 // Clean up old audit logs (data retention)
-export const cleanupOldAuditLogs = (retentionDays: number = 90) => {
+export const cleanupOldAuditLogs = async (retentionDays: number = 90) => {
   try {
     const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
 
-    const result = storage.prepare(`
+    const result = await pool.query(`
       DELETE FROM audit_logs 
-      WHERE timestamp < ?
-    `).run(cutoffDate);
+      WHERE timestamp < $1
+    `, [cutoffDate]);
 
-    if (result.changes > 0) {
-      log.dev(`Cleaned up ${result.changes} old audit log entries`);
+    if (result.rowCount && result.rowCount > 0) {
+      log.dev(`Cleaned up ${result.rowCount} old audit log entries`);
 
       // Log the cleanup action
-      logAuditEvent({
+      await logAuditEvent({
         eventType: AuditEventType.DATA_RETENTION_APPLIED,
         action: 'cleanup_audit_logs',
         details: {
-          deletedEntries: result.changes,
+          deletedEntries: result.rowCount,
           retentionDays,
           cutoffDate
         },

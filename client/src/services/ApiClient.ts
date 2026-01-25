@@ -1,47 +1,19 @@
 // client/src/services/ApiClient.ts
 import AuthService from './AuthService';
 import { log } from "../utils/logger.js";
+import { ErrorType } from '@shared/types';
+import type { 
+  ApiRequestConfig, 
+  ApiError, 
+  ErrorContext 
+} from '@shared/types';
 
-export interface ApiRequestConfig {
-  url: string;
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  data?: any;
-  skipAuth?: boolean;
-  retryCount?: number;
-  headers?: Record<string, string>;
-}
-
-export interface ApiError extends Error {
-  status?: number;
-  data?: any;
-  isNetworkError?: boolean;
-  isAuthError?: boolean;
-  isRetryable?: boolean;
-  originalError?: any;
-  errorType?: ErrorType;
-  context?: ErrorContext;
-  timestamp?: number;
-  userFriendlyMessage?: string;
-  recoverySuggestions?: string[];
-}
-
-export enum ErrorType {
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  AUTH_ERROR = 'AUTH_ERROR',
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  SERVER_ERROR = 'SERVER_ERROR',
-  CLIENT_ERROR = 'CLIENT_ERROR',
-  TIMEOUT_ERROR = 'TIMEOUT_ERROR',
-  UNKNOWN_ERROR = 'UNKNOWN_ERROR'
-}
-
-export interface ErrorContext {
-  url: string;
-  method: string;
-  retryCount: number;
-  timestamp: number;
-  userAgent: string;
-}
+export { ErrorType };
+export type {
+  ApiRequestConfig, 
+  ApiError, 
+  ErrorContext 
+};
 
 export class ApiClient {
   private static instance: ApiClient;
@@ -60,7 +32,7 @@ export class ApiClient {
   // Network resilience properties
   private isOffline = false;
   private offlineDetectionEnabled = true;
-  private lastKnownAuthState: any = null;
+  private lastKnownAuthState: unknown = null;
   private networkRetryQueue: Array<{
     config: ApiRequestConfig;
     resolve: (response: Response) => void;
@@ -326,7 +298,7 @@ export class ApiClient {
   /**
    * Reject all pending requests with the given error
    */
-  private rejectPendingRequests(error: any): void {
+  private rejectPendingRequests(error: unknown): void {
     const requests = [...this.pendingRequests];
     this.pendingRequests = [];
 
@@ -342,7 +314,7 @@ export class ApiClient {
    */
   private buildRequestOptions(
     method: string,
-    data?: any,
+    data?: unknown,
     skipAuth = false,
     additionalHeaders: Record<string, string> = {}
   ): RequestInit {
@@ -351,7 +323,7 @@ export class ApiClient {
     };
 
     // Handle different data types
-    let body: any;
+    let body: BodyInit | null | undefined;
     if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
       if (data instanceof FormData) {
         // For FormData, don't set Content-Type - browser will set it with boundary
@@ -395,13 +367,13 @@ export class ApiClient {
     isAuthRequest: boolean
   ): Promise<never> {
     // Try to parse error response
-    let errorData: any;
+    let errorData: unknown;
     try {
       const responseClone = response.clone();
       errorData = await responseClone.json().catch(async () => {
         return await responseClone.text().catch(() => ({}));
       });
-    } catch (e) {
+    } catch (_e) {
       errorData = {};
     }
 
@@ -417,8 +389,9 @@ export class ApiClient {
     }
 
     // Create error message
-    const errorMessage = errorData?.message ||
-      errorData?.error ||
+    const typedErrorData = errorData as { message?: string; error?: string } | null;
+    const errorMessage = typedErrorData?.message ||
+      typedErrorData?.error ||
       response.statusText ||
       'Unknown error occurred';
 
@@ -446,10 +419,10 @@ export class ApiClient {
    * Create enhanced API error with additional metadata
    */
   private createApiError(
-    originalError: any,
+    originalError: unknown,
     metadata: {
       status?: number;
-      data?: any;
+      data?: unknown;
       isNetworkError?: boolean;
       isAuthError?: boolean;
       context?: Partial<ErrorContext>;
@@ -459,9 +432,10 @@ export class ApiClient {
     const errorType = this.classifyError(originalError, metadata.status);
 
     // Generate user-friendly message
+    const message = originalError instanceof Error ? originalError.message : 'API request failed';
     const userFriendlyMessage = this.generateUserFriendlyMessage(
       errorType,
-      originalError.message || 'API request failed',
+      message,
       metadata.status,
       metadata.context
     );
@@ -470,7 +444,7 @@ export class ApiClient {
     const error = new Error(userFriendlyMessage) as ApiError;
 
     // Copy properties from original error
-    if (originalError.stack) {
+    if (originalError instanceof Error && originalError.stack) {
       error.stack = originalError.stack;
     }
 
@@ -498,43 +472,48 @@ export class ApiClient {
   /**
    * Determine if an error is a network error with comprehensive detection
    */
-  private isNetworkError(error: any): boolean {
+  private isNetworkError(error: unknown): boolean {
     // Check if browser is offline
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       return true;
     }
 
-    // Common network error indicators
-    if (
-      error instanceof TypeError ||
-      error.name === 'TypeError' ||
-      error.name === 'NetworkError' ||
-      error.code === 'NETWORK_ERROR' ||
-      error.code === 'ENOTFOUND' ||
-      error.code === 'ECONNREFUSED' ||
-      error.code === 'ETIMEDOUT'
-    ) {
-      return true;
+    if (error instanceof Error) {
+      // Common network error indicators
+      const errorWithCode = error as Error & { code?: string };
+      if (
+        error instanceof TypeError ||
+        error.name === 'TypeError' ||
+        error.name === 'NetworkError' ||
+        errorWithCode.code === 'NETWORK_ERROR' ||
+        errorWithCode.code === 'ENOTFOUND' ||
+        errorWithCode.code === 'ECONNREFUSED' ||
+        errorWithCode.code === 'ETIMEDOUT'
+      ) {
+        return true;
+      }
+
+      // Check error messages for network-related keywords
+      const errorMessage = (error.message || '').toLowerCase();
+      const networkKeywords = [
+        'fetch',
+        'network',
+        'failed to fetch',
+        'connection',
+        'timeout',
+        'unreachable',
+        'dns',
+        'offline',
+        'no internet',
+        'connection refused',
+        'connection reset',
+        'connection aborted'
+      ];
+
+      return networkKeywords.some(keyword => errorMessage.includes(keyword));
     }
 
-    // Check error messages for network-related keywords
-    const errorMessage = (error.message || '').toLowerCase();
-    const networkKeywords = [
-      'fetch',
-      'network',
-      'failed to fetch',
-      'connection',
-      'timeout',
-      'unreachable',
-      'dns',
-      'offline',
-      'no internet',
-      'connection refused',
-      'connection reset',
-      'connection aborted'
-    ];
-
-    return networkKeywords.some(keyword => errorMessage.includes(keyword));
+    return false;
   }
 
   /**
@@ -592,8 +571,14 @@ export class ApiClient {
   private showLogoutNotification(reason: string): void {
     try {
       // Try to show a toast notification if available
-      if (typeof window !== 'undefined' && (window as any).showToast) {
-        (window as any).showToast({
+      interface CustomWindow extends Window {
+        showToast?: (options: { type: string; message: string; duration: number }) => void;
+      }
+      
+      const customWindow = typeof window !== 'undefined' ? window as unknown as CustomWindow : null;
+
+      if (customWindow?.showToast) {
+        customWindow.showToast({
           type: 'warning',
           message: 'Your session has expired. Please log in again.',
           duration: 5000
@@ -689,7 +674,7 @@ export class ApiClient {
   /**
    * Classify error type based on status code and error characteristics
    */
-  private classifyError(error: any, status?: number): ErrorType {
+  private classifyError(error: unknown, status?: number): ErrorType {
     // Network errors
     if (this.isNetworkError(error)) {
       return ErrorType.NETWORK_ERROR;
@@ -709,7 +694,7 @@ export class ApiClient {
     }
 
     // Timeout errors
-    if (error.name === 'AbortError' || error.message?.includes('timeout')) {
+    if (error instanceof Error && (error.name === 'AbortError' || error.message?.includes('timeout'))) {
       return ErrorType.TIMEOUT_ERROR;
     }
 
@@ -991,7 +976,7 @@ export class ApiClient {
       };
 
       return isOnline;
-    } catch (error) {
+    } catch (_error) {
       // Cache negative result as well
       this.lastConnectivityCheck = {
         result: false,
@@ -1022,7 +1007,7 @@ export class ApiClient {
   /**
    * Cache current auth state for offline use
    */
-  public cacheAuthState(authState: any): void {
+  public cacheAuthState(authState: unknown): void {
     try {
       this.lastKnownAuthState = authState;
       localStorage.setItem('last_known_auth_state', JSON.stringify(authState));
@@ -1034,7 +1019,7 @@ export class ApiClient {
   /**
    * Get cached auth state for offline use
    */
-  public getCachedAuthState(): any {
+  public getCachedAuthState(): unknown {
     return this.lastKnownAuthState;
   }
 
@@ -1102,13 +1087,14 @@ export class ApiClient {
    */
   private async retryWithExponentialBackoff(
     config: ApiRequestConfig,
-    error: any,
+    error: unknown,
     attempt: number
   ): Promise<Response> {
     const isNetworkError = this.isNetworkError(error);
+    const errorWithStatus = error as { status?: number } | null;
     const isRetryable = this.isRetryableError(
       this.classifyError(error),
-      error.status,
+      errorWithStatus?.status,
       attempt
     );
 
@@ -1155,7 +1141,7 @@ export class ApiClient {
   /**
    * Get recovery suggestions based on error type and context
    */
-  private getRecoverySuggestions(errorType: ErrorType, status?: number, context?: Partial<ErrorContext>): string[] {
+  private getRecoverySuggestions(errorType: ErrorType, status?: number, _context?: Partial<ErrorContext>): string[] {
     const suggestions: string[] = [];
 
     switch (errorType) {
@@ -1214,15 +1200,15 @@ export class ApiClient {
     return this.request({ ...config, url, method: 'GET' });
   }
 
-  public async post(url: string, data?: any, config: Partial<ApiRequestConfig> = {}): Promise<Response> {
+  public async post(url: string, data?: unknown, config: Partial<ApiRequestConfig> = {}): Promise<Response> {
     return this.request({ ...config, url, method: 'POST', data });
   }
 
-  public async put(url: string, data?: any, config: Partial<ApiRequestConfig> = {}): Promise<Response> {
+  public async put(url: string, data?: unknown, config: Partial<ApiRequestConfig> = {}): Promise<Response> {
     return this.request({ ...config, url, method: 'PUT', data });
   }
 
-  public async patch(url: string, data?: any, config: Partial<ApiRequestConfig> = {}): Promise<Response> {
+  public async patch(url: string, data?: unknown, config: Partial<ApiRequestConfig> = {}): Promise<Response> {
     return this.request({ ...config, url, method: 'PATCH', data });
   }
 

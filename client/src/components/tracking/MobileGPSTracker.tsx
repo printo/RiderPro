@@ -7,16 +7,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Navigation,
-  MapPin,
-  Clock,
   Battery,
   Wifi,
   WifiOff,
   Play,
-  Pause,
   Square,
-  AlertCircle,
-  CheckCircle
+  AlertCircle
 } from 'lucide-react';
 
 interface MobileGPSTrackerProps {
@@ -44,7 +40,6 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
   const [distance, setDistance] = useState(0);
   const [speed, setSpeed] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [internalCurrentLocation, setInternalCurrentLocation] = useState<{ latitude: number; longitude: number; accuracy: number } | null>(null);
 
   const startTimeRef = useRef<Date | null>(null);
   const lastLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
@@ -90,7 +85,6 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
         const { latitude, longitude, accuracy } = position.coords;
         const newLocation = { latitude, longitude, accuracy };
 
-        setInternalCurrentLocation(newLocation);
         setLastUpdate(new Date());
 
         // Calculate distance and speed

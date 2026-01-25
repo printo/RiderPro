@@ -1,72 +1,14 @@
-import { RouteTracking, RouteAnalytics } from '@shared/schema';
-import { DistanceCalculator, DistanceCalculationResult } from './DistanceCalculator';
-
-export interface DailyRouteSummary {
-  employeeId: string;
-  date: string; // YYYY-MM-DD
-  totalSessions: number;
-  totalDistance: number; // km
-  totalTime: number; // seconds
-  totalFuelConsumed: number; // liters
-  totalFuelCost: number; // currency
-  shipmentsCompleted: number;
-  averageSpeed: number; // km/h
-  efficiency: number; // km per shipment
-  stationaryTime: number; // seconds
-  movingTime: number; // seconds
-  maxSpeed: number; // km/h
-  sessions: RouteSessionSummary[];
-}
-
-export interface RouteSessionSummary {
-  sessionId: string;
-  employeeId: string;
-  startTime: string;
-  endTime: string;
-  distance: number; // km
-  duration: number; // seconds
-  averageSpeed: number; // km/h
-  maxSpeed: number; // km/h
-  fuelConsumed: number; // liters
-  fuelCost: number; // currency
-  shipmentsCompleted: number;
-  coordinateCount: number;
-  efficiency: number; // km per shipment
-}
-
-export interface WeeklyRouteSummary {
-  employeeId: string;
-  weekStart: string; // YYYY-MM-DD
-  weekEnd: string; // YYYY-MM-DD
-  dailySummaries: DailyRouteSummary[];
-  totalDistance: number;
-  totalTime: number;
-  totalFuelConsumed: number;
-  totalFuelCost: number;
-  totalShipmentsCompleted: number;
-  averageSpeed: number;
-  efficiency: number;
-}
-
-export interface MonthlyRouteSummary {
-  employeeId: string;
-  month: string; // YYYY-MM
-  weeklySummaries: WeeklyRouteSummary[];
-  totalDistance: number;
-  totalTime: number;
-  totalFuelConsumed: number;
-  totalFuelCost: number;
-  totalShipmentsCompleted: number;
-  averageSpeed: number;
-  efficiency: number;
-  workingDays: number;
-}
-
-export interface FuelSettings {
-  vehicleType: string;
-  fuelEfficiency: number; // km per liter
-  fuelPrice: number; // price per liter
-}
+import { 
+  RouteTracking, 
+  DailyRouteSummary, 
+  WeeklyRouteSummary, 
+  MonthlyRouteSummary, 
+  RouteSessionSummary,
+  FuelConsumptionResult,
+  City
+} from '@shared/types';
+import { DistanceCalculator } from './DistanceCalculator';
+import { FuelCalculator } from './FuelCalculator';
 
 export interface RouteOptimizationSuggestion {
   type: 'distance' | 'time' | 'fuel' | 'efficiency';
@@ -83,339 +25,427 @@ export interface RouteOptimizationSuggestion {
 }
 
 export class RouteAnalyzer {
-  private defaultFuelSettings: FuelSettings = {
-    vehicleType: 'standard',
-    fuelEfficiency: 15.0, // km per liter
-    fuelPrice: 1.5 // price per liter
-  };
+  private fuelCalculator: FuelCalculator;
 
-  constructor(private fuelSettings: FuelSettings = {
-    vehicleType: 'standard',
-    fuelEfficiency: 15.0,
-    fuelPrice: 1.5
-  }) { }
+  /**
+   * Get the start of the week (Monday) for a given date string
+   */
+  private getWeekStart(dateString: string): string {
+    const date = new Date(dateString);
+    const day = date.getDay();
+    // Adjust to get Monday as the first day of the week
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+    date.setDate(diff);
+    return date.toISOString().split('T')[0];
+  }
+
+  /**
+   * Add days to a date string and return the new date string
+   */
+  private addDays(dateString: string, days: number): string {
+    const date = new Date(dateString);
+    date.setDate(date.getDate() + days);
+    return date.toISOString().split('T')[0];
+  }
+
+  /**
+   * Group coordinates by session ID
+   */
+  private groupCoordinatesBySession(coordinates: RouteTracking[]): RouteTracking[][] {
+    if (!coordinates || coordinates.length === 0) {
+      return [];
+    }
+
+    // Sort coordinates by timestamp to ensure correct ordering
+    const sortedCoords = [...coordinates].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+    const sessions: RouteTracking[][] = [];
+    let currentSession: RouteTracking[] = [];
+    let currentSessionId = sortedCoords[0]?.sessionId;
+
+    for (const coord of sortedCoords) {
+      if (coord.sessionId !== currentSessionId) {
+        if (currentSession.length > 0) {
+          sessions.push(currentSession);
+        }
+        currentSession = [coord];
+        currentSessionId = coord.sessionId;
+      } else {
+        currentSession.push(coord);
+      }
+    }
+
+    // Add the last session
+    if (currentSession.length > 0) {
+      sessions.push(currentSession);
+    }
+
+    return sessions;
+  }
+
+  /**
+   * Create an empty session summary
+   */
+  private createEmptySessionSummary(sessionId: string, employeeId: string): RouteSessionSummary {
+    const now = new Date().toISOString();
+    return {
+      sessionId,
+      employeeId,
+      startTime: now,
+      endTime: now,
+      distance: 0,
+      duration: 0,
+      averageSpeed: 0,
+      maxSpeed: 0,
+      fuelConsumed: 0,
+      fuelCost: 0,
+      shipmentsCompleted: 0,
+      coordinateCount: 0,
+      efficiency: 0
+    };
+  }
+
+  constructor() {
+    this.fuelCalculator = new FuelCalculator();
+  }
 
   /**
    * Analyze route data for a single session
    */
   analyzeRouteSession(
     coordinates: RouteTracking[],
-    fuelSettings?: FuelSettings
+    vehicleTypeId: string = 'standard-van',
+    city: string = 'Delhi'
   ): RouteSessionSummary {
-    if (coordinates.length === 0) {
+    if (!coordinates || coordinates.length === 0) {
       throw new Error('No coordinates provided for analysis');
     }
 
     const sessionId = coordinates[0].sessionId;
-    const employeeId = coordinates[0].employeeId;
-
+    const employeeId = coordinates[0].employeeId || '';
+    
     // Filter coordinates for this session only
     const sessionCoords = coordinates.filter(coord => coord.sessionId === sessionId);
-
     if (sessionCoords.length < 2) {
       return this.createEmptySessionSummary(sessionId, employeeId);
     }
 
     // Calculate route metrics
     const metrics = DistanceCalculator.calculateRouteMetrics(sessionCoords);
-
+    
     // Count shipments completed
     const shipmentsCompleted = new Set(
       sessionCoords
         .filter(coord => coord.shipmentId && coord.eventType)
-        .map(coord => coord.shipmentId)
+        .map(coord => coord.shipmentId as string)
     ).size;
+    
+    // Initialize default fuel result
+    const defaultFuelResult: FuelConsumptionResult = { 
+      distance: 0,
+      fuelConsumed: 0, 
+      fuelCost: 0, 
+      formattedCost: '₹0.00',
+      co2Emissions: 0, 
+      efficiency: 0 
+    };
+    
+    // Calculate fuel consumption if there's distance
+    const fuelResult = metrics.totalDistance > 0 
+      ? this.fuelCalculator.calculateFuelConsumption(
+          metrics.totalDistance,
+          vehicleTypeId,
+          city as City,
+          {
+            trafficFactor: 1.0,
+            weatherFactor: 1.0,
+            loadFactor: 1.0,
+            drivingStyle: 'normal'
+          }
+        )
+      : defaultFuelResult;
 
-    // Calculate fuel consumption
-    const fuel = DistanceCalculator.calculateFuelConsumption(
-      metrics.totalDistance,
-      fuelSettings?.fuelEfficiency || this.fuelSettings.fuelEfficiency,
-      fuelSettings?.fuelPrice || this.fuelSettings.fuelPrice
-    );
+    // Calculate efficiency (km per shipment)
+    const efficiency = shipmentsCompleted > 0 
+      ? metrics.totalDistance / shipmentsCompleted 
+      : 0;
 
-    const startTime = sessionCoords[0].timestamp;
-    const endTime = sessionCoords[sessionCoords.length - 1].timestamp;
-    const efficiency = shipmentsCompleted > 0 ? metrics.totalDistance / shipmentsCompleted : 0;
-
+    // Create and return the session summary
     return {
       sessionId,
       employeeId,
-      startTime,
-      endTime,
-      distance: metrics.totalDistance,
+      startTime: sessionCoords[0].timestamp,
+      endTime: sessionCoords[sessionCoords.length - 1].timestamp,
+      distance: Math.round(metrics.totalDistance * 100) / 100,
       duration: metrics.totalTime,
-      averageSpeed: metrics.averageSpeed,
-      maxSpeed: metrics.maxSpeed,
-      fuelConsumed: fuel.liters,
-      fuelCost: fuel.cost || 0,
+      averageSpeed: Math.round(metrics.averageSpeed * 100) / 100,
+      maxSpeed: Math.round(metrics.maxSpeed * 100) / 100,
+      fuelConsumed: Math.round((fuelResult?.fuelConsumed || 0) * 100) / 100,
+      fuelCost: Math.round((fuelResult?.fuelCost || 0) * 100) / 100,
       shipmentsCompleted,
       coordinateCount: sessionCoords.length,
       efficiency: Math.round(efficiency * 100) / 100
-    };
+    } as RouteSessionSummary;
   }
 
   /**
-   * Analyze daily route data for an employee
+   * Analyze daily route data
    */
   analyzeDailyRoutes(
     coordinates: RouteTracking[],
-    employeeId: string,
-    date: string,
-    fuelSettings?: FuelSettings
-  ): DailyRouteSummary {
-    // Filter coordinates for the specific employee and date
-    const dayCoords = coordinates.filter(coord =>
-      coord.employeeId === employeeId &&
-      coord.date === date
-    );
-
-    if (dayCoords.length === 0) {
-      return this.createEmptyDailySummary(employeeId, date);
+    filters: {
+      employeeId?: string;
+      startDate?: string;
+      endDate?: string;
+      city?: string;
+      vehicleType?: string;
+    } = {}
+  ): DailyRouteSummary[] {
+    if (!coordinates || coordinates.length === 0) {
+      return [];
     }
 
-    // Group coordinates by session
-    const sessionGroups = this.groupCoordinatesBySession(dayCoords);
-    const sessions: RouteSessionSummary[] = [];
-
-    let totalDistance = 0;
-    let totalTime = 0;
-    let totalFuelConsumed = 0;
-    let totalFuelCost = 0;
-    let totalShipmentsCompleted = 0;
-    let totalCoordinates = 0;
-    let maxSpeed = 0;
-
-    // Analyze each session
-    for (const sessionCoords of sessionGroups) {
-      if (sessionCoords.length >= 2) {
-        const sessionSummary = this.analyzeRouteSession(sessionCoords, fuelSettings);
-        sessions.push(sessionSummary);
-
-        totalDistance += sessionSummary.distance;
-        totalTime += sessionSummary.duration;
-        totalFuelConsumed += sessionSummary.fuelConsumed;
-        totalFuelCost += sessionSummary.fuelCost;
-        totalShipmentsCompleted += sessionSummary.shipmentsCompleted;
-        totalCoordinates += sessionSummary.coordinateCount;
-        maxSpeed = Math.max(maxSpeed, sessionSummary.maxSpeed);
+    // Filter coordinates based on filters
+    const filteredCoords = coordinates.filter(coord => {
+      if (filters.employeeId && coord.employeeId !== filters.employeeId) {
+        return false;
       }
+      if (filters.startDate && coord.timestamp < filters.startDate) {
+        return false;
+      }
+      if (filters.endDate && coord.timestamp > filters.endDate) {
+        return false;
+      }
+      if (filters.city && (coord as unknown as { city?: string }).city !== filters.city) {
+        return false;
+      }
+      return true;
+    });
+
+    if (filteredCoords.length === 0) {
+      return [];
     }
 
-    // Calculate stationary time
-    const stationaryPeriods = DistanceCalculator.findStationaryPeriods(dayCoords);
-    const stationaryTime = stationaryPeriods.reduce((sum, period) => sum + (period.duration * 60), 0); // convert to seconds
-    const movingTime = Math.max(0, totalTime - stationaryTime);
+    // Group coordinates by date (YYYY-MM-DD)
+    const dateGroups = filteredCoords.reduce<Record<string, RouteTracking[]>>((groups, coord) => {
+      const date = coord.timestamp.split('T')[0]; // Extract YYYY-MM-DD from ISO string
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(coord);
+      return groups;
+    }, {});
 
-    const averageSpeed = totalTime > 0 ? (totalDistance / (totalTime / 3600)) : 0;
-    const efficiency = totalShipmentsCompleted > 0 ? totalDistance / totalShipmentsCompleted : 0;
+    // Process each date group
+    return Object.entries(dateGroups).map(([date, dateCoords]) => {
+      // Get employee ID from first coordinate (assuming all coords for a date are from the same employee)
+      const employeeId = dateCoords[0]?.employeeId || '';
+      
+      // Group by session
+      const sessionGroups = this.groupCoordinatesBySession(dateCoords);
+      const sessions: RouteSessionSummary[] = [];
 
-    return {
-      employeeId,
-      date,
-      totalSessions: sessions.length,
-      totalDistance: Math.round(totalDistance * 100) / 100,
-      totalTime,
-      totalFuelConsumed: Math.round(totalFuelConsumed * 100) / 100,
-      totalFuelCost: Math.round(totalFuelCost * 100) / 100,
-      shipmentsCompleted: totalShipmentsCompleted,
-      averageSpeed: Math.round(averageSpeed * 100) / 100,
-      efficiency: Math.round(efficiency * 100) / 100,
-      stationaryTime,
-      movingTime,
-      maxSpeed: Math.round(maxSpeed * 100) / 100,
-      sessions
-    };
+      let totalDistance = 0;
+      let totalTime = 0;
+      let totalFuelConsumed = 0;
+      let totalFuelCost = 0;
+      let totalShipmentsCompleted = 0;
+      let maxSpeed = 0;
+      let coordinateCount = 0;
+
+      // Analyze each session
+      for (const sessionCoords of sessionGroups) {
+        if (sessionCoords.length >= 2) {
+          const sessionSummary = this.analyzeRouteSession(
+            sessionCoords,
+            filters.vehicleType || 'standard-van',
+            filters.city || 'Delhi'
+          );
+          sessions.push(sessionSummary);
+
+          // Aggregate metrics
+          totalDistance += sessionSummary.distance || 0;
+          totalTime += sessionSummary.duration || 0;
+          totalFuelConsumed += sessionSummary.fuelConsumed || 0;
+          totalFuelCost += sessionSummary.fuelCost || 0;
+          totalShipmentsCompleted += sessionSummary.shipmentsCompleted || 0;
+          maxSpeed = Math.max(maxSpeed, sessionSummary.maxSpeed || 0);
+          coordinateCount += sessionSummary.coordinateCount || 0;
+        }
+      }
+
+      // Calculate stationary time
+      const stationaryPeriods = DistanceCalculator.findStationaryPeriods(dateCoords);
+      const stationaryTime = stationaryPeriods.reduce(
+        (sum, period) => sum + (period.duration * 60), 
+        0
+      );
+      const movingTime = Math.max(0, totalTime - stationaryTime);
+
+      // Calculate derived metrics
+      const averageSpeed = totalTime > 0 ? (totalDistance / (totalTime / 3600)) : 0;
+      const efficiency = totalShipmentsCompleted > 0 
+        ? totalDistance / totalShipmentsCompleted 
+        : 0;
+      const fuelEfficiency = totalFuelConsumed > 0 
+        ? totalDistance / totalFuelConsumed 
+        : 0;
+
+      // Create and return the daily summary
+      return {
+        employeeId,
+        date,
+        totalSessions: sessions.length,
+        totalDistance: Math.round(totalDistance * 100) / 100,
+        totalTime,
+        totalFuelConsumed: Math.round(totalFuelConsumed * 100) / 100,
+        totalFuelCost: Math.round(totalFuelCost * 100) / 100,
+        fuelEfficiency: Math.round(fuelEfficiency * 100) / 100,
+        shipmentsCompleted: totalShipmentsCompleted,
+        averageSpeed: Math.round(averageSpeed * 100) / 100,
+        efficiency: Math.round(efficiency * 100) / 100,
+        stationaryTime,
+        movingTime,
+        maxSpeed: Math.round(maxSpeed * 100) / 100,
+        coordinateCount,
+        sessions
+      } as DailyRouteSummary;
+    });
   }
 
   /**
    * Analyze weekly route data
    */
-  analyzeWeeklyRoutes(
-    coordinates: RouteTracking[],
-    employeeId: string,
-    weekStart: string,
-    fuelSettings?: FuelSettings
-  ): WeeklyRouteSummary {
-    const weekEnd = this.addDays(weekStart, 6);
-    const dailySummaries: DailyRouteSummary[] = [];
-
-    // Generate daily summaries for the week
-    for (let i = 0; i < 7; i++) {
-      const date = this.addDays(weekStart, i);
-      const dailySummary = this.analyzeDailyRoutes(coordinates, employeeId, date, fuelSettings);
-      if (dailySummary.totalSessions > 0) {
-        dailySummaries.push(dailySummary);
-      }
+  analyzeWeeklyRoutes(dailySummaries: DailyRouteSummary[]): WeeklyRouteSummary[] {
+    if (!dailySummaries || dailySummaries.length === 0) {
+      return [];
     }
 
-    // Aggregate weekly totals
-    const totalDistance = dailySummaries.reduce((sum, day) => sum + day.totalDistance, 0);
-    const totalTime = dailySummaries.reduce((sum, day) => sum + day.totalTime, 0);
-    const totalFuelConsumed = dailySummaries.reduce((sum, day) => sum + day.totalFuelConsumed, 0);
-    const totalFuelCost = dailySummaries.reduce((sum, day) => sum + day.totalFuelCost, 0);
-    const totalShipmentsCompleted = dailySummaries.reduce((sum, day) => sum + day.shipmentsCompleted, 0);
+    // Group daily summaries by week and employee
+    const weekEmployeeGroups = dailySummaries.reduce<Record<string, {
+      weekStart: string;
+      employeeId: string;
+      summaries: DailyRouteSummary[];
+    }>>((groups, summary) => {
+      const weekStart = this.getWeekStart(summary.date);
+      const key = `${weekStart}_${summary.employeeId || 'unknown'}`;
+      
+      if (!groups[key]) {
+        groups[key] = {
+          weekStart,
+          employeeId: summary.employeeId || '',
+          summaries: []
+        };
+      }
+      
+      groups[key].summaries.push(summary);
+      return groups;
+    }, {});
 
-    const averageSpeed = totalTime > 0 ? (totalDistance / (totalTime / 3600)) : 0;
-    const efficiency = totalShipmentsCompleted > 0 ? totalDistance / totalShipmentsCompleted : 0;
+    // Process each week-employee group
+    return Object.values(weekEmployeeGroups).map(({ weekStart, employeeId, summaries }) => {
+      const weekDailySummaries = summaries.sort((a, b) => a.date.localeCompare(b.date));
+      const weekEnd = this.addDays(weekStart, 6);
+      
+      // Calculate weekly totals
+      const totalDistance = weekDailySummaries.reduce((sum, day) => sum + (day.totalDistance || 0), 0);
+      const totalTime = weekDailySummaries.reduce((sum, day) => sum + (day.totalTime || 0), 0);
+      const totalFuelConsumed = weekDailySummaries.reduce((sum, day) => sum + (day.totalFuelConsumed || 0), 0);
+      const totalFuelCost = weekDailySummaries.reduce((sum, day) => sum + (day.totalFuelCost || 0), 0);
+      const totalShipmentsCompleted = weekDailySummaries.reduce((sum, day) => sum + (day.shipmentsCompleted || 0), 0);
+      
+      // Calculate working days (days with at least one session)
+      const workingDays = weekDailySummaries.length;
+      
+      // Calculate derived metrics
+      const averageSpeed = totalTime > 0 ? (totalDistance / (totalTime / 3600)) : 0;
+      const efficiency = totalShipmentsCompleted > 0 
+        ? totalDistance / totalShipmentsCompleted 
+        : 0;
+      const fuelEfficiency = totalFuelConsumed > 0 
+        ? totalDistance / totalFuelConsumed 
+        : 0;
 
-    return {
-      employeeId,
-      weekStart,
-      weekEnd,
-      dailySummaries,
-      totalDistance: Math.round(totalDistance * 100) / 100,
-      totalTime,
-      totalFuelConsumed: Math.round(totalFuelConsumed * 100) / 100,
-      totalFuelCost: Math.round(totalFuelCost * 100) / 100,
-      totalShipmentsCompleted,
-      averageSpeed: Math.round(averageSpeed * 100) / 100,
-      efficiency: Math.round(efficiency * 100) / 100
-    };
+      // Create and return the weekly summary
+      return {
+        employeeId,
+        weekStart,
+        weekEnd,
+        dailySummaries: weekDailySummaries,
+        totalDistance: Math.round(totalDistance * 100) / 100,
+        totalTime,
+        totalFuelConsumed: Math.round(totalFuelConsumed * 100) / 100,
+        totalFuelCost: Math.round(totalFuelCost * 100) / 100,
+        fuelEfficiency: Math.round(fuelEfficiency * 100) / 100,
+        totalShipmentsCompleted,
+        averageSpeed: Math.round(averageSpeed * 100) / 100,
+        efficiency: Math.round(efficiency * 100) / 100,
+        workingDays
+      } as WeeklyRouteSummary;
+    });
   }
 
   /**
    * Analyze monthly route data
    */
-  analyzeMonthlyRoutes(
-    coordinates: RouteTracking[],
-    employeeId: string,
-    month: string, // YYYY-MM
-    fuelSettings?: FuelSettings
-  ): MonthlyRouteSummary {
-    const weeklySummaries: WeeklyRouteSummary[] = [];
-    const monthStart = `${month}-01`;
-    const monthEnd = this.getLastDayOfMonth(month);
+  analyzeMonthlyRoutes(weeklySummaries: WeeklyRouteSummary[]): MonthlyRouteSummary[] {
+    // Group weekly summaries by month and employee
+    const monthGroups = weeklySummaries.reduce<Record<string, {
+      month: string;
+      employeeId: string;
+      summaries: WeeklyRouteSummary[];
+    }>>((groups, week) => {
+      const month = week.weekStart.substring(0, 7); // YYYY-MM
+      const key = `${month}_${week.employeeId}`;
 
-    // Generate weekly summaries for the month
-    let currentWeekStart = this.getFirstMondayOfMonth(monthStart);
-    while (currentWeekStart <= monthEnd) {
-      const weeklySummary = this.analyzeWeeklyRoutes(coordinates, employeeId, currentWeekStart, fuelSettings);
-      if (weeklySummary.dailySummaries.length > 0) {
-        weeklySummaries.push(weeklySummary);
+      if (!groups[key]) {
+        groups[key] = {
+          month,
+          employeeId: week.employeeId,
+          summaries: []
+        };
       }
-      currentWeekStart = this.addDays(currentWeekStart, 7);
-    }
+      groups[key].summaries.push(week);
+      return groups;
+    }, {});
 
-    // Aggregate monthly totals
-    const totalDistance = weeklySummaries.reduce((sum, week) => sum + week.totalDistance, 0);
-    const totalTime = weeklySummaries.reduce((sum, week) => sum + week.totalTime, 0);
-    const totalFuelConsumed = weeklySummaries.reduce((sum, week) => sum + week.totalFuelConsumed, 0);
-    const totalFuelCost = weeklySummaries.reduce((sum, week) => sum + week.totalFuelCost, 0);
-    const totalShipmentsCompleted = weeklySummaries.reduce((sum, week) => sum + week.totalShipmentsCompleted, 0);
-
-    const workingDays = weeklySummaries.reduce((sum, week) => sum + week.dailySummaries.length, 0);
-    const averageSpeed = totalTime > 0 ? (totalDistance / (totalTime / 3600)) : 0;
-    const efficiency = totalShipmentsCompleted > 0 ? totalDistance / totalShipmentsCompleted : 0;
-
-    return {
-      employeeId,
-      month,
-      weeklySummaries,
-      totalDistance: Math.round(totalDistance * 100) / 100,
-      totalTime,
-      totalFuelConsumed: Math.round(totalFuelConsumed * 100) / 100,
-      totalFuelCost: Math.round(totalFuelCost * 100) / 100,
-      totalShipmentsCompleted,
-      averageSpeed: Math.round(averageSpeed * 100) / 100,
-      efficiency: Math.round(efficiency * 100) / 100,
-      workingDays
-    };
-  }
-
-  /**
-   * Generate route optimization suggestions
-   */
-  generateOptimizationSuggestions(
-    dailySummary: DailyRouteSummary,
-    benchmarks?: {
-      targetEfficiency?: number; // km per shipment
-      maxFuelConsumption?: number; // liters per 100km
-      targetSpeed?: number; // km/h
-    }
-  ): RouteOptimizationSuggestion[] {
-    const suggestions: RouteOptimizationSuggestion[] = [];
-    const defaultBenchmarks = {
-      targetEfficiency: 5.0, // 5km per shipment
-      maxFuelConsumption: 8.0, // 8L per 100km
-      targetSpeed: 25.0 // 25 km/h average
-    };
-
-    const targets = { ...defaultBenchmarks, ...benchmarks };
-
-    // Efficiency analysis
-    if (dailySummary.efficiency > targets.targetEfficiency) {
-      const excessDistance = (dailySummary.efficiency - targets.targetEfficiency) * dailySummary.shipmentsCompleted;
-      const fuelSaving = DistanceCalculator.calculateFuelConsumption(
-        excessDistance,
-        this.fuelSettings.fuelEfficiency,
-        this.fuelSettings.fuelPrice
+    // Process each month group
+    return Object.values(monthGroups).map(({ month, employeeId, summaries: monthWeeklySummaries }) => {
+      // Calculate monthly totals
+      const totalDistance = monthWeeklySummaries.reduce((sum, week) => sum + (week.totalDistance ?? 0), 0);
+      const totalTime = monthWeeklySummaries.reduce((sum, week) => sum + (week.totalTime ?? 0), 0);
+      const totalFuelConsumed = monthWeeklySummaries.reduce((sum, week) => sum + (week.totalFuelConsumed ?? 0), 0);
+      const totalFuelCost = monthWeeklySummaries.reduce((sum, week) => sum + (week.totalFuelCost ?? 0), 0);
+      const totalShipmentsCompleted = monthWeeklySummaries.reduce((sum, week) => sum + (week.totalShipmentsCompleted ?? 0), 0);
+      
+      // Calculate working days (days with at least one session)
+      const workingDays = monthWeeklySummaries.reduce(
+        (sum, week) => sum + (week.dailySummaries?.length ?? 0), 
+        0
       );
+      
+      // Calculate metrics
+      const averageSpeed = totalTime > 0 ? (totalDistance / (totalTime / 3600)) : 0;
+      const efficiency = totalShipmentsCompleted > 0 ? totalDistance / totalShipmentsCompleted : 0;
+      const fuelEfficiency = totalDistance > 0 ? (totalDistance / totalFuelConsumed) || 0 : 0;
 
-      suggestions.push({
-        type: 'efficiency',
-        severity: excessDistance > 20 ? 'high' : excessDistance > 10 ? 'medium' : 'low',
-        title: 'Route Efficiency Improvement',
-        description: `Current efficiency is ${dailySummary.efficiency.toFixed(1)} km per shipment, above target of ${targets.targetEfficiency} km.`,
-        potentialSaving: {
-          distance: Math.round(excessDistance * 100) / 100,
-          fuel: fuelSaving.liters,
-          cost: fuelSaving.cost
-        },
-        recommendation: 'Consider optimizing route planning to reduce distance per shipment. Group nearby deliveries and minimize backtracking.'
-      });
-    }
-
-    // Fuel consumption analysis
-    const fuelPer100km = dailySummary.totalDistance > 0 ? (dailySummary.totalFuelConsumed / dailySummary.totalDistance) * 100 : 0;
-    if (fuelPer100km > targets.maxFuelConsumption) {
-      const excessFuel = ((fuelPer100km - targets.maxFuelConsumption) / 100) * dailySummary.totalDistance;
-      const costSaving = excessFuel * this.fuelSettings.fuelPrice;
-
-      suggestions.push({
-        type: 'fuel',
-        severity: fuelPer100km > targets.maxFuelConsumption * 1.5 ? 'high' : fuelPer100km > targets.maxFuelConsumption * 1.2 ? 'medium' : 'low',
-        title: 'High Fuel Consumption',
-        description: `Fuel consumption is ${fuelPer100km.toFixed(1)}L per 100km, above target of ${targets.maxFuelConsumption}L per 100km.`,
-        potentialSaving: {
-          fuel: Math.round(excessFuel * 100) / 100,
-          cost: Math.round(costSaving * 100) / 100
-        },
-        recommendation: 'Review driving patterns, reduce idling time, and consider vehicle maintenance to improve fuel efficiency.'
-      });
-    }
-
-    // Speed analysis
-    if (dailySummary.averageSpeed < targets.targetSpeed * 0.8) {
-      const timeSaving = (dailySummary.totalDistance / targets.targetSpeed - dailySummary.totalDistance / dailySummary.averageSpeed) * 60; // minutes
-
-      suggestions.push({
-        type: 'time',
-        severity: dailySummary.averageSpeed < targets.targetSpeed * 0.6 ? 'high' : 'medium',
-        title: 'Low Average Speed',
-        description: `Average speed is ${dailySummary.averageSpeed.toFixed(1)} km/h, below optimal range.`,
-        potentialSaving: {
-          time: Math.round(timeSaving)
-        },
-        recommendation: 'Analyze route for traffic bottlenecks, optimize departure times, and consider alternative routes during peak hours.'
-      });
-    }
-
-    // Stationary time analysis
-    const stationaryPercentage = dailySummary.totalTime > 0 ? (dailySummary.stationaryTime / dailySummary.totalTime) * 100 : 0;
-    if (stationaryPercentage > 30) {
-      suggestions.push({
-        type: 'time',
-        severity: stationaryPercentage > 50 ? 'high' : 'medium',
-        title: 'Excessive Stationary Time',
-        description: `${stationaryPercentage.toFixed(1)}% of time spent stationary, which may indicate inefficient routing or long stops.`,
-        potentialSaving: {
-          time: Math.round((dailySummary.stationaryTime - dailySummary.totalTime * 0.2) / 60) // Assume 20% is acceptable
-        },
-        recommendation: 'Review stop durations, minimize unnecessary breaks, and optimize pickup/delivery sequences.'
-      });
-    }
-
-    return suggestions;
+      return {
+        employeeId,
+        month,
+        weeklySummaries: monthWeeklySummaries,
+        totalDistance: Math.round(totalDistance * 100) / 100,
+        totalTime,
+        totalFuelConsumed: Math.round(totalFuelConsumed * 100) / 100,
+        totalFuelCost: Math.round(totalFuelCost * 100) / 100,
+        fuelEfficiency: Math.round(fuelEfficiency * 100) / 100,
+        totalShipmentsCompleted,
+        averageSpeed: Math.round(averageSpeed * 100) / 100,
+        efficiency: Math.round(efficiency * 100) / 100,
+        workingDays
+      };
+    });
   }
 
   /**
@@ -439,15 +469,15 @@ export class RouteAnalyzer {
     };
   }[] {
     const employeeMetrics = summaries.map(summary => {
-      const fuelPer100km = summary.totalDistance > 0 ? (summary.totalFuelConsumed / summary.totalDistance) * 100 : 0;
+      const fuelPer100km = summary.totalDistance > 0 ? ((summary.totalFuelConsumed ?? 0) / summary.totalDistance) * 100 : 0;
 
       return {
         employeeId: summary.employeeId,
         metrics: {
           efficiency: summary.efficiency,
-          averageSpeed: summary.averageSpeed,
+          averageSpeed: summary.averageSpeed ?? 0,
           fuelConsumption: fuelPer100km,
-          shipmentsPerDay: summary.shipmentsCompleted
+          shipmentsPerDay: summary.shipmentsCompleted ?? 0
         }
       };
     });
@@ -476,79 +506,5 @@ export class RouteAnalyzer {
       const bTotal = b.ranking.efficiency + b.ranking.speed + b.ranking.fuel + b.ranking.productivity;
       return aTotal - bTotal;
     });
-  }
-
-  // Helper methods
-
-  private groupCoordinatesBySession(coordinates: RouteTracking[]): RouteTracking[][] {
-    const sessionMap = new Map<string, RouteTracking[]>();
-
-    coordinates.forEach(coord => {
-      if (!sessionMap.has(coord.sessionId)) {
-        sessionMap.set(coord.sessionId, []);
-      }
-      sessionMap.get(coord.sessionId)!.push(coord);
-    });
-
-    return Array.from(sessionMap.values()).map(coords =>
-      coords.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-    );
-  }
-
-  private createEmptySessionSummary(sessionId: string, employeeId: string): RouteSessionSummary {
-    return {
-      sessionId,
-      employeeId,
-      startTime: new Date().toISOString(),
-      endTime: new Date().toISOString(),
-      distance: 0,
-      duration: 0,
-      averageSpeed: 0,
-      maxSpeed: 0,
-      fuelConsumed: 0,
-      fuelCost: 0,
-      shipmentsCompleted: 0,
-      coordinateCount: 0,
-      efficiency: 0
-    };
-  }
-
-  private createEmptyDailySummary(employeeId: string, date: string): DailyRouteSummary {
-    return {
-      employeeId,
-      date,
-      totalSessions: 0,
-      totalDistance: 0,
-      totalTime: 0,
-      totalFuelConsumed: 0,
-      totalFuelCost: 0,
-      shipmentsCompleted: 0,
-      averageSpeed: 0,
-      efficiency: 0,
-      stationaryTime: 0,
-      movingTime: 0,
-      maxSpeed: 0,
-      sessions: []
-    };
-  }
-
-  private addDays(dateString: string, days: number): string {
-    const date = new Date(dateString);
-    date.setDate(date.getDate() + days);
-    return date.toISOString().split('T')[0];
-  }
-
-  private getLastDayOfMonth(month: string): string {
-    const [year, monthNum] = month.split('-').map(Number);
-    const lastDay = new Date(year, monthNum, 0).getDate();
-    return `${month}-${lastDay.toString().padStart(2, '0')}`;
-  }
-
-  private getFirstMondayOfMonth(dateString: string): string {
-    const date = new Date(dateString);
-    const dayOfWeek = date.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek; // 0 = Sunday
-    date.setDate(date.getDate() + daysToMonday);
-    return date.toISOString().split('T')[0];
   }
 }

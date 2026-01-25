@@ -18,7 +18,7 @@ export const queryClient = new QueryClient({
 export const apiRequest = async (
   method: string,
   url: string,
-  data?: any
+  data?: unknown
 ): Promise<Response> => {
   log.dev('🌐 apiRequest called:', {
     method: method.toUpperCase(),

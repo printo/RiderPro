@@ -5,26 +5,24 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
-import { Input } from '@/components/ui/input';
+
 import { Label } from '@/components/ui/label';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   BarChart3,
-  TrendingUp,
   MapPin,
   Fuel,
   Clock,
   Users,
   Download,
   Filter,
-  Calendar,
   RefreshCw,
 
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { DateRange } from 'react-day-picker';
-import { addDays, format, subDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 
 // Import chart components
 import PerformanceMetricsChart from '@/components/analytics/PerformanceMetricsChart';
@@ -34,11 +32,11 @@ import RouteComparisonChart from '@/components/analytics/RouteComparisonChart';
 import ExportDialog from '@/components/ui/forms/ExportDialog';
 
 import { routeAPI } from '@/apiClient/routes';
-import { useMobileOptimization } from '../hooks/useMobileOptimization';
 
-interface AnalyticsFilters {
+import { AnalyticsFilters as BaseAnalyticsFilters } from '@shared/types';
+
+interface AnalyticsFilters extends Omit<BaseAnalyticsFilters, 'dateRange'> {
   dateRange: DateRange | undefined;
-  employeeId?: string;
   viewType: 'daily' | 'weekly' | 'monthly';
 }
 

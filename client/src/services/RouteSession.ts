@@ -1,6 +1,7 @@
-import { GPSTracker, GPSPosition } from './GPSTracker';
-import { GeofencingService } from './GeofencingService';
-import { RouteSession as RouteSessionType, StartRouteSession, StopRouteSession, GPSCoordinate } from '@shared/schema';
+import { GPSTracker } from './GPSTracker';
+import { GPSPosition } from '@shared/types';
+import { RouteSession as RouteSessionType, GPSCoordinate } from '@shared/types';
+import { routeAPI } from '@/apiClient/routes';
 import { log } from "../utils/logger.js";
 
 export type SessionStatus = 'active' | 'completed' | 'paused';
@@ -45,10 +46,10 @@ export class RouteSession {
       autoSaveInterval: 60000, // 1 minute
       geofenceRadius: 0.1, // 100 meters
       enableGeofencing: true,
-      onLocationUpdate: () => { },
-      onSessionStatusChange: () => { },
-      onGeofenceDetected: () => { },
-      onError: () => { },
+      onLocationUpdate: () => { /* no-op */ },
+      onSessionStatusChange: () => { /* no-op */ },
+      onGeofenceDetected: () => { /* no-op */ },
+      onError: () => { /* no-op */ },
       ...config
     };
 
@@ -281,9 +282,10 @@ export class RouteSession {
   /**
    * Handle GPS errors
    */
-  private handleGPSError(error: any): void {
+  private handleGPSError(error: unknown): void {
     console.warn('GPS error in route session:', error);
-    this.config.onError(new Error(`GPS tracking error: ${error.message}`));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    this.config.onError(new Error(`GPS tracking error: ${errorMessage}`));
   }
 
   /**
@@ -352,9 +354,10 @@ export class RouteSession {
     this.stopAutoSave(); // Clear any existing timer
 
     this.autoSaveTimer = setInterval(() => {
-      this.saveCoordinates().catch(error => {
+      this.saveCoordinates().catch((error: unknown) => {
         console.warn('Auto-save failed:', error);
-        this.config.onError(new Error(`Auto-save failed: ${error.message}`));
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.config.onError(new Error(`Auto-save failed: ${errorMessage}`));
       });
     }, this.config.autoSaveInterval);
   }
@@ -393,7 +396,6 @@ export class RouteSession {
 
       // Try to send to API
       try {
-        const { routeAPI } = await import('@/apiClient/routes');
         await routeAPI.batchSubmitCoordinates(coordinatesToSave);
         log.dev(`Successfully saved ${coordinatesToSave.length} coordinates for session ${this.sessionId}`);
       } catch (apiError) {
@@ -429,7 +431,7 @@ export class RouteSession {
   /**
    * Load coordinates from localStorage
    */
-  private loadFromLocalStorage(): GPSCoordinate[] {
+  private _loadFromLocalStorage(): GPSCoordinate[] {
     try {
       const key = `route_session_${this.sessionId}`;
       const stored = localStorage.getItem(key);

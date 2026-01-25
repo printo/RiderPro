@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { ShipmentFilters } from "@shared/schema";
+import { ShipmentFilters } from "@shared/types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -17,7 +16,7 @@ interface FiltersProps {
   onClear?: () => void;
 }
 
-function Filters({ filters, onFiltersChange, onClear }: FiltersProps) {
+function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const updateFilter = (key: keyof ShipmentFilters, value: string) => {

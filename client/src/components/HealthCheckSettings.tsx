@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,7 @@ export function HealthCheckSettings() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleConfigChange = (key: keyof HealthCheckConfig, value: any) => {
+  const handleConfigChange = (key: keyof HealthCheckConfig, value: string | number | boolean) => {
     const newConfig = { ...config, [key]: value };
     setConfig(newConfig);
     healthCheckOptimizer.updateConfig({ [key]: value });
@@ -61,7 +61,7 @@ export function HealthCheckSettings() {
         success: result,
         time: responseTime
       });
-    } catch (error) {
+    } catch {
       setLastTestResult({
         success: false,
         time: Date.now() - startTime

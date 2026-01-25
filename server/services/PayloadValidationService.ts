@@ -6,6 +6,16 @@ import {
   ValidationResult
 } from './FieldMappingService.js';
 
+// Type aliases to avoid using 'any' while validating untrusted input
+type UnvalidatedShipment = {
+  [K in keyof ExternalShipmentPayload]?: unknown;
+} & Record<string, unknown>;
+
+type UnvalidatedBatch = {
+  shipments?: unknown;
+  metadata?: unknown;
+} & Record<string, unknown>;
+
 /**
  * Comprehensive validation service for external payloads
  * Provides detailed validation for single shipments, batch shipments, and field-level validation
@@ -28,11 +38,12 @@ export class PayloadValidationService {
   /**
    * Validates single shipment payload with comprehensive field validation
    */
-  validateSingleShipment(payload: any): ValidationResult {
+  validateSingleShipment(payload: unknown): ValidationResult {
     const errors: ValidationError[] = [];
 
     try {
-      log(`Validating single shipment payload for ID: ${payload?.id || 'unknown'}`, 'payload-validation');
+      const payloadObj = payload as UnvalidatedShipment;
+      log(`Validating single shipment payload for ID: ${(payloadObj.id as string) || 'unknown'}`, 'payload-validation');
 
       // Basic structure validation
       if (!payload || typeof payload !== 'object') {
@@ -48,42 +59,43 @@ export class PayloadValidationService {
       }
 
       // Required field validation
-      this.validateRequiredFields(payload, errors);
+      this.validateRequiredFields(payloadObj, errors);
 
       // Field-specific validation
-      this.validateIdField(payload.id, errors);
-      this.validateStatusField(payload.status, errors);
-      this.validateTypeField(payload.type, errors);
-      this.validatePriorityField(payload.priority, errors);
-      this.validateAddressFields(payload, errors);
-      this.validateContactFields(payload, errors);
-      this.validateNumericFields(payload, errors);
-      this.validateCoordinateFields(payload, errors);
-      this.validateDateTimeFields(payload, errors);
-      this.validateOptionalFields(payload, errors);
+      this.validateIdField(payloadObj.id, errors);
+      this.validateStatusField(payloadObj.status, errors);
+      this.validateTypeField(payloadObj.type, errors);
+      this.validatePriorityField(payloadObj.priority, errors);
+      this.validateAddressFields(payloadObj, errors);
+      this.validateContactFields(payloadObj, errors);
+      this.validateNumericFields(payloadObj, errors);
+      this.validateCoordinateFields(payloadObj, errors);
+      this.validateDateTimeFields(payloadObj, errors);
+      this.validateOptionalFields(payloadObj, errors);
 
       const isValid = errors.length === 0;
 
       if (isValid) {
-        log(`Single shipment validation passed for ID: ${payload.id}`, 'payload-validation');
+        log(`Single shipment validation passed for ID: ${payloadObj.id}`, 'payload-validation');
       } else {
-        log(`Single shipment validation failed for ID: ${payload?.id || 'unknown'} with ${errors.length} errors`, 'payload-validation');
+        log(`Single shipment validation failed for ID: ${payloadObj?.id || 'unknown'} with ${errors.length} errors`, 'payload-validation');
       }
 
       return {
         isValid,
         errors,
-        sanitizedData: isValid ? this.sanitizePayload(payload) : undefined
+        sanitizedData: isValid ? this.sanitizePayload(payloadObj as ExternalShipmentPayload) : undefined
       };
 
-    } catch (error: any) {
-      log(`Validation error for single shipment: ${error.message}`, 'payload-validation');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log(`Validation error for single shipment: ${errorMessage}`, 'payload-validation');
       return {
         isValid: false,
         errors: [{
           field: 'general',
           value: payload,
-          message: `Validation failed: ${error.message}`,
+          message: `Validation failed: ${errorMessage}`,
           code: 'VALIDATION_EXCEPTION'
         }]
       };
@@ -93,11 +105,13 @@ export class PayloadValidationService {
   /**
    * Validates batch shipment payload
    */
-  validateBatchShipments(batch: any): ValidationResult {
+  validateBatchShipments(batch: unknown): ValidationResult {
     const errors: ValidationError[] = [];
 
     try {
-      log(`Validating batch shipment payload with ${batch?.shipments?.length || 0} shipments`, 'payload-validation');
+      const batchObj = batch as UnvalidatedBatch;
+      const shipmentsLength = Array.isArray(batchObj?.shipments) ? batchObj.shipments.length : 0;
+      log(`Validating batch shipment payload with ${shipmentsLength} shipments`, 'payload-validation');
 
       // Basic structure validation
       if (!batch || typeof batch !== 'object') {
@@ -113,30 +127,30 @@ export class PayloadValidationService {
       }
 
       // Validate shipments array
-      if (!batch.shipments) {
+      if (!batchObj.shipments) {
         errors.push({
           field: 'shipments',
-          value: batch.shipments,
+          value: batchObj.shipments,
           message: 'Shipments array is required',
           code: 'MISSING_SHIPMENTS_ARRAY'
         });
         return { isValid: false, errors };
       }
 
-      if (!Array.isArray(batch.shipments)) {
+      if (!Array.isArray(batchObj.shipments)) {
         errors.push({
           field: 'shipments',
-          value: batch.shipments,
+          value: batchObj.shipments,
           message: 'Shipments must be an array',
           code: 'INVALID_SHIPMENTS_TYPE'
         });
         return { isValid: false, errors };
       }
 
-      if (batch.shipments.length === 0) {
+      if (batchObj.shipments.length === 0) {
         errors.push({
           field: 'shipments',
-          value: batch.shipments,
+          value: batchObj.shipments,
           message: 'Shipments array cannot be empty',
           code: 'EMPTY_SHIPMENTS_ARRAY'
         });
@@ -144,23 +158,24 @@ export class PayloadValidationService {
       }
 
       // Validate batch size limits
-      if (batch.shipments.length > 100) {
+      if (batchObj.shipments.length > 100) {
         errors.push({
           field: 'shipments',
-          value: batch.shipments.length,
+          value: batchObj.shipments.length,
           message: 'Batch size cannot exceed 100 shipments',
           code: 'BATCH_SIZE_EXCEEDED'
         });
       }
 
       // Validate metadata if present
-      if (batch.metadata) {
-        this.validateBatchMetadata(batch.metadata, errors);
+      if (batchObj.metadata) {
+        this.validateBatchMetadata(batchObj.metadata, errors);
       }
 
       // Validate each shipment in the batch
       const shipmentIds = new Set<string>();
-      batch.shipments.forEach((shipment: any, index: number) => {
+      (batchObj.shipments as unknown[]).forEach((item: unknown, index: number) => {
+        const shipment = item as UnvalidatedShipment;
         const shipmentValidation = this.validateSingleShipment(shipment);
 
         // Add index prefix to error fields
@@ -173,16 +188,17 @@ export class PayloadValidationService {
         });
 
         // Check for duplicate IDs within batch
-        if (shipment?.id) {
-          if (shipmentIds.has(shipment.shipment_id)) {
+        const shipmentId = shipment.id as string;
+        if (shipmentId) {
+          if (shipmentIds.has(shipmentId)) {
             errors.push({
               field: `shipments[${index}].id`,
-              value: shipment.shipment_id,
-              message: `Duplicate shipment ID '${shipment.shipment_id}' found in batch`,
+              value: shipmentId,
+              message: `Duplicate shipment ID '${shipmentId}' found in batch`,
               code: 'DUPLICATE_SHIPMENT_ID'
             });
           } else {
-            shipmentIds.add(shipment.shipment_id);
+            shipmentIds.add(shipmentId);
           }
         }
       });
@@ -190,25 +206,26 @@ export class PayloadValidationService {
       const isValid = errors.length === 0;
 
       if (isValid) {
-        log(`Batch validation passed for ${batch.shipments.length} shipments`, 'payload-validation');
+        log(`Batch validation passed for ${batchObj.shipments.length} shipments`, 'payload-validation');
       } else {
-        log(`Batch validation failed with ${errors.length} errors across ${batch.shipments.length} shipments`, 'payload-validation');
+        log(`Batch validation failed with ${errors.length} errors across ${batchObj.shipments.length} shipments`, 'payload-validation');
       }
 
       return {
         isValid,
         errors,
-        sanitizedData: isValid ? this.sanitizeBatch(batch) : undefined
+        sanitizedData: isValid ? this.sanitizeBatch(batchObj as ExternalShipmentBatch) : undefined
       };
 
-    } catch (error: any) {
-      log(`Validation error for batch shipments: ${error.message}`, 'payload-validation');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log(`Validation error for batch shipments: ${errorMessage}`, 'payload-validation');
       return {
         isValid: false,
         errors: [{
           field: 'general',
           value: batch,
-          message: `Batch validation failed: ${error.message}`,
+          message: `Batch validation failed: ${errorMessage}`,
           code: 'BATCH_VALIDATION_EXCEPTION'
         }]
       };
@@ -217,7 +234,7 @@ export class PayloadValidationService {
 
   // Private validation methods for specific field types
 
-  private validateRequiredFields(payload: any, errors: ValidationError[]): void {
+  private validateRequiredFields(payload: UnvalidatedShipment, errors: ValidationError[]): void {
     const requiredFields = [
       'id', 'status', 'type', 'deliveryAddress', 'recipientName',
       'recipientPhone', 'estimatedDeliveryTime', 'cost', 'routeName', 'employeeId'
@@ -236,7 +253,7 @@ export class PayloadValidationService {
     });
   }
 
-  private validateIdField(id: any, errors: ValidationError[]): void {
+  private validateIdField(id: unknown, errors: ValidationError[]): void {
     if (id !== undefined && id !== null) {
       if (typeof id !== 'string') {
         errors.push({
@@ -263,7 +280,7 @@ export class PayloadValidationService {
     }
   }
 
-  private validateStatusField(status: any, errors: ValidationError[]): void {
+  private validateStatusField(status: unknown, errors: ValidationError[]): void {
     if (status !== undefined && status !== null) {
       if (typeof status !== 'string') {
         errors.push({
@@ -290,7 +307,7 @@ export class PayloadValidationService {
     }
   }
 
-  private validateTypeField(type: any, errors: ValidationError[]): void {
+  private validateTypeField(type: unknown, errors: ValidationError[]): void {
     if (type !== undefined && type !== null) {
       if (typeof type !== 'string') {
         errors.push({
@@ -313,7 +330,7 @@ export class PayloadValidationService {
     }
   }
 
-  private validatePriorityField(priority: any, errors: ValidationError[]): void {
+  private validatePriorityField(priority: unknown, errors: ValidationError[]): void {
     if (priority !== undefined && priority !== null) {
       if (typeof priority !== 'string') {
         errors.push({
@@ -336,7 +353,7 @@ export class PayloadValidationService {
     }
   }
 
-  private validateAddressFields(payload: any, errors: ValidationError[]): void {
+  private validateAddressFields(payload: UnvalidatedShipment, errors: ValidationError[]): void {
     // Validate delivery address
     if (payload.deliveryAddress !== undefined && payload.deliveryAddress !== null) {
       if (typeof payload.deliveryAddress !== 'string') {
@@ -383,7 +400,7 @@ export class PayloadValidationService {
     }
   }
 
-  private validateContactFields(payload: any, errors: ValidationError[]): void {
+  private validateContactFields(payload: UnvalidatedShipment, errors: ValidationError[]): void {
     // Validate recipient name
     if (payload.recipientName !== undefined && payload.recipientName !== null) {
       if (typeof payload.recipientName !== 'string') {
@@ -420,7 +437,7 @@ export class PayloadValidationService {
           code: 'INVALID_PHONE_TYPE'
         });
       } else {
-        const cleanPhone = payload.recipientPhone.replace(/[\s\-\(\)]/g, '');
+        const cleanPhone = payload.recipientPhone.replace(/[\s\-()]/g, '');
         const isValidIndianPhone = this.indianPhonePatterns.some(pattern => pattern.test(cleanPhone));
 
         if (!isValidIndianPhone) {
@@ -435,7 +452,7 @@ export class PayloadValidationService {
     }
   }
 
-  private validateNumericFields(payload: any, errors: ValidationError[]): void {
+  private validateNumericFields(payload: UnvalidatedShipment, errors: ValidationError[]): void {
     // Validate cost
     if (payload.cost !== undefined && payload.cost !== null) {
       const cost = Number(payload.cost);
@@ -491,7 +508,7 @@ export class PayloadValidationService {
     }
   }
 
-  private validateCoordinateFields(payload: any, errors: ValidationError[]): void {
+  private validateCoordinateFields(payload: UnvalidatedShipment, errors: ValidationError[]): void {
     // Validate latitude
     if (payload.latitude !== undefined && payload.latitude !== null) {
       const lat = Number(payload.latitude);
@@ -551,7 +568,7 @@ export class PayloadValidationService {
     }
   }
 
-  private validateDateTimeFields(payload: any, errors: ValidationError[]): void {
+  private validateDateTimeFields(payload: UnvalidatedShipment, errors: ValidationError[]): void {
     // Validate estimated delivery time
     if (payload.estimatedDeliveryTime !== undefined && payload.estimatedDeliveryTime !== null) {
       if (typeof payload.estimatedDeliveryTime !== 'string') {
@@ -562,7 +579,7 @@ export class PayloadValidationService {
           code: 'INVALID_DATETIME_TYPE'
         });
       } else {
-        const date = new Date(payload.estimatedDeliveryTime);
+        const date = new Date(payload.estimatedDeliveryTime.trim());
         if (isNaN(date.getTime())) {
           errors.push({
             field: 'estimatedDeliveryTime',
@@ -598,7 +615,7 @@ export class PayloadValidationService {
     }
   }
 
-  private validateOptionalFields(payload: any, errors: ValidationError[]): void {
+  private validateOptionalFields(payload: UnvalidatedShipment, errors: ValidationError[]): void {
     // Validate dimensions (optional)
     if (payload.dimensions !== undefined && payload.dimensions !== null) {
       if (typeof payload.dimensions !== 'string') {
@@ -676,8 +693,8 @@ export class PayloadValidationService {
     }
   }
 
-  private validateBatchMetadata(metadata: any, errors: ValidationError[]): void {
-    if (typeof metadata !== 'object') {
+  private validateBatchMetadata(metadata: unknown, errors: ValidationError[]): void {
+    if (typeof metadata !== 'object' || metadata === null) {
       errors.push({
         field: 'metadata',
         value: metadata,
@@ -687,33 +704,45 @@ export class PayloadValidationService {
       return;
     }
 
-    if (metadata.source && typeof metadata.source !== 'string') {
+    const meta = metadata as Record<string, unknown>;
+
+    if (meta.source && typeof meta.source !== 'string') {
       errors.push({
         field: 'metadata.source',
-        value: metadata.source,
+        value: meta.source,
         message: 'Metadata source must be a string',
         code: 'INVALID_METADATA_SOURCE'
       });
     }
 
-    if (metadata.batchId && typeof metadata.batchId !== 'string') {
+    if (meta.batchId && typeof meta.batchId !== 'string') {
       errors.push({
         field: 'metadata.batchId',
-        value: metadata.batchId,
+        value: meta.batchId,
         message: 'Metadata batchId must be a string',
         code: 'INVALID_METADATA_BATCH_ID'
       });
     }
 
-    if (metadata.timestamp) {
-      const date = new Date(metadata.timestamp);
-      if (isNaN(date.getTime())) {
+    if (meta.timestamp) {
+      const timestamp = meta.timestamp;
+      if (typeof timestamp !== 'string' && typeof timestamp !== 'number') {
         errors.push({
           field: 'metadata.timestamp',
-          value: metadata.timestamp,
-          message: 'Invalid timestamp format in metadata',
-          code: 'INVALID_METADATA_TIMESTAMP'
+          value: timestamp,
+          message: 'Timestamp must be a string or number',
+          code: 'INVALID_METADATA_TIMESTAMP_TYPE'
         });
+      } else {
+        const date = new Date(timestamp);
+        if (isNaN(date.getTime())) {
+          errors.push({
+            field: 'metadata.timestamp',
+            value: timestamp,
+            message: 'Invalid timestamp format in metadata',
+            code: 'INVALID_METADATA_TIMESTAMP'
+          });
+        }
       }
     }
   }
@@ -755,7 +784,7 @@ export class PayloadValidationService {
     if (!phone) return phone;
 
     // Remove spaces, dashes, parentheses
-    let cleaned = phone.replace(/[\s\-\(\)]/g, '');
+    let cleaned = phone.replace(/[\s\-()]/g, '');
 
     // Add +91 prefix if it's a 10-digit Indian number
     if (/^\d{10}$/.test(cleaned)) {
@@ -768,7 +797,7 @@ export class PayloadValidationService {
   /**
    * Gets validation rules documentation for API documentation
    */
-  getValidationRulesDocumentation(): Record<string, any> {
+  getValidationRulesDocumentation(): Record<string, unknown> {
     return {
       requiredFields: [
         'id', 'status', 'type', 'deliveryAddress', 'recipientName',

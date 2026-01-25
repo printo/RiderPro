@@ -1,22 +1,33 @@
+// /client/src/hooks/useRouteAnalytics.ts
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { routeAPI } from '@/apiClient/routes';
-import { RouteAnalyzer, DailyRouteSummary, WeeklyRouteSummary, MonthlyRouteSummary, FuelSettings } from '../services/RouteAnalyzer';
-import { FuelCalculator, VehicleType, FuelPrice } from '../services/FuelCalculator';
+import { RouteAnalyzer } from '../services/RouteAnalyzer';
+import { 
+  DailyRouteSummary, 
+  WeeklyRouteSummary, 
+  MonthlyRouteSummary, 
+  VehicleType, 
+  FuelAnalytics,
+  FuelPrice,
+  FuelConsumptionResult,
+  FuelOptimizationSuggestion,
+  City
+} from '@shared/types';
+import { FuelCalculator } from '../services/FuelCalculator';
 import { DistanceCalculator } from '../services/DistanceCalculator';
-import { RouteTracking, RouteFilters } from '@shared/schema';
-
-export interface AnalyticsFilters {
-  employeeId?: string;
-  startDate?: string;
-  endDate?: string;
-  vehicleType?: string;
-}
+import { RouteTracking, RouteFilters, AnalyticsFilters } from '@shared/types';
 
 export interface AnalyticsState {
   dailySummaries: DailyRouteSummary[];
   weeklySummaries: WeeklyRouteSummary[];
   monthlySummaries: MonthlyRouteSummary[];
+  fuelAnalytics: {
+    daily: Array<FuelConsumptionResult & { date: string }>;
+    weekly: Array<FuelConsumptionResult & { weekStart: string }>;
+    monthly: Array<FuelConsumptionResult & { month: string }>;
+  };
+  optimizationSuggestions: FuelOptimizationSuggestion[];
   isLoading: boolean;
   error: string | null;
   lastUpdated: Date | null;
@@ -27,27 +38,29 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
     dailySummaries: [],
     weeklySummaries: [],
     monthlySummaries: [],
+    fuelAnalytics: {
+      daily: [],
+      weekly: [],
+      monthly: []
+    },
+    optimizationSuggestions: [],
     isLoading: false,
     error: null,
     lastUpdated: null
   });
 
-  const [fuelSettings, setFuelSettings] = useState<FuelSettings>({
-    vehicleType: 'standard-van',
-    fuelEfficiency: 15.0,
-    fuelPrice: 1.5
-  });
-
   // Initialize analyzers
-  const routeAnalyzer = useMemo(() => new RouteAnalyzer(fuelSettings), [fuelSettings]);
+  const routeAnalyzer = useMemo(() => new RouteAnalyzer(), []);
   const fuelCalculator = useMemo(() => new FuelCalculator(), []);
 
   // Fetch route tracking data
   const routeFilters: RouteFilters = useMemo(() => ({
     employeeId: filters.employeeId,
     startDate: filters.startDate,
-    endDate: filters.endDate
-  }), [filters.employeeId, filters.startDate, filters.endDate]);
+    endDate: filters.endDate,
+    city: filters.city,
+    vehicleType: filters.vehicleType
+  }), [filters.employeeId, filters.startDate, filters.endDate, filters.city, filters.vehicleType]);
 
   const {
     data: routeData,
@@ -56,13 +69,36 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
     refetch: refetchRoutes
   } = useQuery({
     queryKey: ['route-analytics', routeFilters],
-    queryFn: () => routeAPI.getSessionCoordinates('all'), // This would need to be updated to fetch all coordinates
+    queryFn: async () => {
+      const data = await routeAPI.getSessionCoordinates('all');
+      return Array.isArray(data) ? data : [];
+    },
     enabled: true,
     refetchInterval: 300000, // 5 minutes
   });
 
   /**
-   * Process route data into analytics summaries
+   * Calculate fuel consumption for a set of coordinates
+   */
+  const calculateFuelConsumption = useCallback((
+    coordinates: RouteTracking[],
+    vehicleTypeId: string,
+    city: string
+  ): FuelConsumptionResult | null => {
+    if (!coordinates || coordinates.length === 0) return null;
+
+    const metrics = DistanceCalculator.calculateRouteMetrics(coordinates);
+    const { totalDistance } = metrics;
+
+    return fuelCalculator.calculateFuelConsumption(
+      totalDistance,
+      vehicleTypeId,
+      city as City
+    );
+  }, [fuelCalculator]);
+
+  /**
+   * Process route data into analytics summaries with fuel calculations
    */
   const processAnalytics = useCallback(async (coordinates: RouteTracking[]) => {
     if (!coordinates || coordinates.length === 0) {
@@ -72,78 +108,93 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
     setAnalyticsState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      const dailySummaries: DailyRouteSummary[] = [];
-      const weeklySummaries: WeeklyRouteSummary[] = [];
-      const monthlySummaries: MonthlyRouteSummary[] = [];
+      // Process route analytics
+      const dailySummaries = routeAnalyzer.analyzeDailyRoutes(coordinates, filters);
+      const weeklySummaries = routeAnalyzer.analyzeWeeklyRoutes(dailySummaries);
+      const monthlySummaries = routeAnalyzer.analyzeMonthlyRoutes(weeklySummaries);
 
-      // Get unique employee IDs and date ranges
-      const employeeIds = Array.from(new Set(coordinates.map(coord => coord.employeeId)));
-      const dates = Array.from(new Set(coordinates.map(coord => coord.date))).sort();
-
-      // Filter by employee if specified
-      const targetEmployees = filters.employeeId ? [filters.employeeId] : employeeIds;
-
-      // Process daily summaries
-      for (const employeeId of targetEmployees) {
-        for (const date of dates) {
-          if (filters.startDate && date < filters.startDate) continue;
-          if (filters.endDate && date > filters.endDate) continue;
-
-          const dailySummary = routeAnalyzer.analyzeDailyRoutes(
-            coordinates,
-            employeeId,
-            date,
-            fuelSettings
+      // Process fuel analytics
+      const fuelAnalytics = {
+        daily: dailySummaries.map(summary => {
+          const fuelData = calculateFuelConsumption(
+            coordinates.filter(c => c.date === summary.date),
+            filters.vehicleType || 'standard-van',
+            filters.city || 'Delhi'
           );
-
-          if (dailySummary.totalSessions > 0) {
-            dailySummaries.push(dailySummary);
-          }
-        }
-      }
-
-      // Process weekly summaries
-      const weeks = getWeekRanges(dates);
-      for (const employeeId of targetEmployees) {
-        for (const weekStart of weeks) {
-          const weeklySummary = routeAnalyzer.analyzeWeeklyRoutes(
-            coordinates,
-            employeeId,
-            weekStart,
-            fuelSettings
+          return fuelData ? { ...fuelData, date: summary.date } : null;
+        }).filter((item): item is FuelConsumptionResult & { date: string } => item !== null),
+        weekly: weeklySummaries.map(summary => {
+          const weekCoordinates = coordinates.filter(c => {
+            const date = new Date(c.date);
+            const weekStart = new Date(summary.weekStart);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            return date >= weekStart && date <= weekEnd;
+          });
+          const fuelData = calculateFuelConsumption(
+            weekCoordinates,
+            filters.vehicleType || 'standard-van',
+            filters.city || 'Delhi'
           );
-
-          if (weeklySummary.dailySummaries.length > 0) {
-            weeklySummaries.push(weeklySummary);
-          }
-        }
-      }
-
-      // Process monthly summaries
-      const months = getMonthRanges(dates);
-      for (const employeeId of targetEmployees) {
-        for (const month of months) {
-          const monthlySummary = routeAnalyzer.analyzeMonthlyRoutes(
-            coordinates,
-            employeeId,
-            month,
-            fuelSettings
+          return fuelData ? { ...fuelData, weekStart: summary.weekStart } : null;
+        }).filter((item): item is FuelConsumptionResult & { weekStart: string } => item !== null),
+        monthly: monthlySummaries.map(summary => {
+          const [year, month] = summary.month.split('-');
+          const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
+          const monthEnd = new Date(parseInt(year), parseInt(month), 0);
+          const monthCoordinates = coordinates.filter(c => {
+            const date = new Date(c.date);
+            return date >= monthStart && date <= monthEnd;
+          });
+          const fuelData = calculateFuelConsumption(
+            monthCoordinates,
+            filters.vehicleType || 'standard-van',
+            filters.city || 'Delhi'
           );
+          return fuelData ? { ...fuelData, month: summary.month } : null;
+        }).filter((item): item is FuelConsumptionResult & { month: string } => item !== null)
+      };
 
-          if (monthlySummary.weeklySummaries.length > 0) {
-            monthlySummaries.push(monthlySummary);
-          }
-        }
-      }
+      // Generate optimization suggestions
+      const totalDistance = fuelAnalytics.daily.reduce((sum, day) => sum + day.distance, 0);
+      const totalFuelConsumed = fuelAnalytics.daily.reduce((sum, day) => sum + day.fuelConsumed, 0);
+      const totalFuelCost = fuelAnalytics.daily.reduce((sum, day) => sum + day.fuelCost, 0);
+      const totalCO2Emissions = fuelAnalytics.daily.reduce((sum, day) => sum + (day.co2Emissions || 0), 0);
+      
+      const averageEfficiency = totalFuelConsumed > 0 ? totalDistance / totalFuelConsumed : 0;
+      const costPerKm = totalDistance > 0 ? totalFuelCost / totalDistance : 0;
+      const fuelPerKm = totalDistance > 0 ? totalFuelConsumed / totalDistance : 0;
 
-      setAnalyticsState({
+      const aggregatedAnalytics: FuelAnalytics = {
+        totalDistance,
+        totalFuelConsumed,
+        totalFuelCost,
+        totalCO2Emissions,
+        averageEfficiency,
+        costPerKm,
+        fuelPerKm,
+        dailyBreakdown: fuelAnalytics.daily.map(day => ({
+            date: day.date,
+            fuelConsumed: day.fuelConsumed,
+            fuelCost: day.fuelCost,
+            distance: day.distance
+        }))
+      };
+
+      const optimizationSuggestions = fuelCalculator.generateFuelOptimizationSuggestions(
+        aggregatedAnalytics
+      );
+
+      setAnalyticsState(prev => ({
+        ...prev,
         dailySummaries,
         weeklySummaries,
         monthlySummaries,
+        fuelAnalytics,
+        optimizationSuggestions,
         isLoading: false,
-        error: null,
         lastUpdated: new Date()
-      });
+      }));
 
     } catch (error) {
       console.error('Failed to process analytics:', error);
@@ -153,7 +204,7 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
         error: (error as Error).message
       }));
     }
-  }, [routeAnalyzer, fuelSettings, filters]);
+  }, [routeAnalyzer, fuelCalculator, calculateFuelConsumption, filters]);
 
   // Process analytics when route data changes
   useEffect(() => {
@@ -180,7 +231,15 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
     return {
       daily: analyticsState.dailySummaries.filter(summary => summary.employeeId === employeeId),
       weekly: analyticsState.weeklySummaries.filter(summary => summary.employeeId === employeeId),
-      monthly: analyticsState.monthlySummaries.filter(summary => summary.employeeId === employeeId)
+      monthly: analyticsState.monthlySummaries.filter(summary => summary.employeeId === employeeId),
+      fuel: {
+        daily: analyticsState.fuelAnalytics.daily.filter((_, index) => 
+          analyticsState.dailySummaries[index]?.employeeId === employeeId
+        ),
+        weekly: analyticsState.fuelAnalytics.weekly.filter((_, index) => 
+          analyticsState.weeklySummaries[index]?.employeeId === employeeId
+        )
+      }
     };
   }, [analyticsState]);
 
@@ -193,13 +252,25 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
         summary.date >= startDate && summary.date <= endDate
       ),
       weekly: analyticsState.weeklySummaries.filter(summary =>
-        summary.weekStart >= startDate && summary.weekEnd <= endDate
+        summary.weekStart >= startDate && summary.weekEnd !== undefined && summary.weekEnd <= endDate
       ),
       monthly: analyticsState.monthlySummaries.filter(summary => {
         const monthStart = `${summary.month}-01`;
         const monthEnd = getLastDayOfMonth(summary.month);
         return monthStart >= startDate && monthEnd <= endDate;
-      })
+      }),
+      fuel: {
+        daily: analyticsState.fuelAnalytics.daily.filter((_, index) => {
+          const summary = analyticsState.dailySummaries[index];
+          return summary && summary.date >= startDate && summary.date <= endDate;
+        }),
+        weekly: analyticsState.fuelAnalytics.weekly.filter((_, index) => {
+          const summary = analyticsState.weeklySummaries[index];
+          return summary && summary.weekStart >= startDate && 
+            summary.weekEnd !== undefined && 
+            summary.weekEnd <= endDate;
+        })
+      }
     };
   }, [analyticsState]);
 
@@ -207,7 +278,7 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
    * Calculate aggregated metrics across all data
    */
   const getAggregatedMetrics = useCallback(() => {
-    const { dailySummaries } = analyticsState;
+    const { dailySummaries, fuelAnalytics } = analyticsState;
 
     if (dailySummaries.length === 0) {
       return {
@@ -218,80 +289,38 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
         totalShipmentsCompleted: 0,
         averageEfficiency: 0,
         averageSpeed: 0,
-        totalSessions: 0
+        totalSessions: 0,
+        totalCO2Emissions: 0,
+        costPerKm: 0
       };
     }
 
     const totalDistance = dailySummaries.reduce((sum, day) => sum + day.totalDistance, 0);
     const totalTime = dailySummaries.reduce((sum, day) => sum + day.totalTime, 0);
-    const totalFuelConsumed = dailySummaries.reduce((sum, day) => sum + day.totalFuelConsumed, 0);
-    const totalFuelCost = dailySummaries.reduce((sum, day) => sum + day.totalFuelCost, 0);
     const totalShipmentsCompleted = dailySummaries.reduce((sum, day) => sum + day.shipmentsCompleted, 0);
-    const totalSessions = dailySummaries.reduce((sum, day) => sum + day.totalSessions, 0);
+    const totalSessions = dailySummaries.reduce((sum, day) => sum + (day.totalSessions ?? 0), 0);
+    
+    const totalFuelConsumed = fuelAnalytics.daily.reduce((sum, day) => sum + (day?.fuelConsumed ?? 0), 0);
+    const totalFuelCost = fuelAnalytics.daily.reduce((sum, day) => sum + (day?.fuelCost ?? 0), 0);
+    const totalCO2Emissions = fuelAnalytics.daily.reduce((sum, day) => sum + (day?.co2Emissions ?? 0), 0);
 
-    const averageEfficiency = totalShipmentsCompleted > 0 ? totalDistance / totalShipmentsCompleted : 0;
+    const averageEfficiency = totalFuelConsumed > 0 ? totalDistance / totalFuelConsumed : 0;
     const averageSpeed = totalTime > 0 ? (totalDistance / (totalTime / 3600)) : 0;
+    const costPerKm = totalDistance > 0 ? totalFuelCost / totalDistance : 0;
 
     return {
       totalDistance: Math.round(totalDistance * 100) / 100,
       totalTime,
       totalFuelConsumed: Math.round(totalFuelConsumed * 100) / 100,
       totalFuelCost: Math.round(totalFuelCost * 100) / 100,
+      totalCO2Emissions: Math.round(totalCO2Emissions * 100) / 100,
       totalShipmentsCompleted,
       averageEfficiency: Math.round(averageEfficiency * 100) / 100,
       averageSpeed: Math.round(averageSpeed * 100) / 100,
+      costPerKm: Math.round(costPerKm * 100) / 100,
       totalSessions
     };
   }, [analyticsState]);
-
-  /**
-   * Generate optimization suggestions
-   */
-  const getOptimizationSuggestions = useCallback((employeeId?: string) => {
-    const targetSummaries = employeeId
-      ? analyticsState.dailySummaries.filter(summary => summary.employeeId === employeeId)
-      : analyticsState.dailySummaries;
-
-    const suggestions = targetSummaries.flatMap(summary =>
-      routeAnalyzer.generateOptimizationSuggestions(summary)
-    );
-
-    // Group suggestions by type and severity
-    const grouped = suggestions.reduce((acc, suggestion) => {
-      const key = `${suggestion.type}-${suggestion.severity}`;
-      if (!acc[key]) {
-        acc[key] = [];
-      }
-      acc[key].push(suggestion);
-      return acc;
-    }, {} as Record<string, typeof suggestions>);
-
-    return {
-      all: suggestions,
-      grouped,
-      highPriority: suggestions.filter(s => s.severity === 'high'),
-      byType: {
-        distance: suggestions.filter(s => s.type === 'distance'),
-        time: suggestions.filter(s => s.type === 'time'),
-        fuel: suggestions.filter(s => s.type === 'fuel'),
-        efficiency: suggestions.filter(s => s.type === 'efficiency')
-      }
-    };
-  }, [analyticsState.dailySummaries, routeAnalyzer]);
-
-  /**
-   * Compare employee performance
-   */
-  const compareEmployees = useCallback(() => {
-    return routeAnalyzer.compareEmployeePerformance(analyticsState.dailySummaries);
-  }, [analyticsState.dailySummaries, routeAnalyzer]);
-
-  /**
-   * Update fuel settings
-   */
-  const updateFuelSettings = useCallback((newSettings: Partial<FuelSettings>) => {
-    setFuelSettings(prev => ({ ...prev, ...newSettings }));
-  }, []);
 
   /**
    * Get vehicle types from fuel calculator
@@ -305,6 +334,7 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
    */
   const updateVehicleType = useCallback((vehicleType: VehicleType) => {
     fuelCalculator.addVehicleType(vehicleType);
+    console.log('Vehicle type updated successfully');
   }, [fuelCalculator]);
 
   /**
@@ -312,7 +342,49 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
    */
   const updateFuelPrice = useCallback((fuelPrice: FuelPrice) => {
     fuelCalculator.updateFuelPrice(fuelPrice);
+    console.log('Fuel price updated successfully');
   }, [fuelCalculator]);
+
+  /**
+   * Generate fleet report
+   */
+  const generateFleetReport = useCallback(() => {
+    const { dailySummaries, fuelAnalytics } = analyticsState;
+    
+    if (dailySummaries.length === 0 || fuelAnalytics.daily.length === 0) {
+      return [];
+    }
+
+    return dailySummaries.map((summary, index) => {
+      const fuelData = fuelAnalytics.daily[index] || {};
+      return {
+        date: summary.date,
+        vehicleType: filters.vehicleType || 'standard-van',
+        city: filters.city || 'Delhi',
+        distance: summary.totalDistance,
+        fuelConsumed: fuelData.fuelConsumed || 0,
+        fuelCost: fuelData.fuelCost || 0,
+        co2Emissions: fuelData.co2Emissions || 0,
+        efficiency: fuelData.efficiency || 0,
+        costPerKm: summary.totalDistance > 0 ? (fuelData.fuelCost || 0) / summary.totalDistance : 0
+      };
+    });
+  }, [analyticsState, filters.vehicleType, filters.city]);
+
+  /**
+   * Export fleet report
+   */
+  const exportFleetReport = useCallback((format: 'csv' | 'pdf' = 'csv') => {
+    const reportData = generateFleetReport();
+    
+    if (reportData.length === 0) {
+      console.warn('No data available to export');
+      return;
+    }
+
+    // In a real app, this would generate and download the file
+    console.log(`Exporting ${reportData.length} records as ${format.toUpperCase()}`, reportData);
+  }, [generateFleetReport]);
 
   /**
    * Refresh analytics data
@@ -324,20 +396,22 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
   return {
     // State
     ...analyticsState,
-    fuelSettings,
 
     // Data access
     getEmployeeAnalytics,
     getDateRangeAnalytics,
     getAggregatedMetrics,
-    getOptimizationSuggestions,
-    compareEmployees,
+    getOptimizationSuggestions: () => analyticsState.optimizationSuggestions,
+    compareEmployees: () => routeAnalyzer.compareEmployeePerformance(analyticsState.dailySummaries),
 
     // Configuration
-    updateFuelSettings,
     getVehicleTypes,
     updateVehicleType,
     updateFuelPrice,
+
+    // Reports
+    generateFleetReport,
+    exportFleetReport,
 
     // Actions
     refreshAnalytics,
@@ -347,84 +421,7 @@ export function useRouteAnalytics(filters: AnalyticsFilters = {}) {
   };
 }
 
-/**
- * Hook for real-time route metrics calculation
- */
-export function useRealTimeMetrics(coordinates: RouteTracking[]) {
-  const [metrics, setMetrics] = useState({
-    totalDistance: 0,
-    averageSpeed: 0,
-    currentSpeed: 0,
-    maxSpeed: 0,
-    duration: 0,
-    coordinateCount: 0
-  });
-
-  useEffect(() => {
-    if (coordinates.length < 2) {
-      setMetrics({
-        totalDistance: 0,
-        averageSpeed: 0,
-        currentSpeed: 0,
-        maxSpeed: 0,
-        duration: 0,
-        coordinateCount: coordinates.length
-      });
-      return;
-    }
-
-    const result = DistanceCalculator.calculateRouteMetrics(coordinates);
-    const currentSpeed = coordinates.length >= 2
-      ? DistanceCalculator.calculateRouteSegments(coordinates.slice(-2))[0]?.speed || 0
-      : 0;
-
-    setMetrics({
-      totalDistance: result.totalDistance,
-      averageSpeed: result.averageSpeed,
-      currentSpeed: Math.round(currentSpeed * 100) / 100,
-      maxSpeed: result.maxSpeed,
-      duration: result.totalTime,
-      coordinateCount: coordinates.length
-    });
-  }, [coordinates]);
-
-  return metrics;
-}
-
 // Helper functions
-
-function getWeekRanges(dates: string[]): string[] {
-  if (dates.length === 0) return [];
-
-  const weeks = new Set<string>();
-  dates.forEach(date => {
-    const weekStart = getWeekStart(date);
-    weeks.add(weekStart);
-  });
-
-  return Array.from(weeks).sort();
-}
-
-function getMonthRanges(dates: string[]): string[] {
-  if (dates.length === 0) return [];
-
-  const months = new Set<string>();
-  dates.forEach(date => {
-    const month = date.substring(0, 7); // YYYY-MM
-    months.add(month);
-  });
-
-  return Array.from(months).sort();
-}
-
-function getWeekStart(dateString: string): string {
-  const date = new Date(dateString);
-  const dayOfWeek = date.getDay();
-  const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // 0 = Sunday
-  date.setDate(date.getDate() - daysToMonday);
-  return date.toISOString().split('T')[0];
-}
-
 function getLastDayOfMonth(month: string): string {
   const [year, monthNum] = month.split('-').map(Number);
   const lastDay = new Date(year, monthNum, 0).getDate();

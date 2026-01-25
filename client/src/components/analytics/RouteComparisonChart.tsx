@@ -14,11 +14,22 @@ import {
   Scatter
 } from 'recharts';
 import { Route, TrendingUp, BarChart3 } from 'lucide-react';
-import { RouteAnalytics } from '@shared/schema';
+import { RouteAnalytics } from '@shared/types';
 
 interface RouteComparisonChartProps {
   data: RouteAnalytics[];
   viewType: 'daily' | 'weekly' | 'monthly';
+}
+
+interface GroupedRouteMetrics {
+  date: string;
+  totalDistance: number;
+  totalTime: number;
+  shipmentsCompleted: number;
+  fuelConsumed: number;
+  fuelCost: number;
+  employeeCount: Set<string>;
+  records: RouteAnalytics[];
 }
 
 export default function RouteComparisonChart({
@@ -27,7 +38,7 @@ export default function RouteComparisonChart({
 }: RouteComparisonChartProps) {
   // Group data by date for comparison
   const chartData = React.useMemo(() => {
-    const grouped = data.reduce((acc, item) => {
+    const grouped = data.reduce<Record<string, GroupedRouteMetrics>>((acc, item) => {
       const key = item.date;
       if (!acc[key]) {
         acc[key] = {
@@ -49,11 +60,10 @@ export default function RouteComparisonChart({
       acc[key].fuelCost += item.fuelCost || 0;
       acc[key].employeeCount.add(item.employeeId);
       acc[key].records.push(item);
-
       return acc;
-    }, {} as Record<string, any>);
+    }, {});
 
-    return Object.values(grouped).map((item: any) => ({
+    return Object.values(grouped).map((item) => ({
       date: new Date(item.date).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',

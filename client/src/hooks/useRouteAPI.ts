@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   StartRouteSession, StopRouteSession, GPSCoordinate,
   RouteFilters, RouteSession
-} from '@shared/schema';
+} from '@shared/types';
 import { routeAPI } from '@/apiClient/routes';
 
 // Query keys for React Query
@@ -248,7 +248,7 @@ export function useAPIHealth() {
       setResponseTime(result.responseTime || null);
 
       return result.isHealthy;
-    } catch (error) {
+    } catch (_error) {
       setIsHealthy(false);
       setLastCheck(new Date());
       setResponseTime(null);

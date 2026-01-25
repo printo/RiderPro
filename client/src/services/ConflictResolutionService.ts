@@ -1,25 +1,28 @@
-import { GPSPosition } from './GPSTracker';
-import { OfflineGPSRecord, OfflineRouteSession } from './OfflineStorageService';
-import { log } from "../utils/logger.js";
+import { 
+  GPSPosition, 
+  OfflineGPSRecord, 
+  OfflineRouteSession,
+  ServerGPSRecord,
+  ServerRouteSession,
+  ServerData,
+  DataConflict,
+  ConflictResolution
+} from '@shared/types';
 
-export interface DataConflict {
-  id: string;
-  type: 'gps_record' | 'route_session';
-  localData: OfflineGPSRecord | OfflineRouteSession;
-  serverData?: any;
-  conflictReason: 'duplicate' | 'timestamp_mismatch' | 'data_mismatch' | 'server_newer';
-  timestamp: Date;
-}
+type ResolutionStrategy<T extends ServerData> = (conflict: DataConflict<T>) => ConflictResolution<T>;
 
-export interface ConflictResolution {
-  action: 'use_local' | 'use_server' | 'merge' | 'skip';
-  resolvedData?: any;
-  reason: string;
-}
+type ConflictMap = {
+  gps: Map<string, DataConflict<ServerGPSRecord>>;
+  route: Map<string, DataConflict<ServerRouteSession>>;
+};
 
 export class ConflictResolutionService {
-  private conflicts: Map<string, DataConflict> = new Map();
-  private resolutionStrategies: Map<string, (conflict: DataConflict) => ConflictResolution> = new Map();
+  private conflicts: ConflictMap = {
+    gps: new Map(),
+    route: new Map()
+  };
+  
+  private resolutionStrategies = new Map<string, ResolutionStrategy<ServerData>>();
 
   constructor() {
     this.setupDefaultStrategies();
@@ -30,41 +33,39 @@ export class ConflictResolutionService {
    */
   private setupDefaultStrategies(): void {
     // GPS Record conflicts
-    this.resolutionStrategies.set('gps_record_duplicate', (conflict) => {
-      return {
-        action: 'skip',
-        reason: 'GPS record already exists on server'
-      };
-    });
+    this.resolutionStrategies.set('gps_record_duplicate', (_conflict) => ({
+      action: 'skip',
+      reason: 'GPS record already exists on server'
+    }));
 
     this.resolutionStrategies.set('gps_record_timestamp_mismatch', (conflict) => {
       const localRecord = conflict.localData as OfflineGPSRecord;
-      const serverData = conflict.serverData;
+      const serverData = conflict.serverData as ServerGPSRecord;
 
       // Use the record with the more recent timestamp
       const localTime = new Date(localRecord.timestamp).getTime();
-      const serverTime = serverData ? new Date(serverData.timestamp).getTime() : 0;
+      const serverTime = new Date(serverData.timestamp).getTime();
 
       if (localTime > serverTime) {
         return {
           action: 'use_local',
           reason: 'Local record has more recent timestamp'
-        };
+        } as ConflictResolution<ServerGPSRecord>;
       } else {
         return {
           action: 'use_server',
           reason: 'Server record has more recent timestamp'
-        };
+        } as ConflictResolution<ServerGPSRecord>;
       }
     });
 
     // Route Session conflicts
     this.resolutionStrategies.set('route_session_duplicate', (conflict) => {
       const localSession = conflict.localData as OfflineRouteSession;
-      const serverData = conflict.serverData;
+      const serverData = conflict.serverData as ServerRouteSession;
 
       // Merge session data, preferring local for status and end time
-      const mergedData = {
+      const mergedData: ServerRouteSession = {
         ...serverData,
         status: localSession.status,
         endTime: localSession.endTime || serverData.endTime,
@@ -75,20 +76,13 @@ export class ConflictResolutionService {
         action: 'merge',
         resolvedData: mergedData,
         reason: 'Merged local status and end time with server data'
-      };
+      } as ConflictResolution<ServerRouteSession>;
     });
 
-    this.resolutionStrategies.set('route_session_data_mismatch', (conflict) => {
-      const localSession = conflict.localData as OfflineRouteSession;
-
-      // For route sessions, local data is usually more authoritative
-      // since it reflects the actual user actions
-      return {
-        action: 'use_local',
-        resolvedData: localSession,
-        reason: 'Local route session data is more authoritative'
-      };
-    });
+    this.resolutionStrategies.set('route_session_data_mismatch', () => ({
+      action: 'use_local',
+      reason: 'Local route session data is more authoritative'
+    }));
   }
 
   /**
@@ -96,8 +90,8 @@ export class ConflictResolutionService {
    */
   detectGPSRecordConflict(
     localRecord: OfflineGPSRecord,
-    serverRecord?: any
-  ): DataConflict | null {
+    serverRecord?: ServerGPSRecord
+  ): DataConflict<ServerGPSRecord> | null {
     if (!serverRecord) {
       return null; // No conflict if server record doesn't exist
     }
@@ -130,7 +124,7 @@ export class ConflictResolutionService {
       conflictReason = 'data_mismatch';
     }
 
-    const conflict: DataConflict = {
+    const conflict: DataConflict<ServerGPSRecord> = {
       id: conflictId,
       type: 'gps_record',
       localData: localRecord,
@@ -139,7 +133,7 @@ export class ConflictResolutionService {
       timestamp: new Date()
     };
 
-    this.conflicts.set(conflictId, conflict);
+    this.conflicts.gps.set(conflictId, conflict);
     return conflict;
   }
 
@@ -148,8 +142,8 @@ export class ConflictResolutionService {
    */
   detectRouteSessionConflict(
     localSession: OfflineRouteSession,
-    serverSession?: any
-  ): DataConflict | null {
+    serverSession?: ServerRouteSession
+  ): DataConflict<ServerRouteSession> | null {
     if (!serverSession) {
       return null; // No conflict if server session doesn't exist
     }
@@ -170,7 +164,7 @@ export class ConflictResolutionService {
       conflictReason = 'data_mismatch';
     }
 
-    const conflict: DataConflict = {
+    const conflict: DataConflict<ServerRouteSession> = {
       id: conflictId,
       type: 'route_session',
       localData: localSession,
@@ -179,42 +173,59 @@ export class ConflictResolutionService {
       timestamp: new Date()
     };
 
-    this.conflicts.set(conflictId, conflict);
+    this.conflicts.route.set(conflictId, conflict);
     return conflict;
   }
 
   /**
    * Resolve a conflict using the appropriate strategy
    */
-  resolveConflict(conflictId: string): ConflictResolution | null {
-    const conflict = this.conflicts.get(conflictId);
-    if (!conflict) {
-      return null;
+  resolveConflict(conflictId: string): ConflictResolution<ServerData> | undefined {
+    // Try to find the conflict in GPS conflicts
+    const gpsConflict = this.conflicts.gps.get(conflictId);
+    if (gpsConflict) {
+      const strategyKey = `gps_record_${gpsConflict.conflictReason}`.toLowerCase();
+      const strategy = this.resolutionStrategies.get(strategyKey);
+      
+      if (strategy) {
+        return strategy(gpsConflict);
+      }
     }
 
-    const strategyKey = `${conflict.type}_${conflict.conflictReason}`;
-    const strategy = this.resolutionStrategies.get(strategyKey);
-
-    if (strategy) {
-      const resolution = strategy(conflict);
-      log.dev(`Resolved conflict ${conflictId}:`, resolution);
-      return resolution;
+    // Try to find the conflict in Route session conflicts
+    const routeConflict = this.conflicts.route.get(conflictId);
+    if (routeConflict) {
+      const strategyKey = `route_session_${routeConflict.conflictReason}`.toLowerCase();
+      const strategy = this.resolutionStrategies.get(strategyKey);
+      
+      if (strategy) {
+        return strategy(routeConflict);
+      }
     }
 
-    // Default resolution: use local data
+    // Default strategy if no specific strategy found
     return {
-      action: 'use_local',
-      reason: 'No specific strategy found, defaulting to local data'
+      action: 'use_server',
+      reason: 'No specific resolution strategy found, using server data as fallback'
     };
   }
 
   /**
    * Resolve all pending conflicts
    */
-  resolveAllConflicts(): Map<string, ConflictResolution> {
-    const resolutions = new Map<string, ConflictResolution>();
+  resolveAllConflicts(): Map<string, ConflictResolution<ServerData>> {
+    const resolutions = new Map<string, ConflictResolution<ServerData>>();
 
-    for (const [conflictId, conflict] of Array.from(this.conflicts.entries())) {
+    // Process GPS conflicts
+    for (const [conflictId] of Array.from(this.conflicts.gps.entries())) {
+      const resolution = this.resolveConflict(conflictId);
+      if (resolution) {
+        resolutions.set(conflictId, resolution);
+      }
+    }
+
+    // Process Route session conflicts
+    for (const [conflictId] of Array.from(this.conflicts.route.entries())) {
       const resolution = this.resolveConflict(conflictId);
       if (resolution) {
         resolutions.set(conflictId, resolution);
@@ -225,26 +236,36 @@ export class ConflictResolutionService {
   }
 
   /**
-   * Get all pending conflicts
+   * Get all conflicts
    */
-  getPendingConflicts(): DataConflict[] {
-    return Array.from(this.conflicts.values());
+  getAllConflicts(): DataConflict<ServerData>[] {
+    return [
+      ...Array.from(this.conflicts.gps.values()),
+      ...Array.from(this.conflicts.route.values())
+    ];
   }
 
   /**
-   * Clear resolved conflicts
+   * Remove a resolved conflict
    */
-  clearResolvedConflicts(conflictIds: string[]): void {
-    for (const id of conflictIds) {
-      this.conflicts.delete(id);
+  removeConflict(conflictId: string): boolean {
+    // Try to remove from GPS conflicts first
+    if (this.conflicts.gps.has(conflictId)) {
+      return this.conflicts.gps.delete(conflictId);
     }
+    // Then try route conflicts
+    if (this.conflicts.route.has(conflictId)) {
+      return this.conflicts.route.delete(conflictId);
+    }
+    return false;
   }
 
   /**
    * Clear all conflicts
    */
-  clearAllConflicts(): void {
-    this.conflicts.clear();
+  clearConflicts(): void {
+    this.conflicts.gps.clear();
+    this.conflicts.route.clear();
   }
 
   /**
@@ -258,30 +279,6 @@ export class ConflictResolutionService {
   }
 
   /**
-   * Calculate distance between two GPS positions
-   */
-  private calculatePositionDifference(pos1: GPSPosition, pos2: GPSPosition): number {
-    const R = 6371000; // Earth's radius in meters
-    const dLat = this.toRadians(pos2.latitude - pos1.latitude);
-    const dLon = this.toRadians(pos2.longitude - pos1.longitude);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRadians(pos1.latitude)) * Math.cos(this.toRadians(pos2.latitude)) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  /**
-   * Convert degrees to radians
-   */
-  private toRadians(degrees: number): number {
-    return degrees * (Math.PI / 180);
-  }
-
-  /**
    * Get conflict statistics
    */
   getConflictStats(): {
@@ -290,12 +287,12 @@ export class ConflictResolutionService {
     byReason: Record<string, number>;
   } {
     const stats = {
-      total: this.conflicts.size,
+      total: this.getConflictCount(),
       byType: {} as Record<string, number>,
       byReason: {} as Record<string, number>
     };
 
-    for (const conflict of Array.from(this.conflicts.values())) {
+    for (const conflict of this.getAllConflicts()) {
       stats.byType[conflict.type] = (stats.byType[conflict.type] || 0) + 1;
       stats.byReason[conflict.conflictReason] = (stats.byReason[conflict.conflictReason] || 0) + 1;
     }
@@ -304,17 +301,36 @@ export class ConflictResolutionService {
   }
 
   /**
-   * Check if there are any unresolved conflicts
+   * Get the number of pending conflicts
    */
-  hasUnresolvedConflicts(): boolean {
-    return this.conflicts.size > 0;
+  getConflictCount(): number {
+    return this.conflicts.gps.size + this.conflicts.route.size;
   }
 
   /**
-   * Get conflicts by type
+   * Find conflicts by type
    */
-  getConflictsByType(type: 'gps_record' | 'route_session'): DataConflict[] {
-    return Array.from(this.conflicts.values()).filter(conflict => conflict.type === type);
+  findConflictsByType(type: 'gps_record' | 'route_session'): DataConflict<ServerData>[] {
+    if (type === 'gps_record') {
+      return Array.from(this.conflicts.gps.values());
+    } else {
+      return Array.from(this.conflicts.route.values());
+    }
+  }
+
+  private calculatePositionDifference(pos1: GPSPosition, pos2: GPSPosition): number {
+    const R = 6371e3; // metres
+    const φ1 = pos1.latitude * Math.PI / 180; // φ, λ in radians
+    const φ2 = pos2.latitude * Math.PI / 180;
+    const Δφ = (pos2.latitude - pos1.latitude) * Math.PI / 180;
+    const Δλ = (pos2.longitude - pos1.longitude) * Math.PI / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // in metres
   }
 
   /**

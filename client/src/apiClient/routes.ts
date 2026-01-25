@@ -1,61 +1,10 @@
 import { apiRequest } from "@/lib/queryClient";
 import {
   RouteSession, StartRouteSession, StopRouteSession,
-  GPSCoordinate, RouteAnalytics, RouteFilters, RouteTracking
-} from "@shared/schema";
+  GPSCoordinate, RouteAnalytics, RouteFilters, RouteTracking,
+  BatchCoordinatesResponse, SessionSummary
+} from "@shared/types";
 import { apiClient } from "../services/ApiClient";
-
-export interface RouteAPIResponse<T = any> {
-  success: boolean;
-  message: string;
-  data?: T;
-}
-
-export interface SessionResponse extends RouteAPIResponse {
-  session: RouteSession;
-}
-
-export interface CoordinatesResponse extends RouteAPIResponse {
-  coordinates: RouteTracking[];
-  count: number;
-}
-
-export interface AnalyticsResponse extends RouteAPIResponse {
-  analytics: RouteAnalytics[];
-  count: number;
-}
-
-export interface BatchCoordinateResult {
-  success: boolean;
-  record?: RouteTracking;
-  error?: string;
-  coordinate?: GPSCoordinate;
-}
-
-export interface BatchCoordinatesResponse extends RouteAPIResponse {
-  results: BatchCoordinateResult[];
-  summary: {
-    total: number;
-    successful: number;
-    failed: number;
-  };
-}
-
-export interface SessionSummary {
-  sessionId: string;
-  employeeId: string;
-  startTime: string;
-  endTime: string;
-  totalDistance: number;
-  totalTimeSeconds: number;
-  averageSpeed: number;
-  coordinateCount: number;
-  status: string;
-}
-
-export interface SessionSummaryResponse extends RouteAPIResponse {
-  summary: SessionSummary;
-}
 
 export const routeAPI = {
   /**
@@ -263,7 +212,7 @@ export const routeAPI = {
       // Use a lighter endpoint for health checks
       const response = await apiClient.get('/api/health');
       return response.ok;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

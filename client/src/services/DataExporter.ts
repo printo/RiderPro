@@ -1,22 +1,19 @@
-import { RouteAnalytics, RouteTracking } from '@shared/schema';
+import { 
+  RouteAnalytics, 
+  RouteTracking,
+  ExportOptions,
+  ExportResult
+} from '@shared/types';
 import { format } from 'date-fns';
 
-export interface ExportOptions {
-  filename?: string;
-  dateRange?: {
-    from: Date;
-    to: Date;
-  };
-  employeeIds?: string[];
-  includeHeaders?: boolean;
-  format?: 'csv' | 'json';
-}
-
-export interface ExportResult {
-  success: boolean;
-  filename: string;
-  recordCount: number;
-  error?: string;
+interface EmployeePerformanceAggregate {
+  employeeId: string;
+  totalDistance: number;
+  totalTime: number;
+  totalFuelConsumed: number;
+  totalFuelCost: number;
+  totalShipments: number;
+  workingDays: Set<string>;
 }
 
 export class DataExporter {
@@ -45,9 +42,13 @@ export class DataExporter {
       }
 
       if (options.employeeIds && options.employeeIds.length > 0) {
-        filteredData = filteredData.filter(item =>
-          options.employeeIds!.includes(item.employeeId)
-        );
+        filteredData = filteredData.filter(item => {
+          const employeeId = item.employeeId;
+          if (!employeeId) {
+            return false;
+          }
+          return options.employeeIds!.includes(employeeId);
+        });
       }
 
       // Define CSV headers
@@ -127,9 +128,13 @@ export class DataExporter {
       }
 
       if (options.employeeIds && options.employeeIds.length > 0) {
-        filteredData = filteredData.filter(item =>
-          options.employeeIds!.includes(item.employeeId)
-        );
+        filteredData = filteredData.filter(item => {
+          const employeeId = item.employeeId;
+          if (!employeeId) {
+            return false;
+          }
+          return options.employeeIds!.includes(employeeId);
+        });
       }
 
       // Define CSV headers
@@ -202,7 +207,7 @@ export class DataExporter {
       } = options;
 
       // Aggregate data by employee
-      const employeeData = data.reduce((acc, item) => {
+      const employeeData = data.reduce<Record<string, EmployeePerformanceAggregate>>((acc, item) => {
         if (!acc[item.employeeId]) {
           acc[item.employeeId] = {
             employeeId: item.employeeId,
@@ -223,7 +228,7 @@ export class DataExporter {
         acc[item.employeeId].workingDays.add(item.date);
 
         return acc;
-      }, {} as Record<string, any>);
+      }, {});
 
       // Define CSV headers
       const headers = [
@@ -242,7 +247,7 @@ export class DataExporter {
       ];
 
       // Convert data to CSV rows
-      const rows = Object.values(employeeData).map((employee: any) => {
+      const rows = Object.values(employeeData).map(employee => {
         const workingDays = employee.workingDays.size;
         const avgSpeed = employee.totalTime > 0 ? (employee.totalDistance / (employee.totalTime / 3600)) : 0;
         const fuelEfficiency = employee.totalFuelConsumed > 0 ? (employee.totalDistance / employee.totalFuelConsumed) : 0;
@@ -293,8 +298,8 @@ export class DataExporter {
   /**
    * Export data to JSON format
    */
-  static async exportToJSON(
-    data: any[],
+  static async exportToJSON<T extends { date?: string; timestamp?: string; employeeId?: string }>(
+    data: T[],
     options: ExportOptions = {}
   ): Promise<ExportResult> {
     try {
@@ -308,15 +313,23 @@ export class DataExporter {
       if (options.dateRange) {
         const { from, to } = options.dateRange;
         filteredData = filteredData.filter(item => {
-          const itemDate = new Date(item.date || item.timestamp);
+          const dateValue = item.date ?? item.timestamp;
+          if (!dateValue) {
+            return false;
+          }
+          const itemDate = new Date(dateValue);
           return itemDate >= from && itemDate <= to;
         });
       }
 
       if (options.employeeIds && options.employeeIds.length > 0) {
-        filteredData = filteredData.filter(item =>
-          options.employeeIds!.includes(item.employeeId)
-        );
+        filteredData = filteredData.filter(item => {
+          const employeeId = item.employeeId;
+          if (!employeeId) {
+            return false;
+          }
+          return options.employeeIds!.includes(employeeId);
+        });
       }
 
       // Create JSON content

@@ -6,6 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withChartErrorBoundary } from '@/components/ErrorBoundary';
+import { RouteSession, RoutePoint } from '@shared/types';
 import {
   Play,
   Pause,
@@ -16,75 +17,45 @@ import {
   Clock,
   Route,
   Gauge,
-  Zap,
-  TrendingUp,
-  Settings,
-  Download,
-  RefreshCw
+  Settings
 } from 'lucide-react';
 
 // Mock Leaflet types for now - in real implementation would import from leaflet
-interface LatLng {
-  lat: number;
-  lng: number;
-}
-
-interface RoutePoint {
-  id: string;
-  latitude: number;
-  longitude: number;
-  timestamp: string;
-  accuracy?: number;
-  speed?: number;
-  eventType?: 'pickup' | 'delivery' | 'gps';
-  shipmentId?: string;
-}
-
-interface RouteSession {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  startTime: string;
-  endTime?: string;
-  status: 'active' | 'completed' | 'paused';
-  totalDistance: number;
-  totalTime: number;
-  averageSpeed: number;
-  points: RoutePoint[];
-  shipmentsCompleted: number;
+interface MockMap {
+  setView: (center: [number, number], zoom: number) => void;
+  addLayer: (_layer: unknown) => void;
+  removeLayer: (_layer: unknown) => void;
+  fitBounds: (_bounds: unknown) => void;
 }
 
 interface RouteVisualizationProps {
   sessionId?: string;
   sessions?: RouteSession[];
   onSessionSelect?: (sessionId: string) => void;
-  onPointClick?: (point: RoutePoint) => void;
   showComparison?: boolean;
-  autoPlay?: boolean;
   className?: string;
+  autoPlay?: boolean;
 }
 
 function RouteVisualization({
   sessionId,
   sessions = [],
   onSessionSelect,
-  onPointClick,
   showComparison = false,
   autoPlay = false
 }: RouteVisualizationProps) {
   const [selectedSession, setSelectedSession] = useState<RouteSession | null>(null);
   const [comparisonSession, setComparisonSession] = useState<RouteSession | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(autoPlay);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [currentPointIndex, setCurrentPointIndex] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [mapStyle, setMapStyle] = useState('openstreetmap');
   const [showHeatmap, setShowHeatmap] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const playbackIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const mapInstanceRef = useRef<any>(null);
+  const mapInstanceRef = useRef<MockMap | null>(null);
 
   // Initialize map
   useEffect(() => {
@@ -92,17 +63,17 @@ function RouteVisualization({
 
     // In a real implementation, this would initialize Leaflet map
     // For now, we'll create a mock map container
-    const mockMap = {
+    const mockMap: MockMap = {
       setView: (center: [number, number], zoom: number) => {
         console.log(`Map centered at ${center} with zoom ${zoom}`);
       },
-      addLayer: (layer: any) => {
+      addLayer: (_layer: unknown) => {
         console.log('Layer added to map');
       },
-      removeLayer: (layer: any) => {
+      removeLayer: (_layer: unknown) => {
         console.log('Layer removed from map');
       },
-      fitBounds: (bounds: any) => {
+      fitBounds: (_bounds: unknown) => {
         console.log('Map bounds fitted');
       }
     };
@@ -131,13 +102,13 @@ function RouteVisualization({
 
   // Auto-play functionality
   useEffect(() => {
-    if (isPlaying && selectedSession && selectedSession.points.length > 0) {
+    if (isPlaying && selectedSession && selectedSession.points && selectedSession.points.length > 0) {
       const interval = 1000 / playbackSpeed; // Adjust speed
 
       playbackIntervalRef.current = setInterval(() => {
         setCurrentPointIndex(prev => {
           const nextIndex = prev + 1;
-          if (nextIndex >= selectedSession.points.length) {
+          if (nextIndex >= (selectedSession.points?.length || 0)) {
             setIsPlaying(false);
             return prev;
           }
@@ -167,9 +138,9 @@ function RouteVisualization({
     console.log(`Updating map for session ${selectedSession.id}, point ${currentPointIndex}`);
 
     // Mock map update
-    if (selectedSession.points.length > 0) {
+    if (selectedSession.points && selectedSession.points.length > 0) {
       const currentPoint = selectedSession.points[currentPointIndex];
-      if (currentPoint) {
+      if (currentPoint && mapInstanceRef.current) {
         mapInstanceRef.current.setView([currentPoint.latitude, currentPoint.longitude], 15);
       }
     }
@@ -197,7 +168,7 @@ function RouteVisualization({
   };
 
   const handleSkipToEnd = () => {
-    if (selectedSession) {
+    if (selectedSession && selectedSession.points) {
       setCurrentPointIndex(selectedSession.points.length - 1);
       setIsPlaying(false);
     }
@@ -230,14 +201,14 @@ function RouteVisualization({
   };
 
   const getCurrentPoint = (): RoutePoint | null => {
-    if (!selectedSession || currentPointIndex >= selectedSession.points.length) {
+    if (!selectedSession || !selectedSession.points || currentPointIndex >= selectedSession.points.length) {
       return null;
     }
     return selectedSession.points[currentPointIndex];
   };
 
   const getRouteProgress = (): number => {
-    if (!selectedSession || selectedSession.points.length === 0) return 0;
+    if (!selectedSession || !selectedSession.points || selectedSession.points.length === 0) return 0;
     return (currentPointIndex / (selectedSession.points.length - 1)) * 100;
   };
 
@@ -295,7 +266,7 @@ function RouteVisualization({
                 {sessions.map((session) => (
                   <SelectItem key={session.id} value={session.id}>
                     {session.employeeName} - {new Date(session.startTime).toLocaleDateString()}
-                    ({formatDistance(session.totalDistance)})
+                    ({formatDistance(session.totalDistance || 0)})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -398,7 +369,7 @@ function RouteVisualization({
               <Slider
                 value={[currentPointIndex]}
                 onValueChange={handleSliderChange}
-                max={Math.max(0, selectedSession.points.length - 1)}
+                max={Math.max(0, (selectedSession.points?.length || 1) - 1)}
                 step={1}
                 className="w-full"
               />
@@ -429,7 +400,7 @@ function RouteVisualization({
                 variant={isPlaying ? "default" : "outline"}
                 size="sm"
                 onClick={handlePlayPause}
-                disabled={selectedSession.points.length === 0}
+                disabled={(selectedSession.points?.length || 0) === 0}
               >
                 {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </Button>
@@ -447,7 +418,7 @@ function RouteVisualization({
                 variant="outline"
                 size="sm"
                 onClick={handleSkipToEnd}
-                disabled={currentPointIndex >= selectedSession.points.length - 1}
+                disabled={currentPointIndex >= (selectedSession.points?.length || 1) - 1}
               >
                 <SkipForward className="h-4 w-4" />
               </Button>
@@ -524,7 +495,7 @@ function RouteVisualization({
                 <Route className="h-4 w-4 text-blue-600" />
                 <div>
                   <p className="text-xs text-gray-500">Distance</p>
-                  <p className="font-medium">{formatDistance(selectedSession.totalDistance)}</p>
+                  <p className="font-medium">{formatDistance(selectedSession.totalDistance || 0)}</p>
                 </div>
               </div>
 
@@ -532,7 +503,7 @@ function RouteVisualization({
                 <Clock className="h-4 w-4 text-green-600" />
                 <div>
                   <p className="text-xs text-gray-500">Duration</p>
-                  <p className="font-medium">{formatDuration(selectedSession.totalTime)}</p>
+                  <p className="font-medium">{formatDuration(selectedSession.totalTime || 0)}</p>
                 </div>
               </div>
 
@@ -540,7 +511,7 @@ function RouteVisualization({
                 <Gauge className="h-4 w-4 text-orange-600" />
                 <div>
                   <p className="text-xs text-gray-500">Avg Speed</p>
-                  <p className="font-medium">{selectedSession.averageSpeed.toFixed(1)} km/h</p>
+                  <p className="font-medium">{(selectedSession.averageSpeed || 0).toFixed(1)} km/h</p>
                 </div>
               </div>
 
@@ -548,7 +519,7 @@ function RouteVisualization({
                 <MapPin className="h-4 w-4 text-purple-600" />
                 <div>
                   <p className="text-xs text-gray-500">Shipments</p>
-                  <p className="font-medium">{selectedSession.shipmentsCompleted}</p>
+                  <p className="font-medium">{selectedSession.shipmentsCompleted || 0}</p>
                 </div>
               </div>
             </div>
@@ -560,42 +531,42 @@ function RouteVisualization({
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <p className="text-xs text-gray-500">Distance Diff</p>
-                    <p className={`font-medium ${selectedSession.totalDistance > comparisonSession.totalDistance
+                    <p className={`font-medium ${(selectedSession.totalDistance || 0) > (comparisonSession.totalDistance || 0)
                       ? 'text-red-600' : 'text-green-600'
                       }`}>
-                      {selectedSession.totalDistance > comparisonSession.totalDistance ? '+' : ''}
-                      {formatDistance(selectedSession.totalDistance - comparisonSession.totalDistance)}
+                      {(selectedSession.totalDistance || 0) > (comparisonSession.totalDistance || 0) ? '+' : ''}
+                      {formatDistance((selectedSession.totalDistance || 0) - (comparisonSession.totalDistance || 0))}
                     </p>
                   </div>
 
                   <div>
                     <p className="text-xs text-gray-500">Time Diff</p>
-                    <p className={`font-medium ${selectedSession.totalTime > comparisonSession.totalTime
+                    <p className={`font-medium ${(selectedSession.totalTime || 0) > (comparisonSession.totalTime || 0)
                       ? 'text-red-600' : 'text-green-600'
                       }`}>
-                      {selectedSession.totalTime > comparisonSession.totalTime ? '+' : ''}
-                      {formatDuration(Math.abs(selectedSession.totalTime - comparisonSession.totalTime))}
+                      {(selectedSession.totalTime || 0) > (comparisonSession.totalTime || 0) ? '+' : ''}
+                      {formatDuration(Math.abs((selectedSession.totalTime || 0) - (comparisonSession.totalTime || 0)))}
                     </p>
                   </div>
 
                   <div>
                     <p className="text-xs text-gray-500">Speed Diff</p>
-                    <p className={`font-medium ${selectedSession.averageSpeed < comparisonSession.averageSpeed
+                    <p className={`font-medium ${(selectedSession.averageSpeed || 0) < (comparisonSession.averageSpeed || 0)
                       ? 'text-red-600' : 'text-green-600'
                       }`}>
-                      {selectedSession.averageSpeed > comparisonSession.averageSpeed ? '+' : ''}
-                      {(selectedSession.averageSpeed - comparisonSession.averageSpeed).toFixed(1)} km/h
+                      {(selectedSession.averageSpeed || 0) > (comparisonSession.averageSpeed || 0) ? '+' : ''}
+                      {((selectedSession.averageSpeed || 0) - (comparisonSession.averageSpeed || 0)).toFixed(1)} km/h
                     </p>
                   </div>
 
                   <div>
                     <p className="text-xs text-gray-500">Efficiency</p>
-                    <p className={`font-medium ${(selectedSession.totalDistance / selectedSession.shipmentsCompleted) <
-                      (comparisonSession.totalDistance / comparisonSession.shipmentsCompleted)
+                    <p className={`font-medium ${((selectedSession.totalDistance || 0) / (selectedSession.shipmentsCompleted || 1)) <
+                      ((comparisonSession.totalDistance || 0) / (comparisonSession.shipmentsCompleted || 1))
                       ? 'text-green-600' : 'text-red-600'
                       }`}>
-                      {((selectedSession.totalDistance / selectedSession.shipmentsCompleted) -
-                        (comparisonSession.totalDistance / comparisonSession.shipmentsCompleted)).toFixed(1)} km/shipment
+                      {(((selectedSession.totalDistance || 0) / (selectedSession.shipmentsCompleted || 1)) -
+                        ((comparisonSession.totalDistance || 0) / (comparisonSession.shipmentsCompleted || 1))).toFixed(1)} km/shipment
                     </p>
                   </div>
                 </div>
@@ -616,7 +587,8 @@ function RouteVisualization({
       )}
     </div>
   );
-} export
-  default withChartErrorBoundary(RouteVisualization, {
-    componentName: 'RouteVisualization'
-  });
+}
+
+export default withChartErrorBoundary(RouteVisualization, {
+  componentName: 'RouteVisualization'
+});

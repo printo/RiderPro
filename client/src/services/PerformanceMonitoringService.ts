@@ -26,6 +26,13 @@ export interface PerformanceAlert {
   resolved: boolean;
 }
 
+export interface PerformanceTrends {
+  queryTrend: 'improving' | 'stable' | 'degrading';
+  errorTrend: 'improving' | 'stable' | 'degrading';
+  averageQueryTime: number[];
+  errorRate: number[];
+}
+
 export class PerformanceMonitoringService {
   private metrics: QueryPerformanceMetric[] = [];
   private alerts: PerformanceAlert[] = [];
@@ -201,7 +208,14 @@ export class PerformanceMonitoringService {
 
     // Check memory usage
     if ('memory' in performance) {
-      const memory = (performance as any).memory;
+      type PerformanceWithMemory = Performance & {
+        memory: {
+          usedJSHeapSize: number;
+          jsHeapSizeLimit: number;
+          totalJSHeapSize: number;
+        };
+      };
+      const memory = (performance as PerformanceWithMemory).memory;
       const usedMB = memory.usedJSHeapSize / (1024 * 1024);
       const limitMB = memory.jsHeapSizeLimit / (1024 * 1024);
 
@@ -346,7 +360,12 @@ export class PerformanceMonitoringService {
       byType[metric.queryType].push(metric);
     });
 
-    const result: Record<string, any> = {};
+    type QueryTypePerformance = {
+      count: number;
+      averageDuration: number;
+      successRate: number;
+    };
+    const result: Record<string, QueryTypePerformance> = {};
 
     Object.entries(byType).forEach(([type, metrics]) => {
       const count = metrics.length;
@@ -367,12 +386,7 @@ export class PerformanceMonitoringService {
   /**
    * Get performance trends
    */
-  getPerformanceTrends(timeWindow: number = 3600000): {
-    queryTrend: 'improving' | 'stable' | 'degrading';
-    errorTrend: 'improving' | 'stable' | 'degrading';
-    averageQueryTime: number[];
-    errorRate: number[];
-  } {
+  getPerformanceTrends(timeWindow: number = 3600000): PerformanceTrends {
     const cutoff = Date.now() - timeWindow;
     const recentMetrics = this.metrics.filter(m => m.timestamp.getTime() > cutoff);
 
@@ -515,7 +529,7 @@ export class PerformanceMonitoringService {
     metrics: QueryPerformanceMetric[];
     stats: DatabasePerformanceStats;
     alerts: PerformanceAlert[];
-    trends: any;
+    trends: PerformanceTrends;
   } {
     return {
       metrics: [...this.metrics],

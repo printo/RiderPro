@@ -1,7 +1,6 @@
 // client/src/hooks/useAuth.ts
 import { useState, useEffect } from 'react';
 import AuthService from '../services/AuthService';
-import { User } from '../types/User';
 
 export const useAuth = () => {
   const [authState, setAuthState] = useState(AuthService.getInstance().getState());

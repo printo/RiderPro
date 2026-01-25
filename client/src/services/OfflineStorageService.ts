@@ -1,37 +1,9 @@
-import { GPSPosition } from './GPSTracker';
-import { ConflictResolutionService, DataConflict } from './ConflictResolutionService';
+import {
+  GPSPosition, OfflineGPSRecord, OfflineRouteSession, ServerConflict,
+  DeviceSyncStatus as SyncStatus, DataConflict, ConflictResolution, ServerGPSRecord
+} from '@shared/types';
+import { ConflictResolutionService } from './ConflictResolutionService';
 import { log } from "../utils/logger.js";
-
-export interface OfflineGPSRecord {
-  id: string;
-  sessionId: string;
-  position: GPSPosition;
-  timestamp: string;
-  synced: boolean;
-  syncAttempts: number;
-  lastSyncAttempt?: string;
-}
-
-export interface OfflineRouteSession {
-  id: string;
-  employeeId: string;
-  startTime: string;
-  endTime?: string;
-  status: 'active' | 'completed' | 'paused';
-  startPosition: GPSPosition;
-  endPosition?: GPSPosition;
-  synced: boolean;
-  syncAttempts: number;
-  lastSyncAttempt?: string;
-}
-
-export interface SyncStatus {
-  isOnline: boolean;
-  pendingRecords: number;
-  lastSyncTime?: Date;
-  syncInProgress: boolean;
-  syncErrors: string[];
-}
 
 export class OfflineStorageService {
   private db: IDBDatabase | null = null;
@@ -195,7 +167,7 @@ export class OfflineStorageService {
       throw new Error('IndexedDB not initialized');
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       try {
         const transaction = this.db!.transaction(['gpsRecords'], 'readonly');
         const store = transaction.objectStore('gpsRecords');
@@ -235,7 +207,7 @@ export class OfflineStorageService {
       throw new Error('IndexedDB not initialized');
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, _reject) => {
       try {
         const transaction = this.db!.transaction(['routeSessions'], 'readonly');
         const store = transaction.objectStore('routeSessions');
@@ -639,12 +611,12 @@ export class OfflineStorageService {
   /**
    * Handle sync conflicts
    */
-  private async handleSyncConflicts(conflicts: any[], localRecords: OfflineGPSRecord[]): Promise<void> {
+  private async handleSyncConflicts(conflicts: ServerConflict[], localRecords: OfflineGPSRecord[]): Promise<void> {
     for (const serverConflict of conflicts) {
       const localRecord = localRecords.find((r: OfflineGPSRecord) => r.id === serverConflict.localId);
       if (!localRecord) continue;
 
-      const conflict = this.conflictResolver.detectGPSRecordConflict(localRecord, serverConflict.serverData);
+      const conflict = this.conflictResolver.detectGPSRecordConflict(localRecord, serverConflict.serverData as ServerGPSRecord);
       if (conflict) {
         const resolution = this.conflictResolver.resolveConflict(conflict.id);
         if (resolution) {
@@ -657,7 +629,7 @@ export class OfflineStorageService {
   /**
    * Apply conflict resolution
    */
-  private async applyConflictResolution(conflict: DataConflict, resolution: any): Promise<void> {
+  private async applyConflictResolution(conflict: DataConflict, resolution: ConflictResolution): Promise<void> {
     switch (resolution.action) {
       case 'use_local':
         // Keep local data, mark as synced
@@ -707,7 +679,7 @@ export class OfflineStorageService {
    * Get sync conflicts
    */
   getSyncConflicts(): DataConflict[] {
-    return this.conflictResolver.getPendingConflicts();
+    return this.conflictResolver.getAllConflicts();
   }
 
   /**
@@ -715,7 +687,7 @@ export class OfflineStorageService {
    */
   async resolveAllConflicts(): Promise<void> {
     const resolutions = this.conflictResolver.resolveAllConflicts();
-    const conflicts = this.conflictResolver.getPendingConflicts();
+    const conflicts = this.conflictResolver.getAllConflicts();
 
     for (const conflict of conflicts) {
       const resolution = resolutions.get(conflict.id);
@@ -724,6 +696,6 @@ export class OfflineStorageService {
       }
     }
 
-    this.conflictResolver.clearAllConflicts();
+    this.conflictResolver.clearConflicts();
   }
 }

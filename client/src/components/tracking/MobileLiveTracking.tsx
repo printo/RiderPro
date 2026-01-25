@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,9 +8,6 @@ import {
   MapPin,
   Clock,
   Navigation,
-  Users,
-  Wifi,
-  WifiOff,
   RefreshCw,
   AlertCircle,
   CheckCircle,
@@ -59,39 +56,6 @@ export const MobileLiveTracking: React.FC<MobileLiveTrackingProps> = ({
   const formatTime = (timestamp: string): string => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString();
-  };
-
-  const formatDistance = (lat1: number, lon1: number, lat2: number, lon2: number): string => {
-    const R = 6371e3; // Earth's radius in meters
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) *
-      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    const distance = R * c; // Distance in meters
-
-    if (distance >= 1000) {
-      return `${(distance / 1000).toFixed(2)} km`;
-    }
-    return `${distance.toFixed(0)} m`;
-  };
-
-  const getStatusColor = (status: string): string => {
-    switch (status) {
-      case 'active':
-        return 'text-green-600';
-      case 'inactive':
-        return 'text-yellow-600';
-      case 'offline':
-        return 'text-red-600';
-      default:
-        return 'text-gray-600';
-    }
   };
 
   const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {

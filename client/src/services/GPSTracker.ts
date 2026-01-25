@@ -1,25 +1,10 @@
-import { GPSCoordinate } from '@shared/schema';
+import { GPSCoordinate, GPSPosition, GPSError, GPSPermissionStatus, ErrorLog } from '@shared/types';
 import { OfflineStorageService } from './OfflineStorageService';
 import { BatteryOptimizationService } from './BatteryOptimizationService';
-import { PerformanceMonitoringService } from './PerformanceMonitoringService';
+import { PerformanceMonitoringService, DatabasePerformanceStats } from './PerformanceMonitoringService';
 import { ErrorHandlingService } from './ErrorHandlingService';
-import { GPSErrorRecoveryService } from './GPSErrorRecoveryService';
+import { GPSErrorRecoveryService, GPSRecoveryState } from './GPSErrorRecoveryService';
 import { log } from "../utils/logger.js";
-
-export interface GPSPosition {
-  latitude: number;
-  longitude: number;
-  accuracy: number;
-  speed?: number;
-  timestamp: string;
-}
-
-export interface GPSError {
-  code: number;
-  message: string;
-}
-
-export type GPSPermissionStatus = 'granted' | 'denied' | 'prompt' | 'unknown';
 
 export class GPSTracker {
   private watchId: number | null = null;
@@ -110,7 +95,7 @@ export class GPSTracker {
           { timeout: 5000 }
         );
       });
-    } catch (error) {
+    } catch (_error) {
       return 'unknown';
     }
   }
@@ -545,14 +530,19 @@ export class GPSTracker {
   /**
    * Get battery status
    */
-  getBatteryStatus(): any {
+  getBatteryStatus(): {
+    level: string;
+    status: 'critical' | 'low' | 'normal' | 'high';
+    charging: boolean;
+    estimatedTime?: string;
+  } | null {
     return this.batteryOptimization?.getBatteryStatus() || null;
   }
 
   /**
    * Get performance metrics
    */
-  getPerformanceMetrics(): any {
+  getPerformanceMetrics(): DatabasePerformanceStats | null {
     return this.performanceMonitoring?.getPerformanceStats() || null;
   }
 
@@ -653,14 +643,14 @@ export class GPSTracker {
   /**
    * Get GPS recovery state
    */
-  getGPSRecoveryState(): any {
+  getGPSRecoveryState(): GPSRecoveryState | null {
     return this.gpsErrorRecovery?.getRecoveryState() || null;
   }
 
   /**
    * Get error logs related to GPS
    */
-  getGPSErrorLogs(): any[] {
+  getGPSErrorLogs(): ErrorLog[] {
     if (!this.errorHandler) return [];
 
     return this.errorHandler.getLogs({
@@ -672,7 +662,13 @@ export class GPSTracker {
   /**
    * Get system health status
    */
-  getSystemHealth(): any {
+  getSystemHealth(): {
+    status: 'healthy' | 'warning' | 'critical';
+    message: string;
+    recentErrors: number;
+    criticalErrors: number;
+    recommendations: string[];
+  } | null {
     return this.errorHandler?.getSystemHealth() || null;
   }
 

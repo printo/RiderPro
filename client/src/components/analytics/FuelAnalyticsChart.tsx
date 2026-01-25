@@ -18,12 +18,32 @@ import {
   Area
 } from 'recharts';
 import { Fuel, DollarSign, TrendingDown, BarChart3 } from 'lucide-react';
-import { RouteAnalytics } from '@shared/schema';
+import { RouteAnalytics } from '@shared/types';
 
 interface FuelAnalyticsChartProps {
   data: RouteAnalytics[];
   viewType: 'daily' | 'weekly' | 'monthly';
   detailed?: boolean;
+}
+
+interface GroupedFuelMetrics {
+  date: string;
+  fuelConsumed: number;
+  fuelCost: number;
+  totalDistance: number;
+  count: number;
+}
+
+interface EmployeeFuelAggregate {
+  employeeId: string;
+  fuelConsumed: number;
+  fuelCost: number;
+  totalDistance: number;
+}
+
+interface EmployeeFuelMetrics extends EmployeeFuelAggregate {
+  name: string;
+  efficiency: number;
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
@@ -35,7 +55,7 @@ export default function FuelAnalyticsChart({
 }: FuelAnalyticsChartProps) {
   // Group and aggregate fuel data by date
   const chartData = React.useMemo(() => {
-    const grouped = data.reduce((acc, item) => {
+    const grouped = data.reduce<Record<string, GroupedFuelMetrics>>((acc, item) => {
       const key = item.date;
       if (!acc[key]) {
         acc[key] = {
@@ -51,11 +71,10 @@ export default function FuelAnalyticsChart({
       acc[key].fuelCost += item.fuelCost || 0;
       acc[key].totalDistance += item.totalDistance || 0;
       acc[key].count += 1;
-
       return acc;
-    }, {} as Record<string, any>);
+    }, {});
 
-    return Object.values(grouped).map((item: any) => ({
+    return Object.values(grouped).map((item) => ({
       ...item,
       fuelEfficiency: item.fuelConsumed > 0 ? (item.totalDistance / item.fuelConsumed) : 0,
       costPerKm: item.totalDistance > 0 ? (item.fuelCost / item.totalDistance) : 0,
@@ -68,8 +87,8 @@ export default function FuelAnalyticsChart({
   }, [data, viewType]);
 
   // Employee fuel consumption breakdown
-  const employeeFuelData = React.useMemo(() => {
-    const employeeData = data.reduce((acc, item) => {
+  const employeeFuelData = React.useMemo<EmployeeFuelMetrics[]>(() => {
+    const employeeData = data.reduce<Record<string, EmployeeFuelAggregate>>((acc, item) => {
       if (!acc[item.employeeId]) {
         acc[item.employeeId] = {
           employeeId: item.employeeId,
@@ -82,11 +101,10 @@ export default function FuelAnalyticsChart({
       acc[item.employeeId].fuelConsumed += item.fuelConsumed || 0;
       acc[item.employeeId].fuelCost += item.fuelCost || 0;
       acc[item.employeeId].totalDistance += item.totalDistance || 0;
-
       return acc;
-    }, {} as Record<string, any>);
+    }, {});
 
-    return Object.values(employeeData).map((item: any) => ({
+    return Object.values(employeeData).map((item) => ({
       ...item,
       name: `Employee ${item.employeeId}`,
       efficiency: item.fuelConsumed > 0 ? (item.totalDistance / item.fuelConsumed) : 0

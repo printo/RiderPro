@@ -1,13 +1,13 @@
 import SystemValidationService from '../services/SystemValidationService.js';
 import IntegrationChecker from '../services/IntegrationChecker.js';
-import { storage } from '../storage';
 import config from '../config';
 import { log } from "../../shared/utils/logger.js";
+import { pool } from '../db/connection.js';
 
 interface StartupValidationResult {
   success: boolean;
-  systemValidation?: any;
-  integrationTests?: any;
+  systemValidation?: unknown;
+  integrationTests?: unknown;
   errors: string[];
   warnings: string[];
 }
@@ -23,8 +23,8 @@ export async function runStartupValidation(): Promise<StartupValidationResult> {
 
   try {
     // Initialize services
-    const systemValidator = SystemValidationService.getInstance(storage.getDatabase());
-    const integrationChecker = IntegrationChecker.getInstance(storage.getDatabase());
+    const systemValidator = SystemValidationService.getInstance();
+    const integrationChecker = IntegrationChecker.getInstance();
 
     // Run system validation
     log.dev('📋 Running system validation...');
@@ -84,7 +84,7 @@ export async function runStartupValidation(): Promise<StartupValidationResult> {
 
     // Check database connection
     try {
-      storage.getDatabase().prepare('SELECT 1').get();
+      await pool.query('SELECT 1');
     } catch (error) {
       result.success = false;
       result.errors.push(`Database connection failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -195,7 +195,7 @@ export function logSystemInfo(): void {
   log.dev(`  Architecture: ${process.arch}`);
   log.dev(`  Environment: ${config.environment}`);
   log.dev(`  Port: ${config.port}`);
-  log.dev(`  Database: ${config.database.path}`);
+  log.dev(`  Database: ${config.database.url.split('@')[1] || 'PostgreSQL'}`);
   log.dev(`  Route Tracking: ${config.routeTracking.enabled ? 'enabled' : 'disabled'}`);
   log.dev(`  Feature Flags: ${Object.entries(config.featureFlags).filter(([, enabled]) => enabled).map(([flag]) => flag).join(', ')}`);
 

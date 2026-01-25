@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { RouteSession, SessionStatus, RouteSessionConfig, SessionMetrics } from '../services/RouteSession';
-import { GPSPosition } from '../services/GPSTracker';
-import { RouteSession as RouteSessionType } from '@shared/schema';
+import { GPSPosition } from '@shared/types';
+import { RouteSession as RouteSessionType } from '@shared/types';
 
 export interface RouteSessionState {
   session: RouteSessionType | null;

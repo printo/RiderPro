@@ -1,40 +1,39 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import express from "express";
-import bcrypt from "bcrypt";
 import { storage } from "./storage.js";
-import Database from 'better-sqlite3';
 import path from 'path';
 import { authenticate, AuthenticatedRequest } from "./middleware/auth.js";
 import {
   insertShipmentSchema,
   updateShipmentSchema,
   batchUpdateSchema,
-  shipmentFiltersSchema,
-  startRouteSessionSchema,
-  stopRouteSessionSchema,
-  gpsCoordinateSchema,
-  routeFiltersSchema,
   ShipmentFilters,
-  VehicleType,
   InsertVehicleType,
-  UpdateVehicleType
-} from "@shared/schema";
+  UpdateVehicleType,
+  UpdateShipment,
+  Shipment
+} from "@shared/types";
 import { upload, getFileUrl, saveBase64File, processImage } from "./utils/fileUpload.js";
 import { externalSync } from "./services/externalSync.js";
+import type { ExternalUpdatePayload } from "./services/externalSync.js";
 import { fieldMappingService } from "./services/FieldMappingService.js";
 import { payloadValidationService } from "./services/PayloadValidationService.js";
 import { webhookAuth, webhookSecurity, webhookLogger, webhookRateLimit, webhookPayloadLimit } from "./middleware/webhookAuth.js";
 import { log } from "../shared/utils/logger.js";
 
+// Helper function to safely get error message
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return getErrorMessage(error);
+  }
+  return String(error);
+}
 
-// Create userdata database connection for authentication
-const userDataDbPath = path.join(process.cwd(), 'data', 'userdata.db');
-const userDataDb = new Database(userDataDbPath);
 
 // Helper function to check if user has required permission level
 // Simplified permission check (can be expanded if needed)
-function hasRequiredPermission(_req: any, _requiredLevel: 'read' | 'write' | 'admin'): boolean {
+function hasRequiredPermission(_req: Express.Request, _requiredLevel: 'read' | 'write' | 'admin'): boolean {
   return true;
 }
 
@@ -47,7 +46,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   // Health check endpoint for connectivity monitoring with caching and rate limiting
-  let healthCheckCache: { data: any; timestamp: number } | null = null;
+  let healthCheckCache: { data: Record<string, unknown>; timestamp: number } | null = null;
   const HEALTH_CHECK_CACHE_TTL = 10000; // 10 seconds cache
   const healthCheckRateLimit = new Map<string, { count: number; resetTime: number }>();
   const HEALTH_CHECK_RATE_LIMIT = 10; // 10 requests per minute per IP
@@ -109,57 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== AUTHENTICATION ROUTES =====
 
-  // Local user registration
-  app.post('/api/auth/register', async (req, res) => {
-    try {
-      const { riderId, password, fullName } = req.body;
-
-      if (!riderId || !password || !fullName) {
-        return res.status(400).json({
-          success: false,
-          message: 'Rider ID, password, and full name are required'
-        });
-      }
-
-      // Check if user already exists
-      const existingUser = userDataDb
-        .prepare('SELECT id FROM rider_accounts WHERE rider_id = ?')
-        .get(riderId);
-
-      if (existingUser) {
-        return res.status(409).json({
-          success: false,
-          message: 'Rider ID already exists'
-        });
-      }
-
-      // Hash password using bcrypt
-      const saltRounds = 12;
-      const passwordHash = await bcrypt.hash(password, saltRounds);
-
-      // Create user account (pending approval)
-      const userId = 'rider_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
-
-      userDataDb.prepare(`
-        INSERT INTO rider_accounts (
-          id, rider_id, full_name, password_hash, 
-          is_active, is_approved, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, 1, 0, datetime('now'), datetime('now'))
-      `).run(userId, riderId, fullName, passwordHash);
-
-      res.json({
-        success: true,
-        message: 'Registration successful. Please wait for approval.',
-        userId
-      });
-    } catch (error: any) {
-      console.error('Registration error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Registration failed. Please try again.'
-      });
-    }
-  });
+  // Local user registration removed as userdata.db is deprecated
 
   // Printo API Authentication (Proxy to avoid CORS)
   app.post('/api/auth/login', async (req, res) => {
@@ -189,233 +138,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         is_ops_team: user.isOpsTeam,
         employee_id: user.employeeId
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Printo login error:', error);
       res.status(401).json({
         success: false,
-        message: 'Login failed: ' + (error.message || 'Invalid credentials')
+        message: 'Login failed: ' + getErrorMessage(error)
       });
     }
   });
 
-  // Local user login
-  app.post('/api/auth/local-login', async (req, res) => {
-    try {
-      const { riderId, password } = req.body;
+  // Local user login removed as userdata.db is deprecated
 
-      if (!riderId || !password) {
-        return res.status(400).json({
-          success: false,
-          message: 'Rider ID and password are required'
-        });
-      }
+  // Get pending approvals removed as userdata.db is deprecated
 
-      // Find user
-      const user = userDataDb
-        .prepare(`
-          SELECT id, rider_id, full_name, password_hash, is_active, is_approved, role
-          FROM rider_accounts 
-          WHERE rider_id = ? AND is_active = 1
-        `)
-        .get(riderId) as any;
+  // Approve user removed as userdata.db is deprecated
 
-      if (!user) {
-        log.warn('User not found for riderId:', riderId);
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
+  // Reject user removed as userdata.db is deprecated
 
-      // Check password using bcrypt
-      const isValidPassword = await bcrypt.compare(password, user.password_hash);
-      if (!isValidPassword) {
-        log.warn('Invalid password for riderId:', riderId);
-        return res.status(401).json({
-          success: false,
-          message: 'Invalid credentials'
-        });
-      }
+  // Reset user password removed as userdata.db is deprecated
 
-      // Check if user is approved
-      if (!user.is_approved) {
-        return res.status(403).json({
-          success: false,
-          message: 'Account pending approval. Please contact administrator.',
-          isApproved: false
-        });
-      }
-
-      // Generate simple tokens with user ID embedded (in production use JWT)
-      const accessToken = 'local_' + Date.now() + '_' + user.id;
-      const refreshToken = 'refresh_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
-
-      // Update last login
-      userDataDb.prepare(`
-        UPDATE rider_accounts 
-        SET last_login_at = datetime('now'), updated_at = datetime('now')
-        WHERE id = ?
-      `).run(user.id);
-
-      // For local auth, we store the token directly in rider_accounts table
-
-      res.json({
-        success: true,
-        message: 'Login successful',
-        accessToken,
-        refreshToken,
-        fullName: user.full_name,
-        isApproved: user.is_approved,
-        is_super_user: user.role === 'is_super_user' || user.role === 'super_user' || user.role === 'admin',
-        is_staff: user.role === 'is_rider' || user.role === 'super_user' || user.role === 'is_super_user' || user.role === 'admin' || user.role === 'manager' || user.role === 'staff',
-        is_ops_team: user.role === 'is_super_user' || user.role === 'super_user' || user.role === 'admin' || user.role === 'ops_team',
-        employee_id: user.rider_id,
-        role: user.role
-      });
-    } catch (error: any) {
-      console.error('Local login error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Login failed. Please try again.'
-      });
-    }
-  });
-
-  // Get pending approvals (for admin)
-  app.get('/api/auth/pending-approvals', async (req, res) => {
-    try {
-      const pendingUsers = userDataDb
-        .prepare(`
-          SELECT id, rider_id, full_name, created_at
-          FROM rider_accounts 
-          WHERE is_approved = 0 AND is_active = 1
-          ORDER BY created_at DESC
-        `)
-        .all();
-
-      res.json({
-        success: true,
-        users: pendingUsers
-      });
-    } catch (error: any) {
-      console.error('Get pending approvals error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch pending approvals'
-      });
-    }
-  });
-
-  // Approve user (for admin)
-  app.post('/api/auth/approve/:userId', async (req, res) => {
-    try {
-      const { userId } = req.params;
-
-      const result = userDataDb
-        .prepare(`
-          UPDATE rider_accounts 
-          SET is_approved = 1, updated_at = datetime('now')
-          WHERE id = ? AND is_active = 1
-        `)
-        .run(userId);
-
-      if (result.changes === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'User approved successfully'
-      });
-    } catch (error: any) {
-      console.error('Approve user error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to approve user'
-      });
-    }
-  });
-
-  // Reject user (for admin)
-  app.post('/api/auth/reject/:userId', async (req, res) => {
-    try {
-      const { userId } = req.params;
-
-      const result = userDataDb
-        .prepare(`
-          UPDATE rider_accounts 
-          SET is_active = 0, is_approved = 0, updated_at = datetime('now')
-          WHERE id = ?
-        `)
-        .run(userId);
-
-      if (result.changes === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'User rejected successfully'
-      });
-    } catch (error: any) {
-      console.error('Reject user error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to reject user'
-      });
-    }
-  });
-
-  // Reset user password (for admin)
-  app.post('/api/auth/reset-password/:userId', async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const { newPassword } = req.body;
-
-      if (!newPassword || newPassword.length < 6) {
-        return res.status(400).json({
-          success: false,
-          message: 'Password must be at least 6 characters long'
-        });
-      }
-
-      // Hash new password using bcrypt
-      const saltRounds = 12;
-      const passwordHash = await bcrypt.hash(newPassword, saltRounds);
-
-      const result = userDataDb
-        .prepare(`
-          UPDATE rider_accounts 
-          SET password_hash = ?, updated_at = datetime('now')
-          WHERE id = ? AND is_active = 1
-        `)
-        .run(passwordHash, userId);
-
-      if (result.changes === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found'
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'Password reset successfully'
-      });
-    } catch (error: any) {
-      console.error('Reset password error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to reset password'
-      });
-    }
-  });
   // Token admin routes removed
 
   // Serve uploaded files
@@ -440,9 +181,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const metrics = await storage.getDashboardMetrics(employeeIdFilter);
       res.json(metrics);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Dashboard metrics error:', error);
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -451,8 +192,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const vehicleTypes = await storage.getVehicleTypes();
       res.json(vehicleTypes);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -464,8 +205,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Vehicle type not found' });
       }
       res.json(vehicleType);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -480,8 +221,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const vehicleType = await storage.createVehicleType(vehicleTypeData);
       res.status(201).json(vehicleType);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -495,8 +236,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Vehicle type not found' });
       }
       res.json(vehicleType);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -508,8 +249,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Vehicle type not found' });
       }
       res.json({ message: 'Vehicle type deleted successfully' });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -518,8 +259,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const fuelSettings = await storage.getFuelSettings();
       res.json(fuelSettings);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -531,8 +272,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Fuel setting not found' });
       }
       res.json(fuelSetting);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -547,8 +288,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const fuelSetting = await storage.createFuelSetting(fuelSettingData);
       res.status(201).json(fuelSetting);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -562,8 +303,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Fuel setting not found' });
       }
       res.json(fuelSetting);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -575,8 +316,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Fuel setting not found' });
       }
       res.json({ message: 'Fuel setting deleted successfully' });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -589,7 +330,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const employeeId = req.user.employeeId;
-      const userRole = req.user.role;
 
       // Convert query parameters to filters
       const filters: ShipmentFilters = {};
@@ -600,7 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Handle string filters
       for (const [key, value] of Object.entries(req.query)) {
         if (validFilters.includes(key) && typeof value === 'string') {
-          (filters as any)[key] = value;
+          (filters as Record<string, string>)[key] = value;
         }
       }
 
@@ -617,7 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               end: String(dateRange.end)
             };
           }
-        } catch (e) {
+        } catch {
           console.warn('Invalid dateRange format:', req.query.dateRange);
         }
       }
@@ -680,9 +420,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json(shipments);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching shipments:', error);
-      res.status(500).json({ message: error.message || 'Failed to fetch shipments' });
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -701,8 +441,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const acknowledgment = await storage.getAcknowledgmentByShipmentId(shipment.shipment_id);
 
       res.json({ shipment, acknowledgment });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -747,8 +487,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shipment: shipment,
         shipmentId: shipment.shipment_id
       });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(400).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -760,7 +500,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Validate tracking data
       const allowedFields = ['start_latitude', 'start_longitude', 'stop_latitude', 'stop_longitude', 'km_travelled', 'status', 'actualDeliveryTime'];
-      const updates: any = { shipment_id: id };
+      const updates: Record<string, unknown> = { shipment_id: id };
 
       for (const field of allowedFields) {
         if (trackingData[field] !== undefined) {
@@ -776,7 +516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const updatedShipment = await storage.updateShipment(id, updates);
+      const updatedShipment = await storage.updateShipment(id, updates as unknown as UpdateShipment);
 
       if (!updatedShipment) {
         return res.status(404).json({
@@ -799,10 +539,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: 'Tracking data updated successfully',
         shipment: updatedShipment
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(400).json({
         success: false,
-        message: error.message,
+        message: getErrorMessage(error),
         code: 'TRACKING_UPDATE_FAILED'
       });
     }
@@ -871,26 +611,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             code: 'SYNC_FAILED'
           });
         }
-      } catch (syncError: any) {
+      } catch (syncError: unknown) {
         // Mark sync as failed
         storage.updateShipment(id, {
           shipment_id: id,
           synced_to_external: false,
           last_sync_attempt: new Date().toISOString(),
-          sync_error: syncError.message
+          sync_error: getErrorMessage(syncError)
         });
 
         res.status(500).json({
           success: false,
           message: 'Failed to sync to external system',
-          error: syncError.message,
+          error: getErrorMessage(syncError),
           code: 'SYNC_FAILED'
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(400).json({
         success: false,
-        message: error.message,
+        message: getErrorMessage(error),
         code: 'SYNC_REQUEST_FAILED'
       });
     }
@@ -926,11 +666,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         accessTokens
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve access tokens',
-        error: error.message
+        error: getErrorMessage(error)
       });
     }
   });
@@ -938,33 +678,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get sync status for shipments
   app.get('/api/shipments/sync-status', async (req, res) => {
     try {
-      const { shipmentId, status } = req.query;
-
-      let query = 'SELECT id, shipment_id, synced_to_external, last_sync_attempt, sync_error FROM shipments';
-      const conditions = [];
-      const params = [];
-
-      if (shipmentId) {
-        conditions.push('id = ?');
-        params.push(shipmentId);
-      }
-
-      if (status === 'pending') {
-        conditions.push('synced_to_external = 0');
-      } else if (status === 'success') {
-        conditions.push('synced_to_external = 1');
-      } else if (status === 'failed') {
-        conditions.push('synced_to_external = 0 AND sync_error IS NOT NULL');
-      }
-
-      if (conditions.length > 0) {
-        query += ' WHERE ' + conditions.join(' AND ');
-      }
-
       const shipmentsResult = await storage.getShipments({});
       const shipments = shipmentsResult.data;
 
-      const syncStatus = shipments.map((shipment: any) => ({
+      const syncStatus = shipments.map((shipment) => ({
         shipmentId: shipment.shipment_id,
         externalId: shipment.shipment_id,
         status: shipment.synced_to_external ? 'success' : 'failed',
@@ -976,10 +693,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         syncStatus
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(400).json({
         success: false,
-        message: error.message,
+        message: getErrorMessage(error),
         code: 'SYNC_STATUS_FAILED'
       });
     }
@@ -1047,11 +764,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }))
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(500).json({
         success: false,
         message: 'Batch sync failed',
-        error: error.message,
+        error: getErrorMessage(error),
         code: 'BATCH_SYNC_FAILED'
       });
     }
@@ -1101,7 +818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const providedToken = authHeader.substring(7); // Remove 'Bearer ' prefix
-        const { API_KEYS, validateApiKey } = await import('./config/apiKeys.js');
+        const { validateApiKey } = await import('./config/apiKeys.js');
 
         // Check if token matches any of our access tokens
         const isValidToken = validateApiKey(providedToken, 'ACCESS_TOKEN_1') ||
@@ -1155,7 +872,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               if (existingShipment) {
                 // Update existing shipment
-                const updatedShipment = await storage.updateShipment(existingShipment.shipment_id, {
+                await storage.updateShipment(existingShipment.shipment_id, {
                   shipment_id: existingShipment.shipment_id,
                   status: internalShipment.status,
                   priority: internalShipment.priority,
@@ -1216,13 +933,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   message: 'Shipment created successfully'
                 });
               }
-            } catch (error: any) {
+            } catch (error: unknown) {
               results.failed++;
               processedShipments.push({
                 piashipmentid: externalShipment.id,
                 internalId: null,
                 status: 'failed',
-                message: error.message
+                message: getErrorMessage(error)
               });
             }
           }
@@ -1256,7 +973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (existingShipment) {
             // Update existing shipment
-            const updatedShipment = await storage.updateShipment(existingShipment.shipment_id, {
+            await storage.updateShipment(existingShipment.shipment_id, {
               shipment_id: existingShipment.shipment_id,
               status: internalShipment.status,
               priority: internalShipment.priority,
@@ -1340,12 +1057,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error processing external shipment data:', error);
         return res.status(500).json({
           success: false,
           message: 'Internal server error while processing shipment data',
-          error: error.message,
+          error: getErrorMessage(error),
           timestamp: new Date().toISOString()
         });
       }
@@ -1392,8 +1109,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json(shipment);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(400).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -1432,13 +1149,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get updated shipments for external sync
       const updatedShipments = await Promise.all(
-        batchData.updates.map(async (update: any) => {
+        batchData.updates.map(async (update: { shipment_id: string }) => {
           const shipment = await storage.getShipment(update.shipment_id);
           return shipment;
         })
       );
 
-      const validShipments = updatedShipments.filter(Boolean) as any[];
+      const validShipments = updatedShipments.filter((s): s is Shipment => !!s);
 
       // Batch sync to external API
       externalSync.batchSyncShipments(validShipments).catch(err => {
@@ -1446,8 +1163,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.json({ updatedCount, message: `${updatedCount} shipments updated successfully` });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(400).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -1524,8 +1241,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         res.status(201).json(acknowledgment);
-      } catch (error: any) {
-        res.status(400).json({ message: error.message });
+      } catch (error: unknown) {
+        res.status(400).json({ message: getErrorMessage(error) });
       }
     }
   );
@@ -1541,8 +1258,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastSyncTime: new Date().toISOString(),
       };
       res.json(stats);
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -1557,8 +1274,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: result.success,
         failed: result.failed
       });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -1598,8 +1315,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status,
         savedAt: new Date().toISOString()
       });
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(400).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -1639,8 +1356,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: 'Shipment deleted successfully',
         shipmentId: shipmentId
       });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
@@ -1732,13 +1449,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           });
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error sending external update:', error);
         res.status(500).json({
           success: false,
           message: 'Internal server error while sending update',
           code: 'INTERNAL_ERROR',
-          error: error.message
+          error: getErrorMessage(error)
         });
       }
     });
@@ -1760,11 +1477,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        let updatePayloads: any[] = [];
+        let updatePayloads: ExternalUpdatePayload[] = [];
 
         if (updates && Array.isArray(updates)) {
-          // Direct updates provided
-          updatePayloads = updates;
+          // Direct updates provided (assumed to be in ExternalUpdatePayload shape)
+          updatePayloads = updates as ExternalUpdatePayload[];
         } else if (shipmentIds && Array.isArray(shipmentIds)) {
           // Get shipments by IDs and convert to update format
           const shipments = await Promise.all(
@@ -1842,13 +1559,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         });
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error processing batch external update:', error);
         res.status(500).json({
           success: false,
           message: 'Internal server error while processing batch update',
           code: 'BATCH_PROCESSING_ERROR',
-          error: error.message
+          error: getErrorMessage(error)
         });
       }
     });
@@ -1889,10 +1606,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         session,
         message: 'Route session started successfully'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(400).json({
         success: false,
-        message: error.message
+        message: getErrorMessage(error)
       });
     }
   });
@@ -1925,10 +1642,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         session,
         message: 'Route session stopped successfully'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(400).json({
         success: false,
-        message: error.message
+        message: getErrorMessage(error)
       });
     }
   });
@@ -1963,10 +1680,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         record: coordinate,
         message: 'GPS coordinate recorded successfully'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(400).json({
         success: false,
-        message: error.message
+        message: getErrorMessage(error)
       });
     }
   });
@@ -2005,9 +1722,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         record,
         message: 'Shipment event recorded and coordinates updated'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Record shipment event error:', error);
-      return res.status(500).json({ success: false, message: error.message || 'Failed to record event' });
+      return res.status(500).json({ success: false, message: getErrorMessage(error) });
     }
   });
 
@@ -2030,10 +1747,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         session,
         message: 'Session data retrieved successfully'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(500).json({
         success: false,
-        message: error.message
+        message: getErrorMessage(error)
       });
     }
   });
@@ -2067,8 +1784,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           results.push({ success: true, record: coordinate });
           successCount++;
-        } catch (error: any) {
-          results.push({ success: false, error: error.message, coordinate: coord });
+        } catch (error: unknown) {
+          results.push({ success: false, error: getErrorMessage(error), coordinate: coord });
           errorCount++;
         }
       }
@@ -2083,10 +1800,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         message: `Batch coordinate submission completed: ${successCount} successful, ${errorCount} failed`
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       res.status(400).json({
         success: false,
-        message: error.message
+        message: getErrorMessage(error)
       });
     }
   });
@@ -2118,8 +1835,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       log.info('Offline session synced:', synced);
       return res.json({ success: true, session: synced, message: 'Session synced' });
-    } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to sync session' });
+    } catch (error: unknown) {
+      return res.status(500).json({ success: false, message: getErrorMessage(error) });
     }
   });
 
@@ -2135,7 +1852,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const results = coordinates.map((c: any) => ({
+      const results = coordinates.map((c: { sessionId: string; latitude: number; longitude: number; timestamp: string; accuracy?: number }) => ({
         success: true,
         record: {
           id: 'coord-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9),
@@ -2149,8 +1866,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       log.info(`Offline coordinates synced for session ${sessionId}:`, results.length);
       return res.json({ success: true, results, message: 'Coordinates synced' });
-    } catch (error: any) {
-      return res.status(500).json({ success: false, message: error.message || 'Failed to sync coordinates' });
+    } catch (error: unknown) {
+      return res.status(500).json({ success: false, message: getErrorMessage(error) });
     }
   });
 
@@ -2160,191 +1877,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log error (in production, would save to monitoring service)
       console.error('Frontend Error:', req.body);
       res.status(200).json({ logged: true });
-    } catch (error: any) {
-      res.status(500).json({ message: error.message });
+    } catch (error: unknown) {
+      res.status(500).json({ message: getErrorMessage(error) });
     }
   });
 
-  // User Management API endpoints
-  app.get('/api/auth/all-users', authenticate, async (req: AuthenticatedRequest, res) => {
-    try {
-      // Only super users can access all users
-      if (!req.user?.isSuperUser) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied: Only super users can view all users',
-          code: 'ACCESS_DENIED'
-        });
-      }
-
-      const users = userDataDb.prepare(`
-        SELECT id, rider_id, full_name, is_active, is_approved, role, 
-               last_login_at, created_at, updated_at
-        FROM rider_accounts 
-        ORDER BY created_at DESC
-      `).all();
-
-      res.json({
-        success: true,
-        users: users
-      });
-    } catch (error: any) {
-      console.error('Failed to fetch all users:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch users',
-        code: 'FETCH_USERS_ERROR'
-      });
-    }
-  });
-
-  app.patch('/api/auth/users/:userId', authenticate, async (req: AuthenticatedRequest, res) => {
-    try {
-      // Only super users can update users
-      if (!req.user?.isSuperUser) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied: Only super users can update users',
-          code: 'ACCESS_DENIED'
-        });
-      }
-
-      const { userId } = req.params;
-      const updates = req.body;
-
-      // Validate required fields
-      if (!userId) {
-        return res.status(400).json({
-          success: false,
-          message: 'User ID is required',
-          code: 'MISSING_USER_ID'
-        });
-      }
-
-      // Build update query dynamically
-      const updateFields = [];
-      const values = [];
-
-      if (updates.full_name !== undefined) {
-        updateFields.push('full_name = ?');
-        values.push(updates.full_name);
-      }
-      if (updates.email !== undefined) {
-        updateFields.push('email = ?');
-        values.push(updates.email);
-      }
-      if (updates.rider_id !== undefined) {
-        updateFields.push('rider_id = ?');
-        values.push(updates.rider_id);
-      }
-      if (updates.is_active !== undefined) {
-        updateFields.push('is_active = ?');
-        values.push(updates.is_active ? 1 : 0);
-      }
-      if (updates.is_approved !== undefined) {
-        updateFields.push('is_approved = ?');
-        values.push(updates.is_approved ? 1 : 0);
-      }
-
-      if (updateFields.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'No valid fields to update',
-          code: 'NO_UPDATES'
-        });
-      }
-
-      updateFields.push('updated_at = ?');
-      values.push(new Date().toISOString());
-      values.push(userId);
-
-      const updateQuery = `
-        UPDATE rider_accounts 
-        SET ${updateFields.join(', ')} 
-        WHERE id = ?
-      `;
-
-      const stmt = storage.getDatabase().prepare(updateQuery);
-      const result = stmt.run(...values);
-
-      if (result.changes === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-          code: 'USER_NOT_FOUND'
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'User updated successfully'
-      });
-    } catch (error) {
-      console.error('Failed to update user:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to update user',
-        code: 'UPDATE_USER_ERROR'
-      });
-    }
-  });
-
-  app.post('/api/auth/users/:userId/reset-password', authenticate, async (req: AuthenticatedRequest, res) => {
-    try {
-      // Only super users can reset passwords
-      if (!req.user?.isSuperUser) {
-        return res.status(403).json({
-          success: false,
-          message: 'Access denied: Only super users can reset passwords',
-          code: 'ACCESS_DENIED'
-        });
-      }
-
-      const { userId } = req.params;
-      const { newPassword } = req.body;
-
-      if (!userId || !newPassword) {
-        return res.status(400).json({
-          success: false,
-          message: 'User ID and new password are required',
-          code: 'MISSING_PARAMETERS'
-        });
-      }
-
-      // Hash the new password
-      const bcrypt = await import('bcrypt');
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-      // Update the password
-      const stmt = storage.getDatabase().prepare(`
-        UPDATE rider_accounts 
-        SET password_hash = ?, updated_at = ? 
-        WHERE id = ?
-      `);
-
-      const result = stmt.run(hashedPassword, new Date().toISOString(), userId);
-
-      if (result.changes === 0) {
-        return res.status(404).json({
-          success: false,
-          message: 'User not found',
-          code: 'USER_NOT_FOUND'
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'Password reset successfully'
-      });
-    } catch (error) {
-      console.error('Failed to reset password:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to reset password',
-        code: 'RESET_PASSWORD_ERROR'
-      });
-    }
-  });
+  // User Management API endpoints removed as userdata.db is deprecated
 
   // Initialize scheduler (runs the cron jobs)
   await import('./services/scheduler.js');

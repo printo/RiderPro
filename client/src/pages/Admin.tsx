@@ -1,8 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/ApiClient";
-import { useLocation } from "wouter";
-import { BarChart3, Map, Settings, Shield, Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Database, Activity, Target, Monitor, Plus, X } from "lucide-react";
+import { Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Database, Plus, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -13,27 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import FuelSettingsModal from "@/components/ui/forms/FuelSettingsModal";
 import CurrentFuelSettings from "@/components/ui/forms/CurrentFuelSettings";
-
-interface PendingUser {
-  id: string;
-  rider_id: string;
-  full_name: string;
-  email?: string;
-  created_at: string;
-}
-
-interface AllUser {
-  id: string;
-  rider_id: string;
-  full_name: string;
-  email?: string;
-  is_active: number;
-  is_approved: number;
-  role: string;
-  last_login_at?: string;
-  created_at: string;
-  updated_at: string;
-}
+import { VehicleType, PendingUser, AllUser } from '@shared/types';
 
 interface EditingUser {
   id: string;
@@ -41,18 +20,6 @@ interface EditingUser {
   email: string;
   riderId: string;
   isActive: boolean;
-}
-
-interface VehicleType {
-  id: string;
-  name: string;
-  fuel_efficiency: number;
-  description?: string;
-  icon: string;
-  fuel_type?: string;
-  co2_emissions?: number;
-  created_at: string;
-  updated_at: string;
 }
 
 interface VehicleTypeFormProps {
@@ -181,7 +148,6 @@ function VehicleTypeForm({ vehicle, onSave, onCancel }: VehicleTypeFormProps) {
 
 function AdminPage() {
   const { user } = useAuth();
-  const [, setLocation] = useLocation();
   const [payloadInput, setPayloadInput] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -204,25 +170,16 @@ function AdminPage() {
   const [editingVehicle, setEditingVehicle] = useState<Partial<VehicleType> | null>(null);
   const [loadingVehicleTypes, setLoadingVehicleTypes] = useState(false);
   const [showFuelSettingsModal, setShowFuelSettingsModal] = useState(false);
-  const [accessTokens, setAccessTokens] = useState<Array<{
-    id: string;
-    name: string;
-    token: string;
-    masked: string;
-    description: string;
-    status: string;
-  }>>([]);
   const { toast } = useToast();
 
   const canAccessAdmin = !!(user?.isSuperUser);
-  const canEdit = !!(user?.isSuperUser);
+  const _canEdit = !!(user?.isSuperUser);
 
   // Load pending users and access tokens
   useEffect(() => {
     if (canAccessAdmin) {
       loadPendingUsers();
       loadAllUsers();
-      loadAccessTokens();
       loadVehicleTypes();
     }
   }, [canAccessAdmin]);
@@ -267,17 +224,6 @@ function AdminPage() {
     }
   };
 
-  const loadAccessTokens = async () => {
-    try {
-      const response = await fetch('/api/auth/access-tokens');
-      const data = await response.json();
-      if (data.success) {
-        setAccessTokens(data.tokens);
-      }
-    } catch (error) {
-      console.error('Failed to load access tokens:', error);
-    }
-  };
 
   const loadVehicleTypes = async () => {
     setLoadingVehicleTypes(true);
@@ -412,7 +358,7 @@ function AdminPage() {
     }
   };
 
-  const updateUser = async (userId: string, updates: any) => {
+  const updateUser = async (userId: string, updates: Partial<AllUser>) => {
     try {
       const response = await fetch(`/api/auth/users/${userId}`, {
         method: 'PATCH',
@@ -487,7 +433,7 @@ function AdminPage() {
 
       for (let i = 0; i < lines.length; i++) {
         try {
-          const response = await apiClient.post('/shipments/test', {
+          await apiClient.post('/shipments/test', {
             trackingNumber: lines[i].trim()
           });
 
@@ -496,12 +442,12 @@ function AdminPage() {
             success: true,
             trackingNumber: lines[i].trim()
           });
-        } catch (error: any) {
+        } catch (error) {
           results.push({
             index: i + 1,
             success: false,
             trackingNumber: lines[i].trim(),
-            error: error.message || 'Unknown error'
+            error: error instanceof Error ? error.message : 'Unknown error'
           });
         }
       }
@@ -1161,7 +1107,7 @@ function AdminPage() {
                   full_name: editingUser.name,
                   email: editingUser.email,
                   rider_id: editingUser.riderId,
-                  is_active: editingUser.isActive
+                  is_active: editingUser.isActive ? 1 : 0
                 })}
                 className="flex-1"
               >

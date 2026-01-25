@@ -41,8 +41,19 @@ export interface OptimizationSettings {
   };
 }
 
+interface BatteryManager extends EventTarget {
+  level: number;
+  charging: boolean;
+  chargingTime: number;
+  dischargingTime: number;
+  onlevelchange: ((this: BatteryManager, ev: Event) => void) | null;
+  onchargingchange: ((this: BatteryManager, ev: Event) => void) | null;
+  onchargingtimechange: ((this: BatteryManager, ev: Event) => void) | null;
+  ondischargingtimechange: ((this: BatteryManager, ev: Event) => void) | null;
+}
+
 export class BatteryOptimizationService {
-  private battery: any = null;
+  private battery: BatteryManager | null = null;
   private batteryInfo: BatteryInfo = {
     level: 1,
     charging: false
@@ -102,13 +113,13 @@ export class BatteryOptimizationService {
     try {
       // Check if Battery API is available
       if ('getBattery' in navigator) {
-        this.battery = await (navigator as any).getBattery();
+        this.battery = await (navigator as unknown as { getBattery: () => Promise<BatteryManager> }).getBattery();
         this.updateBatteryInfo();
         this.setupBatteryListeners();
         log.dev('Battery API initialized');
       } else if ('battery' in navigator) {
         // Older API
-        this.battery = (navigator as any).battery;
+        this.battery = (navigator as unknown as { battery: BatteryManager }).battery;
         this.updateBatteryInfo();
         this.setupBatteryListeners();
         log.dev('Legacy Battery API initialized');
@@ -200,7 +211,7 @@ export class BatteryOptimizationService {
   private updatePerformanceMetrics(): void {
     // Update memory usage if available
     if ('memory' in performance) {
-      const memory = (performance as any).memory;
+      const memory = (performance as unknown as { memory: { usedJSHeapSize: number } }).memory;
       this.performanceMetrics.memoryUsage = memory.usedJSHeapSize / (1024 * 1024); // MB
     }
 

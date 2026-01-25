@@ -65,7 +65,7 @@ export const webhookConfig: WebhookConfig = {
   },
   logging: {
     enabled: process.env.WEBHOOK_LOGGING !== 'false',
-    logLevel: (process.env.WEBHOOK_LOG_LEVEL as any) || 'info',
+    logLevel: (process.env.WEBHOOK_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'info',
     logHeaders: process.env.WEBHOOK_LOG_HEADERS === 'true',
     logPayload: process.env.WEBHOOK_LOG_PAYLOAD === 'true' && process.env.NODE_ENV !== 'production'
   }

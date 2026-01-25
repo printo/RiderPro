@@ -1,9 +1,16 @@
 import type { Express } from "express";
 import { log } from "../../shared/utils/logger.js";
 
+interface HealthData {
+  status: string;
+  timestamp: string;
+  uptime: number;
+  cached: boolean;
+}
+
 export function registerHealthRoutes(app: Express): void {
   // Health check endpoint for connectivity monitoring with caching and rate limiting
-  let healthCheckCache: { data: any; timestamp: number } | null = null;
+  let healthCheckCache: { data: HealthData; timestamp: number } | null = null;
   const HEALTH_CHECK_CACHE_TTL = 10000; // 10 seconds cache
   const healthCheckRateLimit = new Map<string, { count: number; resetTime: number }>();
   const HEALTH_CHECK_RATE_LIMIT = 10; // 10 requests per minute per IP
@@ -46,7 +53,7 @@ export function registerHealthRoutes(app: Express): void {
     }
 
     // Generate new response and cache it
-    const healthData = {
+    const healthData: HealthData = {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
@@ -69,8 +76,9 @@ export function registerHealthRoutes(app: Express): void {
       // Log error (in production, would save to monitoring service)
       log.error('Client error reported:', req.body);
       res.status(201).json({ success: true, message: 'Error logged' });
-    } catch (error: any) {
-      log.error('Failed to log client error:', error.message);
+    } catch (error: unknown) {
+      const message = (error instanceof Error) ? error.message : String(error);
+      log.error('Failed to log client error:', message);
       res.status(500).json({ success: false, message: 'Failed to log error' });
     }
   });

@@ -4,7 +4,7 @@ import { log } from "../../shared/utils/logger.js";
 
 export function registerSyncRoutes(app: Express): void {
   // Sync status endpoints
-  app.get('/api/sync/stats', async (req, res) => {
+  app.get('/api/sync/stats', async (_req, res) => {
     try {
       // Mock sync stats for now - would be implemented with actual sync tracking
       const stats = {
@@ -14,20 +14,22 @@ export function registerSyncRoutes(app: Express): void {
         lastSyncTime: new Date().toISOString()
       };
       res.json(stats);
-    } catch (error: any) {
-      log.error('Error fetching sync stats:', error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log.error('Error fetching sync stats:', errorMessage);
       res.status(500).json({ error: 'Failed to fetch sync stats' });
     }
   });
 
-  app.post('/api/sync/trigger', async (req, res) => {
+  app.post('/api/sync/trigger', async (_req, res) => {
     try {
       // Get all shipments that need syncing
       const pendingShipments = await storage.getShipments({ status: 'pending' });
       log.info('Manual sync triggered:', { count: pendingShipments.data.length });
       res.json({ success: true, message: `Triggered sync for ${pendingShipments.data.length} shipments` });
-    } catch (error: any) {
-      log.error('Error triggering sync:', error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log.error('Error triggering sync:', errorMessage);
       res.status(500).json({ error: 'Failed to trigger sync' });
     }
   });
@@ -53,8 +55,9 @@ export function registerSyncRoutes(app: Express): void {
         syncStatuses,
         message: 'Sync status retrieved successfully'
       });
-    } catch (error: any) {
-      log.error('Error retrieving sync status:', error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log.error('Error retrieving sync status:', errorMessage);
       res.status(500).json({
         success: false,
         message: 'Failed to retrieve sync status'
@@ -82,8 +85,9 @@ export function registerSyncRoutes(app: Express): void {
         message: 'Shipment synced successfully',
         shipmentId: id
       });
-    } catch (error: any) {
-      log.error('Sync error:', error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log.error('Sync error:', errorMessage);
       res.status(500).json({
         success: false,
         message: 'Failed to sync shipment'
@@ -110,8 +114,9 @@ export function registerSyncRoutes(app: Express): void {
         message: `Batch sync completed for ${shipmentIds.length} shipments`,
         processed: shipmentIds.length
       });
-    } catch (error: any) {
-      log.error('Batch sync error:', error.message);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      log.error('Batch sync error:', errorMessage);
       res.status(500).json({
         success: false,
         message: 'Failed to batch sync shipments'

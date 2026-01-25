@@ -13,12 +13,22 @@ import {
   Bar
 } from 'recharts';
 import { TrendingUp, MapPin, Clock, Zap } from 'lucide-react';
-import { RouteAnalytics } from '@shared/schema';
+import { RouteAnalytics } from '@shared/types';
 
 interface PerformanceMetricsChartProps {
   data: RouteAnalytics[];
   viewType: 'daily' | 'weekly' | 'monthly';
   detailed?: boolean;
+}
+
+interface GroupedMetrics {
+  date: string;
+  totalDistance: number;
+  totalTime: number;
+  averageSpeed: number;
+  shipmentsCompleted: number;
+  efficiency: number;
+  count: number;
 }
 
 export default function PerformanceMetricsChart({
@@ -28,7 +38,7 @@ export default function PerformanceMetricsChart({
 }: PerformanceMetricsChartProps) {
   // Group and aggregate data by date
   const chartData = React.useMemo(() => {
-    const grouped = data.reduce((acc, item) => {
+    const grouped = data.reduce<Record<string, GroupedMetrics>>((acc, item) => {
       const key = item.date;
       if (!acc[key]) {
         acc[key] = {
@@ -46,11 +56,10 @@ export default function PerformanceMetricsChart({
       acc[key].totalTime += item.totalTime || 0;
       acc[key].shipmentsCompleted += item.shipmentsCompleted || 0;
       acc[key].count += 1;
-
       return acc;
-    }, {} as Record<string, any>);
+    }, {});
 
-    return Object.values(grouped).map((item: any) => ({
+    return Object.values(grouped).map((item) => ({
       ...item,
       averageSpeed: item.totalTime > 0 ? (item.totalDistance / (item.totalTime / 3600)) : 0,
       efficiency: item.shipmentsCompleted > 0 ? (item.totalDistance / item.shipmentsCompleted) : 0,

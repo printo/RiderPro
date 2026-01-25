@@ -1,20 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { withModalErrorBoundary } from '@/components/ErrorBoundary';
 import {
   MapPin,
   Clock,
   CheckCircle,
-  AlertCircle,
   Navigation,
   Target,
   Timer
 } from 'lucide-react';
-import { GPSPosition } from '@/services/GPSTracker';
+import { GPSPosition } from '@shared/types';
 
 export interface RouteCompletionData {
   sessionId: string;

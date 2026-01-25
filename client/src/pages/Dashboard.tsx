@@ -7,7 +7,7 @@ import StatusDistributionPieChart from "@/components/analytics/StatusDistributio
 import RoutePerformanceChart from "@/components/analytics/RoutePerformanceChart";
 import RouteSummary from "@/components/routes/RouteSummary";
 import RouteSessionControls from "@/components/routes/RouteSessionControls";
-import { Package, CheckCircle, Clock, HourglassIcon, Navigation, Wifi } from "lucide-react";
+import { Package, CheckCircle, Clock, HourglassIcon } from "lucide-react";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 // import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { useAuth } from "@/hooks/useAuth";

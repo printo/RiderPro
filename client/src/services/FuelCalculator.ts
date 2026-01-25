@@ -1,246 +1,327 @@
-export interface VehicleType {
-  id: string;
-  name: string;
-  fuelEfficiency: number; // km per liter
-  fuelType: 'gasoline' | 'diesel' | 'electric' | 'hybrid';
-  tankCapacity?: number; // liters
-  co2Emissions?: number; // grams per km
+import { 
+  VehicleType, 
+  FuelAnalytics,
+  FuelType,
+  City,
+  FuelPrice,
+  FuelConsumptionResult,
+  FuelOptimizationSuggestion,
+  FleetReport,
+  MonthlyFleetReport
+} from '@shared/types';
+
+export {
+  VehicleType, 
+  FuelAnalytics,
+  FuelType,
+  City,
+  FuelPrice,
+  FuelConsumptionResult,
+  FuelOptimizationSuggestion,
+  FleetReport,
+  MonthlyFleetReport
+};
+
+/* ============================================================
+   Analytics helpers (runtime-safe, TS-friendly)
+============================================================ */
+
+type Numeric = number;
+
+export function isValidFuelAnalytics(
+  analytics: FuelAnalytics
+): analytics is FuelAnalytics & {
+  totalDistance: Numeric;
+  totalFuelConsumed: Numeric;
+  totalFuelCost: Numeric;
+  averageEfficiency: Numeric;
+  totalCO2Emissions: Numeric;
+  costPerKm: Numeric;
+  fuelPerKm: Numeric;
+} {
+  return (
+    typeof analytics.totalDistance === 'number' &&
+    typeof analytics.totalFuelConsumed === 'number' &&
+    typeof analytics.totalFuelCost === 'number' &&
+    typeof analytics.averageEfficiency === 'number' &&
+    typeof analytics.totalCO2Emissions === 'number' &&
+    typeof analytics.costPerKm === 'number' &&
+    typeof analytics.fuelPerKm === 'number'
+  );
 }
 
-export interface FuelPrice {
-  fuelType: 'gasoline' | 'diesel' | 'electric';
-  pricePerUnit: number; // per liter or per kWh for electric
-  currency: string;
-  lastUpdated: string;
+export const AnalyticsMath = {
+  divide(a: number, b: number, fallback = 0): number {
+    if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) return fallback;
+    return a / b;
+  },
+
+  multiply(a: number, b: number, fallback = 0): number {
+    if (!Number.isFinite(a) || !Number.isFinite(b)) return fallback;
+    return a * b;
+  },
+
+  round(value: number, decimals = 2): number {
+    const factor = Math.pow(10, decimals);
+    return Math.round(value * factor) / factor;
+  }
+};
+
+// ============================================================
+// INR Formatting helper for UI display
+// ============================================================
+export const formatINR = (value: number): string =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2
+  }).format(value);
+
+/* ============================================================
+   Types
+============================================================ */
+
+export interface FuelCalculatorVehicleType
+  extends Omit<VehicleType, 'fuel_efficiency' | 'fuel_type' | 'co2_emissions'> {
+  fuelEfficiency: number;
+  fuelType: FuelType;
+  tankCapacity?: number;
+  co2Emissions?: number;
 }
 
-export interface FuelConsumptionResult {
-  distance: number; // km
-  fuelConsumed: number; // liters or kWh
-  fuelCost: number; // in currency
-  co2Emissions?: number; // grams
-  efficiency: number; // km per liter or km per kWh
-}
+// ============================================================
+// Fleet Reports (including monthly aggregation)
+// ============================================================
 
-export interface FuelAnalytics {
-  totalDistance: number;
-  totalFuelConsumed: number;
-  totalFuelCost: number;
-  averageEfficiency: number;
-  totalCO2Emissions?: number;
-  costPerKm: number;
-  fuelPerKm: number;
-  breakdown: {
-    byVehicleType: Record<string, FuelConsumptionResult>;
-    byTimeRange: Array<{
-      period: string;
-      consumption: FuelConsumptionResult;
-    }>;
-  };
-}
-
-export interface FuelOptimizationSuggestion {
-  type: 'efficiency' | 'cost' | 'emissions';
-  severity: 'low' | 'medium' | 'high';
-  title: string;
-  description: string;
-  potentialSaving: {
-    fuel?: number; // liters
-    cost?: number; // currency
-    co2?: number; // grams
-  };
-  recommendation: string;
-}
-
+/* ============================================================
+   FuelCalculator
+============================================================ */
 export class FuelCalculator {
   private vehicleTypes: Map<string, VehicleType> = new Map();
   private fuelPrices: Map<string, FuelPrice> = new Map();
+  private evChargingLossFactor = 1.1; // 10% charging loss for EVs
 
   constructor() {
     this.initializeDefaultVehicleTypes();
     this.initializeDefaultFuelPrices();
   }
 
-  /**
-   * Add or update a vehicle type
-   */
+  /* -----------------------------
+     Vehicle Type Management
+  ----------------------------- */
   addVehicleType(vehicleType: VehicleType): void {
     this.vehicleTypes.set(vehicleType.id, vehicleType);
   }
 
-  /**
-   * Get all vehicle types
-   */
   getVehicleTypes(): VehicleType[] {
     return Array.from(this.vehicleTypes.values());
   }
 
-  /**
-   * Get a specific vehicle type
-   */
   getVehicleType(id: string): VehicleType | undefined {
     return this.vehicleTypes.get(id);
   }
 
-  /**
-   * Update fuel price
-   */
+  /* -----------------------------
+     Fuel Price Management
+  ----------------------------- */
   updateFuelPrice(fuelPrice: FuelPrice): void {
-    this.fuelPrices.set(fuelPrice.fuelType, fuelPrice);
+    this.fuelPrices.set(this.getFuelKey(fuelPrice.fuelType, fuelPrice.city), fuelPrice);
   }
 
-  /**
-   * Get fuel price
-   */
-  getFuelPrice(fuelType: string): FuelPrice | undefined {
-    return this.fuelPrices.get(fuelType);
+  getFuelPrice(fuelType: FuelType, city: City): FuelPrice | undefined {
+    return this.fuelPrices.get(this.getFuelKey(fuelType, city));
   }
 
-  /**
-   * Calculate fuel consumption for a given distance and vehicle
-   */
+  /* -----------------------------
+     Fuel Consumption Calculator
+  ----------------------------- */
   calculateFuelConsumption(
-    distance: number, // km
+    distance: number,
     vehicleTypeId: string,
+    city: City,
     conditions?: {
-      trafficFactor?: number; // 1.0 = normal, 1.2 = heavy traffic
-      weatherFactor?: number; // 1.0 = normal, 1.1 = adverse weather
-      loadFactor?: number; // 1.0 = normal load, 1.15 = heavy load
-      drivingStyle?: 'eco' | 'normal' | 'aggressive'; // affects efficiency
+      trafficFactor?: number;
+      weatherFactor?: number;
+      loadFactor?: number;
+      drivingStyle?: 'eco' | 'normal' | 'aggressive';
     }
   ): FuelConsumptionResult {
     const vehicleType = this.vehicleTypes.get(vehicleTypeId);
-    if (!vehicleType) {
-      throw new Error(`Vehicle type ${vehicleTypeId} not found`);
-    }
+    if (!vehicleType) throw new Error(`Vehicle type ${vehicleTypeId} not found`);
 
-    const fuelPrice = this.fuelPrices.get(vehicleType.fuelType);
-    if (!fuelPrice) {
-      throw new Error(`Fuel price for ${vehicleType.fuelType} not found`);
-    }
+    const fuelType = vehicleType.fuel_type as FuelType; // TS-safe
 
-    // Calculate base fuel consumption
-    let baseFuelConsumed = distance / vehicleType.fuelEfficiency;
+    const fuelPrice = this.fuelPrices.get(this.getFuelKey(fuelType, city));
+    if (!fuelPrice) throw new Error(`Fuel price for ${fuelType} in ${city} not found`);
 
-    // Apply condition factors
+    let fuelConsumed = distance / vehicleType.fuel_efficiency;
+
+    if (fuelType === 'electric') fuelConsumed *= this.evChargingLossFactor;
+
     if (conditions) {
-      const trafficFactor = conditions.trafficFactor || 1.0;
-      const weatherFactor = conditions.weatherFactor || 1.0;
-      const loadFactor = conditions.loadFactor || 1.0;
+      const trafficFactor = conditions.trafficFactor ?? 1.0;
+      const weatherFactor = conditions.weatherFactor ?? 1.0;
+      const loadFactor = conditions.loadFactor ?? 1.0;
 
       let drivingStyleFactor = 1.0;
-      switch (conditions.drivingStyle) {
-        case 'eco':
-          drivingStyleFactor = 0.9;
-          break;
-        case 'aggressive':
-          drivingStyleFactor = 1.2;
-          break;
-        default:
-          drivingStyleFactor = 1.0;
-      }
+      if (conditions.drivingStyle === 'eco') drivingStyleFactor = 0.9;
+      if (conditions.drivingStyle === 'aggressive') drivingStyleFactor = 1.2;
 
-      baseFuelConsumed *= trafficFactor * weatherFactor * loadFactor * drivingStyleFactor;
+      fuelConsumed *= trafficFactor * weatherFactor * loadFactor * drivingStyleFactor;
     }
 
-    const fuelCost = baseFuelConsumed * fuelPrice.pricePerUnit;
-    const actualEfficiency = distance / baseFuelConsumed;
-    const co2Emissions = vehicleType.co2Emissions ? vehicleType.co2Emissions * distance : undefined;
+    const baseCost = fuelConsumed * fuelPrice.pricePerUnit;
+    const gstAmount = baseCost * (fuelPrice.gstPercent / 100);
+    const totalCost = baseCost + gstAmount;
+
+    const actualEfficiency = distance / fuelConsumed;
+    const co2Emissions = vehicleType.co2_emissions ? vehicleType.co2_emissions * distance : undefined;
 
     return {
       distance,
-      fuelConsumed: Math.round(baseFuelConsumed * 100) / 100,
-      fuelCost: Math.round(fuelCost * 100) / 100,
-      co2Emissions: co2Emissions ? Math.round(co2Emissions) : undefined,
-      efficiency: Math.round(actualEfficiency * 100) / 100
+      fuelConsumed: AnalyticsMath.round(fuelConsumed),
+      fuelCost: AnalyticsMath.round(totalCost),
+      formattedCost: formatINR(totalCost),
+      efficiency: AnalyticsMath.round(actualEfficiency),
+      co2Emissions: co2Emissions ? Math.round(co2Emissions) : undefined
     };
   }
 
-  /**
-   * Calculate fuel consumption for multiple trips
-   */
-  calculateMultipleTripsFuel(
-    trips: Array<{
+  /* -----------------------------
+     Fleet Report Generator
+  ----------------------------- */
+  generateFleetReport(
+    records: {
       distance: number;
       vehicleTypeId: string;
-      conditions?: any;
-    }>
-  ): FuelAnalytics {
-    const results = trips.map(trip =>
-      this.calculateFuelConsumption(trip.distance, trip.vehicleTypeId, trip.conditions)
-    );
+      city: City;
+      conditions?: {
+        trafficFactor?: number;
+        weatherFactor?: number;
+        loadFactor?: number;
+        drivingStyle?: 'eco' | 'normal' | 'aggressive';
+      };
+    }[]
+  ): FleetReport[] {
+    const report: FleetReport[] = [];
 
-    const totalDistance = results.reduce((sum, result) => sum + result.distance, 0);
-    const totalFuelConsumed = results.reduce((sum, result) => sum + result.fuelConsumed, 0);
-    const totalFuelCost = results.reduce((sum, result) => sum + result.fuelCost, 0);
-    const totalCO2Emissions = results.reduce((sum, result) => sum + (result.co2Emissions || 0), 0);
+    for (const r of records) {
+      const result = this.calculateFuelConsumption(
+        r.distance,
+        r.vehicleTypeId,
+        r.city,
+        r.conditions
+      );
 
-    const averageEfficiency = totalDistance > 0 ? totalDistance / totalFuelConsumed : 0;
-    const costPerKm = totalDistance > 0 ? totalFuelCost / totalDistance : 0;
-    const fuelPerKm = totalDistance > 0 ? totalFuelConsumed / totalDistance : 0;
+      const costPerKm = AnalyticsMath.divide(result.fuelCost, result.distance);
+      const fuelPerKm = AnalyticsMath.divide(result.fuelConsumed, result.distance);
 
-    // Group by vehicle type
-    const byVehicleType: Record<string, FuelConsumptionResult> = {};
-    trips.forEach((trip, index) => {
-      const result = results[index];
-      if (!byVehicleType[trip.vehicleTypeId]) {
-        byVehicleType[trip.vehicleTypeId] = {
-          distance: 0,
-          fuelConsumed: 0,
-          fuelCost: 0,
-          co2Emissions: 0,
-          efficiency: 0
-        };
-      }
+      report.push({
+        city: r.city,
+        vehicleId: r.vehicleTypeId,
+        totalDistance: result.distance,
+        totalFuelConsumed: result.fuelConsumed,
+        totalFuelCost: result.fuelCost,
+        totalCO2Emissions: result.co2Emissions,
+        averageEfficiency: result.efficiency,
+        costPerKm: AnalyticsMath.round(costPerKm, 3),
+        fuelPerKm: AnalyticsMath.round(fuelPerKm, 3),
+        formattedTotalCost: result.formattedCost
+      });
+    }
 
-      const existing = byVehicleType[trip.vehicleTypeId];
-      existing.distance += result.distance;
-      existing.fuelConsumed += result.fuelConsumed;
-      existing.fuelCost += result.fuelCost;
-      existing.co2Emissions = (existing.co2Emissions || 0) + (result.co2Emissions || 0);
-      existing.efficiency = existing.distance > 0 ? existing.distance / existing.fuelConsumed : 0;
-    });
-
-    return {
-      totalDistance: Math.round(totalDistance * 100) / 100,
-      totalFuelConsumed: Math.round(totalFuelConsumed * 100) / 100,
-      totalFuelCost: Math.round(totalFuelCost * 100) / 100,
-      averageEfficiency: Math.round(averageEfficiency * 100) / 100,
-      totalCO2Emissions: Math.round(totalCO2Emissions),
-      costPerKm: Math.round(costPerKm * 100) / 100,
-      fuelPerKm: Math.round(fuelPerKm * 100) / 100,
-      breakdown: {
-        byVehicleType,
-        byTimeRange: [] // This would be populated with time-based analysis
-      }
-    };
+    return report;
   }
 
-  /**
-   * Generate fuel optimization suggestions
-   */
+  /* -----------------------------
+     Monthly Fleet Report Generator
+  ----------------------------- */
+  generateMonthlyFleetReport(
+    records: {
+      date: string;
+      distance: number;
+      vehicleTypeId: string;
+      city: City;
+      conditions?: {
+        trafficFactor?: number;
+        weatherFactor?: number;
+        loadFactor?: number;
+        drivingStyle?: 'eco' | 'normal' | 'aggressive';
+      };
+    }[]
+  ): MonthlyFleetReport[] {
+    const monthlyMap: Map<string, MonthlyFleetReport> = new Map();
+
+    for (const r of records) {
+      const result = this.calculateFuelConsumption(
+        r.distance,
+        r.vehicleTypeId,
+        r.city,
+        r.conditions
+      );
+
+      const dateObj = new Date(r.date);
+      const month = dateObj.getMonth() + 1;
+      const year = dateObj.getFullYear();
+
+      const key = `${r.vehicleTypeId}-${r.city}-${year}-${month}`;
+
+      const existing = monthlyMap.get(key);
+      if (existing) {
+        existing.totalDistance += result.distance;
+        existing.totalFuelConsumed += result.fuelConsumed;
+        existing.totalFuelCost += result.fuelCost;
+        if (result.co2Emissions !== undefined) {
+          existing.totalCO2Emissions = (existing.totalCO2Emissions || 0) + result.co2Emissions;
+        }
+        existing.averageEfficiency = AnalyticsMath.round(existing.totalDistance / existing.totalFuelConsumed);
+        existing.costPerKm = AnalyticsMath.round(existing.totalFuelCost / existing.totalDistance, 3);
+        existing.fuelPerKm = AnalyticsMath.round(existing.totalFuelConsumed / existing.totalDistance, 3);
+        existing.formattedTotalCost = formatINR(existing.totalFuelCost);
+      } else {
+        monthlyMap.set(key, {
+          city: r.city,
+          vehicleId: r.vehicleTypeId,
+          totalDistance: result.distance,
+          totalFuelConsumed: result.fuelConsumed,
+          totalFuelCost: result.fuelCost,
+          totalCO2Emissions: result.co2Emissions,
+          averageEfficiency: result.efficiency,
+          costPerKm: AnalyticsMath.round(result.fuelCost / result.distance, 3),
+          fuelPerKm: AnalyticsMath.round(result.fuelConsumed / result.distance, 3),
+          formattedTotalCost: result.formattedCost,
+          month,
+          year
+        });
+      }
+    }
+
+    return Array.from(monthlyMap.values());
+  }
+
+  /* -----------------------------
+     Fuel Optimization Suggestions
+  ----------------------------- */
   generateFuelOptimizationSuggestions(
     analytics: FuelAnalytics,
     benchmarks?: {
-      targetEfficiency?: number; // km per liter
-      maxCostPerKm?: number; // currency per km
-      maxEmissionsPerKm?: number; // grams per km
+      targetEfficiency?: number;
+      maxCostPerKm?: number;
+      maxEmissionsPerKm?: number;
     }
   ): FuelOptimizationSuggestion[] {
     const suggestions: FuelOptimizationSuggestion[] = [];
-    const defaultBenchmarks = {
-      targetEfficiency: 15.0, // km per liter
-      maxCostPerKm: 0.12, // currency per km
-      maxEmissionsPerKm: 150 // grams per km
+    const targets = {
+      targetEfficiency: 15,
+      maxCostPerKm: 0.12,
+      maxEmissionsPerKm: 150,
+      ...benchmarks
     };
 
-    const targets = { ...defaultBenchmarks, ...benchmarks };
-
-    // Efficiency analysis
-    if (analytics.averageEfficiency < targets.targetEfficiency) {
+    if (isValidFuelAnalytics(analytics) && analytics.averageEfficiency < targets.targetEfficiency) {
       const efficiencyGap = targets.targetEfficiency - analytics.averageEfficiency;
-      const potentialFuelSaving = analytics.totalDistance * (1 / analytics.averageEfficiency - 1 / targets.targetEfficiency);
-      const potentialCostSaving = potentialFuelSaving * (analytics.totalFuelCost / analytics.totalFuelConsumed);
+      const potentialFuelSaving = analytics.totalDistance * (AnalyticsMath.divide(1, analytics.averageEfficiency) - AnalyticsMath.divide(1, targets.targetEfficiency));
+      const potentialCostSaving = AnalyticsMath.multiply(potentialFuelSaving, AnalyticsMath.divide(analytics.totalFuelCost, analytics.totalFuelConsumed));
 
       suggestions.push({
         type: 'efficiency',
@@ -248,46 +329,39 @@ export class FuelCalculator {
         title: 'Fuel Efficiency Below Target',
         description: `Current efficiency is ${analytics.averageEfficiency.toFixed(1)} km/L, below target of ${targets.targetEfficiency} km/L.`,
         potentialSaving: {
-          fuel: Math.round(potentialFuelSaving * 100) / 100,
-          cost: Math.round(potentialCostSaving * 100) / 100
+          fuel: AnalyticsMath.round(potentialFuelSaving),
+          cost: AnalyticsMath.round(potentialCostSaving)
         },
-        recommendation: 'Consider driver training for eco-driving techniques, vehicle maintenance, or upgrading to more fuel-efficient vehicles.'
+        recommendation: 'Consider driver training, vehicle maintenance, or fleet upgrades.'
       });
     }
 
-    // Cost analysis
-    if (analytics.costPerKm > targets.maxCostPerKm) {
-      const costExcess = analytics.costPerKm - targets.maxCostPerKm;
-      const potentialCostSaving = costExcess * analytics.totalDistance;
+    if (isValidFuelAnalytics(analytics) && analytics.costPerKm > targets.maxCostPerKm) {
+      const excess = analytics.costPerKm - targets.maxCostPerKm;
+      const potentialCostSaving = excess * analytics.totalDistance;
 
       suggestions.push({
         type: 'cost',
-        severity: costExcess > targets.maxCostPerKm * 0.5 ? 'high' : costExcess > targets.maxCostPerKm * 0.2 ? 'medium' : 'low',
+        severity: excess > targets.maxCostPerKm * 0.5 ? 'high' : excess > targets.maxCostPerKm * 0.2 ? 'medium' : 'low',
         title: 'High Fuel Cost Per Kilometer',
-        description: `Current cost is ${analytics.costPerKm.toFixed(3)} per km, above target of ${targets.maxCostPerKm.toFixed(3)} per km.`,
-        potentialSaving: {
-          cost: Math.round(potentialCostSaving * 100) / 100
-        },
-        recommendation: 'Review fuel purchasing strategies, consider fuel cards with discounts, or optimize routes to reduce total distance.'
+        description: `Current cost is ${analytics.costPerKm.toFixed(3)} per km, above target.`,
+        potentialSaving: { cost: AnalyticsMath.round(potentialCostSaving) },
+        recommendation: 'Review fuel contracts, routing, or vehicle allocation.'
       });
     }
 
-    // Emissions analysis
-    if (analytics.totalCO2Emissions && targets.maxEmissionsPerKm) {
-      const emissionsPerKm = analytics.totalCO2Emissions / analytics.totalDistance;
+    if (isValidFuelAnalytics(analytics) && targets.maxEmissionsPerKm) {
+      const emissionsPerKm = AnalyticsMath.divide(analytics.totalCO2Emissions, analytics.totalDistance);
       if (emissionsPerKm > targets.maxEmissionsPerKm) {
-        const emissionsExcess = emissionsPerKm - targets.maxEmissionsPerKm;
-        const potentialEmissionsSaving = emissionsExcess * analytics.totalDistance;
-
+        const excess = emissionsPerKm - targets.maxEmissionsPerKm;
+        const potentialSaving = excess * analytics.totalDistance;
         suggestions.push({
           type: 'emissions',
-          severity: emissionsExcess > targets.maxEmissionsPerKm * 0.3 ? 'high' : emissionsExcess > targets.maxEmissionsPerKm * 0.1 ? 'medium' : 'low',
+          severity: excess > targets.maxEmissionsPerKm * 0.3 ? 'high' : excess > targets.maxEmissionsPerKm * 0.1 ? 'medium' : 'low',
           title: 'High CO2 Emissions',
-          description: `Current emissions are ${emissionsPerKm.toFixed(0)} g/km, above target of ${targets.maxEmissionsPerKm} g/km.`,
-          potentialSaving: {
-            co2: Math.round(potentialEmissionsSaving)
-          },
-          recommendation: 'Consider transitioning to hybrid or electric vehicles, optimize routes, and implement eco-driving practices.'
+          description: `Current emissions are ${emissionsPerKm.toFixed(0)} g/km, above target.`,
+          potentialSaving: { co2: Math.round(potentialSaving) },
+          recommendation: 'Adopt EVs/hybrids and reinforce eco-driving.'
         });
       }
     }
@@ -295,141 +369,50 @@ export class FuelCalculator {
     return suggestions;
   }
 
-  /**
-   * Compare fuel efficiency across different vehicle types
-   */
-  compareVehicleEfficiency(
-    analytics: FuelAnalytics
-  ): Array<{
-    vehicleTypeId: string;
-    vehicleType?: VehicleType;
-    efficiency: number;
-    costPerKm: number;
-    emissionsPerKm?: number;
-    ranking: number;
-  }> {
-    const comparisons = Object.entries(analytics.breakdown.byVehicleType).map(([vehicleTypeId, data]) => {
-      const vehicleType = this.vehicleTypes.get(vehicleTypeId);
-      const emissionsPerKm = data.co2Emissions && data.distance > 0 ? data.co2Emissions / data.distance : undefined;
-      const costPerKm = data.distance > 0 ? data.fuelCost / data.distance : 0;
-
-      return {
-        vehicleTypeId,
-        vehicleType,
-        efficiency: data.efficiency,
-        costPerKm,
-        emissionsPerKm,
-        ranking: 0 // Will be calculated below
-      };
-    });
-
-    // Calculate rankings based on efficiency (higher is better)
-    comparisons.sort((a, b) => b.efficiency - a.efficiency);
-    comparisons.forEach((comp, index) => {
-      comp.ranking = index + 1;
-    });
-
-    return comparisons;
-  }
-
-  /**
-   * Calculate fuel budget for a planned route
-   */
-  calculateFuelBudget(
-    plannedDistance: number,
-    vehicleTypeId: string,
-    safetyMargin: number = 0.1 // 10% safety margin
-  ): {
-    estimatedFuel: number;
-    estimatedCost: number;
-    recommendedBudget: number;
-    fuelWithMargin: number;
-  } {
-    const consumption = this.calculateFuelConsumption(plannedDistance, vehicleTypeId);
-    const fuelWithMargin = consumption.fuelConsumed * (1 + safetyMargin);
-    const recommendedBudget = consumption.fuelCost * (1 + safetyMargin);
-
-    return {
-      estimatedFuel: consumption.fuelConsumed,
-      estimatedCost: consumption.fuelCost,
-      recommendedBudget: Math.round(recommendedBudget * 100) / 100,
-      fuelWithMargin: Math.round(fuelWithMargin * 100) / 100
-    };
-  }
-
+  /* -----------------------------
+     Default Vehicle Types
+  ----------------------------- */
   private initializeDefaultVehicleTypes(): void {
-    const defaultVehicles: VehicleType[] = [
-      {
-        id: 'standard-van',
-        name: 'Standard Delivery Van',
-        fuelEfficiency: 12.0,
-        fuelType: 'diesel',
-        tankCapacity: 70,
-        co2Emissions: 180
-      },
-      {
-        id: 'compact-van',
-        name: 'Compact Van',
-        fuelEfficiency: 15.0,
-        fuelType: 'gasoline',
-        tankCapacity: 50,
-        co2Emissions: 150
-      },
-      {
-        id: 'electric-van',
-        name: 'Electric Van',
-        fuelEfficiency: 25.0, // km per kWh equivalent
-        fuelType: 'electric',
-        tankCapacity: 60, // kWh
-        co2Emissions: 0
-      },
-      {
-        id: 'hybrid-van',
-        name: 'Hybrid Van',
-        fuelEfficiency: 18.0,
-        fuelType: 'hybrid',
-        tankCapacity: 55,
-        co2Emissions: 120
-      },
-      {
-        id: 'motorcycle',
-        name: 'Delivery Motorcycle',
-        fuelEfficiency: 35.0,
-        fuelType: 'gasoline',
-        tankCapacity: 15,
-        co2Emissions: 80
-      }
-    ];
-
-    defaultVehicles.forEach(vehicle => {
-      this.vehicleTypes.set(vehicle.id, vehicle);
-    });
+    const now = new Date().toISOString();
+    [
+      { id: 'standard-van', name: 'Standard Delivery Van', fuel_efficiency: 12, fuel_type: 'diesel', co2_emissions: 180, icon: 'truck' },
+      { id: 'compact-van', name: 'Compact Van', fuel_efficiency: 15, fuel_type: 'gasoline', co2_emissions: 150, icon: 'truck' },
+      { id: 'electric-van', name: 'Electric Van', fuel_efficiency: 6, fuel_type: 'electric', co2_emissions: 0, icon: 'zap' }
+    ].forEach(v => this.vehicleTypes.set(v.id, { ...v, created_at: now, updated_at: now }));
   }
 
+  /* -----------------------------
+     Default Fuel Prices
+     - City-wise with GST
+     - Electric handled separately with charging loss
+  ----------------------------- */
   private initializeDefaultFuelPrices(): void {
-    const defaultPrices: FuelPrice[] = [
-      {
-        fuelType: 'gasoline',
-        pricePerUnit: 1.45,
-        currency: 'USD',
-        lastUpdated: new Date().toISOString()
-      },
-      {
-        fuelType: 'diesel',
-        pricePerUnit: 1.35,
-        currency: 'USD',
-        lastUpdated: new Date().toISOString()
-      },
-      {
-        fuelType: 'electric',
-        pricePerUnit: 0.12, // per kWh
-        currency: 'USD',
-        lastUpdated: new Date().toISOString()
-      }
-    ];
+    const prices = [
+      { city: 'Delhi', fuelType: 'gasoline', pricePerUnit: 105, gstPercent: 0 },
+      { city: 'Delhi', fuelType: 'diesel', pricePerUnit: 95, gstPercent: 0 },
+      { city: 'Delhi', fuelType: 'electric', pricePerUnit: 8, gstPercent: 18 },
 
-    defaultPrices.forEach(price => {
-      this.fuelPrices.set(price.fuelType, price);
-    });
+      { city: 'Bangalore', fuelType: 'gasoline', pricePerUnit: 101, gstPercent: 0 },
+      { city: 'Bangalore', fuelType: 'diesel', pricePerUnit: 86, gstPercent: 0 },
+      { city: 'Bangalore', fuelType: 'electric', pricePerUnit: 9, gstPercent: 18 },
+
+      { city: 'Chennai', fuelType: 'gasoline', pricePerUnit: 102, gstPercent: 0 },
+      { city: 'Chennai', fuelType: 'diesel', pricePerUnit: 94, gstPercent: 0 },
+      { city: 'Chennai', fuelType: 'electric', pricePerUnit: 7.5, gstPercent: 18 }
+    ] as const;
+
+    prices.forEach(p => this.fuelPrices.set(this.getFuelKey(p.fuelType, p.city), {
+      fuelType: p.fuelType,
+      city: p.city,
+      pricePerUnit: p.pricePerUnit,
+      gstPercent: p.gstPercent,
+      currency: 'INR',
+      lastUpdated: new Date().toISOString()
+    }));
+  }
+
+  // Helper for Map key
+  private getFuelKey(fuelType: FuelType, city: City): string {
+    return `${fuelType}-${city}`;
   }
 }

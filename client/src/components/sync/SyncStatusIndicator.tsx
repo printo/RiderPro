@@ -4,11 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Wifi,
@@ -17,11 +12,24 @@ import {
   CheckCircle,
   AlertTriangle,
   XCircle,
-  Clock,
   Database,
-  RotateCcw
+  RotateCcw,
+  Clock
 } from 'lucide-react';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
+import { DeviceSyncStatus as SyncStatus } from '@shared/types';
+
+interface DetailedSyncStatus extends SyncStatus {
+  unsyncedGPSRecords: number;
+  unsyncedSessions: number;
+  totalPending: number;
+}
+
+interface SyncHealth {
+  health: 'good' | 'warning' | 'error';
+  message: string;
+  timeSinceLastSync: number;
+}
 
 interface SyncStatusIndicatorProps {
   showDetails?: boolean;
@@ -36,8 +44,7 @@ function SyncStatusIndicator({
   onSyncComplete,
   onSyncError
 }: SyncStatusIndicatorProps) {
-  const [showPopover, setShowPopover] = useState(false);
-  const [detailedStatus, setDetailedStatus] = useState<any>(null);
+  const [detailedStatus, setDetailedStatus] = useState<DetailedSyncStatus | null>(null);
 
   const {
     syncStatus,
@@ -45,7 +52,6 @@ function SyncStatusIndicator({
     pendingRecords,
     syncInProgress,
     syncErrors,
-    lastSyncTime,
     forceSyncNow,
     clearSyncedData,
     getDetailedSyncStatus,
@@ -68,7 +74,6 @@ function SyncStatusIndicator({
   const handleShowDetails = async () => {
     const details = await getDetailedSyncStatus();
     setDetailedStatus(details);
-    setShowPopover(true);
   };
 
   const getStatusIcon = () => {
@@ -202,9 +207,9 @@ function SyncStatusIndicator({
 }
 
 interface SyncStatusDetailsProps {
-  syncStatus: any;
-  detailedStatus: any;
-  syncHealth: any;
+  syncStatus: SyncStatus;
+  detailedStatus: DetailedSyncStatus | null;
+  syncHealth: SyncHealth;
   onForceSync: () => void;
   onClearData: () => void;
   formatLastSyncTime: (time?: Date) => string;

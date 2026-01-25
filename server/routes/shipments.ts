@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { storage } from "../storage.js";
 import { authenticate, AuthenticatedRequest } from "../middleware/auth.js";
 import {
@@ -6,12 +6,12 @@ import {
   updateShipmentSchema,
   batchUpdateSchema,
   shipmentFiltersSchema
-} from "@shared/schema";
+} from "@shared/types";
 import { log } from "../../shared/utils/logger.js";
 
 export function registerShipmentRoutes(app: Express): void {
   // Dashboard endpoint
-  app.get('/api/dashboard', authenticate, async (req: AuthenticatedRequest, res) => {
+  app.get('/api/dashboard', authenticate, async (req: AuthenticatedRequest, res: Response) => {
     try {
       // Determine if we should filter by employeeId
       let employeeIdFilter: string | undefined = undefined;
@@ -22,14 +22,15 @@ export function registerShipmentRoutes(app: Express): void {
 
       const metrics = await storage.getDashboardMetrics(employeeIdFilter);
       res.json(metrics);
-    } catch (error: any) {
-      log.error('Dashboard error:', error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log.error('Dashboard error:', errorMessage);
       res.status(500).json({ error: 'Failed to fetch dashboard metrics' });
     }
   });
 
   // Get shipments with optional filters, pagination, and sorting
-  app.get('/api/shipments/fetch', authenticate, async (req: AuthenticatedRequest, res) => {
+  app.get('/api/shipments/fetch', authenticate, async (req: AuthenticatedRequest, res: Response) => {
     try {
       const filters = shipmentFiltersSchema.parse(req.query);
 
@@ -54,14 +55,15 @@ export function registerShipmentRoutes(app: Express): void {
       res.setHeader('X-Has-Previous-Page', (page > 1).toString());
 
       res.json(result.data);
-    } catch (error: any) {
-      log.error('Error fetching shipments:', error.reason || error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log.error('Error fetching shipments:', errorMessage);
       res.status(500).json({ error: 'Failed to fetch shipments' });
     }
   });
 
   // Get single shipment
-  app.get('/api/shipments/:id', async (req, res) => {
+  app.get('/api/shipments/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const shipment = await storage.getShipment(id);
@@ -71,54 +73,58 @@ export function registerShipmentRoutes(app: Express): void {
       }
 
       res.json(shipment);
-    } catch (error: any) {
-      log.error('Error fetching shipment:', error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log.error('Error fetching shipment:', errorMessage);
       res.status(500).json({ error: 'Failed to fetch shipment' });
     }
   });
 
   // Create new shipment
-  app.post('/api/shipments/create', async (req, res) => {
+  app.post('/api/shipments/create', async (req: Request, res: Response) => {
     try {
       const shipmentData = insertShipmentSchema.parse(req.body);
       const newShipment = await storage.createShipment(shipmentData);
       log.info('Shipment created:', newShipment);
       res.status(201).json(newShipment);
-    } catch (error: any) {
-      log.error('Error creating shipment:', error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log.error('Error creating shipment:', errorMessage);
       res.status(500).json({ error: 'Failed to create shipment' });
     }
   });
 
   // Update single shipment status
-  app.patch('/api/shipments/:id', async (req, res) => {
+  app.patch('/api/shipments/:id', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const updateData = updateShipmentSchema.parse(req.body);
       const updatedShipment = await storage.updateShipment(id, updateData);
       log.info('Shipment updated:', updatedShipment);
       res.json(updatedShipment);
-    } catch (error: any) {
-      log.error('Error updating shipment:', error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log.error('Error updating shipment:', errorMessage);
       res.status(500).json({ error: 'Failed to update shipment' });
     }
   });
 
   // Batch update shipments
-  app.patch('/api/shipments/batch', async (req, res) => {
+  app.patch('/api/shipments/batch', async (req: Request, res: Response) => {
     try {
       const batchData = batchUpdateSchema.parse(req.body);
       const result = await storage.batchUpdateShipments(batchData);
       log.info('Batch shipment update completed:', { count: result });
       res.json({ success: true, updated: result });
-    } catch (error: any) {
-      log.error('Error in batch update:', error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log.error('Error in batch update:', errorMessage);
       res.status(500).json({ error: 'Failed to update shipments' });
     }
   });
 
   // Remarks endpoint for cancelled/returned shipments
-  app.post('/api/shipments/:id/remarks', async (req, res) => {
+  app.post('/api/shipments/:id/remarks', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { status, remarks } = req.body;
@@ -136,8 +142,9 @@ export function registerShipmentRoutes(app: Express): void {
         success: true,
         message: 'Remarks saved successfully'
       });
-    } catch (error: any) {
-      log.error('Error saving remarks:', error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log.error('Error saving remarks:', errorMessage);
       res.status(500).json({
         success: false,
         message: 'Failed to save remarks'

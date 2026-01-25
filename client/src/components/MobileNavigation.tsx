@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
 import { useAuth } from '../hooks/useAuth';
-import { UserRole } from '@/types/User';
+import { UserRole } from '@shared/types';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import '../styles/mobile.css';
 
@@ -24,7 +24,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeRiders, setActiveRiders] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   const mobileOptimization = useMobileOptimization({
     enableGestures: true
@@ -97,20 +97,6 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const handleLogout = async () => {
-    console.log('Logout button clicked');
-    try {
-      logout();
-      console.log('Redirecting to login page...');
-      // Use window.location to ensure a full page reload
-      window.location.href = '/login';
-    } catch (error) {
-      console.error('Logout error:', error);
-      // In case of any error, still try to redirect to login page
-      window.location.href = '/login';
-    }
-  };
-
   const handleMenuToggle = () => {
     setIsMenuOpen(!isMenuOpen);
 
@@ -118,7 +104,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     mobileOptimization.vibrate(50);
   };
 
-  const handleNavItemClick = (path: string) => {
+  const handleNavItemClick = (_path: string) => {
     setIsMenuOpen(false);
 
     // Provide haptic feedback

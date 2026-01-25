@@ -1,9 +1,8 @@
-import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Send, CheckCircle, XCircle, Clock } from "lucide-react";
+import { RefreshCw, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 import { apiClient } from "@/services/ApiClient";
@@ -17,7 +16,7 @@ interface SyncStats {
 }
 
 import { useOfflineSync } from "@/hooks/useOfflineSync";
-import { Wifi, WifiOff, Database } from "lucide-react";
+import { Wifi } from "lucide-react";
 
 // ... existing imports ...
 
@@ -61,7 +60,7 @@ function SyncStatusPanel({ className }: SyncStatusPanelProps) {
         description: data.message || "Sync process started.",
       });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Sync Failed",
         description: error.message || "Failed to trigger external sync.",

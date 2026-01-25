@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useRouteTracking } from './useRouteAPI';
 import { useGPSTracking } from './useGPSTracking';
 import { useToast } from './use-toast';
-import { Shipment } from '@shared/schema';
+import { Shipment } from '@shared/types';
 
 export interface ShipmentTrackingOptions {
   employeeId: string;

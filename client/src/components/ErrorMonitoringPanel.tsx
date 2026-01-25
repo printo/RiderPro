@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import {
   Collapsible,
@@ -23,10 +22,39 @@ import {
   Shield,
   Activity
 } from 'lucide-react';
+import { ErrorStats, SystemHealth, ErrorLog } from '@shared/types';
+
+interface ErrorHandler {
+  getErrorStats(): ErrorStats;
+  getSystemHealth(): SystemHealth;
+  getLogs(options: { since: Date }): ErrorLog[];
+  clearOldLogs(): number;
+  exportLogs(): string;
+  resolveError(errorId: string): void;
+}
+
+interface GPSErrorRecovery {
+  getRecoveryState(): RecoveryState;
+  addRecoveryListener(callback: () => void): void;
+  removeRecoveryListener(callback: () => void): void;
+}
+
+interface RecoveryState {
+  isRecovering: boolean;
+  fallbackMode: boolean;
+  recoveryAttempts: number;
+  maxRecoveryAttempts: number;
+  lastSuccessfulUpdate?: Date;
+  lastKnownPosition?: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  };
+}
 
 interface ErrorMonitoringPanelProps {
-  errorHandler?: any;
-  gpsErrorRecovery?: any;
+  errorHandler?: ErrorHandler;
+  gpsErrorRecovery?: GPSErrorRecovery;
   expanded?: boolean;
   onErrorResolve?: (errorId: string) => void;
 }
@@ -38,10 +66,10 @@ function ErrorMonitoringPanel({
   onErrorResolve
 }: ErrorMonitoringPanelProps) {
   const [isExpanded, setIsExpanded] = useState(expanded);
-  const [errorStats, setErrorStats] = useState<any>(null);
-  const [systemHealth, setSystemHealth] = useState<any>(null);
-  const [recentErrors, setRecentErrors] = useState<any[]>([]);
-  const [recoveryState, setRecoveryState] = useState<any>(null);
+  const [errorStats, setErrorStats] = useState<ErrorStats | null>(null);
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [recentErrors, setRecentErrors] = useState<ErrorLog[]>([]);
+  const [recoveryState, setRecoveryState] = useState<RecoveryState | null>(null);
 
   useEffect(() => {
     if (!errorHandler) return;

@@ -158,7 +158,7 @@ class HealthCheckOptimizer {
     try {
       const result = await checkFunction();
       return result;
-    } catch (error) {
+    } catch (_error) {
       if (retryCount < this.config.maxRetries) {
         // Increment retry counter
         this.retryCounters.set(endpoint, retryCount + 1);

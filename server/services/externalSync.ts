@@ -2,7 +2,7 @@ import axios from 'axios';
 import FormData from 'form-data';
 import fs from 'fs';
 import path from 'path';
-import { Shipment, Acknowledgment } from '@shared/schema';
+import { Shipment, Acknowledgment } from '@shared/types';
 import { log } from '../vite.js';
 
 interface ExternalSyncPayload {
@@ -14,6 +14,22 @@ interface ExternalSyncPayload {
     photoUrl?: string;
     acknowledgment_captured_at: string;
   };
+}
+
+interface PerformanceMetrics {
+  totalRequests: number;
+  successfulRequests: number;
+  failedRequests: number;
+  jsonRequests: number;
+  multipartRequests: number;
+  totalProcessingTime: number;
+  totalFileSize: number;
+  averageResponseTime: number;
+  lastResetTime: number;
+  uptime: number;
+  successRate: string;
+  requestsPerMinute: number;
+  averageFileSize: number;
 }
 
 type ContentType = 'json' | 'multipart';
@@ -35,6 +51,25 @@ interface WebhookDeliveryResult {
   webhookUrl: string;
 }
 
+export interface ExternalUpdatePayload {
+  id: string;
+  status: string;
+  statusTimestamp?: string;
+  deliveryDetails?: {
+    signature?: string;
+    photo?: string;
+    actualDeliveryTime?: string;
+  };
+}
+
+interface FailedDelivery {
+  payload: ExternalSyncPayload;
+  webhookConfig: WebhookConfig;
+  retryCount: number;
+  failedAt: string;
+  error: string;
+}
+
 class ExternalSyncService {
   private readonly maxRetries = 3;
   private readonly retryDelay = 1000; // 1 second
@@ -43,7 +78,7 @@ class ExternalSyncService {
 
   // Webhook configuration management
   private webhookConfigs: Map<string, WebhookConfig> = new Map();
-  private failedDeliveries: Map<string, any[]> = new Map();
+  private failedDeliveries: Map<string, FailedDelivery[]> = new Map();
   private deliveryStats = {
     totalAttempts: 0,
     successfulDeliveries: 0,
@@ -195,8 +230,9 @@ class ExternalSyncService {
       }
 
       log('ExternalSyncService: All dependencies validated successfully', 'external-sync');
-    } catch (error: any) {
-      log(`ExternalSyncService: Dependency validation failed: ${error.message}`, 'external-sync');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      log(`ExternalSyncService: Dependency validation failed: ${errorMessage}`, 'external-sync');
       throw error;
     }
 
@@ -261,7 +297,7 @@ class ExternalSyncService {
       } else {
         return await this.sendJsonPayload(payload, attempt);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Enhanced error logging with content-type specific information
       const errorContext = this.getErrorContext(error, contentType, payload);
       log(`${contentType.toUpperCase()} sync failed for shipment ${payload.shipmentId} (attempt ${attempt}): ${errorContext}`, 'external-sync');
@@ -293,26 +329,27 @@ class ExternalSyncService {
   /**
    * Generates detailed error context based on error type and content type
    */
-  private getErrorContext(error: any, contentType: ContentType, payload: ExternalSyncPayload): string {
-    const baseError = error.message || 'Unknown error';
+  private getErrorContext(error: unknown, contentType: ContentType, payload: ExternalSyncPayload): string {
+    const errorObj = error as { message?: string; code?: string; response?: { status?: number } };
+    const baseError = errorObj.message || 'Unknown error';
 
     if (contentType === 'multipart') {
       // Multipart-specific error analysis
       if (this.isFileRelatedError(error)) {
         const fileInfo = this.getFileInfo(payload);
         return `File processing error - ${baseError}. Files: ${fileInfo}`;
-      } else if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+      } else if (errorObj.code === 'ECONNRESET' || errorObj.code === 'ETIMEDOUT') {
         return `Network error during multipart upload - ${baseError}. This may be due to large file size or slow connection`;
-      } else if (error.response?.status) {
-        return `HTTP ${error.response.status} error during multipart upload - ${baseError}`;
+      } else if (errorObj.response && typeof errorObj.response === 'object' && 'status' in errorObj.response) {
+        return `HTTP ${(errorObj.response as { status: number }).status} error during multipart upload - ${baseError}`;
       }
       return `Multipart upload error - ${baseError}`;
     } else {
       // JSON-specific error analysis
-      if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT') {
+      if (errorObj.code === 'ECONNRESET' || errorObj.code === 'ETIMEDOUT') {
         return `Network error during JSON sync - ${baseError}`;
-      } else if (error.response?.status) {
-        return `HTTP ${error.response.status} error during JSON sync - ${baseError}`;
+      } else if (errorObj.response && typeof errorObj.response === 'object' && 'status' in errorObj.response) {
+        return `HTTP ${(errorObj.response as { status: number }).status} error during JSON sync - ${baseError}`;
       }
       return `JSON sync error - ${baseError}`;
     }
@@ -321,13 +358,14 @@ class ExternalSyncService {
   /**
    * Determines if an error is related to file processing
    */
-  private isFileRelatedError(error: any): boolean {
-    const errorMessage = (error.message || '').toLowerCase();
+  private isFileRelatedError(error: unknown): boolean {
+    const errorObj = error as { message?: string; code?: string };
+    const errorMessage = (errorObj.message || '').toLowerCase();
     return errorMessage.includes('file') ||
       errorMessage.includes('enoent') ||
       errorMessage.includes('permission') ||
       errorMessage.includes('buffer') ||
-      error.code === 'ENOENT';
+      errorObj.code === 'ENOENT';
   }
 
   /**
@@ -371,47 +409,48 @@ class ExternalSyncService {
   /**
    * Gets current performance metrics
    */
-  public getPerformanceMetrics(): any {
-    const uptime = Date.now() - this.performanceMetrics.lastResetTime;
-    const successRate = this.performanceMetrics.totalRequests > 0
-      ? (this.performanceMetrics.successfulRequests / this.performanceMetrics.totalRequests * 100).toFixed(2)
-      : '0.00';
+  public getPerformanceMetrics(): PerformanceMetrics {
+  const uptime = Date.now() - this.performanceMetrics.lastResetTime;
+  const successRate = this.performanceMetrics.totalRequests > 0
+    ? (this.performanceMetrics.successfulRequests / this.performanceMetrics.totalRequests * 100).toFixed(2)
+    : '0.00';
 
-    return {
-      ...this.performanceMetrics,
-      uptime,
-      successRate: `${successRate}%`,
-      requestsPerMinute: this.performanceMetrics.totalRequests / (uptime / 60000),
-      averageFileSize: this.performanceMetrics.multipartRequests > 0
-        ? Math.round(this.performanceMetrics.totalFileSize / this.performanceMetrics.multipartRequests)
-        : 0
-    };
-  }
+  return {
+    ...this.performanceMetrics,
+    uptime,
+    successRate: `${successRate}%`,
+    requestsPerMinute: this.performanceMetrics.totalRequests / (uptime / 60000),
+    averageFileSize: this.performanceMetrics.multipartRequests > 0
+      ? Math.round(this.performanceMetrics.totalFileSize / this.performanceMetrics.multipartRequests)
+      : 0
+  };
+}
 
   /**
    * Resets performance metrics
    */
   public resetPerformanceMetrics(): void {
-    this.performanceMetrics = {
-      totalRequests: 0,
-      successfulRequests: 0,
-      failedRequests: 0,
-      jsonRequests: 0,
-      multipartRequests: 0,
-      totalProcessingTime: 0,
-      totalFileSize: 0,
-      averageResponseTime: 0,
-      lastResetTime: Date.now()
-    };
-    log('Performance metrics reset', 'external-sync');
-  }
+  this.performanceMetrics = {
+    totalRequests: 0,
+    successfulRequests: 0,
+    failedRequests: 0,
+    jsonRequests: 0,
+    multipartRequests: 0,
+    totalProcessingTime: 0,
+    totalFileSize: 0,
+    averageResponseTime: 0,
+    lastResetTime: Date.now()
+  };
+  log('Performance metrics reset', 'external-sync');
+}
 
   /**
    * Logs performance summary periodically
    */
   private logPerformanceSummary(): void {
-    const metrics = this.getPerformanceMetrics();
-    log(`Performance Summary - Total: ${metrics.totalRequests}, Success: ${metrics.successRate}, Avg Time: ${Math.round(metrics.averageResponseTime)}ms, JSON: ${metrics.jsonRequests}, Multipart: ${metrics.multipartRequests}`, 'external-sync');
+  const metrics = this.getPerformanceMetrics();
+  log(`Performance Summary - Total: ${metrics.totalRequests
+}, Success: ${ metrics.successRate }, Avg Time: ${ Math.round(metrics.averageResponseTime) } ms, JSON: ${ metrics.jsonRequests }, Multipart: ${ metrics.multipartRequests } `, 'external-sync');
   }
 
   /**
@@ -420,39 +459,45 @@ class ExternalSyncService {
    */
   private async sendJsonPayload(payload: ExternalSyncPayload, attempt: number): Promise<boolean> {
     const startTime = Date.now();
-    log(`Sending JSON payload for shipment ${payload.shipmentId} (attempt ${attempt}) - Size: ${JSON.stringify(payload).length} bytes`, 'external-sync');
+    log(`Sending JSON payload for shipment ${ payload.shipmentId }(attempt ${ attempt }) - Size: ${ JSON.stringify(payload).length } bytes`, 'external-sync');
 
     try {
       const response = await axios.post(this.externalApiUrl, payload, {
         timeout: 10000, // 10 second timeout
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.bearerToken}`,
+          'Authorization': `Bearer ${ this.bearerToken } `,
         },
       });
 
       const duration = Date.now() - startTime;
       if (response.status >= 200 && response.status < 300) {
         this.updatePerformanceMetrics('json', true, duration);
-        log(`Successfully synced shipment ${payload.shipmentId} as JSON (status: ${response.status}, ${duration}ms)`, 'external-sync');
+        log(`Successfully synced shipment ${ payload.shipmentId } as JSON(status: ${ response.status }, ${ duration }ms)`, 'external-sync');
         return true;
       }
 
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    } catch (error: any) {
+      throw new Error(`HTTP ${ response.status }: ${ response.statusText } `);
+    } catch (error: unknown) {
       const duration = Date.now() - startTime;
       this.updatePerformanceMetrics('json', false, duration);
 
       // Enhanced JSON-specific error handling
-      if (error.code === 'ECONNABORTED') {
-        throw new Error(`JSON sync timeout after ${duration}ms - payload may be too large or network is slow`);
-      } else if (error.response) {
-        throw new Error(`JSON sync HTTP error ${error.response.status}: ${error.response.statusText} (${duration}ms)`);
-      } else if (error.code) {
-        throw new Error(`JSON sync network error ${error.code}: ${error.message} (${duration}ms)`);
+      const errorObj = error as {
+        code?: string;
+        response?: { status: number; statusText: string };
+        message?: string;
+      };
+
+      if (errorObj.code === 'ECONNABORTED') {
+        throw new Error(`JSON sync timeout after ${ duration } ms - payload may be too large or network is slow`);
+      } else if (errorObj.response) {
+        throw new Error(`JSON sync HTTP error ${ errorObj.response.status }: ${ errorObj.response.statusText } (${ duration }ms)`);
+      } else if (errorObj.code) {
+        throw new Error(`JSON sync network error ${ errorObj.code }: ${ errorObj.message } (${ duration }ms)`);
       }
 
-      throw new Error(`JSON sync failed: ${error.message} (${duration}ms)`);
+      throw new Error(`JSON sync failed: ${ errorObj.message } (${ duration }ms)`);
     }
   }
 
@@ -472,7 +517,7 @@ class ExternalSyncService {
 
       // Validate file URL
       if (!fileUrl || fileUrl.trim() === '') {
-        log(`Empty file URL provided for field ${fieldName}`, 'external-sync');
+        log(`Empty file URL provided for field ${ fieldName }`, 'external-sync');
         return null;
       }
 
@@ -492,7 +537,7 @@ class ExternalSyncService {
 
       // Check if file exists and get file stats
       if (!fs.existsSync(filePath)) {
-        log(`File not found: ${filePath} for field ${fieldName}`, 'external-sync');
+        log(`File not found: ${ filePath } for field ${ fieldName }`, 'external-sync');
         return null;
       }
 
@@ -501,9 +546,9 @@ class ExternalSyncService {
 
       // Memory optimization: Use streaming for large files (>5MB)
       if (fileSize > 5 * 1024 * 1024) {
-        log(`Large file detected (${fileSize} bytes), using streaming for ${fieldName}`, 'external-sync');
+        log(`Large file detected(${ fileSize } bytes), using streaming for ${ fieldName }`, 'external-sync');
         // For very large files, we could implement streaming, but for now we'll warn and continue
-        log(`Warning: File ${filePath} is large (${fileSize} bytes), consider implementing streaming`, 'external-sync');
+        log(`Warning: File ${ filePath } is large(${ fileSize } bytes), consider implementing streaming`, 'external-sync');
       }
 
       // Read file into buffer with memory monitoring
@@ -513,12 +558,13 @@ class ExternalSyncService {
       const memoryAfter = process.memoryUsage ? process.memoryUsage().heapUsed : 0;
       const memoryDelta = memoryAfter - memoryBefore;
 
-      log(`Successfully processed file ${filePath} (${buffer.length} bytes) for field ${fieldName} in ${duration}ms, memory delta: ${memoryDelta} bytes`, 'external-sync');
+      log(`Successfully processed file ${ filePath } (${ buffer.length } bytes) for field ${ fieldName } in ${ duration } ms, memory delta: ${ memoryDelta } bytes`, 'external-sync');
 
       return buffer;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const duration = Date.now() - startTime;
-      log(`Error processing file ${fileUrl} for field ${fieldName} after ${duration}ms: ${error.message}`, 'external-sync');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      log(`Error processing file ${ fileUrl } for field ${ fieldName } after ${ duration } ms: ${ errorMessage } `, 'external-sync');
       return null;
     }
   }
@@ -534,7 +580,7 @@ class ExternalSyncService {
           if (buffer) {
             // Force garbage collection hint for large buffers
             if (buffer.length > 1024 * 1024) { // >1MB
-              log(`Clearing large buffer ${index} (${buffer.length} bytes) after successful upload`, 'external-sync');
+              log(`Clearing large buffer ${ index } (${ buffer.length } bytes) after successful upload`, 'external-sync');
             }
           }
         });
@@ -542,12 +588,13 @@ class ExternalSyncService {
         // Suggest garbage collection for large uploads
         const totalSize = fileBuffers.reduce((sum, buf) => sum + (buf?.length || 0), 0);
         if (totalSize > 5 * 1024 * 1024 && global.gc) { // >5MB total
-          log(`Suggesting garbage collection after large upload (${totalSize} bytes)`, 'external-sync');
+          log(`Suggesting garbage collection after large upload(${ totalSize } bytes)`, 'external-sync');
           global.gc();
         }
       }
-    } catch (error: any) {
-      log(`Error during cleanup: ${error.message}`, 'external-sync');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      log(`Error during cleanup: ${ errorMessage } `, 'external-sync');
     }
   }
 
@@ -561,7 +608,7 @@ class ExternalSyncService {
     const processedFiles: string[] = [];
 
     try {
-      log(`Sending multipart payload for shipment ${payload.shipmentId} (attempt ${attempt})`, 'external-sync');
+      log(`Sending multipart payload for shipment ${ payload.shipmentId }(attempt ${ attempt })`, 'external-sync');
 
       // Create FormData instance
       const formData = new FormData();
@@ -587,9 +634,9 @@ class ExternalSyncService {
               contentType: 'image/png',
             });
             totalFileSize += signatureBuffer.length;
-            processedFiles.push(`signature(${signatureBuffer.length}b)`);
+            processedFiles.push(`signature(${ signatureBuffer.length }b)`);
           } else {
-            log(`Warning: Signature file could not be processed for shipment ${payload.shipmentId}`, 'external-sync');
+            log(`Warning: Signature file could not be processed for shipment ${ payload.shipmentId }`, 'external-sync');
           }
         }
 
@@ -605,19 +652,19 @@ class ExternalSyncService {
               contentType: 'image/jpeg',
             });
             totalFileSize += photoBuffer.length;
-            processedFiles.push(`photo(${photoBuffer.length}b)`);
+            processedFiles.push(`photo(${ photoBuffer.length }b)`);
           } else {
-            log(`Warning: Photo file could not be processed for shipment ${payload.shipmentId}`, 'external-sync');
+            log(`Warning: Photo file could not be processed for shipment ${ payload.shipmentId }`, 'external-sync');
           }
         }
       }
 
       // Log multipart details
-      log(`Multipart upload details for shipment ${payload.shipmentId}: Files: [${processedFiles.join(', ')}], Total size: ${totalFileSize} bytes`, 'external-sync');
+      log(`Multipart upload details for shipment ${ payload.shipmentId }: Files: [${ processedFiles.join(', ') }], Total size: ${ totalFileSize } bytes`, 'external-sync');
 
       // Check if we have any files to upload
       if (processedFiles.length === 0) {
-        log(`No files processed for multipart upload, falling back to JSON for shipment ${payload.shipmentId}`, 'external-sync');
+        log(`No files processed for multipart upload, falling back to JSON for shipment ${ payload.shipmentId }`, 'external-sync');
         return this.sendJsonPayload(payload, attempt);
       }
 
@@ -626,7 +673,7 @@ class ExternalSyncService {
       const response = await axios.post(this.externalApiUrl, formData, {
         timeout,
         headers: {
-          'Authorization': `Bearer ${this.bearerToken}`,
+          'Authorization': `Bearer ${ this.bearerToken } `,
           ...formData.getHeaders(), // Let FormData set Content-Type with boundary
         },
       });
@@ -638,32 +685,38 @@ class ExternalSyncService {
         // Cleanup after successful upload
         this.cleanupAfterUpload(true, []);
 
-        log(`Successfully synced shipment ${payload.shipmentId} as multipart (status: ${response.status}, ${duration}ms, ${totalFileSize} bytes)`, 'external-sync');
+        log(`Successfully synced shipment ${ payload.shipmentId } as multipart(status: ${ response.status }, ${ duration }ms, ${ totalFileSize } bytes)`, 'external-sync');
         return true;
       }
 
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    } catch (error: any) {
+      throw new Error(`HTTP ${ response.status }: ${ response.statusText } `);
+    } catch (error: unknown) {
       const duration = Date.now() - startTime;
       this.updatePerformanceMetrics('multipart', false, duration, totalFileSize);
 
       // Cleanup after failed upload
       this.cleanupAfterUpload(false, []);
 
+      const errorObj = error as {
+        code?: string;
+        response?: { status: number; statusText: string };
+        message?: string;
+      };
+
       // Enhanced multipart-specific error handling
       if (this.isFileRelatedError(error)) {
-        log(`File processing error for shipment ${payload.shipmentId}: ${error.message}. Processed files: [${processedFiles.join(', ')}]`, 'external-sync');
-        log(`Falling back to JSON mode for shipment ${payload.shipmentId} due to file processing failure`, 'external-sync');
+        log(`File processing error for shipment ${ payload.shipmentId }: ${ errorObj.message }. Processed files: [${ processedFiles.join(', ') }]`, 'external-sync');
+        log(`Falling back to JSON mode for shipment ${ payload.shipmentId } due to file processing failure`, 'external-sync');
         return this.sendJsonPayload(payload, attempt);
-      } else if (error.code === 'ECONNABORTED') {
-        throw new Error(`Multipart upload timeout after ${duration}ms - file size: ${totalFileSize} bytes may be too large`);
-      } else if (error.response) {
-        throw new Error(`Multipart upload HTTP error ${error.response.status}: ${error.response.statusText} (${duration}ms, ${totalFileSize} bytes)`);
-      } else if (error.code) {
-        throw new Error(`Multipart upload network error ${error.code}: ${error.message} (${duration}ms, ${totalFileSize} bytes)`);
+      } else if (errorObj.code === 'ECONNABORTED') {
+        throw new Error(`Multipart upload timeout after ${ duration } ms - file size: ${ totalFileSize } bytes may be too large`);
+      } else if (errorObj.response) {
+        throw new Error(`Multipart upload HTTP error ${ errorObj.response.status }: ${ errorObj.response.statusText } (${ duration } ms, ${ totalFileSize } bytes)`);
+      } else if (errorObj.code) {
+        throw new Error(`Multipart upload network error ${ errorObj.code }: ${ errorObj.message } (${ duration } ms, ${ totalFileSize } bytes)`);
       }
 
-      throw new Error(`Multipart upload failed: ${error.message} (${duration}ms, ${totalFileSize} bytes)`);
+      throw new Error(`Multipart upload failed: ${ errorObj.message } (${ duration } ms, ${ totalFileSize } bytes)`);
     }
   }
 
@@ -671,7 +724,7 @@ class ExternalSyncService {
    * Sends a single update to external system with enhanced webhook delivery
    * Used by the external update API endpoints
    */
-  async sendUpdateToExternal(updatePayload: any, webhookName: string = 'default'): Promise<WebhookDeliveryResult> {
+  async sendUpdateToExternal(updatePayload: ExternalUpdatePayload, webhookName: string = 'default'): Promise<WebhookDeliveryResult> {
     const webhookConfig = this.getWebhookConfig(webhookName);
 
     if (!webhookConfig) {
@@ -695,7 +748,7 @@ class ExternalSyncService {
     }
 
     try {
-      log(`Sending update to external system for shipment ${updatePayload.id} via webhook '${webhookName}'`, 'external-sync');
+      log(`Sending update to external system for shipment ${ updatePayload.id } via webhook '${webhookName}'`, 'external-sync');
 
       // Convert to internal sync payload format
       const syncPayload: ExternalSyncPayload = {
@@ -721,14 +774,15 @@ class ExternalSyncService {
 
       return result;
 
-    } catch (error: any) {
-      log(`Error sending update to external system: ${error.message}`, 'external-sync');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      log(`Error sending update to external system: ${ errorMessage } `, 'external-sync');
       this.updateDeliveryStats(false, 1);
 
       return {
         success: false,
         attempts: 1,
-        lastError: error.message,
+        lastError: errorMessage,
         webhookUrl: webhookConfig.url
       };
     }
@@ -747,64 +801,66 @@ class ExternalSyncService {
       attempts = attempt;
 
       try {
-        log(`Webhook delivery attempt ${attempt}/${maxRetries} for shipment ${payload.shipmentId} to ${webhookConfig.url}`, 'external-sync');
+        log(`Webhook delivery attempt ${ attempt } /${maxRetries} for shipment ${payload.shipmentId} to ${webhookConfig.url}`, 'external-sync');
 
-        // Determine content type and send
-        const contentType = this.determineContentType(payload);
-        const success = await this.sendToWebhook(payload, contentType, webhookConfig);
+// Determine content type and send
+const contentType = this.determineContentType(payload);
+const success = await this.sendToWebhook(payload, contentType, webhookConfig);
 
-        if (success) {
-          log(`Webhook delivery successful for shipment ${payload.shipmentId} after ${attempt} attempts`, 'external-sync');
-          return {
-            success: true,
-            attempts,
-            deliveredAt: new Date().toISOString(),
-            webhookUrl: webhookConfig.url
-          };
-        }
+if (success) {
+  log(`Webhook delivery successful for shipment ${payload.shipmentId} after ${attempt} attempts`, 'external-sync');
+  return {
+    success: true,
+    attempts,
+    deliveredAt: new Date().toISOString(),
+    webhookUrl: webhookConfig.url
+  };
+}
 
-        throw new Error('Webhook delivery failed');
+throw new Error('Webhook delivery failed');
 
-      } catch (error: any) {
-        lastError = error.message;
-        log(`Webhook delivery attempt ${attempt} failed for shipment ${payload.shipmentId}: ${lastError}`, 'external-sync');
+      } catch (error: unknown) {
+  const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+  lastError = errorMessage;
+  log(`Webhook delivery attempt ${attempt} failed for shipment ${payload.shipmentId}: ${lastError}`, 'external-sync');
 
-        // Don't wait after the last attempt
-        if (attempt < maxRetries) {
-          // Exponential backoff with jitter
-          const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000;
-          log(`Retrying webhook delivery in ${Math.round(delay)}ms`, 'external-sync');
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
+  // Don't wait after the last attempt
+  if (attempt < maxRetries) {
+    // Exponential backoff with jitter
+    const delay = baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000;
+    log(`Retrying webhook delivery in ${Math.round(delay)}ms`, 'external-sync');
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+}
     }
 
-    // All attempts failed - store for retry queue
-    this.addToFailedDeliveries(payload, webhookConfig, lastError);
+// All attempts failed - store for retry queue
+this.addToFailedDeliveries(payload, webhookConfig, lastError);
 
-    return {
-      success: false,
-      attempts,
-      lastError,
-      webhookUrl: webhookConfig.url
-    };
+return {
+  success: false,
+  attempts,
+  lastError,
+  webhookUrl: webhookConfig.url
+};
   }
 
   /**
    * Send payload to specific webhook with configuration
    */
-  private async sendToWebhook(payload: ExternalSyncPayload, contentType: ContentType, webhookConfig: WebhookConfig): Promise<boolean> {
-    const startTime = Date.now();
+  private async sendToWebhook(payload: ExternalSyncPayload, contentType: ContentType, webhookConfig: WebhookConfig): Promise < boolean > {
+  const startTime = Date.now();
 
-    try {
-      if (contentType === 'multipart') {
-        return await this.sendMultipartToWebhook(payload, webhookConfig);
-      } else {
-        return await this.sendJsonToWebhook(payload, webhookConfig);
-      }
-    } catch (error: any) {
+  try {
+    if(contentType === 'multipart') {
+  return await this.sendMultipartToWebhook(payload, webhookConfig);
+} else {
+  return await this.sendJsonToWebhook(payload, webhookConfig);
+}
+    } catch (error: unknown) {
       const duration = Date.now() - startTime;
-      log(`Webhook delivery failed after ${duration}ms: ${error.message}`, 'external-sync');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      log(`Webhook delivery failed for shipment ${payload.shipmentId} after ${duration}ms: ${errorMessage}`, 'external-sync');
       throw error;
     }
   }
@@ -812,184 +868,186 @@ class ExternalSyncService {
   /**
    * Send JSON payload to webhook
    */
-  private async sendJsonToWebhook(payload: ExternalSyncPayload, webhookConfig: WebhookConfig): Promise<boolean> {
-    const response = await axios.post(webhookConfig.url, payload, {
-      timeout: webhookConfig.timeout,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${webhookConfig.token}`,
-      },
-    });
+  private async sendJsonToWebhook(payload: ExternalSyncPayload, webhookConfig: WebhookConfig): Promise < boolean > {
+  const response = await axios.post(webhookConfig.url, payload, {
+    timeout: webhookConfig.timeout,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${webhookConfig.token}`,
+    },
+  });
 
-    return response.status >= 200 && response.status < 300;
-  }
+  return response.status >= 200 && response.status < 300;
+}
 
   /**
    * Send multipart payload to webhook
    */
-  private async sendMultipartToWebhook(payload: ExternalSyncPayload, webhookConfig: WebhookConfig): Promise<boolean> {
-    // Use existing multipart logic but with webhook config
-    const formData = new FormData();
+  private async sendMultipartToWebhook(payload: ExternalSyncPayload, webhookConfig: WebhookConfig): Promise < boolean > {
+  // Use existing multipart logic but with webhook config
+  const formData = new FormData();
 
-    // Add basic shipment data
-    formData.append('shipmentId', payload.shipmentId);
-    formData.append('status', payload.status);
-    formData.append('syncedAt', payload.syncedAt);
+  // Add basic shipment data
+  formData.append('shipmentId', payload.shipmentId);
+  formData.append('status', payload.status);
+  formData.append('syncedAt', payload.syncedAt);
 
-    // Process files if present
-    if (payload.acknowledgement) {
-      formData.append('acknowledgementCapturedAt', payload.acknowledgement.acknowledgment_captured_at);
+  // Process files if present
+  if(payload.acknowledgement) {
+  formData.append('acknowledgementCapturedAt', payload.acknowledgement.acknowledgment_captured_at);
 
-      if (payload.acknowledgement.signatureUrl) {
-        const signatureBuffer = await this.processFileForUpload(payload.acknowledgement.signatureUrl, 'signature');
-        if (signatureBuffer) {
-          formData.append('signature', signatureBuffer, {
-            filename: 'signature.png',
-            contentType: 'image/png',
-          });
-        }
-      }
-
-      if (payload.acknowledgement.photoUrl) {
-        const photoBuffer = await this.processFileForUpload(payload.acknowledgement.photoUrl, 'photo');
-        if (photoBuffer) {
-          formData.append('photo', photoBuffer, {
-            filename: 'photo.jpg',
-            contentType: 'image/jpeg',
-          });
-        }
-      }
+  if (payload.acknowledgement.signatureUrl) {
+    const signatureBuffer = await this.processFileForUpload(payload.acknowledgement.signatureUrl, 'signature');
+    if (signatureBuffer) {
+      formData.append('signature', signatureBuffer, {
+        filename: 'signature.png',
+        contentType: 'image/png',
+      });
     }
+  }
 
-    const response = await axios.post(webhookConfig.url, formData, {
-      timeout: webhookConfig.timeout,
-      headers: {
-        'Authorization': `Bearer ${webhookConfig.token}`,
-        ...formData.getHeaders(),
-      },
-    });
+  if (payload.acknowledgement.photoUrl) {
+    const photoBuffer = await this.processFileForUpload(payload.acknowledgement.photoUrl, 'photo');
+    if (photoBuffer) {
+      formData.append('photo', photoBuffer, {
+        filename: 'photo.jpg',
+        contentType: 'image/jpeg',
+      });
+    }
+  }
+}
 
-    return response.status >= 200 && response.status < 300;
+const response = await axios.post(webhookConfig.url, formData, {
+  timeout: webhookConfig.timeout,
+  headers: {
+    'Authorization': `Bearer ${webhookConfig.token}`,
+    ...formData.getHeaders(),
+  },
+});
+
+return response.status >= 200 && response.status < 300;
   }
 
   /**
    * Add failed delivery to retry queue
    */
   private addToFailedDeliveries(payload: ExternalSyncPayload, webhookConfig: WebhookConfig, error: string): void {
-    const webhookName = Array.from(this.webhookConfigs.entries())
-      .find(([_, config]) => config === webhookConfig)?.[0] || 'unknown';
+  const webhookName = Array.from(this.webhookConfigs.entries())
+    .find(([_, config]) => config === webhookConfig)?.[0] || 'unknown';
 
-    if (!this.failedDeliveries.has(webhookName)) {
-      this.failedDeliveries.set(webhookName, []);
-    }
+  if(!this.failedDeliveries.has(webhookName)) {
+  this.failedDeliveries.set(webhookName, []);
+}
 
-    const failedDelivery = {
-      payload,
-      webhookConfig,
-      error,
-      failedAt: new Date().toISOString(),
-      retryCount: 0
-    };
+const failedDelivery = {
+  payload,
+  webhookConfig,
+  error,
+  failedAt: new Date().toISOString(),
+  retryCount: 0
+};
 
-    this.failedDeliveries.get(webhookName)!.push(failedDelivery);
-    log(`Added failed delivery to retry queue for webhook '${webhookName}': ${payload.shipmentId}`, 'external-sync');
+this.failedDeliveries.get(webhookName)!.push(failedDelivery);
+log(`Added failed delivery to retry queue for webhook '${webhookName}': ${payload.shipmentId}`, 'external-sync');
   }
 
   /**
    * Update delivery statistics
    */
   private updateDeliveryStats(success: boolean, attempts: number): void {
-    this.deliveryStats.totalAttempts += attempts;
+  this.deliveryStats.totalAttempts += attempts;
 
-    if (success) {
-      this.deliveryStats.successfulDeliveries++;
-      if (attempts > 1) {
-        this.deliveryStats.retriedDeliveries++;
-      }
-    } else {
-      this.deliveryStats.failedDeliveries++;
+  if(success) {
+    this.deliveryStats.successfulDeliveries++;
+    if (attempts > 1) {
+      this.deliveryStats.retriedDeliveries++;
     }
+  } else {
+    this.deliveryStats.failedDeliveries++;
   }
+}
 
   /**
    * Get delivery statistics
    */
-  public getDeliveryStats(): any {
-    const uptime = Date.now() - this.deliveryStats.lastResetTime;
-    const successRate = this.deliveryStats.totalAttempts > 0
-      ? ((this.deliveryStats.successfulDeliveries / (this.deliveryStats.successfulDeliveries + this.deliveryStats.failedDeliveries)) * 100).toFixed(2)
-      : '0.00';
+  public getDeliveryStats(): Record < string, unknown > {
+  const uptime = Date.now() - this.deliveryStats.lastResetTime;
+  const successRate = this.deliveryStats.totalAttempts > 0
+    ? ((this.deliveryStats.successfulDeliveries / (this.deliveryStats.successfulDeliveries + this.deliveryStats.failedDeliveries)) * 100).toFixed(2)
+    : '0.00';
 
-    return {
-      ...this.deliveryStats,
-      uptime,
-      successRate: `${successRate}%`,
-      averageAttemptsPerDelivery: this.deliveryStats.totalAttempts > 0
-        ? (this.deliveryStats.totalAttempts / (this.deliveryStats.successfulDeliveries + this.deliveryStats.failedDeliveries)).toFixed(2)
-        : '0.00',
-      failedDeliveriesInQueue: Array.from(this.failedDeliveries.values()).reduce((sum, arr) => sum + arr.length, 0)
-    };
-  }
+  return {
+    ...this.deliveryStats,
+    uptime,
+    successRate: `${successRate}%`,
+    averageAttemptsPerDelivery: this.deliveryStats.totalAttempts > 0
+      ? (this.deliveryStats.totalAttempts / (this.deliveryStats.successfulDeliveries + this.deliveryStats.failedDeliveries)).toFixed(2)
+      : '0.00',
+    failedDeliveriesInQueue: Array.from(this.failedDeliveries.values()).reduce((sum, arr) => sum + arr.length, 0)
+  };
+}
 
   /**
    * Process failed deliveries retry queue
    */
-  public async processFailedDeliveries(): Promise<{ processed: number; successful: number; stillFailed: number }> {
-    let processed = 0;
-    let successful = 0;
-    let stillFailed = 0;
+  public async processFailedDeliveries(): Promise < { processed: number; successful: number; stillFailed: number } > {
+  let processed = 0;
+  let successful = 0;
+  let stillFailed = 0;
 
-    log('Processing failed deliveries retry queue', 'external-sync');
+  log('Processing failed deliveries retry queue', 'external-sync');
 
-    for (const [webhookName, failures] of this.failedDeliveries.entries()) {
-      const toRetry = failures.splice(0, Math.min(failures.length, 10)); // Process max 10 at a time
+    for(const [webhookName, failures] of this.failedDeliveries.entries()) {
+  const toRetry = failures.splice(0, Math.min(failures.length, 10)); // Process max 10 at a time
 
-      for (const failure of toRetry) {
-        processed++;
-        failure.retryCount++;
+  for (const failure of toRetry) {
+    processed++;
+    failure.retryCount++;
 
-        try {
-          const result = await this.sendWithEnhancedRetry(failure.payload, failure.webhookConfig);
+    try {
+      const result = await this.sendWithEnhancedRetry(failure.payload, failure.webhookConfig);
 
-          if (result.success) {
-            successful++;
-            log(`Retry successful for shipment ${failure.payload.shipmentId} on webhook '${webhookName}'`, 'external-sync');
-          } else {
-            stillFailed++;
-            // Add back to queue if retry count is reasonable
-            if (failure.retryCount < 5) {
-              failures.push(failure);
-            } else {
-              log(`Giving up on shipment ${failure.payload.shipmentId} after ${failure.retryCount} retry attempts`, 'external-sync');
-            }
-          }
-        } catch (error: any) {
-          stillFailed++;
-          log(`Retry failed for shipment ${failure.payload.shipmentId}: ${error.message}`, 'external-sync');
-
-          // Add back to queue if retry count is reasonable
-          if (failure.retryCount < 5) {
-            failures.push(failure);
-          }
+      if (result.success) {
+        successful++;
+        log(`Retry successful for shipment ${failure.payload.shipmentId} on webhook '${webhookName}'`, 'external-sync');
+      } else {
+        stillFailed++;
+        // Add back to queue if retry count is reasonable
+        if (failure.retryCount < 5) {
+          failures.push(failure);
+        } else {
+          log(`Giving up on shipment ${failure.payload.shipmentId} after ${failure.retryCount} retry attempts`, 'external-sync');
         }
       }
-    }
+    } catch (error: unknown) {
+      stillFailed++;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      log(`Retry failed for shipment ${failure.payload.shipmentId}: ${errorMessage}`, 'external-sync');
 
-    log(`Failed deliveries processing complete: ${processed} processed, ${successful} successful, ${stillFailed} still failed`, 'external-sync');
-    return { processed, successful, stillFailed };
+      // Add back to queue if retry count is reasonable
+      if (failure.retryCount < 5) {
+        failures.push(failure);
+      }
+    }
+  }
+}
+
+log(`Failed deliveries processing complete: ${processed} processed, ${successful} successful, ${stillFailed} still failed`, 'external-sync');
+return { processed, successful, stillFailed };
   }
 
   /**
    * Sends batch updates to external system
    * Used by the batch external update API endpoint
    */
-  async sendBatchUpdatesToExternal(updates: any[], webhookName: string = 'default'): Promise<{ success: number; failed: number; results: any[] }> {
-    const startTime = Date.now();
-    let success = 0;
-    let failed = 0;
-    const results: any[] = [];
+  async sendBatchUpdatesToExternal(updates: ExternalUpdatePayload[], webhookName: string = 'default'): Promise<{ success: number; failed: number; results: Record<string, unknown>[] }> {
+  const startTime = Date.now();
+  let success = 0;
+  let failed = 0;
+  const results: Record<string, unknown>[] = [];
 
-    log(`Starting batch external update for ${updates.length} shipments via webhook '${webhookName}'`, 'external-sync');
+  log(`Starting batch external update for ${updates.length
+} shipments via webhook '${webhookName}'`, 'external-sync');
 
     // Process in parallel but with limited concurrency
     const concurrencyLimit = 3; // Reduced for webhook stability
@@ -1020,13 +1078,14 @@ class ExternalSyncService {
           }
 
           return updateResult;
-        } catch (error: any) {
-          log(`Batch update error for shipment ${update.id}: ${error.message}`, 'external-sync');
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          log(`Batch update error for shipment ${ update.id }: ${ errorMessage } `, 'external-sync');
           failed++;
           return {
             shipmentId: update.id,
             status: 'failed',
-            message: error.message,
+            message: errorMessage,
             attempts: 1,
             webhookUrl: 'unknown',
             sentAt: new Date().toISOString()
@@ -1044,7 +1103,7 @@ class ExternalSyncService {
     }
 
     const duration = Date.now() - startTime;
-    log(`Batch external update completed: ${success} successful, ${failed} failed in ${duration}ms`, 'external-sync');
+    log(`Batch external update completed: ${ success } successful, ${ failed } failed in ${ duration } ms`, 'external-sync');
 
     return { success, failed, results };
   }
@@ -1057,7 +1116,7 @@ class ExternalSyncService {
     let jsonCount = 0;
     let multipartCount = 0;
 
-    log(`Starting batch sync for ${shipments.length} shipments`, 'external-sync');
+    log(`Starting batch sync for ${ shipments.length } shipments`, 'external-sync');
 
     // Process in parallel but with limited concurrency
     const concurrencyLimit = 5;
@@ -1085,8 +1144,9 @@ class ExternalSyncService {
             return 'success';
           }
           return 'failed';
-        } catch (error: any) {
-          log(`Batch sync error for shipment ${shipment.shipment_id}: ${error.message}`, 'external-sync');
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          log(`Batch sync error for shipment ${ shipment.shipment_id }: ${ errorMessage } `, 'external-sync');
           return 'failed';
         }
       });
@@ -1097,7 +1157,7 @@ class ExternalSyncService {
     }
 
     const duration = Date.now() - startTime;
-    log(`Batch sync completed: ${success} successful (${jsonCount} JSON, ${multipartCount} multipart), ${failed} failed in ${duration}ms`, 'external-sync');
+    log(`Batch sync completed: ${ success } successful(${ jsonCount } JSON, ${ multipartCount } multipart), ${ failed } failed in ${ duration } ms`, 'external-sync');
 
     // Log performance summary after batch operations
     if (shipments.length >= 10) { // Only for larger batches

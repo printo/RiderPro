@@ -1,13 +1,11 @@
-import { RouteFilters } from '@shared/schema';
+import { RouteFilters, EmployeePerformanceMetrics, FuelAnalyticsData } from '@shared/types';
 import {
-  EmployeePerformanceMetrics,
   RoutePerformanceMetrics,
-  TimeBasedMetrics,
-  FuelAnalyticsData
+  TimeBasedMetrics
 } from '../services/RouteDataAggregator';
 import { apiClient } from '../services/ApiClient';
 
-export interface AnalyticsAPIResponse<T = any> {
+export interface AnalyticsAPIResponse<T = unknown> {
   success: boolean;
   message: string;
   data?: T;
@@ -235,7 +233,7 @@ export const analyticsApi = {
     filters: RouteFilters = {},
     groupBy?: 'day' | 'week' | 'month'
   ): Promise<string> => {
-    let data: any[];
+    let data: unknown[];
     let headers: string[];
 
     switch (type) {
@@ -249,7 +247,7 @@ export const analyticsApi = {
         ];
         break;
 
-      case 'fuel':
+      case 'fuel': {
         const fuelData = await analyticsApi.getFuelAnalytics(filters);
         data = [fuelData]; // Single row for overall fuel analytics
         headers = [
@@ -257,6 +255,7 @@ export const analyticsApi = {
           'Cost per km', 'Fuel per km'
         ];
         break;
+      }
 
       case 'time':
         data = await analyticsApi.getTimeBasedMetrics(groupBy || 'day', filters);
@@ -278,60 +277,79 @@ export const analyticsApi = {
 /**
  * Convert data array to CSV format
  */
-function convertToCSV(data: any[], headers: string[]): string {
+function convertToCSV(data: unknown[], headers: string[]): string {
   const csvHeaders = headers.join(',');
 
   const csvRows = data.map(row => {
+    // Helper to safely access properties on unknown objects
+    const getProp = (obj: unknown, prop: string): unknown => {
+      if (obj && typeof obj === 'object' && prop in obj) {
+        return (obj as Record<string, unknown>)[prop];
+      }
+      return undefined;
+    };
+
     return headers.map(header => {
       const key = header.toLowerCase().replace(/[^a-z0-9]/g, '');
-      let value = '';
+      let value: string | number = '';
 
       // Map headers to data properties (simplified mapping)
       switch (key) {
         case 'employeeid':
-          value = row.employeeId || '';
+          value = (getProp(row, 'employeeId') as string) || '';
           break;
         case 'totaldistancekm':
-          value = row.totalDistance || 0;
+          value = (getProp(row, 'totalDistance') as number) || 0;
           break;
-        case 'totaltimehours':
-          value = row.totalTime ? (row.totalTime / 3600).toFixed(2) : '0';
+        case 'totaltimehours': {
+          const totalTime = getProp(row, 'totalTime') as number;
+          value = totalTime ? (totalTime / 3600).toFixed(2) : '0';
           break;
-        case 'fuelconsumedl':
-          value = row.totalFuelConsumed || row.fuelConsumed || 0;
+        }
+        case 'fuelconsumedl': {
+          const totalFuel = getProp(row, 'totalFuelConsumed') as number;
+          const fuel = getProp(row, 'fuelConsumed') as number;
+          value = totalFuel || fuel || 0;
           break;
-        case 'fuelcost':
-          value = row.totalFuelCost || row.fuelCost || 0;
+        }
+        case 'fuelcost': {
+          const totalCost = getProp(row, 'totalFuelCost') as number;
+          const cost = getProp(row, 'fuelCost') as number;
+          value = totalCost || cost || 0;
           break;
-        case 'shipmentscompleted':
-          value = row.totalShipmentsCompleted || row.totalShipments || 0;
+        }
+        case 'shipmentscompleted': {
+          const totalShipments = getProp(row, 'totalShipmentsCompleted') as number;
+          const shipments = getProp(row, 'totalShipments') as number;
+          value = totalShipments || shipments || 0;
           break;
+        }
         case 'averagespeedkmh':
-          value = row.averageSpeed || 0;
+          value = (getProp(row, 'averageSpeed') as number) || 0;
           break;
         case 'efficiencykmshipment':
-          value = row.efficiency || 0;
+          value = (getProp(row, 'efficiency') as number) || 0;
           break;
         case 'workingdays':
-          value = row.workingDays || 0;
+          value = (getProp(row, 'workingDays') as number) || 0;
           break;
         case 'avgdistanceday':
-          value = row.averageDistancePerDay || 0;
+          value = (getProp(row, 'averageDistancePerDay') as number) || 0;
           break;
         case 'avgshipmentsday':
-          value = row.averageShipmentsPerDay || 0;
+          value = (getProp(row, 'averageShipmentsPerDay') as number) || 0;
           break;
         case 'performancescore':
-          value = row.performanceScore || 0;
+          value = (getProp(row, 'performanceScore') as number) || 0;
           break;
         case 'period':
-          value = row.period || '';
+          value = (getProp(row, 'period') as string) || '';
           break;
         case 'activeemployees':
-          value = row.activeEmployees || 0;
+          value = (getProp(row, 'activeEmployees') as number) || 0;
           break;
         default:
-          value = row[key] || '';
+          value = (getProp(row, key) as string) || '';
       }
 
       // Escape commas and quotes in CSV

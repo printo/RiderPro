@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { storage } from "../storage.js";
-import { VehicleType, InsertVehicleType, UpdateVehicleType } from "@shared/schema";
+import { InsertVehicleType, UpdateVehicleType } from "@shared/types";
 import { log } from "../../shared/utils/logger.js";
 
 export function registerVehicleRoutes(app: Express): void {
@@ -9,8 +9,8 @@ export function registerVehicleRoutes(app: Express): void {
     try {
       const vehicleTypes = await storage.getVehicleTypes();
       res.json(vehicleTypes);
-    } catch (error: any) {
-      log.error('Error fetching vehicle types:', error.message);
+    } catch (error: unknown) {
+      log.error('Error fetching vehicle types:', (error instanceof Error ? error.message : String(error)));
       res.status(500).json({ error: 'Failed to fetch vehicle types' });
     }
   });
@@ -23,8 +23,8 @@ export function registerVehicleRoutes(app: Express): void {
         return res.status(404).json({ error: 'Vehicle type not found' });
       }
       res.json(vehicleType);
-    } catch (error: any) {
-      log.error('Error fetching vehicle type:', error.message);
+    } catch (error: unknown) {
+      log.error('Error fetching vehicle type:', (error instanceof Error ? error.message : String(error)));
       res.status(500).json({ error: 'Failed to fetch vehicle type' });
     }
   });
@@ -35,8 +35,8 @@ export function registerVehicleRoutes(app: Express): void {
       const newVehicleType = await storage.createVehicleType(vehicleTypeData);
       log.info('Vehicle type created:', newVehicleType);
       res.status(201).json(newVehicleType);
-    } catch (error: any) {
-      log.error('Error creating vehicle type:', error.message);
+    } catch (error: unknown) {
+      log.error('Error creating vehicle type:', (error instanceof Error ? error.message : String(error)));
       res.status(500).json({ error: 'Failed to create vehicle type' });
     }
   });
@@ -48,8 +48,8 @@ export function registerVehicleRoutes(app: Express): void {
       const updatedVehicleType = await storage.updateVehicleType(id, updateData);
       log.info('Vehicle type updated:', updatedVehicleType);
       res.json(updatedVehicleType);
-    } catch (error: any) {
-      log.error('Error updating vehicle type:', error.message);
+    } catch (error: unknown) {
+      log.error('Error updating vehicle type:', (error instanceof Error ? error.message : String(error)));
       res.status(500).json({ error: 'Failed to update vehicle type' });
     }
   });
@@ -60,8 +60,8 @@ export function registerVehicleRoutes(app: Express): void {
       await storage.deleteVehicleType(id);
       log.info('Vehicle type deleted:', { id });
       res.status(204).send();
-    } catch (error: any) {
-      log.error('Error deleting vehicle type:', error.message);
+    } catch (error: unknown) {
+      log.error('Error deleting vehicle type:', (error instanceof Error ? error.message : String(error)));
       res.status(500).json({ error: 'Failed to delete vehicle type' });
     }
   });
@@ -71,8 +71,8 @@ export function registerVehicleRoutes(app: Express): void {
     try {
       const fuelSettings = await storage.getFuelSettings();
       res.json(fuelSettings);
-    } catch (error: any) {
-      log.error('Error fetching fuel settings:', error.message);
+    } catch (error: unknown) {
+      log.error('Error fetching fuel settings:', (error instanceof Error ? error.message : String(error)));
       res.status(500).json({ error: 'Failed to fetch fuel settings' });
     }
   });
@@ -85,8 +85,8 @@ export function registerVehicleRoutes(app: Express): void {
         return res.status(404).json({ error: 'Fuel setting not found' });
       }
       res.json(fuelSetting);
-    } catch (error: any) {
-      log.error('Error fetching fuel setting:', error.message);
+    } catch (error: unknown) {
+      log.error('Error fetching fuel setting:', (error instanceof Error ? error.message : String(error)));
       res.status(500).json({ error: 'Failed to fetch fuel setting' });
     }
   });
@@ -97,8 +97,8 @@ export function registerVehicleRoutes(app: Express): void {
       const newFuelSetting = await storage.createFuelSetting(fuelSettingData);
       log.info('Fuel setting created:', newFuelSetting);
       res.status(201).json(newFuelSetting);
-    } catch (error: any) {
-      log.error('Error creating fuel setting:', error.message);
+    } catch (error: unknown) {
+      log.error('Error creating fuel setting:', (error instanceof Error ? error.message : String(error)));
       res.status(500).json({ error: 'Failed to create fuel setting' });
     }
   });
@@ -110,8 +110,8 @@ export function registerVehicleRoutes(app: Express): void {
       const updatedFuelSetting = await storage.updateFuelSetting(id, updateData);
       log.info('Fuel setting updated:', updatedFuelSetting);
       res.json(updatedFuelSetting);
-    } catch (error: any) {
-      log.error('Error updating fuel setting:', error.message);
+    } catch (error: unknown) {
+      log.error('Error updating fuel setting:', (error instanceof Error ? error.message : String(error)));
       res.status(500).json({ error: 'Failed to update fuel setting' });
     }
   });
@@ -122,8 +122,8 @@ export function registerVehicleRoutes(app: Express): void {
       await storage.deleteFuelSetting(id);
       log.info('Fuel setting deleted:', { id });
       res.status(204).send();
-    } catch (error: any) {
-      log.error('Error deleting fuel setting:', error.message);
+    } catch (error: unknown) {
+      log.error('Error deleting fuel setting:', (error instanceof Error ? error.message : String(error)));
       res.status(500).json({ error: 'Failed to delete fuel setting' });
     }
   });
