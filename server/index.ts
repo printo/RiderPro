@@ -183,22 +183,22 @@ async function startServer() {
 
     const port = parseInt(process.env.PORT || '5000', 10);
     server.listen(port, "0.0.0.0", () => {
-      log.dev('\n=== RiderPro Delivery Management System ===');
-      log.dev(`🚀 Server running on port ${port}`);
-      log.dev(`🌐 Application: http://localhost:${port}`);
-      log.dev(`📱 Mobile App: http://localhost:${port} (responsive design)`);
-      log.dev(`📡 API Endpoints: http://localhost:${port}/api/*`);
-      log.dev(`🔍 Health Check: http://localhost:${port}/health`);
-      log.dev(`📊 Admin Panel: http://localhost:${port}/admin`);
-      log.dev(`📦 Shipments: http://localhost:${port}/shipments`);
-      log.dev(`⚙️  Settings: http://localhost:${port}/settings`);
-      log.dev(`\n🔑 API Keys: Hardcoded (see admin panel for details)`);
-      log.dev(`🗄️  Database: PostgreSQL with connection pooling`);
-      log.dev(`🔄 Sync Status: Real-time external API integration`);
-      log.dev(`📍 GPS Tracking: Auto-calculated distance tracking`);
-      log.dev(`👥 Roles: Super User, Ops Team, Staff, Driver`);
-      log.dev(`💾 Backup: ${isDev || isLocalOrAlpha ? 'Enabled (last 3 days)' : 'Disabled (production)'}`);
-      log.dev('===============================================\n');
+      log.info('\n=== RiderPro Delivery Management System ===');
+      log.info(`🚀 Server running on port ${port}`);
+      log.info(`🌐 Application: http://localhost:${port}`);
+      log.info(`📱 Mobile App: http://localhost:${port} (responsive design)`);
+      log.info(`📡 API Endpoints: http://localhost:${port}/api/*`);
+      log.info(`🔍 Health Check: http://localhost:${port}/health`);
+      log.info(`📊 Admin Panel: http://localhost:${port}/admin`);
+      log.info(`📦 Shipments: http://localhost:${port}/shipments`);
+      log.info(`⚙️  Settings: http://localhost:${port}/settings`);
+      log.info(`\n🔑 API Keys: Hardcoded (see admin panel for details)`);
+      log.info(`🗄️  Database: PostgreSQL with connection pooling`);
+      log.info(`🔄 Sync Status: Real-time external API integration`);
+      log.info(`📍 GPS Tracking: Auto-calculated distance tracking`);
+      log.info(`👥 Roles: Super User, Ops Team, Staff, Driver`);
+      log.info(`💾 Backup: ${isDev || isLocalOrAlpha ? 'Enabled (last 3 days)' : 'Disabled (production)'}`);
+      log.info('===============================================\n');
     });
 
     // Schedule backup sync every hour in dev/alpha
