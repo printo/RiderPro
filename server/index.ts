@@ -131,7 +131,7 @@ app.get("/api-status", (req, res) => {
   });
 });
 
-(async () => {
+async function startServer() {
   try {
     log.info('🚀 Starting RiderPro server...');
 
@@ -212,8 +212,13 @@ app.get("/api-status", (req, res) => {
       }, 3600000); // 1 hour
     }
 
+    return server;
+
   } catch (error) {
     log.error('Failed to start server', error);
-    process.exit(1);
+    setTimeout(() => process.exit(1), 1000);
   }
-})();
+}
+
+// 🔥 IMPORTANT: call it WITHOUT awaiting
+startServer();
