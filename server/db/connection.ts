@@ -122,6 +122,7 @@ export const initTables = async () => {
         "specialInstructions" TEXT,
         "actualDeliveryTime" TIMESTAMP WITH TIME ZONE,
         priority VARCHAR(20) DEFAULT 'medium',
+        remarks TEXT,
         start_latitude REAL,
         start_longitude REAL,
         stop_latitude REAL,
@@ -137,6 +138,13 @@ export const initTables = async () => {
         acknowledgment_captured_at TIMESTAMP WITH TIME ZONE
       )
     `);
+
+    // Migration: Add remarks column if it doesn't exist
+    try {
+      await client.query(`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS remarks TEXT`);
+    } catch (error) {
+      log.warn('Failed to add remarks column (might already exist or permission issue)', error);
+    }
 
     // Route sessions table
     await client.query(`

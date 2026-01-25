@@ -1,9 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import express from "express";
+import bcrypt from 'bcrypt';
 import { storage } from "./storage.js";
 import path from 'path';
-import { authenticate, AuthenticatedRequest } from "./middleware/auth.js";
+import { authenticate, AuthenticatedRequest, UserRole } from "./middleware/auth.js";
 import {
   insertShipmentSchema,
   updateShipmentSchema,
@@ -25,7 +26,7 @@ import { log } from "../shared/utils/logger.js";
 // Helper function to safely get error message
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
-    return getErrorMessage(error);
+    return error.message;
   }
   return String(error);
 }
@@ -108,9 +109,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ===== AUTHENTICATION ROUTES =====
 
-  // Local user registration removed as userdata.db is deprecated
+  // Local user registration - Restored for Rider App
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const { riderId, password, fullName, email: _email } = req.body;
 
-  // Printo API Authentication (Proxy to avoid CORS)
+      if (!riderId || !password || !fullName) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Rider ID, password, and full name are required' 
+        });
+      }
+
+      // Check if rider exists
+      const existingRider = await storage.getRiderAccountByRiderId(riderId);
+      if (existingRider) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Rider ID already registered' 
+        });
+      }
+
+      // Hash password
+      const saltRounds = 10;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+
+      // Create rider account
+      const newRider = await storage.createRiderAccount({
+        id: `rider_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        rider_id: riderId,
+        full_name: fullName,
+        password_hash: passwordHash,
+        is_active: false, // Default to inactive until approved
+        is_approved: false,
+        is_rider: true,
+        is_super_user: false,
+        role: 'is_driver'
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Registration successful. Please wait for account approval.',
+        riderId: newRider.rider_id
+      });
+    } catch (error: unknown) {
+      console.error('Registration error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Registration failed: ' + getErrorMessage(error) 
+      });
+    }
+  });
+
+  // Local User Login (Restored for Rider App)
   app.post('/api/auth/login', async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -147,7 +198,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Local user login removed as userdata.db is deprecated
+  // Local User Login (Restored for Rider App)
+  app.post('/api/auth/local-login', async (req, res) => {
+    try {
+      const { riderId, password } = req.body;
+
+      if (!riderId || !password) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Rider ID and password are required' 
+        });
+      }
+
+      // Find rider
+      const rider = await storage.getRiderAccountByRiderId(riderId);
+      if (!rider) {
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Invalid credentials' 
+        });
+      }
+
+      // Verify password
+      const match = await bcrypt.compare(password, rider.password_hash);
+      if (!match) {
+        return res.status(401).json({ 
+          success: false, 
+          message: 'Invalid credentials' 
+        });
+      }
+
+      if (!rider.is_active) {
+         return res.status(403).json({ 
+          success: false, 
+          message: 'Account is inactive' 
+        });
+      }
+
+      // Generate token
+      const accessToken = `local_${rider.rider_id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const refreshToken = `refresh_${rider.rider_id}_${Date.now()}`;
+
+      // Sync to 'users' table for middleware compatibility
+      // We map RiderAccount to User interface
+      await storage.createUser({
+        id: rider.id,
+        username: rider.rider_id,
+        email: `${rider.rider_id}@rider.local`, // Generate unique email for riders to satisfy unique constraint
+        role: UserRole.DRIVER, // Default role
+        employeeId: rider.rider_id,
+        fullName: rider.full_name,
+        accessToken: accessToken,
+        refreshToken: refreshToken,
+        isActive: rider.is_active,
+        isApproved: rider.is_approved,
+        isRider: true,
+        isSuperUser: rider.is_super_user,
+        isOpsTeam: false,
+        isStaff: false,
+        lastLogin: new Date().toISOString()
+      }).catch(async (err) => {
+        // If user already exists (e.g. re-login), update it
+        if (err.message && err.message.includes('unique')) { // specific error check might be needed
+           await storage.updateUser(rider.id, {
+             accessToken,
+             refreshToken,
+             lastLogin: new Date().toISOString()
+           });
+        } else {
+           // Fallback: try update anyway if create failed
+           await storage.updateUser(rider.id, {
+             accessToken,
+             refreshToken,
+             lastLogin: new Date().toISOString()
+           });
+        }
+      });
+
+      // Create session
+      await storage.createSession({
+        id: `session_${Date.now()}`,
+        user_id: rider.id,
+        access_token: accessToken,
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        created_at: new Date().toISOString()
+      });
+
+      res.json({
+        success: true,
+        message: 'Login successful',
+        accessToken,
+        refreshToken,
+        fullName: rider.full_name,
+        isApproved: rider.is_approved,
+        is_super_user: rider.is_super_user,
+        is_staff: false,
+        is_ops_team: false,
+        employee_id: rider.rider_id,
+        role: rider.role
+      });
+
+    } catch (error: unknown) {
+      console.error('Local login error:', error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Login failed: ' + getErrorMessage(error) 
+      });
+    }
+  });
 
   // Get pending approvals removed as userdata.db is deprecated
 
@@ -1097,13 +1255,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Cannot mark a delivery shipment as Picked Up' });
       }
 
-      const shipment = await storage.updateShipment(req.params.id, updates);
+      // Force sync reset on any update so changes are propagated to external API
+      const updatesWithSyncReset = {
+        ...updates,
+        synced_to_external: false,
+        sync_status: 'pending',
+        sync_error: null,
+        sync_attempts: 0
+      };
+
+      const shipment = await storage.updateShipment(req.params.id, updatesWithSyncReset);
 
       if (!shipment) {
         return res.status(404).json({ message: 'Shipment not found' });
       }
 
-      // Sync to external API
+      // Try immediate sync, but if it fails, the background job will pick it up because we reset the flags
       externalSync.syncShipmentUpdate(shipment).catch(err => {
         console.error('External sync failed for shipment update:', err);
       });
@@ -1143,6 +1310,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (update.status === "Picked Up" && shipment.type !== "pickup") {
           return res.status(400).json({ message: `Cannot mark delivery shipment ${update.shipment_id} as Picked Up` });
         }
+
+        // Force sync reset for each update
+        update.synced_to_external = false;
+        update.sync_status = 'pending';
+        update.sync_error = null;
+        update.sync_attempts = 0;
       }
 
       const updatedCount = await storage.batchUpdateShipments(batchData);
@@ -1236,9 +1409,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Sync to external API with acknowledgment
-        externalSync.syncShipmentUpdate(shipment, acknowledgment).catch(err => {
-          console.error('External sync failed for acknowledgment:', err);
-        });
+        externalSync.syncShipmentUpdate(shipment, acknowledgment)
+          .then(async (success) => {
+            if (success) {
+              await storage.updateShipment(shipmentId, {
+                shipment_id: shipmentId,
+                synced_to_external: true,
+                 sync_status: 'synced',
+                 last_sync_attempt: new Date().toISOString(),
+                 sync_error: null
+               });
+            } else {
+              await storage.updateShipment(shipmentId, {
+                shipment_id: shipmentId,
+                synced_to_external: false,
+                sync_status: 'failed',
+                last_sync_attempt: new Date().toISOString(),
+                sync_error: 'External sync failed'
+              });
+            }
+          })
+          .catch(async (err) => {
+            console.error('External sync failed for acknowledgment:', err);
+            await storage.updateShipment(shipmentId, {
+              shipment_id: shipmentId,
+              synced_to_external: false,
+              sync_status: 'failed',
+              last_sync_attempt: new Date().toISOString(),
+              sync_error: err instanceof Error ? err.message : String(err)
+            });
+          });
 
         res.status(201).json(acknowledgment);
       } catch (error: unknown) {
@@ -1266,7 +1466,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/sync/trigger', async (req, res) => {
     try {
       // Get all shipments that need syncing
-      const { data: shipments } = await storage.getShipments({});
+      const { data: shipments } = await storage.getShipments({ syncStatus: 'needs_sync' });
       const result = await externalSync.batchSyncShipments(shipments);
 
       res.json({
@@ -1305,15 +1505,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: 'Shipment not found' });
       }
 
-      // For now, just store remarks in a simple way
-      // In production, this would be a proper table
-      log.debug(`Remarks for shipment ${shipmentId} (${status}):`, remarks);
+      // Update shipment with remarks and status (if provided)
+      // Also reset sync status so it gets pushed to external API
+      const updates: UpdateShipment = {
+        shipment_id: shipmentId,
+        remarks: remarks,
+        // Reset sync status to force re-sync
+        synced_to_external: false,
+        sync_status: 'pending',
+        sync_error: null,
+        sync_attempts: 0
+      };
 
-      res.status(201).json({
+      if (status) {
+        updates.status = status;
+        
+        // Validate status update based on shipment type
+        if (status === "Delivered" && shipment.type !== "delivery") {
+          return res.status(400).json({ message: 'Cannot mark a pickup shipment as Delivered' });
+        }
+        if (status === "Picked Up" && shipment.type !== "pickup") {
+          return res.status(400).json({ message: 'Cannot mark a delivery shipment as Picked Up' });
+        }
+      }
+
+      const updatedShipment = await storage.updateShipment(shipmentId, updates);
+
+      if (!updatedShipment) {
+        return res.status(500).json({ message: 'Failed to update shipment' });
+      }
+
+      log.info(`Remarks added for shipment ${shipmentId}: ${remarks}. Sync status reset.`);
+
+      res.status(200).json({
         shipmentId,
         remarks,
-        status,
-        savedAt: new Date().toISOString()
+        status: updatedShipment.status,
+        savedAt: new Date().toISOString(),
+        synced_to_external: false
       });
     } catch (error: unknown) {
       res.status(400).json({ message: getErrorMessage(error) });

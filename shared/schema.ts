@@ -127,6 +127,9 @@ export interface Shipment {
   specialInstructions?: string;
   cost?: number;
 
+  // Remarks
+  remarks?: string;
+
   // Location fields
   latitude?: number;
   longitude?: number;
@@ -173,6 +176,9 @@ export interface InsertShipment {
   recipientPhone: string;
   weight: number;
   dimensions: string;
+
+  // Remarks
+  remarks?: string;
 
   // Optional fields
   piashipmentid?: string;        // External system tracking ID
@@ -229,6 +235,7 @@ export interface UpdateShipment {
   specialInstructions?: string;
   estimatedDeliveryTime?: string;
   actualDeliveryTime?: string;
+  remarks?: string;
 
   // External integration fields
   piashipmentid?: string;
@@ -255,7 +262,7 @@ export interface UpdateShipment {
   // Sync tracking fields (consolidated from sync_status table)
   synced_to_external?: boolean;
   last_sync_attempt?: string;
-  sync_error?: string;
+  sync_error?: string | null;
   sync_status?: string;
   sync_attempts?: number;
 }
@@ -320,6 +327,7 @@ export interface ShipmentFilters {
   };
   search?: string;
   employeeId?: string;
+  syncStatus?: string; // pending, failed, synced
 
   // Pagination
   page?: number | string;

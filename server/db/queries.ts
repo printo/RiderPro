@@ -80,6 +80,33 @@ export type UpdateUser = Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>> &
   lastLogin?: string;
 };
 
+export interface RiderAccount {
+  id: string;
+  rider_id: string;
+  full_name: string;
+  password_hash: string;
+  is_active: boolean;
+  is_approved: boolean;
+  is_rider: boolean;
+  is_super_user: boolean;
+  role: 'is_super_user' | 'is_rider' | 'is_driver';
+  last_login_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InsertRiderAccount {
+  id: string;
+  rider_id: string;
+  full_name: string;
+  password_hash: string;
+  is_active?: boolean;
+  is_approved?: boolean;
+  is_rider?: boolean;
+  is_super_user?: boolean;
+  role?: 'is_super_user' | 'is_rider' | 'is_driver';
+}
+
 export class ShipmentQueries {
   
   constructor(_useReplica = false) {
@@ -145,6 +172,18 @@ export class ShipmentQueries {
       dataQuery += ` AND ("customerName" ILIKE $${paramIndex} OR address ILIKE $${paramIndex} OR id ILIKE $${paramIndex})`;
       params.push(`%${filters.search}%`);
       paramIndex++;
+    }
+
+    if (filters.syncStatus) {
+      if (filters.syncStatus === 'needs_sync') {
+        countQuery += ` AND (synced_to_external = false OR sync_status IN ('pending', 'failed'))`;
+        dataQuery += ` AND (synced_to_external = false OR sync_status IN ('pending', 'failed'))`;
+      } else {
+        countQuery += ` AND "sync_status" = $${paramIndex}`;
+        dataQuery += ` AND "sync_status" = $${paramIndex}`;
+        params.push(filters.syncStatus);
+        paramIndex++;
+      }
     }
 
     const sortField = filters.sortField ? `"${filters.sortField}"` : '"createdAt"';
@@ -354,7 +393,8 @@ export class ShipmentQueries {
     // Acknowledgments are now part of shipment record, but we update the fields
     const query = `
       UPDATE shipments 
-      SET "signature_url" = $1, "photo_url" = $2, "acknowledgment_captured_at" = $3, "acknowledgment_captured_by" = $4
+      SET "signature_url" = $1, "photo_url" = $2, "acknowledgment_captured_at" = $3, "acknowledgment_captured_by" = $4,
+          "synced_to_external" = FALSE, "sync_status" = 'pending'
       WHERE id = $5
       RETURNING *
     `;
@@ -772,5 +812,38 @@ export class ShipmentQueries {
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string
     };
+  }
+
+  // --- Rider Account Operations ---
+
+  async createRiderAccount(account: InsertRiderAccount): Promise<RiderAccount> {
+    const query = `
+      INSERT INTO rider_accounts (
+        id, rider_id, full_name, password_hash, 
+        is_active, is_approved, is_rider, is_super_user, role
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *
+    `;
+    
+    const values = [
+      account.id, account.rider_id, account.full_name, account.password_hash,
+      account.is_active ?? true, account.is_approved ?? false, 
+      account.is_rider ?? true, account.is_super_user ?? false, 
+      account.role ?? 'is_driver'
+    ];
+
+    const result = await pool.query(query, values);
+    return result.rows[0] as RiderAccount;
+  }
+
+  async getRiderAccountByRiderId(riderId: string): Promise<RiderAccount | undefined> {
+    const result = await pool.query('SELECT * FROM rider_accounts WHERE rider_id = $1', [riderId]);
+    return result.rows[0] as RiderAccount;
+  }
+
+  async getRiderAccountById(id: string): Promise<RiderAccount | undefined> {
+    const result = await pool.query('SELECT * FROM rider_accounts WHERE id = $1', [id]);
+    return result.rows[0] as RiderAccount;
   }
 }

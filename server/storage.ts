@@ -1,4 +1,4 @@
-import { ShipmentQueries, UserSession, InsertUser, UpdateUser, FeatureFlag, UpdateFeatureFlag, SystemHealthMetric } from './db/queries.js';
+import { ShipmentQueries, UserSession, InsertUser, UpdateUser, FeatureFlag, UpdateFeatureFlag, SystemHealthMetric, RiderAccount, InsertRiderAccount } from './db/queries.js';
 import { RouteTrackingQueries } from './db/routeQueries.js';
 import { Shipment, InsertShipment, UpdateShipment, BatchUpdate, DashboardMetrics, ShipmentFilters, VehicleType, InsertVehicleType, UpdateVehicleType, FuelSetting, InsertFuelSetting, UpdateFuelSetting, Acknowledgment, InsertAcknowledgment, User, GPSCoordinate, RouteSession, RouteTracking, RouteAnalytics, RouteFilters } from '@shared/types';
 
@@ -297,6 +297,19 @@ export class DbStorage implements IStorage {
 
   async updateFeatureFlag(name: string, updates: UpdateFeatureFlag): Promise<FeatureFlag | undefined> {
     return this.queries.updateFeatureFlag(name, updates);
+  }
+
+  // Rider Account Operations
+  async createRiderAccount(account: InsertRiderAccount): Promise<RiderAccount> {
+    return this.queries.createRiderAccount(account);
+  }
+
+  async getRiderAccountByRiderId(riderId: string): Promise<RiderAccount | undefined> {
+    return this.queries.getRiderAccountByRiderId(riderId);
+  }
+
+  async getRiderAccountById(id: string): Promise<RiderAccount | undefined> {
+    return this.queries.getRiderAccountById(id);
   }
 
   // System Health

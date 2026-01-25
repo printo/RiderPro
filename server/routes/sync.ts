@@ -1,16 +1,23 @@
 import type { Express } from "express";
 import { storage } from "../storage.js";
 import { log } from "../../shared/utils/logger.js";
+import { externalSync } from "../services/externalSync.js";
 
 export function registerSyncRoutes(app: Express): void {
   // Sync status endpoints
   app.get('/api/sync/stats', async (_req, res) => {
     try {
-      // Mock sync stats for now - would be implemented with actual sync tracking
+      // Get actual sync stats from the database
+      const pendingShipments = await storage.getShipments({ syncStatus: 'needs_sync', limit: 1 });
+      const failedShipments = await storage.getShipments({ syncStatus: 'failed', limit: 1 });
+      
+      // For now, we'll use the counts from the filtered queries
+      // Note: getShipments returns { data, total }
+      
       const stats = {
-        totalSynced: 150,
-        pendingSync: 5,
-        failedSync: 2,
+        totalSynced: 0, // We might need a specific query for this or calculate it
+        pendingSync: pendingShipments.total,
+        failedSync: failedShipments.total,
         lastSyncTime: new Date().toISOString()
       };
       res.json(stats);
@@ -23,10 +30,28 @@ export function registerSyncRoutes(app: Express): void {
 
   app.post('/api/sync/trigger', async (_req, res) => {
     try {
-      // Get all shipments that need syncing
-      const pendingShipments = await storage.getShipments({ status: 'pending' });
+      // Get all shipments that need syncing (pending or failed)
+      // Using a large limit to process as many as possible
+      const pendingShipments = await storage.getShipments({ syncStatus: 'needs_sync', limit: 1000 });
+      
+      if (pendingShipments.data.length === 0) {
+        return res.json({ success: true, message: 'No pending shipments to sync' });
+      }
+
       log.info('Manual sync triggered:', { count: pendingShipments.data.length });
-      res.json({ success: true, message: `Triggered sync for ${pendingShipments.data.length} shipments` });
+      
+      // Trigger batch sync asynchronously to avoid timeout
+      // We don't await this fully if we want to return quickly, but the client might expect completion.
+      // Given the "Sync Now" button behavior, it might be better to await or return a "started" status.
+      // However, externalSync.batchSyncShipments returns { success, failed } counts, so let's await it.
+      
+      const result = await externalSync.batchSyncShipments(pendingShipments.data);
+      
+      res.json({ 
+        success: true, 
+        message: `Sync completed: ${result.success} successful, ${result.failed} failed`,
+        details: result
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       log.error('Error triggering sync:', errorMessage);

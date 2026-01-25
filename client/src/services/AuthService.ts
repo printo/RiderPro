@@ -172,6 +172,7 @@ class AuthService {
 
       if (!response.ok) {
         const errorData = await response.json();
+        this.setState({ isLoading: false });
         return { success: false, message: errorData.message || 'Invalid credentials' };
       }
 

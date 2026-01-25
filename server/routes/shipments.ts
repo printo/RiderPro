@@ -5,7 +5,8 @@ import {
   insertShipmentSchema,
   updateShipmentSchema,
   batchUpdateSchema,
-  shipmentFiltersSchema
+  shipmentFiltersSchema,
+  UpdateShipment
 } from "@shared/types";
 import { log } from "../../shared/utils/logger.js";
 
@@ -99,7 +100,17 @@ export function registerShipmentRoutes(app: Express): void {
     try {
       const { id } = req.params;
       const updateData = updateShipmentSchema.parse(req.body);
-      const updatedShipment = await storage.updateShipment(id, updateData);
+      
+      // Force sync reset so changes are propagated to external API
+      const updatesWithSyncReset = {
+        ...updateData,
+        synced_to_external: false,
+        sync_status: 'pending',
+        sync_error: null,
+        sync_attempts: 0
+      };
+
+      const updatedShipment = await storage.updateShipment(id, updatesWithSyncReset);
       log.info('Shipment updated:', updatedShipment);
       res.json(updatedShipment);
     } catch (error: unknown) {
@@ -113,6 +124,15 @@ export function registerShipmentRoutes(app: Express): void {
   app.patch('/api/shipments/batch', async (req: Request, res: Response) => {
     try {
       const batchData = batchUpdateSchema.parse(req.body);
+      
+      // Force sync reset for each update
+      for (const update of batchData.updates) {
+        update.synced_to_external = false;
+        update.sync_status = 'pending';
+        update.sync_error = null;
+        update.sync_attempts = 0;
+      }
+
       const result = await storage.batchUpdateShipments(batchData);
       log.info('Batch shipment update completed:', { count: result });
       res.json({ success: true, updated: result });
@@ -136,11 +156,45 @@ export function registerShipmentRoutes(app: Express): void {
         });
       }
 
-      log.debug(`Remarks for shipment ${id} (${status}):`, remarks);
+      // Verify shipment exists
+      const shipment = await storage.getShipment(id);
+      if (!shipment) {
+        return res.status(404).json({ message: 'Shipment not found' });
+      }
 
-      res.status(201).json({
+      // Update shipment with remarks and status
+      // Also reset sync status so it gets pushed to external API
+      const updates: UpdateShipment = {
+        shipment_id: id,
+        remarks: remarks,
+        status: status,
+        // Reset sync status to force re-sync
+        synced_to_external: false,
+        sync_status: 'pending',
+        sync_error: null,
+        sync_attempts: 0
+      };
+
+      // Validate status update based on shipment type
+      if (status === "Delivered" && shipment.type !== "delivery") {
+        return res.status(400).json({ message: 'Cannot mark a pickup shipment as Delivered' });
+      }
+      if (status === "Picked Up" && shipment.type !== "pickup") {
+        return res.status(400).json({ message: 'Cannot mark a delivery shipment as Picked Up' });
+      }
+
+      const updatedShipment = await storage.updateShipment(id, updates);
+
+      if (!updatedShipment) {
+        return res.status(500).json({ message: 'Failed to update shipment' });
+      }
+
+      log.info(`Remarks added for shipment ${id} (${status}): ${remarks}. Sync status reset.`);
+
+      res.status(200).json({
         success: true,
-        message: 'Remarks saved successfully'
+        message: 'Remarks saved successfully',
+        shipment: updatedShipment
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -151,4 +205,113 @@ export function registerShipmentRoutes(app: Express): void {
       });
     }
   });
+
+  // Upload acknowledgment with photo and signature
+  app.post('/api/shipments/:id/acknowledgement',
+    authenticate, // Enable authentication to track who captured the acknowledgment
+    upload.fields([
+      { name: 'photo', maxCount: 1 },
+      { name: 'signature', maxCount: 1 }
+    ]),
+    async (req: AuthenticatedRequest, res: Response) => {
+      try {
+        const shipmentId = req.params.id;
+        const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+        const { signatureData } = req.body;
+
+        // Verify shipment exists
+        const shipment = await storage.getShipment(shipmentId);
+        if (!shipment) {
+          return res.status(404).json({ message: 'Shipment not found' });
+        }
+
+        let signatureUrl: string | undefined;
+        let photoUrl: string | undefined;
+
+        // Handle uploaded photo
+        if (files?.photo?.[0]) {
+          try {
+            const filename = await processImage(files.photo[0], 'photo');
+            photoUrl = getFileUrl(filename, 'photo');
+          } catch (error) {
+            log.error('Failed to process uploaded photo:', error);
+          }
+        }
+
+        // Handle signature (either uploaded file or base64 data)
+        if (files?.signature?.[0]) {
+          try {
+            const filename = await processImage(files.signature[0], 'signature');
+            signatureUrl = getFileUrl(filename, 'signature');
+          } catch (error) {
+            log.error('Failed to process uploaded signature:', error);
+          }
+        } else if (signatureData) {
+          try {
+            const filename = await saveBase64File(signatureData, 'signature');
+            signatureUrl = getFileUrl(filename, 'signature');
+          } catch (error) {
+            log.error('Failed to save signature data:', error);
+          }
+        }
+
+        // Create acknowledgment record with user tracking
+        const acknowledgment = await storage.createAcknowledgment({
+          shipment_id: shipmentId,
+          signatureUrl: signatureUrl,
+          photoUrl: photoUrl,
+          acknowledgment_captured_at: new Date().toISOString(),
+          acknowledgment_captured_by: req.user?.employeeId || req.user?.id || 'unknown',
+        });
+
+        // Sync to external API with acknowledgment
+        // Note: The shipment status is NOT updated here yet (it happens in a separate call)
+        // But we try to sync the acknowledgment immediately.
+        externalSync.syncShipmentUpdate(shipment, acknowledgment)
+          .then(async (success) => {
+            if (success) {
+              await storage.updateShipment(shipmentId, {
+                shipment_id: shipmentId,
+                synced_to_external: true,
+                sync_status: 'synced',
+                last_sync_attempt: new Date().toISOString(),
+                sync_error: null
+              });
+            } else {
+              await storage.updateShipment(shipmentId, {
+                shipment_id: shipmentId,
+                synced_to_external: false,
+                sync_status: 'failed',
+                last_sync_attempt: new Date().toISOString(),
+                sync_error: 'External sync failed'
+              });
+            }
+          })
+          .catch(async (err) => {
+            log.error('External sync failed for acknowledgment:', err);
+            await storage.updateShipment(shipmentId, {
+              shipment_id: shipmentId,
+              synced_to_external: false,
+              sync_status: 'failed',
+              last_sync_attempt: new Date().toISOString(),
+              sync_error: err instanceof Error ? err.message : String(err)
+            });
+          });
+
+        res.status(200).json({
+          success: true,
+          message: 'Acknowledgment saved successfully',
+          acknowledgment
+        });
+
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        log.error('Error saving acknowledgment:', errorMessage);
+        res.status(500).json({
+          success: false,
+          message: 'Failed to save acknowledgment'
+        });
+      }
+    }
+  );
 }
