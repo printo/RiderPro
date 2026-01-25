@@ -9,6 +9,8 @@ import {
   UpdateShipment
 } from "@shared/types";
 import { log } from "../../shared/utils/logger.js";
+import { upload, getFileUrl, saveBase64File, processImage } from "../utils/fileUpload.js";
+import { externalSync } from "../services/externalSync.js";
 
 export function registerShipmentRoutes(app: Express): void {
   // Dashboard endpoint
@@ -268,7 +270,7 @@ export function registerShipmentRoutes(app: Express): void {
         // Note: The shipment status is NOT updated here yet (it happens in a separate call)
         // But we try to sync the acknowledgment immediately.
         externalSync.syncShipmentUpdate(shipment, acknowledgment)
-          .then(async (success) => {
+          .then(async (success: boolean) => {
             if (success) {
               await storage.updateShipment(shipmentId, {
                 shipment_id: shipmentId,
@@ -287,7 +289,7 @@ export function registerShipmentRoutes(app: Express): void {
               });
             }
           })
-          .catch(async (err) => {
+          .catch(async (err: unknown) => {
             log.error('External sync failed for acknowledgment:', err);
             await storage.updateShipment(shipmentId, {
               shipment_id: shipmentId,
