@@ -5,20 +5,20 @@
 
 export const API_KEYS = {
   // External API integration
-  EXTERNAL_API_KEY: process.env.EXTERNAL_API_KEY || 'hardcoded-external-api-key-12345',
+  EXTERNAL_API_KEY: process.env.EXTERNAL_API_KEY || '',
 
   // Internal system API key
-  INTERNAL_API_KEY: process.env.INTERNAL_API_KEY || 'hardcoded-internal-api-key-67890',
+  INTERNAL_API_KEY: process.env.INTERNAL_API_KEY || '',
 
   // Webhook authentication
-  WEBHOOK_SECRET: process.env.WEBHOOK_SECRET || 'hardcoded-webhook-secret-abcdef',
+  WEBHOOK_SECRET: process.env.WEBHOOK_SECRET || '',
 
   // Admin API key for system operations
-  ADMIN_API_KEY: process.env.ADMIN_API_KEY || 'hardcoded-admin-api-key-xyz789',
+  ADMIN_API_KEY: process.env.ADMIN_API_KEY || '',
 
   // Access tokens for external system integration
-  ACCESS_TOKEN_1: process.env.ACCESS_TOKEN_1 || 'riderpro-access-token-1-abc123def456ghi789',
-  ACCESS_TOKEN_2: process.env.ACCESS_TOKEN_2 || 'riderpro-access-token-2-xyz789uvw456rst123'
+  ACCESS_TOKEN_1: process.env.ACCESS_TOKEN_1 || '',
+  ACCESS_TOKEN_2: process.env.ACCESS_TOKEN_2 || ''
 } as const;
 
 /**
