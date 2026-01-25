@@ -81,10 +81,19 @@ export function serveStatic(app: Express) {
     );
   }
 
+  console.log(`[DEBUG] Serving static files from: ${distPath}`);
+  try {
+    const files = fs.readdirSync(distPath);
+    console.log(`[DEBUG] Files in build directory: ${files.join(', ')}`);
+  } catch (err) {
+    console.log(`[DEBUG] Error listing build directory: ${err}`);
+  }
+
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  app.use("*", (req, res) => {
+    console.log(`[DEBUG] Falling back to index.html for: ${req.originalUrl}`);
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

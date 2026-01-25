@@ -13,6 +13,12 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Build arguments for client-side logging
+ARG VITE_ENABLE_CONSOLE_LOGS
+ARG VITE_LOG_LEVEL
+ENV VITE_ENABLE_CONSOLE_LOGS=$VITE_ENABLE_CONSOLE_LOGS
+ENV VITE_LOG_LEVEL=$VITE_LOG_LEVEL
+
 # Build the application
 RUN npm run build
 

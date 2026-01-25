@@ -6,21 +6,19 @@ import { setupVite, serveStatic } from "./vite.js";
 import { initializeAuth } from "./middleware/auth.js";
 import { syncToBackup, checkDatabaseHealth } from "./db/connection.js";
 import cors from 'cors';
-import helmet from "helmet";
-import compression from "compression";
 import rateLimit from "express-rate-limit";
 import { log } from "../shared/utils/logger.js";
 
 const app = express();
 
-// Security headers
-app.use(helmet({
-  contentSecurityPolicy: false, // Disabled for dev/Vite compatibility; enable in pure prod if needed
-  crossOriginEmbedderPolicy: false,
-}));
+// DEBUG LOGGING
+app.use((req, res, next) => {
+  console.log(`[REQUEST] ${req.method} ${req.url}`);
+  next();
+});
 
-// Compression
-app.use(compression());
+// Security headers
+// Disabled Helmet for now to fix blank screen issue
 
 // Rate limiting
 const limiter = rateLimit({
