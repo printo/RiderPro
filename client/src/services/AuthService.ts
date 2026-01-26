@@ -154,6 +154,30 @@ class AuthService {
     };
   }
 
+  // Helper to set cookies
+  private setCookies(access: string, refresh: string, fullName: string, isOpsTeam: boolean): void {
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    const sameSite = '; SameSite=Lax';
+    const path = '; Path=/';
+    const maxAge = '; Max-Age=86400'; // 1 day
+
+    document.cookie = `access=${access}${path}${maxAge}${secure}${sameSite}`;
+    document.cookie = `refresh=${refresh}${path}${maxAge}${secure}${sameSite}`;
+    document.cookie = `full_name=${fullName}${path}${maxAge}${secure}${sameSite}`;
+    document.cookie = `is_ops_team=${isOpsTeam}${path}${maxAge}${secure}${sameSite}`;
+  }
+
+  // Helper to clear cookies
+  private clearCookies(): void {
+    const path = '; Path=/';
+    const expire = '; Max-Age=0';
+    
+    document.cookie = `access=${path}${expire}`;
+    document.cookie = `refresh=${path}${expire}`;
+    document.cookie = `full_name=${path}${expire}`;
+    document.cookie = `is_ops_team=${path}${expire}`;
+  }
+
   // Method A: External API Authentication
   public async loginWithExternalAPI(employeeId: string, password: string): Promise<{ success: boolean; message: string }> {
     try {
@@ -189,9 +213,13 @@ class AuthService {
       localStorage.setItem('employee_id', employeeId);  // Use the original employee ID
       localStorage.setItem('is_rider', internalRoles.is_rider.toString());
       localStorage.setItem('is_super_user', internalRoles.is_super_user.toString());
+      localStorage.setItem('isadmin', internalRoles.is_super_user.toString()); // Added per requirement
       // Also save original PIA roles for server-side filtering
       localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
       localStorage.setItem('is_staff', (data.is_staff || false).toString());
+
+      // Set cookies as requested
+      this.setCookies(data.access, data.refresh, data.full_name, data.is_ops_team || false);
 
       const role = this.determineRole(data.is_staff, data.is_super_user, data.is_ops_team);
 
@@ -355,6 +383,11 @@ class AuthService {
         localStorage.setItem('refresh_token', data.refresh);
       }
 
+      // Update cookies
+      const fullName = localStorage.getItem('full_name') || '';
+      const isOpsTeam = localStorage.getItem('is_ops_team') === 'true';
+      this.setCookies(data.access, data.refresh || refreshToken, fullName, isOpsTeam);
+
       // Update state
       this.setState({
         accessToken: data.access,
@@ -416,7 +449,11 @@ class AuthService {
     localStorage.removeItem('employee_id');
     localStorage.removeItem('is_staff');
     localStorage.removeItem('is_super_user');
+    localStorage.removeItem('isadmin');
     localStorage.removeItem('is_ops_team');
+
+    // Clear cookies
+    this.clearCookies();
 
     // Clear state
     this.setState({

@@ -44,3 +44,24 @@ data/*.db
 # Vite
 vite.config.ts.timestamp-*
 vite.config.ts.*
+
+# Docker Compose Override (Local Development)
+docker-compose.override.yml
+node_modules
+
+# Databases (NEVER commit)
+data/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Postgres volumes
+postgres_data/
+postgres_backup_data/
+
+# Runtime storage
+uploads/
+server/storage/
+!uploads/.gitkeep
+
