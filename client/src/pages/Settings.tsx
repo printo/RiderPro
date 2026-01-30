@@ -39,7 +39,8 @@ function Settings() {
   }, [user]);
 
   const handleLogout = async () => {
-    logout();
+    await logout();
+    window.location.href = '/login';
   };
 
   return (

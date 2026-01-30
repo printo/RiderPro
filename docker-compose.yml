@@ -1,38 +1,120 @@
 services:
-  app:
+  # Deprecated: Node.js backend service (moved to deprecated/server/)
+  # Uncomment if you need to run the legacy backend:
+  # app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     args:
+  #       - VITE_ENABLE_CONSOLE_LOGS=true
+  #       - VITE_LOG_LEVEL=INFO
+  #   container_name: riderpro-app
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - ./uploads:/app/uploads
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - NODE_ENV=${NODE_ENV:-development}
+  #     - DEPLOYMENT_ENV=${DEPLOYMENT_ENV:-localhost}
+  #     - PORT=5000
+  #     - ENABLE_CONSOLE_LOGS=true
+  #     - LOG_LEVEL=INFO
+  #     - DATABASE_URL=${DATABASE_URL:-postgres://postgres:password@postgres:5432/riderpro}
+  #     - CHOKIDAR_USEPOLLING=true
+  #     - WATCHPACK_POLLING=true
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   restart: always
+  #   command: /bin/sh docker-entrypoint.sh
+  #   profiles: ["legacy"]
+
+  django:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
-      args:
-        - VITE_ENABLE_CONSOLE_LOGS=true
-        - VITE_LOG_LEVEL=INFO
-    container_name: riderpro-app
-    expose:
-      - "5000"
+    container_name: riderpro-django
+    ports:
+      - "8004:8000"
     volumes:
-      - ./uploads:/app/uploads
+      - ./backend:/app
+      - /app/venv  # Exclude venv from host (everything runs in container)
+      - /app/__pycache__  # Exclude Python cache
+      - django_media:/app/media
+      - django_static:/app/staticfiles
+    # Django runserver auto-reloads on code changes (HMR enabled by default)
     env_file:
       - .env
     environment:
-      - NODE_ENV=${NODE_ENV:-development}
-      - DEPLOYMENT_ENV=${DEPLOYMENT_ENV:-localhost}
-      - PORT=5000
-      - ENABLE_CONSOLE_LOGS=true
-      - LOG_LEVEL=INFO
-      - DATABASE_URL=${DATABASE_URL}
-      - BACKUP_DATABASE_URL=${BACKUP_DATABASE_URL}
-      - CHOKIDAR_USEPOLLING=true
-      - WATCHPACK_POLLING=true
+      - DEBUG=True
+      - DB_NAME=riderpro_django
+      - DB_USER=postgres
+      - DB_PASSWORD=password
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - POPS_API_BASE_URL=${POPS_API_BASE_URL:-http://host.docker.internal:8002/api/v1}
+      - SECRET_KEY=${SECRET_KEY:-django-insecure-dev-key-change-in-production}
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0,django,172.21.0.1
     depends_on:
       postgres:
         condition: service_healthy
-      postgres_backup:
-        condition: service_healthy
+      db-restore:
+        condition: service_completed_successfully
+        required: false  # Only wait if db-restore profile is active
     restart: always
-    command: /bin/sh docker-entrypoint.sh
-    # command: sh -c "npm run build && npm start"
+    # Create database if it doesn't exist, create migrations, run migrations, then start Django dev server with auto-reload (HMR)
+    # Django runserver automatically reloads on code changes when volumes are mounted
+    command: sh -c "./create-db.sh && python manage.py makemigrations && python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+
+  db-restore:
+    image: postgres:15-alpine
+    container_name: riderpro-db-restore
+    profiles: ["db-restore"]
+    environment:
+      - PGHOST=postgres
+      - PGUSER=postgres
+      - PGPASSWORD=password
+    volumes:
+      - ./db-dumps:/dumps:ro
+      - ./scripts:/scripts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/scripts/restore-db.sh"]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+      args:
+        - VITE_ENABLE_CONSOLE_LOGS=true
+        - VITE_LOG_LEVEL=INFO
+    container_name: riderpro-frontend
+    ports:
+      - "5004:5004"
+    volumes:
+      - ./client:/app/client
+      - ./shared:/app/shared
+      - ./vite.config.ts:/app/vite.config.ts
+      - /app/node_modules
+    # Vite HMR enabled with polling for Docker file watching
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - VITE_API_BASE_URL=
+      - VITE_POPS_API_BASE_URL=${POPS_API_BASE_URL:-http://localhost:8002/api/v1}
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    depends_on:
+      - django
+    restart: always
 
   nginx:
+    profiles: ["prod"]
     image: nginx:alpine
     container_name: riderpro-nginx
     ports:
@@ -43,10 +125,12 @@ services:
       - ./nginx/certbot/conf:/etc/letsencrypt
       - ./nginx/certbot/www:/var/www/certbot
     depends_on:
-      - app
+      - django
+      - frontend
     restart: always
 
   certbot:
+    profiles: ["prod"]
     image: certbot/certbot
     container_name: riderpro-certbot
     volumes:
@@ -65,35 +149,19 @@ services:
     image: postgres:15-alpine
     container_name: riderpro-db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=riderpro
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backend/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+      - ./db-dumps:/dumps:ro  # Read-only access to dumps
+      - ./scripts:/scripts:ro  # Read-only access to scripts
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d riderpro"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-      start_period: 10s
-
-  postgres_backup:
-    image: postgres:15-alpine
-    container_name: riderpro-db-backup
-    ports:
-      - "5433:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=riderpro_backup
-    volumes:
-      - postgres_backup_data:/var/lib/postgresql/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d riderpro_backup"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -101,4 +169,5 @@ services:
 
 volumes:
   postgres_data:
-  postgres_backup_data:
+  django_media:
+  django_static:

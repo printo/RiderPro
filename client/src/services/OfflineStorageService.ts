@@ -388,7 +388,7 @@ export class OfflineStorageService {
           continue;
         }
 
-        const response = await fetch('/api/routes/sync-session', {
+        const response = await fetch('/api/v1/routes/sync-session', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -453,7 +453,7 @@ export class OfflineStorageService {
           accuracy: record.position.accuracy
         }));
 
-        const response = await fetch('/api/routes/sync-coordinates', {
+        const response = await fetch('/api/v1/routes/sync-coordinates', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

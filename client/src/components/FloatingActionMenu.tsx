@@ -52,8 +52,8 @@ function FloatingActionMenu() {
     }
   ];
 
-  // Admin menu items - only show for super admin users
-  const adminMenuItems = user?.isSuperUser ? [
+  // Admin menu items - show for super admin users and managers
+  const adminMenuItems = (user?.isSuperUser || user?.isOpsTeam || user?.isStaff) ? [
     {
       href: "/admin",
       icon: Settings,
@@ -211,8 +211,8 @@ function FloatingActionMenu() {
                     variant="ghost"
                     className="h-14 flex items-center justify-start gap-3 rounded-xl transition-all duration-200 hover:scale-[1.02] hover:shadow-lg border border-transparent hover:border-red-200 group p-3 hover:bg-gradient-to-br hover:from-red-50 hover:to-red-100"
                     data-testid="button-logout"
-                    onClick={() => {
-                      logout();
+                    onClick={async () => {
+                      await logout();
                       window.location.href = '/login';
                     }}
                   >

@@ -52,7 +52,7 @@ function RemarksModal({
       }
 
       // First update the shipment status
-      const statusResponse = await apiRequest("PATCH", `/api/shipments/${shipmentId}`, {
+      const statusResponse = await apiRequest("PATCH", `/api/v1/shipments/${shipmentId}`, {
         status: status
       });
 
@@ -75,7 +75,7 @@ function RemarksModal({
       }
 
       // Then save the remarks
-      const remarksResponse = await apiRequest("POST", `/api/shipments/${shipmentId}/remarks`, {
+      const remarksResponse = await apiRequest("POST", `/api/v1/shipments/${shipmentId}/remarks`, {
         remarks: remarks.trim(),
         status: status
       });
@@ -83,8 +83,8 @@ function RemarksModal({
       return { status: statusResponse, remarks: remarksResponse };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shipments/fetch"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/shipments/fetch"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/dashboard"] });
       toast({
         title: "Status Updated",
         description: `Shipment marked as ${status} with remarks.`,

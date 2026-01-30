@@ -69,9 +69,26 @@ export class RouteSession {
       // Get current position for session start
       const startPosition = await this.gpsTracker.getCurrentPosition();
 
-      this.sessionId = this.generateSessionId();
+      // Call backend API to create session in database
+      try {
+        const { routeAPI } = await import('@/apiClient/routes');
+        const backendSession = await routeAPI.startSession({
+          start_latitude: startPosition.latitude,
+          start_longitude: startPosition.longitude,
+          employee_id: employeeId
+        });
+        
+        // Use session ID from backend
+        this.sessionId = backendSession.id;
+        this.startTime = new Date(backendSession.start_time);
+      } catch (apiError) {
+        // Fallback to local session ID if API call fails (offline mode)
+        log.dev('Failed to create session via API, using local session ID:', apiError);
+        this.sessionId = this.generateSessionId();
+        this.startTime = new Date();
+      }
+
       this.employeeId = employeeId;
-      this.startTime = new Date();
       this.endTime = null;
       this.startPosition = startPosition;
       this.endPosition = null;
@@ -127,6 +144,20 @@ export class RouteSession {
 
       // Save any remaining coordinates
       await this.saveCoordinates();
+
+      // Call backend API to stop session in database
+      if (this.sessionId && this.employeeId) {
+        try {
+          await routeAPI.stopSession({
+            session_id: this.sessionId,
+            end_latitude: endPosition.latitude,
+            end_longitude: endPosition.longitude
+          });
+        } catch (apiError) {
+          // Log but don't fail if API call fails (offline mode)
+          log.dev('Failed to stop session via API:', apiError);
+        }
+      }
 
       // Notify status change
       this.config.onSessionStatusChange(this.status);

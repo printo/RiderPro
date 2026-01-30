@@ -1,22 +1,77 @@
-# Node / build
+# Node.js
 node_modules
+npm-debug.log
+yarn-error.log
 dist
+build
+client/dev-dist
 
-# Git / env
-.git
+# Python (should NOT be copied - everything installs in container)
+venv/
+env/
+ENV/
+.venv
+backend/venv/
+backend/env/
+backend/__pycache__/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/staticfiles/
+/media/
+*.pot
+*.mo
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Environment files
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS
 .DS_Store
+*.swp
+*.swo
 
-# Local data
-data/*.db
-data/*.db-journal
+# Testing
+coverage
+.nyc_output
+playwright-report
+test-results
 
-# Uploads
-uploads/*
-!uploads/.gitkeep
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
 
-# 🔥 MUST IGNORE CERTBOT & NGINX RUNTIME FILES
-nginx/certbot
-nginx/certbot/**
-nginx/conf.d/*.pem
-nginx/conf.d/*.key
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Database dumps (keep in repo, but don't copy to container)
+db-dumps/
+
+# Scripts (keep in repo, but don't copy to container)
+scripts/
+
+# Documentation (optional - can be included)
+# *.md

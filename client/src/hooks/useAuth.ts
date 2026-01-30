@@ -19,7 +19,9 @@ export const useAuth = () => {
     loginWithExternalAPI: authService.loginWithExternalAPI.bind(authService),
     loginWithLocalDB: authService.loginWithLocalDB.bind(authService),
     registerUser: authService.registerUser.bind(authService),
-    logout: authService.logout.bind(authService),
+    logout: async () => {
+      await authService.logout();
+    },
     authenticatedFetch: authService.authenticatedFetch.bind(authService),
     getAuthHeaders: authService.getAuthHeaders.bind(authService),
   };

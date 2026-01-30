@@ -22,7 +22,8 @@ export class ApiClient {
   private refreshInProgress = false;
   private refreshAttemptTimestamp = 0;
   private readonly REFRESH_COOLDOWN = 5000; // 5 seconds cooldown between refresh attempts
-  private readonly BASE_URL = '';
+  // Use relative URLs when Vite proxy is configured, otherwise use env var
+  private readonly BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
   private pendingRequests: Array<{
     config: ApiRequestConfig;
     resolve: (response: Response) => void;
@@ -62,11 +63,35 @@ export class ApiClient {
   public async request(config: ApiRequestConfig): Promise<Response> {
     const { url, method, data, skipAuth = false, retryCount = 0, headers = {} } = config;
 
+    // Ensure trailing slash for POST/PUT/PATCH/DELETE requests to DRF router list endpoints
+    // DRF DefaultRouter requires trailing slashes for list/create endpoints
+    let normalizedUrl = url;
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && url.startsWith('/api/v1/')) {
+      // Check if it's a router list endpoint (e.g., /api/v1/vehicle-types)
+      // Router list endpoints need trailing slash for POST/PUT/PATCH/DELETE
+      // Custom action endpoints (e.g., /api/v1/shipments/fetch) don't need it
+      // Detail endpoints (e.g., /api/v1/vehicle-types/123) already have ID
+      
+      const pathAfterApi = url.replace('/api/v1/', '');
+      const pathParts = pathAfterApi.split('/').filter(p => p);
+      
+      // If it's a simple list endpoint (single path segment, no ID, no action)
+      // Examples: vehicle-types, fuel-settings
+      // Not: vehicle-types/123, shipments/fetch, routes/start
+      const isListEndpoint = pathParts.length === 1 && 
+                           !url.endsWith('/') &&
+                           !url.match(/\/\d+\/?$/); // Not ending with ID
+      
+      if (isListEndpoint) {
+        normalizedUrl = url + '/';
+      }
+    }
+
     // Construct full URL
-    const fullUrl = url.startsWith('http') ? url : `${this.BASE_URL}${url}`;
+    const fullUrl = normalizedUrl.startsWith('http') ? normalizedUrl : `${this.BASE_URL}${normalizedUrl}`;
 
     // Skip logging for auth-related requests to prevent log spam
-    const isAuthRequest = url.includes('/auth/');
+    const isAuthRequest = normalizedUrl.includes('/auth/');
 
     if (!isAuthRequest) {
       log.dev(`[ApiClient] ${method} ${fullUrl}`, data ? { data } : '');
@@ -95,7 +120,7 @@ export class ApiClient {
 
       // Handle non-2xx responses
       if (!response.ok) {
-        await this.handleErrorResponse(response, url, method, isAuthRequest);
+        await this.handleErrorResponse(response, normalizedUrl, method, isAuthRequest);
       }
 
       return response;
@@ -180,7 +205,7 @@ export class ApiClient {
         // Only logout and redirect if we're not already on the login page
         if (!window.location.pathname.includes('/login')) {
           log.dev('[ApiClient] Session expired, redirecting to login...');
-          AuthService.getInstance().logout();
+          await AuthService.getInstance().logout();
           // Add a small delay to prevent immediate redirect
           setTimeout(() => {
             window.location.href = '/login';
@@ -206,7 +231,7 @@ export class ApiClient {
 
       // Clear auth state and redirect only if not on login page
       if (!window.location.pathname.includes('/login')) {
-        AuthService.getInstance().logout();
+        await AuthService.getInstance().logout();
         window.location.href = '/login';
       }
 
@@ -960,7 +985,7 @@ export class ApiClient {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-      const response = await fetch('/api/health', {
+      const response = await fetch('/api/v1/health', {
         method: 'HEAD',
         signal: controller.signal,
         cache: 'force-cache' // Use browser cache when possible

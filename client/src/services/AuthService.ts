@@ -1,6 +1,7 @@
 // client/src/services/AuthService.ts
 import { AuthUser, UserRole, AuthState } from '@shared/types';
 import { log } from "../utils/logger.js";
+import { API_ENDPOINTS } from '@/config/api';
 
 interface ExternalAuthResponse {
   access: string;
@@ -183,7 +184,7 @@ class AuthService {
     try {
       this.setState({ isLoading: true });
 
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -260,7 +261,7 @@ class AuthService {
     try {
       this.setState({ isLoading: true });
 
-      const response = await fetch('/api/auth/local-login', {
+      const response = await fetch('/api/v1/auth/local-login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -332,7 +333,7 @@ class AuthService {
   // Register new user (local database)
   public async registerUser(riderId: string, password: string, fullName: string, email?: string): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -358,20 +359,34 @@ class AuthService {
     try {
       const refreshToken = localStorage.getItem('refresh_token');
       if (!refreshToken) {
+        log.warn('[AuthService] No refresh token available');
         return false;
       }
 
-      const response = await fetch('https://pia.printo.in/api/v1/auth/refresh/', {
+      // Use RiderPro API for token refresh
+      const response = await fetch(API_ENDPOINTS.auth.refresh, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies
         body: JSON.stringify({
           refresh: refreshToken,
         }),
       });
 
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.message || errorData.detail || 'Token refresh failed';
+        
+        // Check if token is blacklisted or revoked
+        if (errorMessage.includes('blacklisted') || errorMessage.includes('revoked')) {
+          log.warn('[AuthService] Token is blacklisted or revoked, forcing logout');
+          await this.logout();
+          return false;
+        }
+        
+        log.error('[AuthService] Token refresh failed:', errorData);
         return false;
       }
 
@@ -394,9 +409,10 @@ class AuthService {
         refreshToken: data.refresh || refreshToken,
       });
 
+      log.dev('[AuthService] Token refreshed successfully');
       return true;
     } catch (error) {
-      console.error('Token refresh error:', error);
+      log.error('[AuthService] Token refresh error:', error);
       return false;
     }
   }
@@ -441,7 +457,37 @@ class AuthService {
   }
 
   // Logout
-  public logout(): void {
+  public async logout(): Promise<void> {
+    try {
+      // Call backend logout endpoint to blacklist token
+      // This ensures the token is blacklisted on the server
+      const accessToken = localStorage.getItem('access_token');
+      if (accessToken) {
+        try {
+          const response = await fetch(API_ENDPOINTS.auth.logout, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`,
+            },
+            credentials: 'include', // Include cookies
+          });
+
+          if (response.ok) {
+            log.dev('[AuthService] Token blacklisted on server');
+          } else {
+            log.warn('[AuthService] Logout endpoint returned error, but continuing with local cleanup');
+          }
+        } catch (error) {
+          // If backend is unreachable, still clear local state
+          log.warn('[AuthService] Failed to call logout endpoint, but continuing with local cleanup:', error);
+        }
+      }
+    } catch (error) {
+      log.warn('[AuthService] Error during logout API call, but continuing with local cleanup:', error);
+    }
+
+    // Always clear local state, even if backend call fails
     // Clear localStorage
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');

@@ -78,12 +78,12 @@ function ShipmentDetailModalWithTracking({
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ status }: { status: string }) => {
-      const response = await apiRequest("PATCH", `/api/shipments/${shipment.shipment_id}`, { status });
+      const response = await apiRequest("PATCH", `/api/v1/shipments/${shipment.shipment_id}`, { status });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shipments/fetch"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/shipments/fetch"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/dashboard"] });
       toast({
         title: "Status Updated",
         description: "Shipment status has been updated successfully.",
@@ -128,7 +128,7 @@ function ShipmentDetailModalWithTracking({
 
     // First save the acknowledgment
     try {
-      const response = await apiClient.upload(`/api/shipments/${shipment.shipment_id}/acknowledgement`, formData);
+      const response = await apiClient.upload(`/api/v1/shipments/${shipment.shipment_id}/acknowledgement`, formData);
       if (!response.ok) {
         const error = await response.text();
         throw new Error(error || "Failed to save acknowledgment");

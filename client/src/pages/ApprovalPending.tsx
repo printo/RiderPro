@@ -11,9 +11,10 @@ export const ApprovalPending: React.FC = () => {
   const [, setLocation] = useLocation();
   const { logout } = useAuth();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     // Use AuthService logout method
-    logout();
+    await logout();
+    window.location.href = '/login';
 
     // Redirect to login
     setLocation('/login');

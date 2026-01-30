@@ -60,7 +60,7 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('RiderPro Error:', errorData);
 
     // Send to API endpoint for logging
-    apiClient.post('/api/errors', errorData).catch(() => {
+    apiClient.post('/api/v1/errors', errorData).catch(() => {
       // Silently fail if error logging fails
     });
   };

@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export function useVehicleTypes() {
   return useQuery({
-    queryKey: ["/api/vehicle-types"],
+    queryKey: ["/api/v1/vehicle-types"],
     queryFn: () => vehicleTypesApi.getVehicleTypes(),
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -18,7 +18,7 @@ export function useCreateVehicleType() {
   return useMutation({
     mutationFn: (vehicleType: InsertVehicleType) => vehicleTypesApi.createVehicleType(vehicleType),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/vehicle-types"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/vehicle-types"] });
       toast({
         title: "Success",
         description: "Vehicle type created successfully",
@@ -43,7 +43,7 @@ export function useUpdateVehicleType() {
     mutationFn: ({ id, updates }: { id: string; updates: UpdateVehicleType }) =>
       vehicleTypesApi.updateVehicleType(id, updates),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/vehicle-types"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/vehicle-types"] });
       toast({
         title: "Success",
         description: "Vehicle type updated successfully",
@@ -67,7 +67,7 @@ export function useDeleteVehicleType() {
   return useMutation({
     mutationFn: (id: string) => vehicleTypesApi.deleteVehicleType(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/vehicle-types"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/vehicle-types"] });
       toast({
         title: "Success",
         description: "Vehicle type deleted successfully",

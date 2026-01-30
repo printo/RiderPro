@@ -11,15 +11,24 @@ interface CurrentFuelSettingsProps {
 
 function CurrentFuelSettings({ className }: CurrentFuelSettingsProps) {
   // Fetch current fuel settings
-  const { data: fuelSettings = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['/api/fuel-settings'],
+  const { data: fuelSettingsData, isLoading, error, refetch } = useQuery({
+    queryKey: ['/api/v1/fuel-settings'],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", "/api/fuel-settings");
+        const response = await apiRequest("GET", "/api/v1/fuel-settings");
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return response.json();
+        const data = await response.json();
+        // Handle different response formats
+        if (Array.isArray(data)) {
+          return data;
+        } else if (data.results && Array.isArray(data.results)) {
+          return data.results;
+        } else if (data.data && Array.isArray(data.data)) {
+          return data.data;
+        }
+        return [];
       } catch (error) {
         console.error('Failed to fetch fuel settings:', error);
         throw error;
@@ -30,6 +39,8 @@ function CurrentFuelSettings({ className }: CurrentFuelSettingsProps) {
     retryDelay: 1000, // Wait 1 second between retries
   });
 
+  // Ensure fuelSettings is always an array
+  const fuelSettings: FuelSetting[] = Array.isArray(fuelSettingsData) ? fuelSettingsData : [];
   const activeSettings = fuelSettings.filter((setting: FuelSetting) => setting.is_active);
   const latestSettings = activeSettings.sort((a: FuelSetting, b: FuelSetting) =>
     new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime()
