@@ -37,9 +37,9 @@ function SyncStatusPanel({ className }: SyncStatusPanelProps) {
   } = useOfflineSync({});
 
   const { data: syncStats, isLoading } = useQuery<SyncStats>({
-    queryKey: ["/api/sync/stats"],
+    queryKey: ["/api/v1/sync/stats"],
     queryFn: async () => {
-      const response = await apiClient.get('/api/sync/stats');
+      const response = await apiClient.get('/api/v1/sync/stats');
       if (!response.ok) throw new Error('Failed to fetch sync stats');
       return response.json();
     },
@@ -48,13 +48,13 @@ function SyncStatusPanel({ className }: SyncStatusPanelProps) {
 
   const triggerSyncMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiClient.post('/api/sync/trigger');
+      const response = await apiClient.post('/api/v1/sync/trigger');
       if (!response.ok) throw new Error('Failed to trigger sync');
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/sync/stats"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/sync/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/dashboard"] });
       toast({
         title: "Sync Triggered",
         description: data.message || "Sync process started.",
@@ -84,7 +84,7 @@ function SyncStatusPanel({ className }: SyncStatusPanelProps) {
     }
 
     // 3. Refresh stats
-    queryClient.invalidateQueries({ queryKey: ["/api/sync/stats"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/v1/sync/stats"] });
   };
 
   const isSyncing = triggerSyncMutation.isPending || offlineSyncInProgress;

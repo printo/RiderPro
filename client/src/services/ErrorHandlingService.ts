@@ -503,7 +503,7 @@ export class ErrorHandlingService {
    */
   private async sendToRemoteLogging(error: ErrorLog): Promise<void> {
     try {
-      await fetch('/api/errors', {
+      await fetch('/api/v1/errors', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

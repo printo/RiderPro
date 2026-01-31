@@ -59,7 +59,7 @@ export const analyticsApi = {
     if (filters.startDate) params.append('startDate', filters.startDate);
     if (filters.endDate) params.append('endDate', filters.endDate);
 
-    const url = `/api/analytics/employees${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `/api/v1/analytics/employees${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
     const result: EmployeeMetricsResponse = await response.json();
 
@@ -80,7 +80,7 @@ export const analyticsApi = {
     if (filters.startDate) params.append('startDate', filters.startDate);
     if (filters.endDate) params.append('endDate', filters.endDate);
 
-    const url = `/api/analytics/routes${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `/api/v1/analytics/routes${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
     const result: RouteMetricsResponse = await response.json();
 
@@ -104,7 +104,7 @@ export const analyticsApi = {
     if (filters.startDate) params.append('startDate', filters.startDate);
     if (filters.endDate) params.append('endDate', filters.endDate);
 
-    const url = `/api/analytics/time/${groupBy}${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `/api/v1/analytics/time/${groupBy}${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
     const result: TimeMetricsResponse = await response.json();
 
@@ -125,7 +125,7 @@ export const analyticsApi = {
     if (filters.startDate) params.append('startDate', filters.startDate);
     if (filters.endDate) params.append('endDate', filters.endDate);
 
-    const url = `/api/analytics/fuel${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `/api/v1/analytics/fuel${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
     const result: FuelAnalyticsResponse = await response.json();
 
@@ -143,7 +143,7 @@ export const analyticsApi = {
     metric: 'distance' | 'efficiency' | 'fuel',
     limit: number = 10
   ): Promise<TopPerformersResponse['performers']> => {
-    const response = await apiClient.get(`/api/analytics/top-performers/${metric}?limit=${limit}`);
+    const response = await apiClient.get(`/api/v1/analytics/top-performers/${metric}?limit=${limit}`);
     const result: TopPerformersResponse = await response.json();
 
     if (!response.ok || !result.success) {
@@ -168,7 +168,7 @@ export const analyticsApi = {
     if (filters.startDate) params.append('startDate', filters.startDate);
     if (filters.endDate) params.append('endDate', filters.endDate);
 
-    const url = `/api/analytics/activity/hourly${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `/api/v1/analytics/activity/hourly${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
     const result = await response.json();
 

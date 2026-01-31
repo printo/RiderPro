@@ -69,43 +69,10 @@ export function useSmartRouteCompletion({
 
   const geofencingService = useRef<GeofencingService>(new GeofencingService());
   const detectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const handlerRef = useRef<((event: GeofenceEvent) => void) | null>(null);
 
-  // Initialize geofence when session starts
-  useEffect(() => {
-    if (!sessionId || !startPosition || !state.isEnabled) {
-      return;
-    }
-
-    // Clear any existing geofence
-    if (state.geofenceId) {
-      geofencingService.current.removeGeofence(state.geofenceId);
-    }
-
-    // Create new geofence for route completion
-    const geofenceId = geofencingService.current.createRouteCompletionGeofence(
-      startPosition,
-      fullConfig.radius,
-      `Route Completion - Session ${sessionId}`
-    );
-
-    // Add event listener for geofence events
-    geofencingService.current.addEventListener(geofenceId, handleGeofenceEvent);
-
-    setState(prev => ({
-      ...prev,
-      geofenceId,
-      isInCompletionZone: false,
-      distanceFromStart: Infinity
-    }));
-
-    log.dev(`Smart route completion initialized for session ${sessionId} with ${fullConfig.radius}m radius`);
-
-    return () => {
-      if (geofenceId) {
-        geofencingService.current.removeGeofence(geofenceId);
-      }
-    };
-  }, [sessionId, startPosition, state.isEnabled, fullConfig.radius]);
+  // Track if geofence has been initialized for this session
+  const geofenceInitializedRef = useRef<string | null>(null);
 
   // Handle geofence events
   const handleGeofenceEvent = useCallback((event: GeofenceEvent) => {
@@ -170,6 +137,74 @@ export function useSmartRouteCompletion({
     onRouteCompletionDetected
   ]);
 
+  // Update handler ref whenever handleGeofenceEvent changes
+  useEffect(() => {
+    handlerRef.current = handleGeofenceEvent;
+  }, [handleGeofenceEvent]);
+
+  // Initialize geofence when session starts
+  useEffect(() => {
+    if (!sessionId || !startPosition || !state.isEnabled) {
+      // Clean up if session ends or disabled
+      if (geofenceInitializedRef.current) {
+        const oldGeofenceId = state.geofenceId;
+        if (oldGeofenceId) {
+          geofencingService.current.removeGeofence(oldGeofenceId);
+        }
+        geofenceInitializedRef.current = null;
+        setState(prev => ({ ...prev, geofenceId: null }));
+      }
+      return;
+    }
+
+    // Skip if already initialized for this session
+    if (geofenceInitializedRef.current === sessionId && state.geofenceId) {
+      return;
+    }
+
+    // Clear any existing geofence
+    if (state.geofenceId) {
+      geofencingService.current.removeGeofence(state.geofenceId);
+    }
+
+    // Create new geofence for route completion
+    const geofenceId = geofencingService.current.createRouteCompletionGeofence(
+      startPosition,
+      fullConfig.radius,
+      `Route Completion - Session ${sessionId}`
+    );
+
+    // Add event listener for geofence events
+    // Use ref to avoid dependency issues
+    const stableHandler = (event: GeofenceEvent) => {
+      if (handlerRef.current) {
+        handlerRef.current(event);
+      }
+    };
+    geofencingService.current.addEventListener(geofenceId, stableHandler);
+
+    setState(prev => ({
+      ...prev,
+      geofenceId,
+      isInCompletionZone: false,
+      distanceFromStart: Infinity
+    }));
+
+    geofenceInitializedRef.current = sessionId;
+
+    log.dev(`Smart route completion initialized for session ${sessionId} with ${fullConfig.radius}m radius`);
+
+    return () => {
+      if (geofenceId) {
+        geofencingService.current.removeGeofence(geofenceId);
+        if (geofenceInitializedRef.current === sessionId) {
+          geofenceInitializedRef.current = null;
+        }
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, startPosition?.latitude, startPosition?.longitude, state.isEnabled, fullConfig.radius]);
+
   // Update position and check geofences
   useEffect(() => {
     if (!currentPosition || !state.geofenceId || !state.isEnabled) {
@@ -179,21 +214,21 @@ export function useSmartRouteCompletion({
     // Update geofencing service with current position
     geofencingService.current.updatePosition(currentPosition);
 
-    // Update distance from start
+    // Update distance from start (only if it changed significantly to avoid unnecessary re-renders)
     if (startPosition) {
       const distance = geofencingService.current.getDistanceToGeofence(
         state.geofenceId,
         currentPosition
       );
 
-      if (distance !== null) {
+      if (distance !== null && Math.abs(distance - state.distanceFromStart) > 1) {
         setState(prev => ({
           ...prev,
           distanceFromStart: distance
         }));
       }
     }
-  }, [currentPosition, state.geofenceId, state.isEnabled, startPosition]);
+  }, [currentPosition, state.geofenceId, state.isEnabled, startPosition, state.distanceFromStart]);
 
   // Handle route completion confirmation
   const handleRouteCompletion = useCallback(() => {

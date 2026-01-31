@@ -11,7 +11,7 @@ export const routeAPI = {
    * Start a new route session
    */
   startSession: async (data: StartRouteSession): Promise<RouteSession> => {
-    const response = await apiRequest("POST", "/api/routes/start", data);
+    const response = await apiRequest("POST", "/api/v1/routes/start", data);
     const result = await response.json();
 
     if (!result.success) {
@@ -25,7 +25,7 @@ export const routeAPI = {
    * Stop a route session
    */
   stopSession: async (data: StopRouteSession): Promise<RouteSession> => {
-    const response = await apiRequest("POST", "/api/routes/stop", data);
+    const response = await apiRequest("POST", "/api/v1/routes/stop", data);
     const result = await response.json();
 
     if (!result.success) {
@@ -39,7 +39,7 @@ export const routeAPI = {
    * Submit GPS coordinates
    */
   submitCoordinates: async (coordinate: GPSCoordinate): Promise<RouteTracking> => {
-    const response = await apiRequest("POST", "/api/routes/coordinates", coordinate);
+    const response = await apiRequest("POST", "/api/v1/routes/coordinates", coordinate);
     const result = await response.json();
 
     if (!result.success) {
@@ -59,7 +59,7 @@ export const routeAPI = {
     latitude: number,
     longitude: number
   ): Promise<RouteTracking> => {
-    const response = await apiRequest("POST", "/api/routes/shipment-event", {
+    const response = await apiRequest("POST", "/api/v1/routes/shipment-event", {
       sessionId,
       shipmentId,
       eventType,
@@ -80,7 +80,7 @@ export const routeAPI = {
    */
   getActiveSession: async (employeeId: string): Promise<RouteSession | null> => {
     try {
-      const response = await apiClient.get(`/api/routes/active/${employeeId}`);
+      const response = await apiClient.get(`/api/v1/routes/active/${employeeId}`);
       const result = await response.json();
 
       if (response.status === 404) {
@@ -104,7 +104,7 @@ export const routeAPI = {
    * Get session coordinates
    */
   getSessionCoordinates: async (sessionId: string): Promise<RouteTracking[]> => {
-    const response = await apiClient.get(`/api/routes/session/${sessionId}`);
+    const response = await apiClient.get(`/api/v1/routes/session/${sessionId}`);
     const result = await response.json();
 
     if (!response.ok || !result.success) {
@@ -125,7 +125,7 @@ export const routeAPI = {
     if (filters.endDate) params.append('endDate', filters.endDate);
     if (filters.sessionStatus) params.append('sessionStatus', filters.sessionStatus);
 
-    const url = `/api/routes/analytics${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `/api/v1/routes/analytics${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
     const result = await response.json();
 
@@ -147,7 +147,7 @@ export const routeAPI = {
    * Batch submit GPS coordinates (for offline sync)
    */
   batchSubmitCoordinates: async (coordinates: GPSCoordinate[]): Promise<BatchCoordinatesResponse> => {
-    const response = await apiRequest("POST", "/api/routes/coordinates/batch", { coordinates });
+    const response = await apiRequest("POST", "/api/v1/routes/coordinates/batch", { coordinates });
     const result = await response.json();
 
     if (!result.success) {
@@ -161,7 +161,7 @@ export const routeAPI = {
    * Get session summary with calculated metrics
    */
   getSessionSummary: async (sessionId: string): Promise<SessionSummary> => {
-    const response = await apiClient.get(`/api/routes/session/${sessionId}/summary`);
+    const response = await apiClient.get(`/api/v1/routes/session/${sessionId}/summary`);
     const result = await response.json();
 
     if (!response.ok || !result.success) {
@@ -210,7 +210,7 @@ export const routeAPI = {
   checkAPIHealth: async (): Promise<boolean> => {
     try {
       // Use a lighter endpoint for health checks
-      const response = await apiClient.get('/api/health');
+      const response = await apiClient.get('/api/v1/health');
       return response.ok;
     } catch {
       return false;

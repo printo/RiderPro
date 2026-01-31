@@ -39,23 +39,35 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
   const queryClient = useQueryClient();
 
   // Fetch fuel settings
-  const { data: fuelSettings = [], isLoading } = useQuery({
-    queryKey: ['/api/fuel-settings'],
+  const { data: fuelSettingsData = [], isLoading } = useQuery({
+    queryKey: ['/api/v1/fuel-settings'],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/api/fuel-settings");
-      return response.json();
+      const response = await apiRequest("GET", "/api/v1/fuel-settings/");
+      const data = await response.json();
+      // Handle both array and paginated response formats (DRF returns paginated by default)
+      if (Array.isArray(data)) {
+        return data;
+      } else if (data.results && Array.isArray(data.results)) {
+        return data.results;
+      } else if (data.data && Array.isArray(data.data)) {
+        return data.data;
+      }
+      return [];
     },
     enabled: isOpen,
   });
 
+  // Ensure fuelSettings is always an array
+  const fuelSettings: FuelSetting[] = Array.isArray(fuelSettingsData) ? fuelSettingsData : [];
+
   // Create fuel setting mutation
   const createMutation = useMutation({
     mutationFn: async (data: InsertFuelSetting) => {
-      const response = await apiRequest("POST", "/api/fuel-settings", data);
+      const response = await apiRequest("POST", "/api/v1/fuel-settings/", data);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/fuel-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/fuel-settings'] });
       toast({
         title: "Fuel Setting Added",
         description: "New fuel setting has been added successfully.",
@@ -74,11 +86,11 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
   // Update fuel setting mutation
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateFuelSetting }) => {
-      const response = await apiRequest("PUT", `/api/fuel-settings/${id}`, data);
+      const response = await apiRequest("PUT", `/api/v1/fuel-settings/${id}/`, data);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/fuel-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/fuel-settings'] });
       toast({
         title: "Fuel Setting Updated",
         description: "Fuel setting has been updated successfully.",
@@ -97,11 +109,11 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
   // Delete fuel setting mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/fuel-settings/${id}`);
+      const response = await apiRequest("DELETE", `/api/v1/fuel-settings/${id}/`);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/fuel-settings'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/v1/fuel-settings'] });
       toast({
         title: "Fuel Setting Deleted",
         description: "Fuel setting has been deleted successfully.",

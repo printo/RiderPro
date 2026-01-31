@@ -48,7 +48,7 @@ const AdminRiderManagement = () => {
     const fetchRiders = async () => {
       try {
         // TODO: Replace with actual API call
-        // const response = await fetch('/api/admin/riders');
+        // const response = await fetch('/api/v1/admin/riders');
         // const data = await response.json();
         // setRiders(data);
 

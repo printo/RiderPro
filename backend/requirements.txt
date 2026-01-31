@@ -1,0 +1,25 @@
+# Django and REST Framework
+Django>=4.2,<5.0
+djangorestframework>=3.14.0
+djangorestframework-simplejwt>=5.2.0
+django-cors-headers>=4.0.0
+django-filter>=23.0
+
+# Database
+psycopg2-binary>=2.9.0
+
+# API Client
+requests>=2.31.0
+httpx>=0.24.0
+
+# Utilities
+python-dotenv>=1.0.0
+bcrypt>=4.0.0
+
+# Development
+django-extensions>=3.2.0
+ipython>=8.12.0
+
+# CSV Import/Export
+django-import-export>=4.1.0
+

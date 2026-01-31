@@ -32,12 +32,12 @@ function BatchUpdateModal({
         throw new Error("Status is required");
       }
       const updates = selectedIds.map(id => ({ id, status: selectedStatus }));
-      const response = await apiRequest("PATCH", "/api/shipments/batch", { updates });
+      const response = await apiRequest("PATCH", "/api/v1/shipments/batch", { updates });
       return response.json();
     },
     onSuccess: (data: { updatedCount?: number } | undefined) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/shipments/fetch"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/shipments/fetch"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/v1/dashboard"] });
       toast({
         title: "Batch Update Successful",
         description: `${data?.updatedCount ?? 0} shipments updated to ${selectedStatus}.`,

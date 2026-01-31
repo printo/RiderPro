@@ -1,5 +1,6 @@
 import { apiRequest } from "@/lib/queryClient";
 import { log } from "../utils/logger.js";
+import { API_ENDPOINTS } from "@/config/api";
 import {
   Shipment,
   InsertShipment,
@@ -53,7 +54,7 @@ export const shipmentsApi = {
     if (filters.sortField) params.append('sortField', filters.sortField);
     if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
 
-    const url = `/api/shipments/fetch${params.toString() ? `?${params.toString()}` : ''}`;
+    const url = `${API_ENDPOINTS.shipments.fetch}${params.toString() ? `?${params.toString()}` : ''}`;
     log.dev('📡 Making API request to:', url);
 
     const response = await apiRequest("GET", url);
@@ -93,43 +94,43 @@ export const shipmentsApi = {
   },
 
   getShipment: async (id: string): Promise<{ shipment: Shipment; acknowledgment?: Acknowledgment }> => {
-    const response = await apiRequest("GET", `/api/shipments/${id}`);
+    const response = await apiRequest("GET", API_ENDPOINTS.shipments.get(id));
     return response.json();
   },
 
   createShipment: async (shipment: InsertShipment): Promise<Shipment> => {
-    const response = await apiRequest("POST", "/api/shipments/create", shipment);
+    const response = await apiRequest("POST", API_ENDPOINTS.shipments.create, shipment);
     return response.json();
   },
 
   updateShipment: async (id: string, updates: UpdateShipment): Promise<Shipment> => {
-    const response = await apiRequest("PATCH", `/api/shipments/${id}`, updates);
+    const response = await apiRequest("PATCH", API_ENDPOINTS.shipments.update(id), updates);
     return response.json();
   },
 
   batchUpdateShipments: async (updates: BatchUpdate): Promise<{ updatedCount: number; message: string }> => {
-    const response = await apiRequest("PATCH", "/api/shipments/batch", updates);
+    const response = await apiRequest("PATCH", API_ENDPOINTS.shipments.batch, updates);
     return response.json();
   },
 
   getDashboardMetrics: async (): Promise<DashboardMetrics> => {
-    const response = await apiRequest("GET", '/api/dashboard');
+    const response = await apiRequest("GET", API_ENDPOINTS.dashboard.metrics);
     return response.json();
   },
 
   // External integration endpoints
   receiveExternalShipment: async (payload: ExternalShipmentPayload | ExternalShipmentBatch): Promise<ShipmentReceptionResponse> => {
-    const response = await apiRequest("POST", "/api/shipments/receive", payload);
+    const response = await apiRequest("POST", API_ENDPOINTS.shipments.receive, payload);
     return response.json();
   },
 
   sendExternalUpdate: async (payload: ExternalUpdatePayload): Promise<{ success: boolean; message: string }> => {
-    const response = await apiRequest("POST", "/api/shipments/update/external", payload);
+    const response = await apiRequest("POST", API_ENDPOINTS.shipments.updateExternal, payload);
     return response.json();
   },
 
   sendExternalBatchUpdate: async (payload: ExternalUpdatePayload[]): Promise<BatchSyncResult> => {
-    const response = await apiRequest("POST", "/api/shipments/update/external/batch", payload);
+    const response = await apiRequest("POST", API_ENDPOINTS.shipments.updateExternalBatch, payload);
     return response.json();
   },
 };

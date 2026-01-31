@@ -172,8 +172,9 @@ function AdminPage() {
   const [showFuelSettingsModal, setShowFuelSettingsModal] = useState(false);
   const { toast } = useToast();
 
-  const canAccessAdmin = !!(user?.isSuperUser);
-  const _canEdit = !!(user?.isSuperUser);
+  // Allow both super users and managers (ops_team/staff) to access admin
+  const canAccessAdmin = !!(user?.isSuperUser || user?.isOpsTeam || user?.isStaff);
+  const _canEdit = !!(user?.isSuperUser || user?.isOpsTeam || user?.isStaff);
 
   // Load pending users and access tokens
   useEffect(() => {
@@ -187,7 +188,7 @@ function AdminPage() {
   const loadPendingUsers = async () => {
     setLoadingUsers(true);
     try {
-      const response = await fetch('/api/auth/pending-approvals');
+      const response = await fetch('/api/v1/auth/pending-approvals');
       const data = await response.json();
       if (data.success) {
         setPendingUsers(data.users);
@@ -207,7 +208,7 @@ function AdminPage() {
   const loadAllUsers = async () => {
     setLoadingAllUsers(true);
     try {
-      const response = await fetch('/api/auth/all-users');
+      const response = await fetch('/api/v1/auth/all-users');
       const data = await response.json();
       if (data.success) {
         setAllUsers(data.users);
@@ -228,10 +229,20 @@ function AdminPage() {
   const loadVehicleTypes = async () => {
     setLoadingVehicleTypes(true);
     try {
-      const response = await fetch('/api/vehicle-types');
+      const response = await fetch('/api/v1/vehicle-types/');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       const data = await response.json();
+      // Handle both array and paginated response formats
       if (Array.isArray(data)) {
         setVehicleTypes(data);
+      } else if (data.results && Array.isArray(data.results)) {
+        setVehicleTypes(data.results);
+      } else if (data.data && Array.isArray(data.data)) {
+        setVehicleTypes(data.data);
+      } else {
+        setVehicleTypes([]);
       }
     } catch (error) {
       console.error('Failed to load vehicle types:', error);
@@ -240,6 +251,7 @@ function AdminPage() {
         description: "Failed to load vehicle types",
         variant: "destructive",
       });
+      setVehicleTypes([]);
     } finally {
       setLoadingVehicleTypes(false);
     }
@@ -247,7 +259,7 @@ function AdminPage() {
 
   const saveVehicleType = async (vehicleData: Partial<VehicleType>) => {
     try {
-      const url = editingVehicle?.id ? `/api/vehicle-types/${editingVehicle.id}` : '/api/vehicle-types';
+      const url = editingVehicle?.id ? `/api/v1/vehicle-types/${editingVehicle.id}/` : '/api/v1/vehicle-types/';
       const method = editingVehicle?.id ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -281,7 +293,7 @@ function AdminPage() {
 
   const deleteVehicleType = async (id: string) => {
     try {
-      const response = await fetch(`/api/vehicle-types/${id}`, {
+      const response = await fetch(`/api/v1/vehicle-types/${id}`, {
         method: 'DELETE',
       });
 
@@ -306,7 +318,7 @@ function AdminPage() {
 
   const approveUser = async (userId: string) => {
     try {
-      const response = await fetch(`/api/auth/approve/${userId}`, {
+      const response = await fetch(`/api/v1/auth/approve/${userId}`, {
         method: 'POST',
       });
       const data = await response.json();
@@ -333,7 +345,7 @@ function AdminPage() {
 
   const rejectUser = async (userId: string) => {
     try {
-      const response = await fetch(`/api/auth/reject/${userId}`, {
+      const response = await fetch(`/api/v1/auth/reject/${userId}`, {
         method: 'POST',
       });
       const data = await response.json();
@@ -360,7 +372,7 @@ function AdminPage() {
 
   const updateUser = async (userId: string, updates: Partial<AllUser>) => {
     try {
-      const response = await fetch(`/api/auth/users/${userId}`, {
+      const response = await fetch(`/api/v1/auth/users/${userId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -392,7 +404,7 @@ function AdminPage() {
   const resetPassword = async (userId: string) => {
     setIsResettingPassword(true);
     try {
-      const response = await fetch(`/api/auth/reset-password/${userId}`, {
+      const response = await fetch(`/api/v1/auth/reset-password/${userId}`, {
         method: 'POST',
       });
       const data = await response.json();
