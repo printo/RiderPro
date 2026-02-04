@@ -159,13 +159,14 @@ class PopsOrderReceiver:
     """
     
     @staticmethod
-    def receive_order_from_pops(order_data: dict, rider_id: str):
+    def receive_order_from_pops(order_data: dict, rider_id: str, api_source: str = None):
         """
         Receive order from POPS and create shipment
         
         Args:
             order_data: POPS Order data (can be raw POPS order or transformed shipment)
             rider_id: Rider/employee ID
+            api_source: Source of the API call (e.g., printo_api_key_2024)
         
         Returns:
             Created Shipment instance, or None if failed
@@ -260,6 +261,7 @@ class PopsOrderReceiver:
                     'pops_shipment_uuid': order_data.get('uuid'),
                     'sync_status': 'synced',
                     'synced_to_external': True,
+                    'api_source': api_source,  # Track the API source
                 }
             )
             
@@ -275,9 +277,12 @@ class PopsOrderReceiver:
                     shipment.customer_name = customer_name
                 if customer_mobile:
                     shipment.customer_mobile = customer_mobile
+                # Update API source if provided (for tracking source changes)
+                if api_source:
+                    shipment.api_source = api_source
                 shipment.save()
             
-            logger.info(f"Order received from POPS: {shipment_id} for rider {rider_id}")
+            logger.info(f"Order received from {api_source or 'unknown source'}: {shipment_id} for rider {rider_id}")
             return shipment
             
         except Exception as e:

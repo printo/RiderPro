@@ -93,6 +93,14 @@ class Shipment(models.Model):
     pops_order_id = models.IntegerField(null=True, blank=True, db_index=True)  # POPS Order.id
     pops_shipment_uuid = models.CharField(max_length=255, null=True, blank=True)
     
+    # API source tracking
+    api_source = models.CharField(
+        max_length=100, 
+        null=True, 
+        blank=True,
+        help_text="Source of the API call that created this shipment (e.g., printo_api_key_2024, external_system_key_1)"
+    )
+    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -106,6 +114,8 @@ class Shipment(models.Model):
             models.Index(fields=['status', 'type', 'route_name', 'created_at']),
             models.Index(fields=['latitude', 'longitude']),
             models.Index(fields=['pops_order_id']),
+            models.Index(fields=['api_source']),  # Index for API source tracking
+            models.Index(fields=['api_source', 'created_at']),  # Composite index for analytics
         ]
     
     def __str__(self):

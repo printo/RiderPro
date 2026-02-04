@@ -60,7 +60,11 @@ def _process_batch_shipments(shipments_data):
                 continue
             
             # Process the shipment
-            shipment = pops_order_receiver.receive_order_from_pops(shipment_data, employee_id)
+            shipment = pops_order_receiver.receive_order_from_pops(
+                shipment_data, 
+                employee_id, 
+                getattr(request, 'api_key_source', None)
+            )
             
             if shipment:
                 results['processed'] += 1
@@ -193,7 +197,11 @@ def receive_order_webhook(request):
             })
         
         # Receive order and create shipment
-        shipment = pops_order_receiver.receive_order_from_pops(order_data, rider_id)
+        shipment = pops_order_receiver.receive_order_from_pops(
+            order_data, 
+            rider_id, 
+            getattr(request, 'api_key_source', None)
+        )
         
         if shipment:
             return Response({

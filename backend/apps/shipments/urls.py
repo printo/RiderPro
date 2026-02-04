@@ -12,6 +12,11 @@ from .analytics_views import (
     route_analytics, employee_analytics, route_metrics,
     time_based_analytics, fuel_analytics, top_performers, hourly_activity
 )
+from .api_source_analytics import api_source_analytics, api_source_timeline
+from .callback_views import (
+    list_callback_configs, test_callback, send_manual_callback, 
+    send_batch_callbacks, callback_analytics
+)
 from .webhooks import receive_order_webhook, receive_shipments_batch_webhook, order_status_webhook
 from . import admin_views
 
@@ -56,6 +61,15 @@ urlpatterns = [
     path('analytics/fuel', fuel_analytics, name='analytics-fuel'),
     path('analytics/top-performers/<str:metric>', top_performers, name='analytics-top-performers'),
     path('analytics/activity/hourly', hourly_activity, name='analytics-hourly'),
+    path('analytics/api-sources', api_source_analytics, name='analytics-api-sources'),
+    path('analytics/api-sources/timeline', api_source_timeline, name='analytics-api-sources-timeline'),
+    path('analytics/callbacks', callback_analytics, name='analytics-callbacks'),
+    
+    # Callback management endpoints
+    path('callbacks/configs', list_callback_configs, name='callback-configs'),
+    path('callbacks/test', test_callback, name='callback-test'),
+    path('callbacks/send', send_manual_callback, name='callback-send'),
+    path('callbacks/send-batch', send_batch_callbacks, name='callback-send-batch'),
     
     # Webhooks for receiving orders from POPS
     path('webhooks/receive-order', receive_order_webhook, name='receive-order-webhook'),

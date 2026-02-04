@@ -27,17 +27,33 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
             return None
         
         # Get valid API keys from settings
-        valid_api_keys = getattr(settings, 'RIDER_PRO_API_KEYS', [])
+        api_keys_config = getattr(settings, 'RIDER_PRO_API_KEYS', {})
         
-        # Also check environment variable
-        import os
-        env_api_key = os.getenv('RIDER_PRO_ACCESS_KEY')
-        if env_api_key:
-            valid_api_keys = list(valid_api_keys) + [env_api_key]
+        # Find matching API key and validate
+        api_key_source = None
+        client_config = None
         
-        if api_key not in valid_api_keys:
+        if isinstance(api_keys_config, dict):
+            for source, config in api_keys_config.items():
+                if isinstance(config, dict):
+                    # New format: {"source": {"key": "...", "callback_url": "...", "active": True}}
+                    if config.get("key") == api_key and config.get("active", True):
+                        api_key_source = source
+                        client_config = config
+                        break
+        
+        if not client_config:
             logger.warning(f"Invalid API key attempted: {api_key[:10]}...")
             raise exceptions.AuthenticationFailed('Invalid API key')
+        
+        # Check if the client is active
+        if not client_config.get("active", True):
+            logger.warning(f"Inactive API key attempted: {api_key_source}")
+            raise exceptions.AuthenticationFailed('API key is inactive')
+        
+        # Log the source if identified
+        if api_key_source:
+            logger.info(f"API key authenticated from source: {api_key_source}")
         
         # Get or create a system API user for webhook requests
         # API users are system users that authenticate via API keys only
@@ -47,12 +63,12 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
             email='api@riderpro.local',
             defaults={
                 'username': 'api_user',
-                'full_name': 'API User (Webhook Only)',
+                'full_name': f'API User ({api_key_source})',
                 'role': 'admin',
                 'is_active': True,
                 'is_staff': False,  # API users don't need staff access
                 'is_superuser': False,
-                'auth_source': 'webhook',  # Changed from 'local' to 'webhook' - API users authenticate via API key/webhook
+                'auth_source': 'webhook',
                 'is_api_user': True,  # Mark as API user (webhook only, no login)
                 'token_never_expires': False,  # API users don't use JWT tokens
             }
@@ -62,11 +78,17 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
         if not created:
             api_user.is_api_user = True
             api_user.is_staff = False  # Ensure API users don't have staff access
-            api_user.auth_source = 'webhook'  # Update auth_source to 'webhook' if it was 'local'
-            api_user.save(update_fields=['is_api_user', 'is_staff', 'auth_source'])
+            api_user.auth_source = 'webhook'
+            if api_key_source:
+                api_user.full_name = f'API User ({api_key_source})'
+            api_user.save(update_fields=['is_api_user', 'is_staff', 'auth_source', 'full_name'])
         
         if created:
-            logger.info("Created API user for webhook authentication (webhook only, no login)")
+            logger.info(f"Created API user for webhook authentication from {api_key_source}")
+        
+        # Store the API key source and client config in the request for potential use in views
+        request.api_key_source = api_key_source
+        request.client_config = client_config
         
         return (api_user, None)
 
