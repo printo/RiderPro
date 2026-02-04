@@ -12,7 +12,7 @@ from .analytics_views import (
     route_analytics, employee_analytics, route_metrics,
     time_based_analytics, fuel_analytics, top_performers, hourly_activity
 )
-from .webhooks import receive_order_webhook, order_status_webhook
+from .webhooks import receive_order_webhook, receive_shipments_batch_webhook, order_status_webhook
 from . import admin_views
 
 router = DefaultRouter()
@@ -27,6 +27,7 @@ urlpatterns = [
     # Custom endpoints matching Node.js structure
     path('shipments/fetch', ShipmentViewSet.as_view({'get': 'fetch'}), name='shipments-fetch'),
     path('shipments/create', ShipmentViewSet.as_view({'post': 'create'}), name='shipments-create'),
+    path('shipments/receive', receive_order_webhook, name='shipments-receive'),  # Alias for webhook
     path('shipments/batch', ShipmentViewSet.as_view({'patch': 'batch'}), name='shipments-batch'),
     path('shipments/<str:pk>/remarks', ShipmentViewSet.as_view({'post': 'remarks'}), name='shipments-remarks'),
     path('shipments/<str:pk>/acknowledgement', ShipmentViewSet.as_view({'post': 'acknowledgement'}), name='shipments-acknowledgement'),
@@ -58,6 +59,7 @@ urlpatterns = [
     
     # Webhooks for receiving orders from POPS
     path('webhooks/receive-order', receive_order_webhook, name='receive-order-webhook'),
+    path('webhooks/receive-shipments-batch', receive_shipments_batch_webhook, name='receive-shipments-batch-webhook'),
     path('webhooks/order-status', order_status_webhook, name='order-status-webhook'),
     
     # Admin endpoints

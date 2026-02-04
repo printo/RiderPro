@@ -13,23 +13,126 @@ from .services import pops_order_receiver
 logger = logging.getLogger(__name__)
 
 
+def _process_batch_shipments(shipments_data):
+    """
+    Process batch shipments from the new array format
+    
+    Args:
+        shipments_data: List of shipment dictionaries
+        
+    Returns:
+        Response with batch processing results
+    """
+    if not shipments_data or not isinstance(shipments_data, list):
+        return Response(
+            {'success': False, 'message': 'Shipments must be a non-empty array'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    results = {
+        'success': True,
+        'message': 'Batch processing completed',
+        'total_shipments': len(shipments_data),
+        'processed': 0,
+        'failed': 0,
+        'shipment_ids': [],
+        'errors': []
+    }
+    
+    for i, shipment_data in enumerate(shipments_data):
+        try:
+            # Validate required fields
+            shipment_id = shipment_data.get('id')
+            employee_id = shipment_data.get('employeeId')
+            
+            if not shipment_id:
+                error_msg = f"Shipment {i+1}: Missing required field 'id'"
+                results['errors'].append(error_msg)
+                results['failed'] += 1
+                logger.warning(error_msg)
+                continue
+                
+            if not employee_id:
+                error_msg = f"Shipment {i+1} (ID: {shipment_id}): Missing required field 'employeeId'"
+                results['errors'].append(error_msg)
+                results['failed'] += 1
+                logger.warning(error_msg)
+                continue
+            
+            # Process the shipment
+            shipment = pops_order_receiver.receive_order_from_pops(shipment_data, employee_id)
+            
+            if shipment:
+                results['processed'] += 1
+                results['shipment_ids'].append(shipment.id)
+                logger.info(f"Successfully processed shipment {shipment_id} for employee {employee_id}")
+            else:
+                error_msg = f"Shipment {i+1} (ID: {shipment_id}): Failed to create shipment"
+                results['errors'].append(error_msg)
+                results['failed'] += 1
+                logger.error(error_msg)
+                
+        except Exception as e:
+            error_msg = f"Shipment {i+1}: Error processing - {str(e)}"
+            results['errors'].append(error_msg)
+            results['failed'] += 1
+            logger.error(f"Error processing shipment {i+1}: {e}", exc_info=True)
+    
+    # Update success status based on results
+    if results['failed'] > 0 and results['processed'] == 0:
+        # All failed
+        results['success'] = False
+        results['message'] = 'All shipments failed to process'
+        return Response(results, status=status.HTTP_400_BAD_REQUEST)
+    elif results['failed'] > 0:
+        # Partial success
+        results['success'] = True
+        results['message'] = f'Partial success: {results["processed"]} processed, {results["failed"]} failed'
+        return Response(results, status=status.HTTP_207_MULTI_STATUS)
+    else:
+        # All successful
+        results['message'] = f'All {results["processed"]} shipments processed successfully'
+        return Response(results, status=status.HTTP_201_CREATED)
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])  # Allow API key or JWT authentication
 @csrf_exempt
 def receive_order_webhook(request):
     """
     Webhook endpoint to receive orders from POPS
-    Called when an order is assigned to a rider in POPS
+    Called when orders are assigned to riders in POPS
     
     Authentication: Accepts either:
     - x-api-key header (API key authentication)
     - Authorization: Bearer <token> (JWT token from POPS)
     
-    Expected payload:
+    Supported payload formats:
+    
+    1. Single order format (legacy):
     {
         "order": { ... POPS Order data ... },
         "rider_id": "12345",
         "event": "order_assigned"
+    }
+    
+    2. Batch shipments format (new):
+    {
+        "shipments": [
+            {
+                "id": "12345",
+                "type": "delivery",
+                "status": "Assigned",
+                "deliveryAddress": "123 Main St...",
+                "recipientName": "John Doe",
+                "recipientPhone": "9876543210",
+                "estimatedDeliveryTime": "2023-10-27T10:00:00+00:00",
+                "cost": 150.0,
+                "routeName": "Route A",
+                "employeeId": "EMP001",
+                "pickupAddress": "..." // Optional for pickup orders
+            }
+        ]
     }
     """
     # Authentication is handled by DRF authentication classes
@@ -58,19 +161,27 @@ def receive_order_webhook(request):
             )
     
     try:
+        # Check for new batch shipments format
+        shipments_data = request.data.get('shipments', [])
+        
+        if shipments_data:
+            # Process batch shipments format
+            return _process_batch_shipments(shipments_data)
+        
+        # Fall back to legacy single order format
         order_data = request.data.get('order', {})
         rider_id = request.data.get('rider_id') or request.data.get('employee_id')
         event = request.data.get('event', 'order_assigned')
         
         if not order_data:
             return Response(
-                {'success': False, 'message': 'Order data is required'},
+                {'success': False, 'message': 'Either "shipments" array or "order" data is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
         if not rider_id:
             return Response(
-                {'success': False, 'message': 'Rider ID is required'},
+                {'success': False, 'message': 'Rider ID is required for single order format'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -173,3 +284,68 @@ def order_status_webhook(request):
 
 
 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])  # Allow API key or JWT authentication
+@csrf_exempt
+def receive_shipments_batch_webhook(request):
+    """
+    Dedicated webhook endpoint for batch shipments processing
+    
+    Authentication: Accepts either:
+    - x-api-key header (API key authentication)
+    - Authorization: Bearer <token> (JWT token from external source)
+    
+    Expected payload:
+    {
+        "shipments": [
+            {
+                "id": "12345",
+                "type": "delivery",
+                "status": "Assigned",
+                "deliveryAddress": "123 Main St, Bangalore, KA 560001, India",
+                "recipientName": "John Doe",
+                "recipientPhone": "9876543210",
+                "estimatedDeliveryTime": "2023-10-27T10:00:00+00:00",
+                "cost": 150.0,
+                "routeName": "Route A",
+                "employeeId": "EMP001",
+                "pickupAddress": "..." // Optional for pickup orders
+            }
+        ]
+    }
+    """
+    # Check authentication
+    if not request.user or not request.user.is_authenticated:
+        api_key = request.META.get('HTTP_X_API_KEY') or request.META.get('X-API-KEY')
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        
+        if not api_key and not auth_header:
+            return Response(
+                {'success': False, 'message': 'Authentication required. Provide x-api-key header or Authorization: Bearer <token>.'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        else:
+            logger.warning(f"Batch webhook authentication failed. API key provided: {bool(api_key)}, Auth header provided: {bool(auth_header)}")
+            return Response(
+                {'success': False, 'message': 'Authentication failed. Invalid API key or token.'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+    
+    try:
+        shipments_data = request.data.get('shipments', [])
+        
+        if not shipments_data:
+            return Response(
+                {'success': False, 'message': 'Shipments array is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        return _process_batch_shipments(shipments_data)
+        
+    except Exception as e:
+        logger.error(f"Batch webhook error: {e}", exc_info=True)
+        return Response(
+            {'success': False, 'message': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
