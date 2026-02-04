@@ -1,5 +1,5 @@
-# Use Node 20
-FROM node:20-slim
+# Use Node 24.1.0 to match local environment
+FROM node:24.1.0-slim
 
 # Set working directory
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN npm install -g npm@6.14.17 && npm ci
+RUN npm install -g npm@11.8.0 && npm ci
 
 # Copy source code
 COPY . .
