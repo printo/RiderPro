@@ -4,10 +4,19 @@ Matches Node.js backend URL structure
 """
 from django.contrib import admin
 from django.urls import path, include
-from apps.health.views import health_check, api_status, log_error
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+
+@require_http_methods(["GET", "HEAD"])
+def health_check(request):
+    """Minimal health check endpoint to prevent 404s from browser/service worker checks"""
+    return JsonResponse({'status': 'ok'}, status=200)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    
+    # Health check endpoint (for browser/service worker checks)
+    path('api/v1/health', health_check, name='health'),
     
     # All APIs under /api/v1 prefix
     # Authentication
@@ -23,12 +32,6 @@ urlpatterns = [
     # Vehicles - matches /api/v1/vehicle-types/* and /api/v1/fuel-settings/* from Node.js
     # Note: DRF router automatically handles trailing slashes, but we ensure both work
     path('api/v1/', include('apps.vehicles.urls')),
-    
-    # Health - matches /health, /api/v1/health, /api-status from Node.js
-    path('health', health_check, name='health'),
-    path('api-status', api_status, name='api-status'),
-    path('api/v1/health', health_check, name='api-health'),  # Alias for /health at /api/v1/health
-    path('api/v1/errors', log_error, name='log-error'),
     
     # Admin endpoints
     path('api/v1/admin/', include('apps.shipments.urls')),  # Access tokens

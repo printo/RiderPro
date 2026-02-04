@@ -4,6 +4,7 @@ import {
 } from '@shared/types';
 import { ConflictResolutionService } from './ConflictResolutionService';
 import { log } from "../utils/logger.js";
+import config from '../config';
 
 export class OfflineStorageService {
   private db: IDBDatabase | null = null;
@@ -41,7 +42,7 @@ export class OfflineStorageService {
         this.db = request.result;
         if (!this.initialized) {
           // Only log in development mode
-          if (import.meta.env.MODE === 'development') {
+          if (config.debug) {
             log.dev('IndexedDB initialized successfully');
           }
           this.initialized = true;

@@ -204,18 +204,6 @@ export const routeAPI = {
     }
   },
 
-  /**
-   * Check if npm run dev API is available (cached for performance)
-   */
-  checkAPIHealth: async (): Promise<boolean> => {
-    try {
-      // Use a lighter endpoint for health checks
-      const response = await apiClient.get('/api/v1/health');
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
 };
 
 // Helper functions for working with route data

@@ -3,6 +3,8 @@
  * Only shows logs in development mode by default
  */
 
+import config from '../config';
+
 export enum LogLevel {
   ERROR = 0,
   WARN = 1,
@@ -28,15 +30,12 @@ class ClientLogger {
   }
 
   private isDevelopment(): boolean {
-    return import.meta.env.MODE === 'development' ||
-      import.meta.env.DEV ||
-      window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1';
+    return config.debug;
   }
 
   private getLogLevel(): LogLevel {
-    const envLevel = import.meta.env.VITE_LOG_LEVEL?.toUpperCase();
-    switch (envLevel) {
+    const level = config.logging.level.toUpperCase();
+    switch (level) {
       case 'ERROR': return LogLevel.ERROR;
       case 'WARN': return LogLevel.WARN;
       case 'INFO': return LogLevel.INFO;
@@ -46,7 +45,7 @@ class ClientLogger {
   }
 
   private shouldEnableConsole(): boolean {
-    return this.isDevelopment() || import.meta.env.VITE_ENABLE_CONSOLE_LOGS === 'true';
+    return config.logging.enableConsole;
   }
 
   private formatMessage(level: string, message: string, ...args: unknown[]): string {

@@ -1,4 +1,5 @@
 import { log } from "../utils/logger.js";
+import config from '../config';
 import { ErrorLog, ErrorRecoveryAction, ErrorHandlingConfig, ErrorStats } from '@shared/types';
 
 export class ErrorHandlingService {
@@ -240,7 +241,8 @@ export class ErrorHandlingService {
     this.notifyErrorListeners(errorLog);
 
     // Console logging for development
-    if (import.meta.env.MODE === 'development') {
+    const isDev = config.debug;
+    if (isDev) {
       const consoleMethod = level === 'error' || level === 'critical' ? 'error' :
         level === 'warn' ? 'warn' : 'log';
       console[consoleMethod](`[${level.toUpperCase()}] ${category}: ${message}`, details);
@@ -500,19 +502,11 @@ export class ErrorHandlingService {
 
   /**
    * Send error to remote logging service
+   * Note: Error logging endpoint removed - errors are only logged locally
    */
   private async sendToRemoteLogging(error: ErrorLog): Promise<void> {
-    try {
-      await fetch('/api/v1/errors', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(error)
-      });
-    } catch (err) {
-      console.warn('Failed to send error to remote logging:', err);
-    }
+    // Error logging endpoint removed - errors are only logged to console
+    console.error('Error logged locally:', error);
   }
 
   /**

@@ -205,36 +205,6 @@ function Settings() {
           </CardContent>
         </Card>
 
-        {/* Health Check Settings Section */}
-        {(user?.role === 'admin' || user?.isSuperUser) && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wifi className="h-5 w-5" />
-                Health Check Settings
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Configure connectivity monitoring to optimize performance and reduce server load.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    // Open health check settings in a modal or navigate to dedicated page
-                    const event = new CustomEvent('openHealthCheckSettings');
-                    window.dispatchEvent(event);
-                  }}
-                  className="w-full sm:w-auto"
-                >
-                  <SettingsIcon className="h-4 w-4 mr-2" />
-                  Configure Health Checks
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Sign Out Section - At Bottom */}
         <Card className="border-red-200 dark:border-red-800">

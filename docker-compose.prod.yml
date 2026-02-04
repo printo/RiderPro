@@ -1,0 +1,35 @@
+
+services:
+  django:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: riderpro-django
+    ports:
+      - "8004:8000"
+    volumes:
+      - ./backend:/app
+      - django_media:/app/media
+      - django_static:/app/staticfiles
+    restart: unless-stopped
+    stop_grace_period: 5s
+    command: sh -c "./create-db.sh && python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000 --noreload"
+    environment:
+      - NODE_ENV=production
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    container_name: riderpro-frontend
+    ports:
+      - "5004:5004"
+    # No volumes in production - files are baked into image during build
+    restart: unless-stopped
+    stop_grace_period: 3s
+    environment:
+      - NODE_ENV=production
+
+volumes:
+  django_media:
+  django_static:

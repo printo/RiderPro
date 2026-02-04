@@ -1,49 +1,35 @@
 """
-Custom middleware for API routes
-Prevents APPEND_SLASH redirect for API routes to avoid POST data loss
+Middleware to add trailing slashes for DRF router endpoints
+Prevents POST data loss from CommonMiddleware redirects
 """
 from django.utils.deprecation import MiddlewareMixin
-from django.http import HttpResponse
+from django.urls import resolve, Resolver404
 
 
 class APIAppendSlashMiddleware(MiddlewareMixin):
     """
-    Middleware to prevent APPEND_SLASH redirect for API routes.
+    Adds trailing slashes for DRF router endpoints to prevent redirects.
     
-    Django's CommonMiddleware tries to redirect POST requests to add trailing slashes,
-    but this fails because POST data can't be preserved during redirect.
-    
-    This middleware intercepts the redirect response and prevents it for API routes,
-    allowing DRF router to handle URL matching without redirects.
+    Django's CommonMiddleware redirects POST requests to add trailing slashes,
+    which loses POST data. This middleware modifies the request path directly
+    for API routes, allowing DRF routers to handle URL matching correctly.
     """
     
-    def process_response(self, request, response):
-        # If CommonMiddleware tried to redirect a POST/PUT/PATCH/DELETE for an API route,
-        # prevent the redirect
-        if request.path.startswith('/api/'):
-            if response.status_code in (301, 302) and request.method in ('POST', 'PUT', 'PATCH', 'DELETE'):
-                location = response.get('Location', '')
-                # Check if it's a trailing slash redirect
-                if location and location.endswith('/') and not request.path.endswith('/'):
-                    # Prevent the redirect - try to resolve the URL with trailing slash
-                    # If it exists, return a helpful error message
-                    # The frontend should add trailing slashes, but this prevents the redirect error
-                    from django.urls import resolve
-                    try:
-                        # Try to resolve with trailing slash to confirm it exists
-                        resolve(request.path + '/')
-                        # URL exists with trailing slash - return helpful error
-                        return HttpResponse(
-                            f'{{"detail": "API endpoint requires trailing slash for {request.method}. Use: {request.path}/"}}',
-                            status=400,
-                            content_type='application/json'
-                        )
-                    except:
-                        # URL doesn't exist at all
-                        return HttpResponse(
-                            f'{{"detail": "API endpoint not found: {request.path}"}}',
-                            status=404,
-                            content_type='application/json'
-                        )
-        return response
+    def process_request(self, request):
+        # Only process API routes and POST/PUT/PATCH/DELETE
+        if (not request.path.startswith('/api/') or 
+            request.method not in ('POST', 'PUT', 'PATCH', 'DELETE') or
+            request.path.endswith('/')):
+            return None
+        
+        # Try to resolve with trailing slash - if it works, add it
+        try:
+            resolve(request.path + '/')
+            request.path = request.path + '/'
+            request.path_info = request.path_info + '/'
+            request.META['PATH_INFO'] = request.path_info
+        except Resolver404:
+            pass  # Not a router endpoint, let Django handle it
+        
+        return None
 

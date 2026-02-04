@@ -141,5 +141,3 @@ venv.bak/
 # IDEs - Python
 .pytype/
 .pyre/
-.vercel/project.json
-.vercel/README.txt

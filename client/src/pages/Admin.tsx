@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/ApiClient";
+import { apiRequest } from "@/lib/queryClient";
 import { Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Database, Plus, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
@@ -188,7 +189,7 @@ function AdminPage() {
   const loadPendingUsers = async () => {
     setLoadingUsers(true);
     try {
-      const response = await fetch('/api/v1/auth/pending-approvals');
+      const response = await apiRequest("GET", '/api/v1/auth/pending-approvals');
       const data = await response.json();
       if (data.success) {
         setPendingUsers(data.users);
@@ -208,7 +209,7 @@ function AdminPage() {
   const loadAllUsers = async () => {
     setLoadingAllUsers(true);
     try {
-      const response = await fetch('/api/v1/auth/all-users');
+      const response = await apiRequest("GET", '/api/v1/auth/all-users');
       const data = await response.json();
       if (data.success) {
         setAllUsers(data.users);
@@ -229,7 +230,7 @@ function AdminPage() {
   const loadVehicleTypes = async () => {
     setLoadingVehicleTypes(true);
     try {
-      const response = await fetch('/api/v1/vehicle-types/');
+      const response = await apiRequest("GET", '/api/v1/vehicle-types/');
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -259,16 +260,10 @@ function AdminPage() {
 
   const saveVehicleType = async (vehicleData: Partial<VehicleType>) => {
     try {
-      const url = editingVehicle?.id ? `/api/v1/vehicle-types/${editingVehicle.id}/` : '/api/v1/vehicle-types/';
+      const url = editingVehicle?.id ? `/api/v1/vehicle-types/${editingVehicle.id}/` : '/api/v1/vehicle-types';
       const method = editingVehicle?.id ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(vehicleData),
-      });
+      const response = await apiRequest(method, url, vehicleData);
 
       if (response.ok) {
         toast({
@@ -293,9 +288,7 @@ function AdminPage() {
 
   const deleteVehicleType = async (id: string) => {
     try {
-      const response = await fetch(`/api/v1/vehicle-types/${id}`, {
-        method: 'DELETE',
-      });
+      const response = await apiRequest("DELETE", `/api/v1/vehicle-types/${id}`);
 
       if (response.ok) {
         toast({

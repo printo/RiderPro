@@ -117,10 +117,6 @@ export const API_ENDPOINTS = {
     activityHourly: apiUrl('/analytics/activity/hourly'),
   },
 
-  // Health & Errors
-  health: apiUrl('/health'),
-  errors: apiUrl('/errors'),
-
   // Admin
   admin: {
     accessTokens: apiUrl('/admin/access-tokens'),

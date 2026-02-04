@@ -4,8 +4,7 @@
     "shared/**/*",
     "scripts/**/*",
     "vite.config.ts",
-    "tailwind.config.ts",
-    "drizzle.config.ts"
+    "tailwind.config.ts"
   ],
   "exclude": [
     "node_modules",

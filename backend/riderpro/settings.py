@@ -1,26 +1,16 @@
 """
 Django settings for riderpro project.
 """
-import os
 from pathlib import Path
-from dotenv import load_dotenv
+from datetime import timedelta
 
-load_dotenv()
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-# Default values (can be overridden in localsettings.py)
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me-in-production')
+# Security
+SECRET_KEY = 'django-insecure-qr3&bu=w2n2!2w2-h(uej-!u9j46^&bd4^_+kd+b(x7($p8k2l'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-# Default values (can be overridden in localsettings.py)
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
-
-# Default values (can be overridden in localsettings.py)
-# Include 172.21.0.1 for Docker gateway IP (WSL2 compatibility)
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,django,0.0.0.0,172.21.0.1').split(',')
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
@@ -30,24 +20,21 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # Third party
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
-    'django_filters',  # For filtering
-    'import_export',  # CSV import/export
-    # Local apps
+    'django_filters',
+    'import_export',
     'apps.authentication',
-    'apps.shipments',  # Includes route tracking and sync
+    'apps.shipments',
     'apps.vehicles',
-    'apps.health',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
-    'apps.core.middleware.APIAppendSlashMiddleware',  # Must be before CommonMiddleware
+    'apps.core.middleware.APIAppendSlashMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -56,11 +43,12 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'riderpro.urls'
+WSGI_APPLICATION = 'riderpro.wsgi.application'
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'riderpro' / 'templates'],  # Add templates directory
+        'DIRS': [BASE_DIR / 'riderpro' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -73,55 +61,29 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'riderpro.wsgi.application'
-
-# Database - Using separate database to avoid conflicts with Node.js backend
-# Default values (can be overridden in localsettings.py)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'riderpro_django'),
-        'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', 'password'),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '5433'),
-    }
-}
-
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
+# Static files
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [
-    BASE_DIR / 'riderpro' / 'static',  # Add custom static files directory
-]
 
 # Media files
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Default primary key field type
+# Default primary key
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom User Model
@@ -129,16 +91,16 @@ AUTH_USER_MODEL = 'authentication.User'
 
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
-    'apps.authentication.backends.RiderProAuthBackend',  # Custom multi-source auth
-    'django.contrib.auth.backends.ModelBackend',  # Fallback to default
+    'apps.authentication.backends.RiderProAuthBackend',
+    'django.contrib.auth.backends.ModelBackend',
 ]
 
-# REST Framework settings
+# REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'apps.authentication.api_key_auth.APIKeyAuthentication',  # API key auth (for webhooks)
-        'apps.authentication.jwt_auth.CookieJWTAuthentication',  # Supports both header and cookies
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # Fallback
+        'apps.authentication.api_key_auth.APIKeyAuthentication',
+        'apps.authentication.jwt_auth.CookieJWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -153,38 +115,20 @@ REST_FRAMEWORK = {
 }
 
 # JWT Settings
-from datetime import timedelta
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=24),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
 }
 
-# CORS settings
-# Default values (can be overridden in localsettings.py)
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'http://localhost:5000',
-    'http://localhost:5004',
-    'http://localhost:8004',
-]
-
-# Allow all origins in development (can be restricted in production)
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-
+# CORS
 CORS_ALLOW_CREDENTIALS = True
 
-# POPS API Configuration
-# Default values (can be overridden in localsettings.py)
-# Replace host.docker.internal with gateway IP for WSL2 compatibility
-_pops_api_base_url = os.getenv('POPS_API_BASE_URL', 'http://localhost:8002/api/v1')
-if 'host.docker.internal' in _pops_api_base_url:
-    # Use Docker gateway IP for WSL2 compatibility
-    _pops_api_base_url = _pops_api_base_url.replace('host.docker.internal', '172.21.0.1')
-POPS_API_BASE_URL = _pops_api_base_url
+# POPS API
+POPS_API_BASE_URL = 'http://localhost:8002/api/v1'
 
 # Logging
 LOGGING = {
@@ -202,16 +146,10 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            'level': 'INFO',
             'propagate': False,
         },
     },
 }
 
-# Load local settings (if exists) to override defaults
-# This file should NOT be committed to version control
-try:
-    from .localsettings import *
-except ImportError:
-    # localsettings.py doesn't exist, use defaults from settings.py
-    pass
+from .localsettings import *  # noqa Do not comment out.

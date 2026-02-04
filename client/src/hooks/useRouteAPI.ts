@@ -225,44 +225,6 @@ export function useOfflineSync() {
   };
 }
 
-/**
- * Hook for API health checking with optimization
- */
-export function useAPIHealth() {
-  const [isHealthy, setIsHealthy] = useState<boolean | null>(null);
-  const [lastCheck, setLastCheck] = useState<Date | null>(null);
-  const [responseTime, setResponseTime] = useState<number | null>(null);
-
-  const checkHealth = useCallback(async () => {
-    try {
-      // Import the optimizer dynamically to avoid circular dependencies
-      const { healthCheckOptimizer } = await import('../services/HealthCheckOptimizer');
-
-      const result = await healthCheckOptimizer.performHealthCheck(
-        'route-api',
-        () => routeAPI.checkAPIHealth()
-      );
-
-      setIsHealthy(result.isHealthy);
-      setLastCheck(new Date(result.timestamp));
-      setResponseTime(result.responseTime || null);
-
-      return result.isHealthy;
-    } catch (_error) {
-      setIsHealthy(false);
-      setLastCheck(new Date());
-      setResponseTime(null);
-      return false;
-    }
-  }, []);
-
-  return {
-    isHealthy,
-    lastCheck,
-    responseTime,
-    checkHealth
-  };
-}
 
 /**
  * Combined hook for complete route tracking functionality

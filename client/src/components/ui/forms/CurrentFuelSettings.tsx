@@ -15,7 +15,7 @@ function CurrentFuelSettings({ className }: CurrentFuelSettingsProps) {
     queryKey: ['/api/v1/fuel-settings'],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", "/api/v1/fuel-settings");
+        const response = await apiRequest("GET", "/api/v1/fuel-settings/");
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }

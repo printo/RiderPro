@@ -2,6 +2,7 @@ import { useDashboard } from "@/hooks/useDashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import SyncStatusPanel from "@/components/sync/SyncStatusPanel";
+import config from '../config';
 
 import StatusDistributionPieChart from "@/components/analytics/StatusDistributionPieChart";
 import RoutePerformanceChart from "@/components/analytics/RoutePerformanceChart";
@@ -65,7 +66,7 @@ function Dashboard() {
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800 dark:text-red-400">{errorMessage}</h3>
-              {import.meta.env.MODE === 'development' && (
+              {config.debug && (
                 <div className="mt-2 text-sm text-red-700 dark:text-red-400">
                   <p>Error details:</p>
                   <pre className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 rounded overflow-auto text-xs">
