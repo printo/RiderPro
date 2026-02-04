@@ -4,7 +4,7 @@
 
 set -e
 
-PROJECT_DIR="/home/ubuntu/riderpro"
+PROJECT_DIR="/home/ubuntu/RiderPro"
 BACKUP_DIR="$PROJECT_DIR/frontend-backups"
 
 echo "🔄 RiderPro Frontend Rollback Script"

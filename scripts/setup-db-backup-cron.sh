@@ -4,7 +4,7 @@
 
 set -e
 
-PROJECT_DIR="/home/ubuntu/riderpro"
+PROJECT_DIR="/home/ubuntu/RiderPro"
 CRON_LOG="$PROJECT_DIR/db-backup-cron.log"
 
 echo "🔧 Setting up database backup cron job..."

@@ -24,6 +24,6 @@ jobs:
       - name: Deploy to server
         run: |
           ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
-            cd /home/ubuntu/riderpro || exit 1
+            cd /home/ubuntu/RiderPro || exit 1
             ./deploy.sh
           EOF

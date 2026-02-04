@@ -23,7 +23,7 @@ echo "   Domain: $DOMAIN"
 # Create Nginx config from template
 echo "📋 Creating Nginx configuration..."
 sed "s/PROJECT_NAME/$PROJECT_NAME/g; s/FRONTEND_PORT/$FRONTEND_PORT/g; s/BACKEND_PORT/$BACKEND_PORT/g" \
-    /home/ubuntu/riderpro/nginx/conf.d/project-template.conf > \
+    /home/ubuntu/RiderPro/nginx/conf.d/project-template.conf > \
     /etc/nginx/conf.d/${PROJECT_NAME}.conf
 
 # Test Nginx configuration

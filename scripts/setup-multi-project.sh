@@ -29,12 +29,12 @@ mkdir -p /var/www/certbot
 
 # Copy Nginx configs
 echo "📋 Setting up Nginx configuration..."
-if [ -f "/home/ubuntu/riderpro/nginx/nginx.conf" ]; then
-    cp /home/ubuntu/riderpro/nginx/nginx.conf /etc/nginx/nginx.conf
+if [ -f "/home/ubuntu/RiderPro/nginx/nginx.conf" ]; then
+    cp /home/ubuntu/RiderPro/nginx/nginx.conf /etc/nginx/nginx.conf
 fi
 
-if [ -d "/home/ubuntu/riderpro/nginx/conf.d" ]; then
-    cp /home/ubuntu/riderpro/nginx/conf.d/*.conf /etc/nginx/conf.d/ 2>/dev/null || true
+if [ -d "/home/ubuntu/RiderPro/nginx/conf.d" ]; then
+    cp /home/ubuntu/RiderPro/nginx/conf.d/*.conf /etc/nginx/conf.d/ 2>/dev/null || true
 fi
 
 # Test Nginx configuration

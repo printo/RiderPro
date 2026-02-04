@@ -5,7 +5,7 @@ set -e
 # This script handles deployment of RiderPro frontend application
 # Note: Database backups are handled separately by cron job
 
-PROJECT_DIR="/home/ubuntu/riderpro"
+PROJECT_DIR="/home/ubuntu/RiderPro"
 BACKUP_DIR="$PROJECT_DIR/frontend-backups"
 DATE=$(date +%Y%m%d_%H%M%S)
 
