@@ -7,9 +7,8 @@ services:
     container_name: riderpro-django
     network_mode: host
     volumes:
-      - ./backend:/app
-      - django_media:/app/media
-      - django_static:/app/staticfiles
+      - /var/www/riderpro-media:/app/media
+      - /var/www/riderpro-static:/app/staticfiles
     restart: unless-stopped
     stop_grace_period: 5s
     command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8004 --noreload"
@@ -28,7 +27,3 @@ services:
     stop_grace_period: 3s
     environment:
       - NODE_ENV=production
-
-volumes:
-  django_media:
-  django_static:
