@@ -53,7 +53,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
       icon: '⚙️'
     },
     ...(user?.role === UserRole.ADMIN ? [{
-      path: '/admin',
+      path: '/admin-dashboard',
       label: 'Admin',
       icon: '⚙️'
     }] : []),

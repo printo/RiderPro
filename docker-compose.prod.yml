@@ -5,15 +5,14 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: riderpro-django
-    ports:
-      - "8004:8000"
+    network_mode: host
     volumes:
       - ./backend:/app
       - django_media:/app/media
       - django_static:/app/staticfiles
     restart: unless-stopped
     stop_grace_period: 5s
-    command: sh -c "./create-db.sh && python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000 --noreload"
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8004 --noreload"
     environment:
       - NODE_ENV=production
 

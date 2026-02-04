@@ -55,7 +55,7 @@ function FloatingActionMenu() {
   // Admin menu items - show for super admin users and managers
   const adminMenuItems = (user?.isSuperUser || user?.isOpsTeam || user?.isStaff) ? [
     {
-      href: "/admin",
+      href: "/admin-dashboard",
       icon: Settings,
       label: "Admin",
       testId: "menu-admin"

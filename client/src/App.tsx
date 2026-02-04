@@ -54,7 +54,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/shipments" component={ShipmentsWithTracking} />
-        <Route path="/admin" component={AdminPage} />
+        <Route path="/admin-dashboard" component={AdminPage} />
         <Route path="/route-analytics" component={RouteAnalytics} />
         <Route path="/route-visualization" component={RouteVisualizationPage} />
         <Route path="/settings" component={Settings} />
