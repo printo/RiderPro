@@ -33,6 +33,25 @@ export default defineConfig({
         enabled: true,
         type: 'module',
       },
+      workbox: {
+        // Exclude /admin and /api paths from service worker navigation handling
+        // This allows Django admin to work without SPA interference
+        navigateFallbackDenylist: [/^\/admin/, /^\/api/],
+        // Runtime caching strategy for API calls (but don't intercept navigation)
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/riderpro\.printo\.in\/api\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              networkTimeoutSeconds: 10,
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
+        ]
+      },
     }),
   ],
   resolve: {

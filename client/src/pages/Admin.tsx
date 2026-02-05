@@ -644,8 +644,23 @@ function AdminPage() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground mb-2">
           Manage system settings, users, and test shipments
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Need Django admin?{" "}
+          <button
+            type="button"
+            onClick={() => {
+              // Use localhost:8004 in development, otherwise use relative path
+              const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+              const adminUrl = isLocalhost ? 'http://localhost:8004/admin/' : '/admin/';
+              window.location.href = adminUrl;
+            }}
+            className="text-blue-600 hover:underline"
+          >
+            Open Django Admin
+          </button>
         </p>
       </div>
 
