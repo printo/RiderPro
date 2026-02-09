@@ -10,7 +10,7 @@ interface ExternalAuthResponse {
   is_staff?: boolean;
   is_super_user?: boolean;
   is_ops_team?: boolean;
-  employee_id?: string;
+  username?: string;
 }
 
 interface LocalAuthResponse {
@@ -23,7 +23,7 @@ interface LocalAuthResponse {
   is_super_user?: boolean;
   is_staff?: boolean;
   is_ops_team?: boolean;
-  employee_id?: string;
+  username?: string;
   role?: string;
 }
 
@@ -56,23 +56,23 @@ class AuthService {
       const accessToken = localStorage.getItem('access_token');
       const refreshToken = localStorage.getItem('refresh_token');
       const fullName = localStorage.getItem('full_name');
-      const employeeId = localStorage.getItem('employee_id');
+      const username = localStorage.getItem('username');
       const isRider = localStorage.getItem('is_rider') === 'true';
       const isSuperUser = localStorage.getItem('is_super_user') === 'true';
       const isOpsTeam = localStorage.getItem('is_ops_team') === 'true';
       const isStaff = localStorage.getItem('is_staff') === 'true';
 
-      if (accessToken && fullName && employeeId) {
+      if (accessToken && fullName && username) {
         // Use new role determination logic
         const role = isSuperUser ? UserRole.ADMIN : (isRider ? UserRole.MANAGER : UserRole.DRIVER);
 
         this.state = {
           user: {
-            id: employeeId,
-            username: employeeId,
+            id: username,
+            username: username,
             email: '',
             role,
-            employeeId,
+            employeeId: username, // Keep for backward compatibility
             fullName,
             isActive: true,
             isApproved: true, // Assume approved if we have valid tokens
@@ -180,7 +180,7 @@ class AuthService {
   }
 
   // Method A: External API Authentication
-  public async loginWithExternalAPI(employeeId: string, password: string): Promise<{ success: boolean; message: string }> {
+  public async loginWithExternalAPI(username: string, password: string): Promise<{ success: boolean; message: string }> {
     try {
       this.setState({ isLoading: true });
 
@@ -190,7 +190,7 @@ class AuthService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: employeeId,  // Proxy expects 'email' field
+          username: username,  // Username is the email value from estimator DB
           password: password,
         }),
       });
@@ -207,11 +207,14 @@ class AuthService {
       // Map PIA roles to internal role structure
       const internalRoles = this.mapPIARolesToInternal(data.is_staff, data.is_super_user, data.is_ops_team);
 
+      // Get username from response or use the one provided
+      const userUsername = data.username || username;
+
       // Save to localStorage with all user details
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
       localStorage.setItem('full_name', data.full_name);
-      localStorage.setItem('employee_id', employeeId);  // Use the original employee ID
+      localStorage.setItem('username', userUsername);  // Username is the primary identifier
       localStorage.setItem('is_rider', internalRoles.is_rider.toString());
       localStorage.setItem('is_super_user', internalRoles.is_super_user.toString());
       localStorage.setItem('isadmin', internalRoles.is_super_user.toString()); // Added per requirement
@@ -226,11 +229,11 @@ class AuthService {
 
       this.setState({
         user: {
-          id: employeeId,  // Use the original employee ID
-          username: employeeId,
+          id: userUsername,
+          username: userUsername,
           email: '',
           role,
-          employeeId: employeeId,
+          employeeId: userUsername, // Keep for backward compatibility
           fullName: data.full_name,
           isActive: true,
           isApproved: true, // PIA users are always approved
@@ -287,11 +290,14 @@ class AuthService {
       // Map PIA roles to internal role structure
       const internalRoles = this.mapPIARolesToInternal(data.is_staff, data.is_super_user, data.is_ops_team);
 
+      // Get username from response or use riderId
+      const userUsername = data.username || riderId;
+
       // Save to localStorage with all user details
       localStorage.setItem('access_token', data.accessToken);
       localStorage.setItem('refresh_token', data.refreshToken);
       localStorage.setItem('full_name', data.fullName);
-      localStorage.setItem('employee_id', riderId);
+      localStorage.setItem('username', userUsername);  // Username is the primary identifier
       localStorage.setItem('is_rider', internalRoles.is_rider.toString());
       localStorage.setItem('is_super_user', internalRoles.is_super_user.toString());
       localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
@@ -301,11 +307,11 @@ class AuthService {
 
       this.setState({
         user: {
-          id: riderId,
-          username: riderId,
+          id: userUsername,
+          username: userUsername,
           email: '',
           role,
-          employeeId: riderId,
+          employeeId: userUsername, // Keep for backward compatibility
           fullName: data.fullName,
           isActive: true,
           isApproved: data.isApproved || false,
@@ -492,7 +498,7 @@ class AuthService {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('full_name');
-    localStorage.removeItem('employee_id');
+    localStorage.removeItem('username');
     localStorage.removeItem('is_staff');
     localStorage.removeItem('is_super_user');
     localStorage.removeItem('isadmin');

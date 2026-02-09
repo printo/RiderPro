@@ -11,7 +11,7 @@ import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 type AuthMethod = 'pia' | 'rider';
 
 function Login() {
-  const [employeeId, setEmployeeId] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -30,15 +30,15 @@ function Login() {
     setIsLoading(true);
 
     try {
-      console.log(`[Login] Attempting ${authMethod} login for:`, employeeId);
+      console.log(`[Login] Attempting ${authMethod} login for:`, username);
 
       let result;
 
       // Call appropriate login method based on auth type
       if (authMethod === 'pia') {
-        result = await loginWithExternalAPI(employeeId, password);
+        result = await loginWithExternalAPI(username, password);
       } else {
-        result = await loginWithLocalDB(employeeId, password);
+        result = await loginWithLocalDB(username, password);
       }
 
       console.log('[Login] Login result received:', result);
@@ -47,9 +47,8 @@ function Login() {
         console.log('[Login] Login successful! Navigating to dashboard...');
         setLocation('/dashboard');
       } else if (authMethod === 'rider' && 'isApproved' in result && result.isApproved === false) {
-        // Handle pending approval for rider login
-        setError('Account pending approval. Please contact administrator.');
-        setTimeout(() => setLocation('/approval-pending'), 2000);
+        // Handle pending approval for rider login - redirect to waiting page
+        setLocation('/approval-pending');
       } else {
         console.error('[Login] Login failed:', result.message);
         setError(result.message || "Invalid credentials");
@@ -106,11 +105,11 @@ function Login() {
 
             <div className="space-y-2">
               <Input
-                id="employeeId"
+                id="username"
                 type="text"
-                placeholder={authMethod === 'pia' ? 'Employee ID' : 'Rider ID'}
-                value={employeeId}
-                onChange={(e) => setEmployeeId(e.target.value)}
+                placeholder={authMethod === 'pia' ? 'Username (Email)' : 'Rider ID'}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 disabled={isLoading}
                 required
                 autoComplete="username"
@@ -154,7 +153,7 @@ function Login() {
             <Button
               type="submit"
               className="w-full"
-              disabled={isLoading || !employeeId || !password}
+              disabled={isLoading || !username || !password}
             >
               {isLoading ? (
                 <ButtonLoader text="Signing in..." />

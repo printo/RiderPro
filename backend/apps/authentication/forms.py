@@ -11,49 +11,40 @@ User = get_user_model()
 
 class UserCreationForm(BaseUserCreationForm):
     """
-    Custom user creation form for email-based authentication.
-    Django's default UserCreationForm expects 'username', but our User model
-    uses 'email' as USERNAME_FIELD.
+    Custom user creation form for username-based authentication.
+    Username is the email value from estimator DB (employeeId).
+    This combines Authentication and Personal information.
     """
-    email = forms.EmailField(
-        label="Email",
-        max_length=254,
-        help_text="Required. Enter a valid email address.",
-        widget=forms.EmailInput(attrs={'autocomplete': 'email', 'class': 'vTextField'}),
+    username = forms.CharField(
+        label="Username",
+        max_length=255,
+        help_text="Required. Username is the email value from estimator DB (employeeId).",
+        widget=forms.TextInput(attrs={'autocomplete': 'username', 'class': 'vTextField'}),
         error_messages={
-            'required': 'Email is required.',
-            'invalid': 'Enter a valid email address.',
+            'required': 'Username is required.',
         }
     )
     
     class Meta:
         model = User
-        fields = ("email",)
-        field_classes = {"email": forms.EmailField}
+        fields = ("username",)
+        field_classes = {"username": forms.CharField}
     
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Remove username field if it exists
-        if 'username' in self.fields:
-            del self.fields['username']
-    
-    def clean_email(self):
-        """Validate email uniqueness"""
-        email = self.cleaned_data.get('email')
-        if email:
-            email = User.objects.normalize_email(email)
-            if User.objects.filter(email=email).exists():
+    def clean_username(self):
+        """Validate username uniqueness"""
+        username = self.cleaned_data.get('username')
+        if username:
+            if User.objects.filter(username=username).exists():
                 raise ValidationError(
-                    "A user with this email already exists.",
-                    code='duplicate_email',
+                    "A user with this username already exists.",
+                    code='duplicate_username',
                 )
-        return email
+        return username
     
     def save(self, commit=True):
-        """Save the user with email as username"""
+        """Save the user with username"""
         user = super().save(commit=False)
-        user.email = self.cleaned_data["email"]
-        user.username = self.cleaned_data["email"]  # Set username to email for compatibility
+        user.username = self.cleaned_data["username"]
         if commit:
             user.save()
         return user

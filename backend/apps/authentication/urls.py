@@ -19,5 +19,9 @@ urlpatterns = [
     path('reject/<str:user_id>', views.reject_user, name='reject_user'),
     path('users/<str:user_id>', views.get_user, name='get_user'),
     path('reset-password/<str:user_id>', views.reset_password, name='reset_password'),
+    
+    # POPS API proxy endpoints
+    path('pops/homebases', views.pops_homebases, name='pops_homebases'),
+    path('pops/riders', views.pops_create_rider, name='pops_create_rider'),
 ]
 

@@ -16,7 +16,7 @@ services:
         required: false
     restart: unless-stopped
     stop_grace_period: 5s
-    command: sh -c "./create-db.sh && python manage.py makemigrations && python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py makemigrations && python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
     environment:
       - DEBUG=True
       - NODE_ENV=development

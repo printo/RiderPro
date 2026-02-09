@@ -8,20 +8,20 @@ from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
-    """Custom user manager"""
+    """Custom user manager - uses username as primary identifier"""
     
-    def create_user(self, email, password=None, **extra_fields):
+    def create_user(self, username, password=None, **extra_fields):
         """Create and save a regular user"""
-        if not email:
-            raise ValueError('The Email field must be set')
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+        if not username:
+            raise ValueError('The Username field must be set')
+        # Username is the email value from estimator DB (employeeId)
+        user = self.model(username=username, **extra_fields)
         if password:
             user.set_password(password)
         user.save(using=self._db)
         return user
     
-    def create_superuser(self, email, password=None, **extra_fields):
+    def create_superuser(self, username, password=None, **extra_fields):
         """Create and save a superuser"""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
@@ -32,7 +32,7 @@ class UserManager(BaseUserManager):
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
         
-        return self.create_user(email, password, **extra_fields)
+        return self.create_user(username, password, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -41,10 +41,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     - Local admin users (created in RiderPro)
     - POPS users (authenticated via POPS API)
     - Rider accounts (local riders without POPS login)
+    
+    Username is the primary identifier and contains the email value from estimator DB (employeeId).
+    This combines Authentication and Personal information into a single field.
     """
-    email = models.EmailField(unique=True)
-    username = models.CharField(max_length=255, unique=True, null=True, blank=True)
-    employee_id = models.CharField(max_length=255, null=True, blank=True)
+    username = models.CharField(max_length=255, unique=True)
     full_name = models.CharField(max_length=255, blank=True)
     
     # Role and permissions
@@ -96,25 +97,25 @@ class User(AbstractBaseUser, PermissionsMixin):
     
     objects = UserManager()
     
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = []
     
     class Meta:
         db_table = 'users'
         indexes = [
-            models.Index(fields=['employee_id']),
+            models.Index(fields=['username']),
             models.Index(fields=['role']),
             models.Index(fields=['is_active']),
         ]
     
     def __str__(self):
-        return self.email or self.username or str(self.id)
+        return self.username or str(self.id)
     
     def get_full_name(self):
-        return self.full_name or self.email
+        return self.full_name or self.username
     
     def get_short_name(self):
-        return self.email.split('@')[0] if self.email else ''
+        return self.username.split('@')[0] if '@' in self.username else self.username
 
 
 class RiderAccount(models.Model):
@@ -144,18 +145,6 @@ class RiderAccount(models.Model):
     is_active = models.BooleanField(default=True)
     is_approved = models.BooleanField(default=False)  # Manager must approve
     is_rider = models.BooleanField(default=True)
-    is_super_user = models.BooleanField(default=False)
-    
-    # Role
-    role = models.CharField(
-        max_length=50,
-        choices=[
-            ('is_super_user', 'Super User'),
-            ('is_rider', 'Rider'),
-            ('is_driver', 'Driver'),
-        ],
-        default='is_driver'
-    )
     
     # POPS integration
     pops_rider_id = models.IntegerField(null=True, blank=True)  # POPS rider ID after approval
@@ -197,7 +186,7 @@ class UserSession(models.Model):
         ]
     
     def __str__(self):
-        return f"Session {self.id} for {self.user.email}"
+        return f"Session {self.id} for {self.user.username}"
     
     def is_expired(self):
         return timezone.now() > self.expires_at
@@ -232,4 +221,4 @@ class BlackListedToken(models.Model):
         ]
     
     def __str__(self):
-        return f"Blacklisted token for {self.user.email} at {self.timestamp}"
+        return f"Blacklisted token for {self.user.username} at {self.timestamp}"

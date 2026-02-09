@@ -498,7 +498,9 @@ function AdminPage() {
           priority: 'medium',
           pickupAddress: 'Warehouse A, Industrial Area',
           weight: 2.5,
-          dimensions: '30x20x15 cm',
+          package_boxes: [
+            { id: 1, name: 'Box 1', quantity: 1, dimensions: { length: 30, breadth: 20, height: 15, unit: 'cm' }, weight: 2.5 }
+          ],
           specialInstructions: 'Handle with care - fragile items',
           actualDeliveryTime: null,
           start_latitude: null,
@@ -534,7 +536,9 @@ function AdminPage() {
           priority: 'high',
           pickupAddress: '456 Oak Avenue, Midtown',
           weight: 1.8,
-          dimensions: '25x18x12 cm',
+          package_boxes: [
+            { id: 1, name: 'Box 1', quantity: 1, dimensions: { length: 25, breadth: 18, height: 12, unit: 'cm' }, weight: 1.8 }
+          ],
           specialInstructions: 'Urgent pickup required',
           actualDeliveryTime: null,
           start_latitude: null,
@@ -570,7 +574,9 @@ function AdminPage() {
           priority: 'low',
           pickupAddress: 'Warehouse C, Suburbs',
           weight: 3.2,
-          dimensions: '35x25x20 cm',
+          package_boxes: [
+            { id: 1, name: 'Box 1', quantity: 1, dimensions: { length: 35, breadth: 25, height: 20, unit: 'cm' }, weight: 3.2 }
+          ],
           specialInstructions: 'Delivery after 5 PM',
           actualDeliveryTime: null,
           start_latitude: null,

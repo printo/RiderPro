@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo; <a href="{% url 'admin:authentication_rideraccount_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    &rsaquo; {% trans 'Fetch Riders from PIA' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<h1>{% trans 'Fetch Riders from PIA' %}</h1>
+<p>{% trans 'This will fetch all riders from POPS (PIA) and sync them to RiderPro.' %}</p>
+<p><strong>{% trans 'Note:' %}</strong> {% trans 'This action will create new rider accounts or update existing ones based on data from POPS.' %}</p>
+
+<form method="post">
+    {% csrf_token %}
+    <div>
+        <input type="submit" value="{% trans 'Yes, fetch riders' %}" class="default" style="background-color: #417690; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+        <a href="{% url 'admin:authentication_rideraccount_changelist' %}" class="button cancel-link" style="padding: 10px 20px; margin-left: 10px;">{% trans 'Cancel' %}</a>
+    </div>
+</form>
+{% endblock %}
+

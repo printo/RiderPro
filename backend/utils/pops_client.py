@@ -290,6 +290,68 @@ class PopsAPIClient:
         except Exception as e:
             logger.error(f"POPS fetch rider by name error: {e}")
             return None
+    
+    def fetch_homebases(self, access_token: str) -> Optional[list]:
+        """
+        Fetch all homebases from POPS
+        Uses the master/homebases endpoint
+        
+        Returns:
+            List of homebase data dicts, or None if failed
+        """
+        url = f"{self.base_url}/master/homebases/"
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        try:
+            response = self.session.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                # Handle both list and paginated responses
+                if isinstance(data, list):
+                    return data
+                elif isinstance(data, dict) and 'results' in data:
+                    return data['results']
+                return []
+            else:
+                logger.error(f"POPS fetch homebases failed: {response.status_code}")
+                return None
+        except Exception as e:
+            logger.error(f"POPS fetch homebases error: {e}")
+            return None
+    
+    def create_rider(self, rider_data: Dict[str, Any], access_token: str) -> Optional[Dict[str, Any]]:
+        """
+        Create a rider in POPS
+        Uses the master/riders endpoint (POST)
+        
+        Expected rider_data:
+        {
+            'name': str,
+            'phone': str (optional),
+            'rider_id': str,
+            'account_code': str (optional),
+            'tags': str (optional, comma-separated),
+            'homebaseId': int or 'homebaseId__homebaseId': str
+        }
+        
+        Returns:
+            Created rider data, or None if failed
+        """
+        url = f"{self.base_url}/master/riders/"
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        try:
+            response = self.session.post(url, json=rider_data, headers=headers, timeout=30)
+            if response.status_code in [200, 201]:
+                return response.json()
+            else:
+                logger.error(f"POPS create rider failed: {response.status_code} - {response.text}")
+                return None
+        except Exception as e:
+            logger.error(f"POPS create rider error: {e}")
+            return None
 
 
 # Singleton instance

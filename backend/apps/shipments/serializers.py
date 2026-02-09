@@ -14,7 +14,7 @@ class ShipmentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'type', 'customer_name', 'customer_mobile', 'address',
             'latitude', 'longitude', 'cost', 'delivery_time', 'route_name',
-            'employee_id', 'status', 'pickup_address', 'weight', 'dimensions',
+            'employee_id', 'status', 'pickup_address', 'weight', 'package_boxes',
             'special_instructions', 'actual_delivery_time', 'priority', 'remarks',
             'start_latitude', 'start_longitude', 'stop_latitude', 'stop_longitude',
             'km_travelled', 'synced_to_external', 'sync_status', 'sync_attempts',
@@ -33,7 +33,7 @@ class ShipmentCreateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'type', 'customer_name', 'customer_mobile', 'address',
             'latitude', 'longitude', 'cost', 'delivery_time', 'route_name',
-            'employee_id', 'status', 'pickup_address', 'weight', 'dimensions',
+            'employee_id', 'status', 'pickup_address', 'weight', 'package_boxes',
             'special_instructions', 'priority', 'pops_order_id', 'pops_shipment_uuid'
         ]
 

@@ -7,18 +7,18 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
-from apps.authentication.api_key_auth import APIKeyAuthentication
 from .services import pops_order_receiver
 
 logger = logging.getLogger(__name__)
 
 
-def _process_batch_shipments(shipments_data):
+def _process_batch_shipments(shipments_data, request=None):
     """
     Process batch shipments from the new array format
     
     Args:
         shipments_data: List of shipment dictionaries
+        request: Django request object (optional, for api_key_source)
         
     Returns:
         Response with batch processing results
@@ -41,37 +41,41 @@ def _process_batch_shipments(shipments_data):
     
     for i, shipment_data in enumerate(shipments_data):
         try:
-            # Validate required fields
-            shipment_id = shipment_data.get('id')
+            # Validate required fields - use orderId instead of id
+            order_id = shipment_data.get('orderId') or shipment_data.get('order_id')
             employee_id = shipment_data.get('employeeId')
             
-            if not shipment_id:
-                error_msg = f"Shipment {i+1}: Missing required field 'id'"
+            if not order_id:
+                error_msg = f"Shipment {i+1}: Missing required field 'orderId'"
                 results['errors'].append(error_msg)
                 results['failed'] += 1
                 logger.warning(error_msg)
                 continue
                 
-            if not employee_id:
-                error_msg = f"Shipment {i+1} (ID: {shipment_id}): Missing required field 'employeeId'"
-                results['errors'].append(error_msg)
-                results['failed'] += 1
-                logger.warning(error_msg)
-                continue
+            # Allow shipments without employeeId - they will use a default
+            if not employee_id or employee_id == "N/A":
+                # Use a default employeeId if missing
+                employee_id = "unassigned"
+                logger.warning(f"Shipment {i+1} (orderId: {order_id}): Missing employeeId, using default 'unassigned'")
+            
+            # Remove 'id' field from shipment_data to prevent it from being used
+            # RiderPro will generate its own shipment ID
+            shipment_data_clean = {k: v for k, v in shipment_data.items() if k != 'id'}
             
             # Process the shipment
+            api_source = getattr(request, 'api_key_source', None) if request else None
             shipment = pops_order_receiver.receive_order_from_pops(
-                shipment_data, 
+                shipment_data_clean, 
                 employee_id, 
-                getattr(request, 'api_key_source', None)
+                api_source
             )
             
             if shipment:
                 results['processed'] += 1
                 results['shipment_ids'].append(shipment.id)
-                logger.info(f"Successfully processed shipment {shipment_id} for employee {employee_id}")
+                logger.info(f"Successfully processed shipment orderId={order_id}, shipment_id={shipment.id} for employee {employee_id}")
             else:
-                error_msg = f"Shipment {i+1} (ID: {shipment_id}): Failed to create shipment"
+                error_msg = f"Shipment {i+1} (orderId: {order_id}): Failed to create shipment"
                 results['errors'].append(error_msg)
                 results['failed'] += 1
                 logger.error(error_msg)
@@ -139,12 +143,6 @@ def receive_order_webhook(request):
         ]
     }
     """
-    # Authentication is handled by DRF authentication classes
-    # APIKeyAuthentication (first in list) will check x-api-key header
-    # If API key is valid, request.user will be authenticated
-    # If no API key or invalid, JWT authentication will be tried
-    # For webhooks, we require either valid API key OR valid JWT token
-    
     # Check if user is authenticated (via API key or JWT)
     if not request.user or not request.user.is_authenticated:
         # Check what authentication was attempted
@@ -170,12 +168,17 @@ def receive_order_webhook(request):
         
         if shipments_data:
             # Process batch shipments format
-            return _process_batch_shipments(shipments_data)
+            return _process_batch_shipments(shipments_data, request)
         
         # Fall back to legacy single order format
         order_data = request.data.get('order', {})
         rider_id = request.data.get('rider_id') or request.data.get('employee_id')
         event = request.data.get('event', 'order_assigned')
+        
+        # Log what we received for debugging
+        logger.info(f"Received webhook request. Keys in request.data: {list(request.data.keys())}")
+        logger.info(f"Order data keys: {list(order_data.keys()) if order_data else 'None'}")
+        logger.info(f"Order data orderId: {order_data.get('orderId') if order_data else 'N/A'}")
         
         if not order_data:
             return Response(
@@ -196,9 +199,14 @@ def receive_order_webhook(request):
                 'message': f'Event {event} ignored'
             })
         
+        # Remove 'id' field from order_data to prevent it from being used
+        # RiderPro will generate its own shipment ID
+        # But preserve 'orderId' which is what we need
+        order_data_clean = {k: v for k, v in order_data.items() if k != 'id'}
+        
         # Receive order and create shipment
         shipment = pops_order_receiver.receive_order_from_pops(
-            order_data, 
+            order_data_clean, 
             rider_id, 
             getattr(request, 'api_key_source', None)
         )
@@ -349,7 +357,7 @@ def receive_shipments_batch_webhook(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        return _process_batch_shipments(shipments_data)
+        return _process_batch_shipments(shipments_data, request)
         
     except Exception as e:
         logger.error(f"Batch webhook error: {e}", exc_info=True)

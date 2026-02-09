@@ -35,16 +35,16 @@ def login(request):
     if not serializer.is_valid():
         return Response({
             'success': False,
-            'message': 'Email and password are required'
+            'message': 'Username and password are required'
         }, status=status.HTTP_400_BAD_REQUEST)
     
-    email = serializer.validated_data['email']
+    username = serializer.validated_data['username']
     password = serializer.validated_data['password']
     
     # Check if user is an API user (API users cannot login via this endpoint)
     from .models import User
     try:
-        api_user = User.objects.get(email=email, is_api_user=True)
+        api_user = User.objects.get(username=username, is_api_user=True)
         if api_user:
             return Response({
                 'success': False,
@@ -54,26 +54,26 @@ def login(request):
         pass
     
     # Authenticate using custom backend
-    user = authenticate(request, email=email, password=password)
+    user = authenticate(request, username=username, password=password)
     
     if not user:
         # If authentication failed, try fetching user from POPS
         # This handles cases where user exists in POPS but password might be wrong
         # or user data needs to be synced
         try:
-            # Try to login with POPS to get access token
-            pops_response = pops_client.login(email, password)
+            # Try to login with POPS to get access token (username is the email value from estimator)
+            pops_response = pops_client.login(username, password)
             if pops_response:
                 # If POPS login succeeds, create/update user
                 from django.contrib.auth import get_user_model
                 User = get_user_model()
-                user = User.objects.filter(email=email).first()
+                user = User.objects.filter(username=username).first()
                 if user:
                     # Update existing user with latest POPS data
-                    user = authenticate(request, email=email, password=password)
+                    user = authenticate(request, username=username, password=password)
                 else:
                     # Create new user from POPS response
-                    user = authenticate(request, email=email, password=password)
+                    user = authenticate(request, username=username, password=password)
         except Exception as e:
             logger.debug(f"POPS fetch attempt failed: {e}")
         
@@ -106,11 +106,11 @@ def login(request):
         'message': 'Login successful',
         'access': access_token,
         'refresh': refresh_token,
-        'full_name': user.full_name or user.email,
+        'full_name': user.full_name or user.username,
         'is_staff': is_staff,
         'is_super_user': is_super_user,
         'is_ops_team': is_ops_team,
-        'employee_id': user.employee_id or str(user.id),
+        'username': user.username,
     }
     
     return Response(response_data, status=status.HTTP_200_OK)
@@ -122,6 +122,7 @@ def register(request):
     """
     Rider registration endpoint - matches /api/auth/register from Node.js backend
     Creates a rider account that requires manager approval
+    If rider doesn't exist in RiderAccount table, attempts to fetch from PIA
     """
     rider_id = request.data.get('riderId')
     password = request.data.get('password')
@@ -136,11 +137,42 @@ def register(request):
         }, status=status.HTTP_400_BAD_REQUEST)
     
     # Check if rider already exists
-    if RiderAccount.objects.filter(rider_id=rider_id).exists():
+    rider_account = RiderAccount.objects.filter(rider_id=rider_id).first()
+    if rider_account:
         return Response({
             'success': False,
             'message': 'Rider ID already registered'
         }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # If rider doesn't exist, try to fetch from PIA (optional - don't fail if PIA is unavailable)
+    # This will be done during manager approval, but we can try here too
+    pops_rider_id = None
+    try:
+        from django.conf import settings
+        access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+        if access_token:
+            try:
+                pops_rider = pops_client.fetch_rider_by_id(rider_id, access_token)
+                if pops_rider:
+                    pops_rider_id = pops_rider.get('id')
+                    # Use PIA data if available
+                    if not full_name and pops_rider.get('name'):
+                        full_name = pops_rider.get('name')
+                    # Map POPS tags to rider_type
+                    tags = pops_rider.get('tags', '').lower()
+                    if 'milkround' in tags or 'goods-auto' in tags or 'auto' in tags:
+                        rider_type = 'auto'
+                    elif 'printo-bike' in tags or 'bike' in tags:
+                        rider_type = 'bike'
+                    elif 'hyperlocal' in tags:
+                        rider_type = 'hyperlocal'
+                    elif '3pl' in tags:
+                        rider_type = '3pl'
+            except Exception as e:
+                # Don't fail registration if PIA fetch fails - manager can fetch during approval
+                logger.debug(f"Could not fetch rider {rider_id} from PIA during registration: {e}")
+    except Exception as e:
+        logger.debug(f"Error attempting to fetch from PIA during registration: {e}")
     
     # Hash password with bcrypt
     password_bytes = password.encode('utf-8')
@@ -148,17 +180,18 @@ def register(request):
     password_hash = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
     
     # Create rider account
+    # IMPORTANT: Riders should NEVER have superuser permissions
     rider = RiderAccount.objects.create(
         rider_id=rider_id,
         full_name=full_name,
         password_hash=password_hash,
         email=email,
         rider_type=rider_type,
+        pops_rider_id=pops_rider_id,
         is_active=False,  # Default to inactive until approved
         is_approved=False,
         is_rider=True,
-        is_super_user=False,
-        role='is_driver'
+        synced_to_pops=bool(pops_rider_id)
     )
     
     return Response({
@@ -201,6 +234,14 @@ def local_login(request):
             'message': 'Invalid credentials'
         }, status=status.HTTP_401_UNAUTHORIZED)
     
+    # Check if rider is approved
+    if not rider.is_approved:
+        return Response({
+            'success': False,
+            'message': 'Account pending approval. Please wait for manager approval.',
+            'isApproved': False
+        }, status=status.HTTP_403_FORBIDDEN)
+    
     if not rider.is_active:
         return Response({
             'success': False,
@@ -213,23 +254,27 @@ def local_login(request):
     User = get_user_model()
     
     # Get or create user from rider
+    # IMPORTANT: Riders should NEVER have superuser permissions
+    # Username is set to rider_id (which is the email value from estimator)
     user, created = User.objects.get_or_create(
-        email=f"{rider.rider_id}@rider.local",
+        username=rider.rider_id,
         defaults={
-            'username': rider.rider_id,
-            'employee_id': rider.rider_id,
             'full_name': rider.full_name,
             'role': 'driver',
             'is_active': rider.is_active,
             'is_deliveryq': True,
+            'is_superuser': False,  # Riders never have superuser permissions
+            'is_staff': False,  # Riders are not staff
             'auth_source': 'rider'
         }
     )
     
     if not created:
-        user.employee_id = rider.rider_id
         user.full_name = rider.full_name
         user.is_active = rider.is_active
+        # Ensure riders never get superuser permissions
+        user.is_superuser = False
+        user.is_staff = False
         user.save()
     
     # Use token_utils for API users with infinite token lifetime
@@ -250,11 +295,10 @@ def local_login(request):
         'refreshToken': refresh_token,
         'fullName': rider.full_name,
         'isApproved': rider.is_approved,
-        'is_super_user': rider.is_super_user,
+        'is_super_user': False,  # Riders never have superuser permissions
         'is_staff': False,
         'is_ops_team': False,
-        'employee_id': rider.rider_id,
-        'role': rider.role
+        'username': rider.rider_id
     })
 
 
@@ -291,7 +335,7 @@ def refresh_token(request):
         
         # Check if refresh token is blacklisted
         if BlackListedToken.objects.filter(token=refresh_token_str, user=user).exists():
-            logger.warning(f"Attempted refresh with blacklisted token for user {user.email}")
+            logger.warning(f"Attempted refresh with blacklisted token for user {user.username}")
             return Response({
                 'success': False,
                 'message': 'Token has been blacklisted'
@@ -299,7 +343,7 @@ def refresh_token(request):
         
         # Check if user's tokens are revoked (admin-level revocation)
         if hasattr(user, 'tokens_revoked') and user.tokens_revoked:
-            logger.warning(f"Attempted refresh for revoked user {user.email}")
+            logger.warning(f"Attempted refresh for revoked user {user.username}")
             return Response({
                 'success': False,
                 'message': 'Tokens have been revoked'
@@ -350,9 +394,9 @@ def logout(request):
         )
         
         if created:
-            logger.info(f"Token blacklisted for user {user.email} (logout)")
+            logger.info(f"Token blacklisted for user {user.username} (logout)")
         else:
-            logger.debug(f"Token already blacklisted for user {user.email}")
+            logger.debug(f"Token already blacklisted for user {user.username}")
         
         return Response({
             'success': True,
@@ -466,23 +510,26 @@ def fetch_rider(request):
             rider_account.save()
         
         # Also create/update User record for the rider
-        user_email = f"{rider_id_value}@rider.local"
+        # IMPORTANT: Riders should NEVER have superuser permissions
+        # Username is set to rider_id (which is the email value from estimator)
         user, user_created = User.objects.get_or_create(
-            email=user_email,
+            username=rider_id_value,
             defaults={
-                'username': rider_id_value,
-                'employee_id': rider_id_value,
                 'full_name': rider_name,
                 'role': 'driver',
                 'is_active': True,
                 'is_deliveryq': True,
+                'is_superuser': False,  # Riders never have superuser permissions
+                'is_staff': False,  # Riders are not staff
                 'auth_source': 'rider',
             }
         )
         
         if not user_created:
-            user.employee_id = rider_id_value
             user.full_name = rider_name
+            # Ensure riders never get superuser permissions
+            user.is_superuser = False
+            user.is_staff = False
             user.save()
         
         from .serializers import RiderAccountSerializer
@@ -561,9 +608,9 @@ def all_users(request):
     for user_data in user_serializer.data:
         all_users_data.append({
             'id': str(user_data.get('id', '')),
-            'rider_id': user_data.get('employee_id', ''),
+            'rider_id': user_data.get('username', ''),  # username is the identifier
             'full_name': user_data.get('full_name', ''),
-            'email': user_data.get('email', ''),
+            'username': user_data.get('username', ''),
             'is_active': user_data.get('is_active', True),
             'is_approved': True,  # Users are always approved
             'role': user_data.get('role', 'viewer'),
@@ -579,11 +626,11 @@ def all_users(request):
             'id': str(rider_data.get('id', '')),
             'rider_id': rider_data.get('rider_id', ''),
             'full_name': rider_data.get('full_name', ''),
-            'email': rider_data.get('email', ''),
+            'username': rider_data.get('rider_id', ''),  # rider_id is the username
             'is_active': rider_data.get('is_active', True),
             'is_approved': rider_data.get('is_approved', False),
             'role': rider_data.get('role', 'is_driver'),
-            'is_super_user': rider_data.get('is_super_user', False),
+            'is_super_user': False,  # Riders never have superuser permissions
             'is_staff': False,
             'is_ops_team': False,
             'created_at': rider_data.get('created_at', ''),
@@ -828,4 +875,120 @@ def reset_password(request, user_id):
         return Response({
             'success': False,
             'message': f'Failed to reset password: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def pops_homebases(request):
+    """
+    Fetch homebases from POPS API
+    Proxies to POPS /api/v1/master/homebases/ endpoint
+    
+    GET /api/v1/auth/pops/homebases
+    Requires authentication token with POPS access
+    """
+    # Only managers and admins can fetch homebases
+    if not (request.user.is_superuser or request.user.is_ops_team or request.user.is_staff):
+        return Response({
+            'success': False,
+            'message': 'Permission denied'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    # Get access token from authenticated user
+    access_token = request.user.access_token
+    if not access_token:
+        return Response({
+            'success': False,
+            'message': 'User must have a valid POPS access token'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+    
+    try:
+        # Fetch homebases from POPS
+        homebases = pops_client.fetch_homebases(access_token)
+        
+        if homebases is None:
+            return Response({
+                'success': False,
+                'message': 'Failed to fetch homebases from POPS'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        return Response({
+            'success': True,
+            'homebases': homebases
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Error fetching homebases from POPS: {e}", exc_info=True)
+        return Response({
+            'success': False,
+            'message': f'Failed to fetch homebases: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def pops_create_rider(request):
+    """
+    Create a rider in POPS API
+    Proxies to POPS /api/v1/master/riders/ endpoint
+    
+    POST /api/v1/auth/pops/riders
+    Requires authentication token with POPS access
+    
+    Expected payload:
+    {
+        "name": "Rider Name",
+        "phone": "1234567890",
+        "rider_id": "RIDER123",
+        "account_code": "ACC123",
+        "tags": "printo-bike,goods-auto",
+        "homebaseId": 1  # or "homebaseId__homebaseId": "HB001"
+    }
+    """
+    # Only managers and admins can create riders in POPS
+    if not (request.user.is_superuser or request.user.is_ops_team or request.user.is_staff):
+        return Response({
+            'success': False,
+            'message': 'Permission denied'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    # Get access token from authenticated user
+    access_token = request.user.access_token
+    if not access_token:
+        return Response({
+            'success': False,
+            'message': 'User must have a valid POPS access token'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+    
+    rider_data = request.data
+    
+    # Validate required fields
+    if not rider_data.get('name') or not rider_data.get('homebaseId'):
+        return Response({
+            'success': False,
+            'message': 'name and homebaseId are required'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Create rider in POPS
+        created_rider = pops_client.create_rider(rider_data, access_token)
+        
+        if created_rider is None:
+            return Response({
+                'success': False,
+                'message': 'Failed to create rider in POPS'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        return Response({
+            'success': True,
+            'message': 'Rider created successfully in POPS',
+            'rider': created_rider
+        }, status=status.HTTP_201_CREATED)
+        
+    except Exception as e:
+        logger.error(f"Error creating rider in POPS: {e}", exc_info=True)
+        return Response({
+            'success': False,
+            'message': f'Failed to create rider: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

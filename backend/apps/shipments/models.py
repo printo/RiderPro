@@ -12,8 +12,8 @@ class Shipment(models.Model):
     Shipment model - maps to POPS Order model
     Currently read-only from POPS, future read/write capability
     """
-    # Primary identifier (from POPS Order.id or external ID)
-    id = models.CharField(max_length=255, primary_key=True)
+    # Primary identifier - auto-incrementing integer
+    id = models.AutoField(primary_key=True)
     
     # Basic shipment info
     type = models.CharField(
@@ -21,11 +21,13 @@ class Shipment(models.Model):
         choices=[
             ('delivery', 'Delivery'),
             ('pickup', 'Pickup'),
-        ]
+        ],
+        null=True,
+        blank=True
     )
     customer_name = models.TextField()
     customer_mobile = models.TextField()
-    address = models.TextField()
+    address = models.JSONField(null=True, blank=True, help_text="Delivery address as JSON object")
     
     # GPS coordinates
     latitude = models.FloatField(null=True, blank=True)
@@ -41,6 +43,7 @@ class Shipment(models.Model):
     status = models.CharField(
         max_length=50,
         choices=[
+            ('Initiated', 'Initiated'),
             ('Assigned', 'Assigned'),
             ('In Transit', 'In Transit'),
             ('Delivered', 'Delivered'),
@@ -48,13 +51,14 @@ class Shipment(models.Model):
             ('Returned', 'Returned'),
             ('Cancelled', 'Cancelled'),
         ],
-        default='Assigned'
+        null=True,
+        blank=True
     )
     
     # Additional details
-    pickup_address = models.TextField(null=True, blank=True)
+    pickup_address = models.JSONField(null=True, blank=True, help_text="Pickup address as JSON object (from clickpost logic)")
     weight = models.FloatField(default=0)
-    dimensions = models.TextField(null=True, blank=True)
+    package_boxes = models.JSONField(null=True, blank=True)  # Store detailed package box information
     special_instructions = models.TextField(null=True, blank=True)
     actual_delivery_time = models.DateTimeField(null=True, blank=True)
     priority = models.CharField(max_length=20, default='medium')
@@ -255,3 +259,5 @@ class RouteTracking(models.Model):
     
     def __str__(self):
         return f"GPS Point {self.id} - Session {self.session_id}"
+
+

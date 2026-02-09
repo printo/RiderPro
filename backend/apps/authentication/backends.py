@@ -24,7 +24,7 @@ class RiderProAuthBackend(BaseBackend):
     3. Fallback to POPS API
     """
     
-    def authenticate(self, request, email=None, password=None, **kwargs):
+    def authenticate(self, request, username=None, password=None, **kwargs):
         """
         Authenticate user from multiple sources
         
@@ -32,39 +32,41 @@ class RiderProAuthBackend(BaseBackend):
         1. Try local User model (admin users)
         2. Try RiderAccount model (local riders)
         3. Fallback to POPS API (POPS users)
+        
+        username is the email value from estimator DB (employeeId)
         """
-        if not email or not password:
+        if not username or not password:
             return None
         
         # Check if this is an API user - API users cannot authenticate via password
         # They authenticate via API keys only (for webhooks)
         try:
-            api_user = User.objects.get(email=email, is_api_user=True)
+            api_user = User.objects.get(username=username, is_api_user=True)
             if api_user:
-                logger.warning(f"API user attempted password authentication: {email}")
+                logger.warning(f"API user attempted password authentication: {username}")
                 return None  # API users cannot authenticate via password
         except User.DoesNotExist:
             pass
         
         # 1. Try local User database first
         try:
-            user = User.objects.get(email=email)
+            user = User.objects.get(username=username)
             # Double-check it's not an API user
             if user.is_api_user:
-                logger.warning(f"API user attempted password authentication: {email}")
+                logger.warning(f"API user attempted password authentication: {username}")
                 return None
             if user.check_password(password):
-                logger.info(f"User authenticated from local DB: {email}")
+                logger.info(f"User authenticated from local DB: {username}")
                 return user
         except User.DoesNotExist:
             pass
         except Exception as e:
             logger.error(f"Error checking local user: {e}")
         
-        # 2. Try RiderAccount database
+        # 2. Try RiderAccount database (rider_id can be used as username)
         try:
             from .models import RiderAccount
-            rider = RiderAccount.objects.get(rider_id=email)
+            rider = RiderAccount.objects.get(rider_id=username)
             if rider.is_approved and rider.is_active:
                 # Verify password with bcrypt
                 password_bytes = password.encode('utf-8')
@@ -72,18 +74,18 @@ class RiderProAuthBackend(BaseBackend):
                 if bcrypt.checkpw(password_bytes, hash_bytes):
                     # Create or get User from RiderAccount
                     user = self._get_or_create_user_from_rider(rider)
-                    logger.info(f"Rider authenticated: {email}")
+                    logger.info(f"Rider authenticated: {username}")
                     return user
         except Exception as e:
             logger.debug(f"Rider account check failed: {e}")
         
-        # 3. Fallback to POPS API
+        # 3. Fallback to POPS API (username is the email value from estimator)
         try:
-            pops_response = pops_client.login(email, password)
+            pops_response = pops_client.login(username, password)
             if pops_response:
                 # Create or update User from POPS response
-                user = self._get_or_create_user_from_pops(pops_response, email)
-                logger.info(f"User authenticated from POPS API: {email}")
+                user = self._get_or_create_user_from_pops(pops_response, username)
+                logger.info(f"User authenticated from POPS API: {username}")
                 return user
         except Exception as e:
             logger.error(f"POPS API authentication failed: {e}")
@@ -96,7 +98,7 @@ class RiderProAuthBackend(BaseBackend):
             # Try to get a manager/admin token to fetch user data
             # For now, we'll skip this and let the user login via POPS
             # This is a fallback that can be enhanced later
-            logger.debug(f"User not found locally and POPS login failed for: {email}")
+            logger.debug(f"User not found locally and POPS login failed for: {username}")
         except Exception as e:
             logger.debug(f"User fetch fallback failed: {e}")
         
@@ -106,14 +108,14 @@ class RiderProAuthBackend(BaseBackend):
         """
         Get or create User from RiderAccount
         Links rider account to User model
+        Username is set to rider_id (which is the email value from estimator)
         """
+        # Use rider_id as username (it's the email value from estimator)
+        username = rider.rider_id
         user, created = User.objects.get_or_create(
-            email=rider.email or f"{rider.rider_id}@rider.local",
+            username=username,
             defaults={
-                'username': rider.rider_id,
-                'employee_id': rider.rider_id,
                 'full_name': rider.full_name,
-                'role': 'driver',
                 'is_active': rider.is_active,
                 'is_deliveryq': True,
                 'auth_source': 'rider',
@@ -122,8 +124,6 @@ class RiderProAuthBackend(BaseBackend):
         
         if not created:
             # Update existing user
-            user.username = rider.rider_id
-            user.employee_id = rider.rider_id
             user.full_name = rider.full_name
             user.is_active = rider.is_active
             user.is_deliveryq = True
@@ -131,16 +131,17 @@ class RiderProAuthBackend(BaseBackend):
         
         return user
     
-    def _get_or_create_user_from_pops(self, pops_response, email):
+    def _get_or_create_user_from_pops(self, pops_response, username):
         """
         Get or create User from POPS API response
         Stores POPS JWT tokens and user data
+        username is the email value from estimator DB (employeeId)
         """
         access_token = pops_response.get('access')
         refresh_token = pops_response.get('refresh')
         
         # Extract user data from POPS response
-        user_id = str(pops_response.get('id', email))
+        user_id = str(pops_response.get('id', username))
         full_name = pops_response.get('full_name', '')
         is_superuser = pops_response.get('is_superuser', False)
         is_staff = pops_response.get('is_staff', False)
@@ -158,12 +159,10 @@ class RiderProAuthBackend(BaseBackend):
         else:
             role = 'viewer'
         
-        # Get or create user
+        # Get or create user (username is the email value from estimator)
         user, created = User.objects.get_or_create(
-            email=email,
+            username=username,
             defaults={
-                'username': email,
-                'employee_id': user_id,
                 'full_name': full_name,
                 'role': role,
                 'is_active': pops_response.get('is_active', True),
@@ -180,8 +179,6 @@ class RiderProAuthBackend(BaseBackend):
         
         if not created:
             # Update existing user with latest POPS data
-            user.username = email
-            user.employee_id = user_id
             user.full_name = full_name
             user.role = role
             user.is_active = pops_response.get('is_active', True)

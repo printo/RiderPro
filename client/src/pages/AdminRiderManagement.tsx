@@ -1,111 +1,182 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'wouter';
 import { Rider } from '@shared/types';
+import { apiClient } from '@/services/ApiClient';
+import { API_ENDPOINTS } from '@/config/api';
+import { useAuth } from '@/hooks/useAuth';
+
+interface Homebase {
+  id: number;
+  name: string;
+  homebaseId: string;
+}
+
+interface CreateRiderForm {
+  name: string;
+  phone: string;
+  rider_id: string;
+  account_code: string;
+  tags: string;
+  homebaseId: number | string;
+}
 
 const AdminRiderManagement = () => {
+  const { user } = useAuth();
   const [riders, setRiders] = useState<Rider[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'super_user' | null>(null);
-
-  // Mock data for development
-  const mockRiders: Rider[] = [
-    {
-      id: '1',
-      rider_id: 'RID001',
-      full_name: 'John Doe',
-      email: 'john@example.com',
-      is_active: true,
-      is_super_user: false,
-      created_at: '2023-10-14T10:30:00Z',
-      last_login_at: '2023-10-14T15:45:00Z',
-    },
-    {
-      id: '2',
-      rider_id: 'RID002',
-      full_name: 'Admin User',
-      email: 'admin@example.com',
-      is_active: true,
-      is_super_user: true,
-      created_at: '2023-10-14T10:30:00Z',
-      last_login_at: '2023-10-14T15:45:00Z',
-    },
-  ];
+  const [homebases, setHomebases] = useState<Homebase[]>([]);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateRiderForm>({
+    name: '',
+    phone: '',
+    rider_id: '',
+    account_code: '',
+    tags: '',
+    homebaseId: '',
+  });
 
   useEffect(() => {
-    const fetchUserRole = async () => {
-      // TODO: Fetch current user role from your auth context or API
-      // This is a mock implementation
-      const mockUserRole = 'super_user'; // or 'admin' based on your needs
-      setCurrentUserRole(mockUserRole as 'admin' | 'super_user');
-    };
-
-    fetchUserRole();
-  }, []);
-
-  useEffect(() => {
-    const fetchRiders = async () => {
+    const fetchHomebases = async () => {
       try {
-        // TODO: Replace with actual API call
-        // const response = await fetch('/api/v1/admin/riders');
-        // const data = await response.json();
-        // setRiders(data);
-
-        // Using mock data for now
-        setRiders(mockRiders);
-        setIsLoading(false);
-      } catch (_err) {
-        setError('Failed to load riders');
-        setIsLoading(false);
+        const response = await apiClient.get(API_ENDPOINTS.pops.homebases);
+        const data = await response.json();
+        if (data.success && data.homebases) {
+          setHomebases(data.homebases);
+        }
+      } catch (err) {
+        console.error('Failed to fetch homebases:', err);
+        // Don't show error to user - homebases are optional for viewing
       }
     };
 
+    fetchHomebases();
+  }, []);
+
+  useEffect(() => {
     fetchRiders();
   }, []);
 
   const handleResetPassword = async (riderId: string) => {
     if (window.confirm('Are you sure you want to reset this rider\'s password?')) {
       try {
-        // TODO: Implement password reset API call
-        console.log('Reset password for rider:', riderId);
-        alert('Password reset link has been sent to the rider\'s email');
-      } catch (_err) {
-        setError('Failed to reset password');
+        const response = await apiClient.post(API_ENDPOINTS.auth.resetPassword(riderId), {});
+        const data = await response.json();
+        
+        if (data.success) {
+          if (data.password) {
+            alert(`Password reset successfully. New password: ${data.password}`);
+          } else {
+            alert('Password reset link has been sent to the rider\'s email');
+          }
+        } else {
+          setError(data.message || 'Failed to reset password');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to reset password');
       }
     }
   };
 
   const toggleUserStatus = async (riderId: string, currentStatus: boolean) => {
     try {
-      // TODO: Implement status toggle API call
-      console.log(`Toggling status for rider ${riderId} to ${!currentStatus}`);
-      setRiders(prevRiders =>
-        prevRiders.map(rider =>
-          rider.id === riderId ? { ...rider, is_active: !currentStatus } : rider
-        )
-      );
-    } catch (_err) {
-      setError('Failed to update rider status');
+      // Find the rider to get the correct endpoint (could be User or RiderAccount)
+      const rider = riders.find(r => r.id === riderId);
+      if (!rider) {
+        setError('Rider not found');
+        return;
+      }
+
+      // Use approve/reject endpoints or a status update endpoint
+      // For now, we'll use the approve endpoint to activate and reject to deactivate
+      const endpoint = !currentStatus 
+        ? API_ENDPOINTS.auth.approve(riderId)
+        : API_ENDPOINTS.auth.reject(riderId);
+      
+      const response = await apiClient.post(endpoint, {});
+      const data = await response.json();
+      
+      if (data.success) {
+        // Refresh the riders list
+        await fetchRiders();
+      } else {
+        setError(data.message || 'Failed to update rider status');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to update rider status');
     }
   };
 
-  const toggleSuperUserStatus = async (riderId: string, currentStatus: boolean) => {
-    if (!currentUserRole || currentUserRole !== 'super_user') {
-      setError('Only super users can modify admin privileges');
-      return;
-    }
+  // Removed toggleSuperUserStatus - riders should NEVER have superuser permissions
+
+  const handleCreateRider = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsCreating(true);
 
     try {
-      // TODO: Implement super user toggle API call
-      console.log(`Toggling super user status for rider ${riderId} to ${!currentStatus}`);
-      setRiders(prevRiders =>
-        prevRiders.map(rider =>
-          rider.id === riderId ? { ...rider, is_super_user: !currentStatus } : rider
-        )
-      );
-    } catch (_err) {
-      setError('Failed to update admin privileges');
+      const response = await apiClient.post(API_ENDPOINTS.pops.createRider, createForm);
+      const data = await response.json();
+
+      if (data.success) {
+        // Refresh riders list
+        await fetchRiders();
+        // Reset form and close modal
+        setCreateForm({
+          name: '',
+          phone: '',
+          rider_id: '',
+          account_code: '',
+          tags: '',
+          homebaseId: '',
+        });
+        setShowCreateModal(false);
+        alert('Rider created successfully in POPS!');
+      } else {
+        setError(data.message || 'Failed to create rider');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to create rider. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const fetchRiders = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.auth.allUsers);
+      const data = await response.json();
+      
+      if (data.success && data.users) {
+        // Filter to show only riders (users with rider_id or role 'is_rider'/'is_driver')
+        const riderUsers = data.users.filter((u: any) => 
+          u.rider_id || u.role === 'is_rider' || u.role === 'is_driver' || u.role === 'driver'
+        );
+        
+        // Map to Rider type format
+        const mappedRiders: Rider[] = riderUsers.map((u: any) => ({
+          id: u.id,
+          rider_id: u.rider_id || u.employee_id || '',
+          full_name: u.full_name || '',
+          email: u.email || '',
+          is_active: u.is_active !== false,
+          created_at: u.created_at || '',
+          last_login_at: u.last_login_at || '',
+        }));
+        
+        setRiders(mappedRiders);
+      } else {
+        setError(data.message || 'Failed to load riders');
+        setRiders([]);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to load riders');
+      setRiders([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -135,12 +206,12 @@ const AdminRiderManagement = () => {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-          <Link
-            to="/admin/riders/new"
+          <button
+            onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
           >
-            Add Rider
-          </Link>
+            Add Rider to POPS
+          </button>
         </div>
       </div>
 
@@ -214,9 +285,7 @@ const AdminRiderManagement = () => {
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       Status
                     </th>
-                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
-                      Role
-                    </th>
+                    {/* Removed Role column - riders are always just riders, never super users */}
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       Last Login
                     </th>
@@ -248,16 +317,7 @@ const AdminRiderManagement = () => {
                             {rider.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-4 text-sm">
-                          <span
-                            className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${rider.is_super_user
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-gray-100 text-gray-800'
-                              }`}
-                          >
-                            {rider.is_super_user ? 'Super User' : 'Rider'}
-                          </span>
-                        </td>
+                        {/* Removed Role column - riders are always just riders, never super users */}
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {rider.last_login_at
                             ? new Date(rider.last_login_at).toLocaleString()
@@ -282,20 +342,7 @@ const AdminRiderManagement = () => {
                             >
                               {rider.is_active ? 'Deactivate' : 'Activate'}
                             </button>
-                            {currentUserRole === 'super_user' && (
-                              <button
-                                onClick={() =>
-                                  toggleSuperUserStatus(rider.id, !!rider.is_super_user)
-                                }
-                                className={`ml-4 ${rider.is_super_user
-                                  ? 'text-red-600 hover:text-red-900'
-                                  : 'text-green-600 hover:text-green-900'
-                                  }`}
-                                title={rider.is_super_user ? 'Remove Super User' : 'Make Super User'}
-                              >
-                                {rider.is_super_user ? 'Remove Admin' : 'Make Admin'}
-                              </button>
-                            )}
+                            {/* Removed super user toggle - riders should NEVER have superuser permissions */}
                           </div>
                         </td>
                       </tr>
@@ -303,7 +350,7 @@ const AdminRiderManagement = () => {
                   ) : (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={6}
                         className="px-6 py-4 text-center text-sm text-gray-500"
                       >
                         No riders found
@@ -316,6 +363,108 @@ const AdminRiderManagement = () => {
           </div>
         </div>
       </div>
+
+      {/* Create Rider Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Create Rider in POPS</h3>
+              <form onSubmit={handleCreateRider} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={createForm.name}
+                    onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Rider ID *</label>
+                  <input
+                    type="text"
+                    required
+                    value={createForm.rider_id}
+                    onChange={(e) => setCreateForm({ ...createForm, rider_id: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Phone</label>
+                  <input
+                    type="text"
+                    value={createForm.phone}
+                    onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Homebase *</label>
+                  <select
+                    required
+                    value={createForm.homebaseId}
+                    onChange={(e) => setCreateForm({ ...createForm, homebaseId: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  >
+                    <option value="">Select Homebase</option>
+                    {homebases.map((hb) => (
+                      <option key={hb.id} value={hb.id}>
+                        {hb.name} ({hb.homebaseId})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Tags (comma-separated)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., printo-bike,goods-auto"
+                    value={createForm.tags}
+                    onChange={(e) => setCreateForm({ ...createForm, tags: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Account Code</label>
+                  <input
+                    type="text"
+                    value={createForm.account_code}
+                    onChange={(e) => setCreateForm({ ...createForm, account_code: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                  />
+                </div>
+                {error && (
+                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                    {error}
+                  </div>
+                )}
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setError('');
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                    disabled={isCreating}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreating}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {isCreating ? 'Creating...' : 'Create Rider'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

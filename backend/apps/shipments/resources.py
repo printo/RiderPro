@@ -13,7 +13,7 @@ class ShipmentResource(resources.ModelResource):
         fields = (
             'id', 'type', 'customer_name', 'customer_mobile', 'address',
             'latitude', 'longitude', 'cost', 'delivery_time', 'route_name',
-            'employee_id', 'status', 'pickup_address', 'weight', 'dimensions',
+            'employee_id', 'status', 'pickup_address', 'weight', 'package_boxes',
             'special_instructions', 'actual_delivery_time', 'priority',
             'remarks', 'start_latitude', 'start_longitude', 'stop_latitude',
             'stop_longitude', 'km_travelled', 'synced_to_external',
@@ -25,7 +25,7 @@ class ShipmentResource(resources.ModelResource):
         export_order = (
             'id', 'type', 'customer_name', 'customer_mobile', 'address',
             'latitude', 'longitude', 'cost', 'delivery_time', 'route_name',
-            'employee_id', 'status', 'pickup_address', 'weight', 'dimensions',
+            'employee_id', 'status', 'pickup_address', 'weight', 'package_boxes',
             'special_instructions', 'actual_delivery_time', 'priority',
             'remarks', 'start_latitude', 'start_longitude', 'stop_latitude',
             'stop_longitude', 'km_travelled', 'synced_to_external',
@@ -84,4 +84,6 @@ class RouteTrackingResource(resources.ModelResource):
             'latitude', 'longitude', 'timestamp', 'date', 'accuracy', 'speed',
             'event_type', 'shipment_id', 'fuel_efficiency', 'fuel_price'
         )
+
+
 

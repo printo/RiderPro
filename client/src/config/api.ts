@@ -121,5 +121,11 @@ export const API_ENDPOINTS = {
   admin: {
     accessTokens: apiUrl('/admin/access-tokens'),
   },
+
+  // POPS API Integration (proxied through RiderPro backend)
+  pops: {
+    homebases: apiUrl('/auth/pops/homebases'),
+    createRider: apiUrl('/auth/pops/riders'),
+  },
 } as const;
 

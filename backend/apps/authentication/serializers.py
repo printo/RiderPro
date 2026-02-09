@@ -10,12 +10,12 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
-    """User serializer"""
+    """User serializer - username is the primary identifier"""
     
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'username', 'employee_id', 'full_name',
+            'id', 'username', 'full_name',
             'role', 'is_active', 'is_staff', 'is_superuser',
             'is_ops_team', 'is_deliveryq', 'pia_access',
             'auth_source', 'created_at', 'updated_at'
@@ -26,16 +26,21 @@ class UserSerializer(serializers.ModelSerializer):
 class RiderAccountSerializer(serializers.ModelSerializer):
     """Rider account serializer"""
     password = serializers.CharField(write_only=True, required=False)
+    is_super_user = serializers.SerializerMethodField()  # Always return False for riders
     
     class Meta:
         model = RiderAccount
         fields = [
             'id', 'rider_id', 'full_name', 'email', 'rider_type',
             'is_active', 'is_approved', 'is_rider', 'is_super_user',
-            'role', 'pops_rider_id', 'synced_to_pops',
+            'pops_rider_id', 'synced_to_pops',
             'last_login_at', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'pops_rider_id', 'synced_to_pops', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'pops_rider_id', 'synced_to_pops', 'created_at', 'updated_at', 'is_super_user']
+    
+    def get_is_super_user(self, obj):
+        """Riders should NEVER have superuser permissions"""
+        return False
     
     def create(self, validated_data):
         """Create rider account with bcrypt password hashing"""
@@ -46,12 +51,20 @@ class RiderAccountSerializer(serializers.ModelSerializer):
             salt = bcrypt.gensalt()
             password_hash = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
             validated_data['password_hash'] = password_hash
+        # Ensure riders never get superuser permissions
+        validated_data.pop('is_super_user', None)  # Remove if present
         return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        """Update rider account - ensure is_super_user is never set to True"""
+        # Remove is_super_user from validated_data if present
+        validated_data.pop('is_super_user', None)
+        return super().update(instance, validated_data)
 
 
 class LoginSerializer(serializers.Serializer):
-    """Login serializer - accepts email or rider_id"""
-    email = serializers.CharField(required=True)
+    """Login serializer - accepts username (email value from estimator)"""
+    username = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)
 
 
@@ -65,7 +78,7 @@ class LoginResponseSerializer(serializers.Serializer):
     is_staff = serializers.BooleanField(required=False)
     is_super_user = serializers.BooleanField(required=False)
     is_ops_team = serializers.BooleanField(required=False)
-    employee_id = serializers.CharField(required=False)
+    username = serializers.CharField(required=False)
 
 
 
