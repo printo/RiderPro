@@ -115,7 +115,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.full_name or self.username
     
     def get_short_name(self):
-        return self.username.split('@')[0] if '@' in self.username else self.username
+        """
+        Short name used by Django admin and other UIs.
+        Be defensive in case username is None in legacy rows.
+        """
+        username = self.username or ""
+        return username.split("@")[0] if "@" in username else username
 
 
 class RiderAccount(models.Model):
