@@ -3,24 +3,100 @@ Serializers for shipments app
 Includes route tracking serializers
 """
 from rest_framework import serializers
-from .models import Shipment, Acknowledgment, RouteSession, RouteTracking
+from .models import Shipment, Acknowledgment, RouteSession, RouteTracking, AcknowledgmentSettings
+
+
+def format_address(address_data):
+    """
+    Format address JSON object into a readable string.
+    Handles both dict and string addresses.
+    """
+    if not address_data:
+        return 'No address'
+    
+    if isinstance(address_data, str):
+        return address_data
+    
+    if not isinstance(address_data, dict):
+        return str(address_data)
+    
+    # Build address string from object fields
+    parts = []
+    
+    # Try common address field names
+    if address_data.get('address'):
+        parts.append(str(address_data['address']))
+    elif address_data.get('place_name'):
+        parts.append(str(address_data['place_name']))
+    
+    if address_data.get('city'):
+        parts.append(str(address_data['city']))
+    
+    if address_data.get('state'):
+        parts.append(str(address_data['state']))
+    
+    if address_data.get('pincode'):
+        parts.append(str(address_data['pincode']))
+    
+    if address_data.get('country'):
+        parts.append(str(address_data['country']))
+    
+    return ', '.join(parts) if parts else 'No address'
 
 
 class ShipmentSerializer(serializers.ModelSerializer):
-    """Shipment serializer"""
+    """
+    Shipment serializer
     
+    Exposes both the original snake_case fields used by the Django model
+    and the camelCase aliases expected by the existing frontend.
+    
+    This keeps backwards compatibility with the Node.js/SQLite prototype
+    which used camelCase (e.g. shipment_id, customerName, deliveryTime).
+    """
+
+    # Frontend expects a string `shipment_id`; map it to the primary key
+    shipment_id = serializers.CharField(source='id', read_only=True)
+
+    # CamelCase aliases for core fields used in the React UI
+    customerName = serializers.CharField(source='customer_name', read_only=True)
+    recipientName = serializers.CharField(source='customer_name', read_only=True)
+    recipientPhone = serializers.CharField(source='customer_mobile', read_only=True)
+    customerMobile = serializers.CharField(source='customer_mobile', read_only=True)  # Alias for compatibility
+    deliveryAddress = serializers.JSONField(source='address', read_only=True)
+    # Formatted address string for display (handles both object and string addresses)
+    addressDisplay = serializers.SerializerMethodField()
+    routeName = serializers.CharField(source='route_name', read_only=True)
+    deliveryTime = serializers.DateTimeField(source='delivery_time', read_only=True)
+    estimatedDeliveryTime = serializers.DateTimeField(source='delivery_time', read_only=True)
+    employeeId = serializers.CharField(source='employee_id', read_only=True)
+    orderId = serializers.IntegerField(source='pops_order_id', read_only=True, allow_null=True)
+    signatureUrl = serializers.CharField(source='signature_url', read_only=True, allow_null=True)
+    photoUrl = serializers.CharField(source='photo_url', read_only=True, allow_null=True)
+    signedPdfUrl = serializers.CharField(source='signed_pdf_url', read_only=True, allow_null=True)
+    
+    def get_addressDisplay(self, obj):
+        """Format address for display"""
+        return format_address(obj.address)
+
     class Meta:
         model = Shipment
         fields = [
+            # Original fields
             'id', 'type', 'customer_name', 'customer_mobile', 'address',
             'latitude', 'longitude', 'cost', 'delivery_time', 'route_name',
             'employee_id', 'status', 'pickup_address', 'weight', 'package_boxes',
             'special_instructions', 'actual_delivery_time', 'priority', 'remarks',
             'start_latitude', 'start_longitude', 'stop_latitude', 'stop_longitude',
             'km_travelled', 'synced_to_external', 'sync_status', 'sync_attempts',
-            'signature_url', 'photo_url', 'acknowledgment_captured_at',
-            'acknowledgment_captured_by', 'pops_order_id', 'pops_shipment_uuid',
-            'api_source', 'created_at', 'updated_at'
+            'signature_url', 'photo_url', 'pdf_url', 'signed_pdf_url',
+            'acknowledgment_captured_at', 'acknowledgment_captured_by',
+            'pops_order_id', 'pops_shipment_uuid', 'api_source', 'region',
+            'created_at', 'updated_at',
+            # CamelCase aliases for frontend compatibility
+            'shipment_id', 'customerName', 'recipientName', 'recipientPhone', 'customerMobile',
+            'deliveryAddress', 'addressDisplay', 'routeName', 'deliveryTime', 'estimatedDeliveryTime',
+            'employeeId', 'orderId', 'signatureUrl', 'photoUrl', 'signedPdfUrl',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -39,14 +115,14 @@ class ShipmentCreateSerializer(serializers.ModelSerializer):
 
 
 class ShipmentUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for updating shipments"""
+    """Serializer for updating shipments - allows managers to update route, remarks, special_instructions"""
     
     class Meta:
         model = Shipment
         fields = [
             'status', 'remarks', 'actual_delivery_time', 'priority',
             'start_latitude', 'start_longitude', 'stop_latitude', 'stop_longitude',
-            'km_travelled'
+            'km_travelled', 'route_name', 'special_instructions', 'employee_id'
         ]
 
 
@@ -148,6 +224,37 @@ class CoordinateSerializer(serializers.Serializer):
         if 'sessionId' in data:
             del data['sessionId']
         return data
+
+
+class AcknowledgmentSettingsSerializer(serializers.ModelSerializer):
+    """Serializer for AcknowledgmentSettings"""
+    
+    class Meta:
+        model = AcknowledgmentSettings
+        fields = [
+            'id', 'region', 'region_display_name',
+            'signature_required', 'photo_required', 'require_pdf',
+            'pdf_template_url', 'allow_skip_acknowledgment',
+            'is_active', 'created_at', 'updated_at', 'created_by'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ChangeRiderSerializer(serializers.Serializer):
+    """Serializer for changing shipment rider"""
+    employee_id = serializers.CharField(required=True, help_text="New rider employee ID")
+    reason = serializers.CharField(required=False, allow_blank=True, help_text="Reason for rider change")
+
+
+class BatchChangeRiderSerializer(serializers.Serializer):
+    """Serializer for batch changing shipment riders"""
+    shipment_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        required=True,
+        help_text="List of shipment IDs to update"
+    )
+    employee_id = serializers.CharField(required=True, help_text="New rider employee ID")
+    reason = serializers.CharField(required=False, allow_blank=True, help_text="Reason for rider change")
 
 
 class ShipmentEventSerializer(serializers.Serializer):

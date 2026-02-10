@@ -177,7 +177,12 @@ class RiderProAuthBackend(BaseBackend):
             }
         )
         
-        if not created:
+        # Set unusable password for POPS-authenticated users
+        # This is required by Django's AbstractBaseUser, but password is managed by POPS
+        # For POPS users, password should always be unusable since authentication happens externally
+        if created:
+            user.set_unusable_password()
+        else:
             # Update existing user with latest POPS data
             user.full_name = full_name
             user.role = role
@@ -190,8 +195,11 @@ class RiderProAuthBackend(BaseBackend):
             user.access_token = access_token
             user.refresh_token = refresh_token
             user.auth_source = 'pops'
-            user.save()
+            # Ensure password is set to unusable for POPS users (fixes existing users with empty passwords)
+            if not user.has_usable_password():
+                user.set_unusable_password()
         
+        user.save()
         return user
     
     def get_user(self, user_id):

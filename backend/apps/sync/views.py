@@ -9,6 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from apps.shipments.models import Shipment
 from utils.pops_client import pops_client
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -48,13 +49,17 @@ class SyncViewSet(viewsets.ViewSet):
         success_count = 0
         failed_count = 0
         
+        # Prefer service token for POPS integration; fall back to user token if necessary
+        service_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+
         for shipment in pending_shipments:
-            if shipment.pops_order_id and request.user.access_token:
+            access_token = service_token or getattr(request.user, 'access_token', None)
+            if shipment.pops_order_id and access_token:
                 try:
                     pops_client.update_order_status(
                         shipment.pops_order_id,
                         {'status': shipment.status},
-                        request.user.access_token
+                        access_token
                     )
                     shipment.synced_to_external = True
                     shipment.sync_status = 'synced'
@@ -119,12 +124,16 @@ class SyncViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if shipment.pops_order_id and request.user.access_token:
+        # Prefer service token for POPS integration; fall back to user token if necessary
+        service_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+        access_token = service_token or getattr(request.user, 'access_token', None)
+
+        if shipment.pops_order_id and access_token:
             try:
                 pops_client.update_order_status(
                     shipment.pops_order_id,
                     {'status': shipment.status},
-                    request.user.access_token
+                    access_token
                 )
                 shipment.synced_to_external = True
                 shipment.sync_status = 'synced'
@@ -158,14 +167,17 @@ class SyncViewSet(viewsets.ViewSet):
             )
         
         processed = 0
+        # Prefer service token for POPS integration; fall back to user token if necessary
+        service_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+        access_token = service_token or getattr(request.user, 'access_token', None)
         for shipment_id in shipment_ids:
             try:
                 shipment = Shipment.objects.get(id=shipment_id)
-                if shipment.pops_order_id and request.user.access_token:
+                if shipment.pops_order_id and access_token:
                     pops_client.update_order_status(
                         shipment.pops_order_id,
                         {'status': shipment.status},
-                        request.user.access_token
+                        access_token
                     )
                     shipment.synced_to_external = True
                     shipment.sync_status = 'synced'

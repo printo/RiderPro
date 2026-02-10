@@ -71,80 +71,10 @@ export const OptimizationSuggestions: React.FC<OptimizationSuggestionsProps> = (
   const fetchOptimizationData = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock data - in a real app, this would come from an API
-      const mockSuggestions: Suggestion[] = [
-        {
-          id: '1',
-          type: 'efficiency',
-          severity: 'high',
-          title: 'Improve Fuel Efficiency',
-          description: 'Some vehicles are showing below average fuel efficiency',
-          potentialSaving: { 
-            fuel: 125, 
-            cost: 12500,
-            co2: 375 
-          },
-          recommendation: 'Consider driver training programs and regular vehicle maintenance to improve fuel efficiency.',
-          status: 'pending',
-        },
-        {
-          id: '2',
-          type: 'cost',
-          severity: 'medium',
-          title: 'Optimize Fuel Purchase',
-          description: 'Fuel prices vary significantly by location and time of day',
-          potentialSaving: { 
-            cost: 8500 
-          },
-          recommendation: 'Implement a fuel card program with preferred stations and track purchases to identify cost-saving opportunities.',
-          status: 'in-progress',
-        },
-        {
-          id: '3',
-          type: 'emissions',
-          severity: 'low',
-          title: 'Reduce Idling Time',
-          description: 'Excessive idling is increasing fuel consumption and emissions',
-          potentialSaving: { 
-            fuel: 75, 
-            cost: 7500,
-            co2: 225 
-          },
-          recommendation: 'Implement an anti-idling policy and provide training to drivers on the impact of idling on fuel consumption.',
-          status: 'pending',
-        },
-        {
-          id: '4',
-          type: 'efficiency',
-          severity: 'medium',
-          title: 'Optimize Vehicle Routing',
-          description: 'Inefficient routing is leading to increased distance traveled',
-          potentialSaving: { 
-            fuel: 200, 
-            cost: 20000,
-            distance: 1000 
-          },
-          recommendation: 'Implement route optimization software to reduce unnecessary mileage and improve delivery efficiency.',
-          status: 'pending',
-        },
-      ];
-
-      const mockStats: Stats = {
-        totalPotentialSavings: 48500,
-        fuelSavings: 400,
-        co2Reduction: 1200, // kg
-        efficiencyImprovement: 15, // percentage
-        totalSuggestions: 4,
-        completed: 1,
-        inProgress: 1,
-        pending: 2
-      };
-
-      setSuggestions(mockSuggestions);
-      setStats(mockStats);
+      // For now, we don't have a dedicated backend for optimization suggestions.
+      // Show an empty state with guidance instead of mock data.
+      setSuggestions([]);
+      setStats(null);
     } catch (error) {
       console.error('Error fetching optimization data:', error);
     } finally {
@@ -212,6 +142,19 @@ export const OptimizationSuggestions: React.FC<OptimizationSuggestionsProps> = (
       <div className="flex justify-center items-center p-8">
         <Loader size="lg" />
       </div>
+    );
+  }
+
+  if (!stats && suggestions.length === 0) {
+    return (
+      <Alert variant="default">
+        <AlertTitle>Optimization insights not configured</AlertTitle>
+        <AlertDescription>
+          Fuel and route optimization suggestions will appear here once analytics
+          are enabled on the backend. In the meantime, you can export analytics
+          data as CSV from the reports section for offline analysis.
+        </AlertDescription>
+      </Alert>
     );
   }
 

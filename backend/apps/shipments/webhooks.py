@@ -7,7 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
-from .services import pops_order_receiver
+from .pops_order_receiver import receive_order_from_pops, update_shipment_status_from_pops
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def _process_batch_shipments(shipments_data, request=None):
             
             # Process the shipment
             api_source = getattr(request, 'api_key_source', None) if request else None
-            shipment = pops_order_receiver.receive_order_from_pops(
+            shipment = receive_order_from_pops(
                 shipment_data_clean, 
                 employee_id, 
                 api_source
@@ -205,7 +205,7 @@ def receive_order_webhook(request):
         order_data_clean = {k: v for k, v in order_data.items() if k != 'id'}
         
         # Receive order and create shipment
-        shipment = pops_order_receiver.receive_order_from_pops(
+        shipment = receive_order_from_pops(
             order_data_clean, 
             rider_id, 
             getattr(request, 'api_key_source', None)
@@ -260,7 +260,7 @@ def order_status_webhook(request):
         
         # Update shipment status
         if shipment_id:
-            success = pops_order_receiver.update_shipment_status_from_pops(
+            success = update_shipment_status_from_pops(
                 shipment_id, status_value, order_id
             )
         else:
@@ -268,7 +268,7 @@ def order_status_webhook(request):
             from .models import Shipment
             try:
                 shipment = Shipment.objects.get(pops_order_id=order_id)
-                success = pops_order_receiver.update_shipment_status_from_pops(
+                success = update_shipment_status_from_pops(
                     shipment.id, status_value, order_id
                 )
             except Shipment.DoesNotExist:

@@ -9,7 +9,7 @@ from import_export.admin import ImportExportModelAdmin
 from django_json_widget.widgets import JSONEditorWidget
 from django.db import models
 
-from .models import Shipment, Acknowledgment, RouteSession, RouteTracking
+from .models import Shipment, Acknowledgment, RouteSession, RouteTracking, OrderEvent, Zone, AcknowledgmentSettings
 from .resources import (
     ShipmentResource, AcknowledgmentResource,
     RouteSessionResource, RouteTrackingResource
@@ -367,6 +367,119 @@ class RouteSessionAdmin(ImportExportModelAdmin):
     mark_as_paused.short_description = "Mark as paused"
 
 
+@admin.register(OrderEvent)
+class OrderEventAdmin(admin.ModelAdmin):
+    """Admin interface for OrderEvent model"""
+    list_display = [
+        'id',
+        'shipment',
+        'event_type',
+        'old_status',
+        'new_status',
+        'triggered_by',
+        'synced_to_pops',
+        'created_at',
+    ]
+    
+    list_filter = [
+        'event_type',
+        'synced_to_pops',
+        ('created_at', admin.DateFieldListFilter),
+    ]
+    
+    search_fields = [
+        'shipment__id',
+        'shipment__customer_name',
+        'triggered_by',
+        'old_status',
+        'new_status',
+    ]
+    
+    readonly_fields = ('id', 'created_at', 'sync_attempted_at')
+    
+    fieldsets = (
+        ('Event Information', {
+            'fields': ('shipment', 'event_type', 'old_status', 'new_status', 'triggered_by')
+        }),
+        ('Metadata', {
+            'fields': ('metadata',),
+            'classes': ('wide',),
+        }),
+        ('Sync Status', {
+            'fields': ('synced_to_pops', 'sync_attempted_at', 'sync_error')
+        }),
+        ('Timestamps', {
+            'fields': ('id', 'created_at')
+        }),
+    )
+    
+    formfield_overrides = {
+        models.JSONField: {"widget": JSONEditorWidget},
+    }
+    
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related('shipment')
+
+
+@admin.register(Zone)
+class ZoneAdmin(admin.ModelAdmin):
+    """Admin interface for Zone model"""
+    list_display = [
+        'id',
+        'name',
+        'city',
+        'state',
+        'pincode',
+        'max_shipments',
+        'is_active',
+        'created_at',
+    ]
+    
+    list_filter = [
+        'is_active',
+        'city',
+        'state',
+        ('created_at', admin.DateFieldListFilter),
+    ]
+    
+    search_fields = [
+        'name',
+        'city',
+        'state',
+        'pincode',
+        'description',
+    ]
+    
+    readonly_fields = ('id', 'created_at', 'updated_at')
+    
+    filter_horizontal = ('assigned_riders',)
+    
+    fieldsets = (
+        ('Basic Information', {
+            'fields': ('name', 'description', 'is_active')
+        }),
+        ('Geographic Information', {
+            'fields': ('city', 'state', 'pincode', 'center_latitude', 'center_longitude')
+        }),
+        ('Zone Boundaries', {
+            'fields': ('boundaries',),
+            'classes': ('wide',),
+            'description': 'Array of [latitude, longitude] coordinates defining the zone polygon'
+        }),
+        ('Capacity & Assignment', {
+            'fields': ('max_shipments', 'assigned_riders')
+        }),
+        ('Timestamps', {
+            'fields': ('id', 'created_at', 'updated_at')
+        }),
+    )
+    
+    formfield_overrides = {
+        models.JSONField: {"widget": JSONEditorWidget},
+    }
+
+
 @admin.register(RouteTracking)
 class RouteTrackingAdmin(ImportExportModelAdmin):
     """Admin interface for RouteTracking model"""
@@ -414,5 +527,62 @@ class RouteTrackingAdmin(ImportExportModelAdmin):
     )
     
     date_hierarchy = 'date'
+
+
+@admin.register(AcknowledgmentSettings)
+class AcknowledgmentSettingsAdmin(admin.ModelAdmin):
+    """Admin interface for AcknowledgmentSettings model"""
+    list_display = [
+        'id',
+        'region',
+        'region_display_name',
+        'signature_required',
+        'photo_required',
+        'require_pdf',
+        'allow_skip_acknowledgment',
+        'is_active',
+        'created_at',
+    ]
+    
+    list_filter = [
+        'is_active',
+        'signature_required',
+        'photo_required',
+        'require_pdf',
+        ('created_at', admin.DateFieldListFilter),
+    ]
+    
+    search_fields = [
+        'region',
+        'region_display_name',
+    ]
+    
+    readonly_fields = ('id', 'created_at', 'updated_at')
+    
+    fieldsets = (
+        ('Region Information', {
+            'fields': ('region', 'region_display_name', 'is_active')
+        }),
+        ('Signature Requirements', {
+            'fields': ('signature_required',)
+        }),
+        ('Photo Requirements', {
+            'fields': ('photo_required',)
+        }),
+        ('PDF Settings', {
+            'fields': ('require_pdf', 'pdf_template_url')
+        }),
+        ('Additional Settings', {
+            'fields': ('allow_skip_acknowledgment', 'created_by')
+        }),
+        ('Timestamps', {
+            'fields': ('id', 'created_at', 'updated_at')
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # Only set created_by on creation
+            obj.created_by = request.user
+        super().save_model(request, obj, form, change)
 
 

@@ -5,7 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
   Truck, Package, MapPin, Phone, Route, Clock,
-  Navigation, Satellite
+  Navigation, Satellite, User
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
@@ -67,6 +67,32 @@ function ShipmentCardWithTracking({
     } catch {
       return dateString || 'Not scheduled';
     }
+  };
+
+  const formatAddress = (address: any): string => {
+    if (!address) return 'No address';
+    
+    // If it's already a string, return it
+    if (typeof address === 'string') {
+      return address;
+    }
+    
+    // If it's an object, format it
+    if (typeof address === 'object' && address !== null) {
+      const parts: string[] = [];
+      
+      // Try common address field names
+      if (address.address) parts.push(String(address.address));
+      if (address.place_name) parts.push(String(address.place_name));
+      if (address.city) parts.push(String(address.city));
+      if (address.state) parts.push(String(address.state));
+      if (address.pincode) parts.push(String(address.pincode));
+      if (address.country) parts.push(String(address.country));
+      
+      return parts.length > 0 ? parts.join(', ') : 'No address';
+    }
+    
+    return 'No address';
   };
 
   const handleRecordShipmentEvent = async (eventType: 'pickup' | 'delivery') => {
@@ -191,9 +217,14 @@ function ShipmentCardWithTracking({
                       {getTrackingStatusBadge()}
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground" data-testid={`text-shipment-id-${shipment?.shipment_id}`}>
-                    #{shipment?.shipment_id?.slice?.(-8) || 'Unknown ID'}
-                  </p>
+                  <div className="text-sm text-muted-foreground space-y-0.5">
+                    <p data-testid={`text-shipment-id-${shipment?.shipment_id}`}>
+                      Shipment ID: #{shipment?.shipment_id || 'Unknown ID'}
+                    </p>
+                    <p data-testid={`text-pops-order-id-${shipment?.shipment_id}`}>
+                      Pia Order ID: {shipment?.orderId || (shipment as Shipment & { pops_order_id?: number })?.pops_order_id || 'N/A'}
+                    </p>
+                  </div>
                 </div>
               </div>
 
@@ -202,10 +233,10 @@ function ShipmentCardWithTracking({
                   <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
                   <span
                     className="truncate"
-                    title={shipment?.address || shipment?.deliveryAddress || 'No address'}
+                    title={formatAddress(shipment?.addressDisplay || shipment?.address || shipment?.deliveryAddress)}
                     data-testid={`text-address-${shipment?.shipment_id}`}
                   >
-                    {shipment?.address || shipment?.deliveryAddress || 'No address'}
+                    {formatAddress(shipment?.addressDisplay || shipment?.address || shipment?.deliveryAddress)}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
@@ -218,6 +249,12 @@ function ShipmentCardWithTracking({
                   <Route className="h-4 w-4 mr-2 flex-shrink-0" />
                   <span data-testid={`text-route-${shipment?.shipment_id}`}>
                     {shipment?.routeName || 'Not assigned'}
+                  </span>
+                </div>
+                <div className="flex items-center text-muted-foreground">
+                  <User className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span data-testid={`text-rider-${shipment?.shipment_id}`} className="font-medium">
+                    {shipment?.employeeId || (shipment as Shipment & { employee_id?: string })?.employee_id || 'Unassigned'}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">

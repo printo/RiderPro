@@ -33,6 +33,34 @@ import { useGPSTracking } from "@/hooks/useGPSTracking";
 import { useAuth } from "@/hooks/useAuth";
 import RemarksModal from "@/components/ui/forms/RemarksModal";
 import AcknowledgmentCapture from "@/components/AcknowledgmentCapture";
+import ShipmentDetailTabs from "@/components/shipments/ShipmentDetailTabs";
+
+// Helper function to format address
+const formatAddress = (address: any): string => {
+  if (!address) return 'No address';
+  
+  // If it's already a string, return it
+  if (typeof address === 'string') {
+    return address;
+  }
+  
+  // If it's an object, format it
+  if (typeof address === 'object' && address !== null) {
+    const parts: string[] = [];
+    
+    // Try common address field names
+    if (address.address) parts.push(String(address.address));
+    if (address.place_name) parts.push(String(address.place_name));
+    if (address.city) parts.push(String(address.city));
+    if (address.state) parts.push(String(address.state));
+    if (address.pincode) parts.push(String(address.pincode));
+    if (address.country) parts.push(String(address.country));
+    
+    return parts.length > 0 ? parts.join(', ') : 'No address';
+  }
+  
+  return 'No address';
+};
 
 type ShipmentWithAcknowledgment = Shipment & {
   acknowledgment?: {
@@ -82,8 +110,8 @@ function ShipmentDetailModalWithTracking({
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/v1/shipments/fetch"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/v1/dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["shipments"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast({
         title: "Status Updated",
         description: "Shipment status has been updated successfully.",
@@ -264,10 +292,10 @@ function ShipmentDetailModalWithTracking({
             </div>
           </SheetHeader>
 
-          <div className="mt-6 space-y-6">
-            {/* GPS Tracking Status */}
+          <div className="mt-6">
+            {/* GPS Tracking Status Banner */}
             {hasActiveSession && (
-              <Card className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
+              <Card className="bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800 mb-4">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Navigation className="h-4 w-4 text-green-600" />
@@ -288,7 +316,7 @@ function ShipmentDetailModalWithTracking({
             )}
 
             {!hasActiveSession && (
-              <Card className="bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800">
+              <Card className="bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800 mb-4">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <AlertCircle className="h-4 w-4 text-yellow-600" />
@@ -303,209 +331,16 @@ function ShipmentDetailModalWithTracking({
               </Card>
             )}
 
-            {/* Shipment Information */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">{shipment.customerName}</h3>
-                <Badge className={getStatusColor(shipment.status)}>
-                  {shipment.status}
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Shipment ID:</span>
-                  <p className="font-medium">#{shipment.shipment_id.slice(-8)}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Type:</span>
-                  <p className="font-medium capitalize">{shipment.type}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Route:</span>
-                  <p className="font-medium">{shipment.routeName}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Cost:</span>
-                  <p className="font-medium">${shipment.cost}</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">{shipment.address}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">
-                    {shipment.deliveryTime ? new Date(shipment.deliveryTime).toLocaleString() : 'Not scheduled'}
-                  </span>
-                </div>
-
-                {/* Location Information with Directions */}
-                <div className="flex items-center gap-2">
-                  <Navigation className="h-4 w-4 text-muted-foreground" />
-                  <div className="flex-1">
-                    {shipment.latitude && shipment.longitude ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          Location: {shipment.latitude.toFixed(6)}, {shipment.longitude.toFixed(6)}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const url = `https://www.google.com/maps/dir/?api=1&destination=${shipment.latitude},${shipment.longitude}`;
-                            window.open(url, '_blank');
-                          }}
-                          className="h-6 px-2 text-xs"
-                        >
-                          <Navigation className="h-3 w-3 mr-1" />
-                          Directions
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">Location: N/A</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Location & Directions Card */}
-            <Card className="border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium text-blue-800 dark:text-blue-400">
-                      GPS Location
-                    </span>
-                  </div>
-                  {shipment.latitude && shipment.longitude && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const coordinates = `${shipment.latitude},${shipment.longitude}`;
-                          navigator.clipboard.writeText(coordinates);
-                          toast({
-                            title: "Coordinates copied!",
-                            description: `${coordinates} copied to clipboard`,
-                          });
-                        }}
-                        className="h-8 px-3 text-xs bg-white hover:bg-gray-50 border-blue-300"
-                      >
-                        <Copy className="h-3 w-3 mr-1" />
-                        Copy
-                      </Button>
-                      <div className="relative group">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const url = `https://www.google.com/maps/dir/?api=1&destination=${shipment.latitude},${shipment.longitude}`;
-                            window.open(url, '_blank');
-                          }}
-                          className="h-8 px-3 text-xs bg-white hover:bg-gray-50 border-blue-300"
-                        >
-                          <Navigation className="h-3 w-3 mr-1" />
-                          Directions
-                        </Button>
-
-                        {/* Dropdown for other map options */}
-                        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 min-w-[120px]">
-                          <button
-                            onClick={() => {
-                              const url = `https://www.google.com/maps/dir/?api=1&destination=${shipment.latitude},${shipment.longitude}`;
-                              window.open(url, '_blank');
-                            }}
-                            className="w-full px-3 py-2 text-xs text-left hover:bg-gray-50 border-b border-gray-100"
-                          >
-                            Google Maps
-                          </button>
-                          <button
-                            onClick={() => {
-                              const url = `https://maps.apple.com/?daddr=${shipment.latitude},${shipment.longitude}`;
-                              window.open(url, '_blank');
-                            }}
-                            className="w-full px-3 py-2 text-xs text-left hover:bg-gray-50 border-b border-gray-100"
-                          >
-                            Apple Maps
-                          </button>
-                          <button
-                            onClick={() => {
-                              const url = `https://waze.com/ul?ll=${shipment.latitude},${shipment.longitude}&navigate=yes`;
-                              window.open(url, '_blank');
-                            }}
-                            className="w-full px-3 py-2 text-xs text-left hover:bg-gray-50"
-                          >
-                            Waze
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-2">
-                  {shipment.latitude && shipment.longitude ? (
-                    <div className="space-y-1">
-                      <p className="text-xs text-blue-600 dark:text-blue-400">
-                        Latitude: {shipment.latitude.toFixed(6)}
-                      </p>
-                      <p className="text-xs text-blue-600 dark:text-blue-400">
-                        Longitude: {shipment.longitude.toFixed(6)}
-                      </p>
-                      <p className="text-xs text-blue-500 dark:text-blue-500 mt-2">
-                        Click "Get Directions" to navigate using Google Maps
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        GPS coordinates not available
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500">
-                        Location data was not provided for this shipment
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-
-            {/* Acknowledgment Display */}
-            {shipment.acknowledgment && (
-              <div className="space-y-3">
-                <h4 className="font-medium">Acknowledgment</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  {shipment.acknowledgment.photoUrl && (
-                    <div>
-                      <span className="text-sm text-muted-foreground">Photo:</span>
-                      <img
-                        src={shipment.acknowledgment.photoUrl}
-                        alt="Delivery photo"
-                        className="mt-1 w-full h-24 object-cover rounded border"
-                      />
-                    </div>
-                  )}
-                  {shipment.acknowledgment.signatureUrl && (
-                    <div>
-                      <span className="text-sm text-muted-foreground">Signature:</span>
-                      <img
-                        src={shipment.acknowledgment.signatureUrl}
-                        alt="Customer signature"
-                        className="mt-1 w-full h-24 object-cover rounded border"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Tabbed Interface */}
+            <ShipmentDetailTabs
+              shipment={shipment}
+              employeeId={employeeId}
+              isManager={user?.isSuperUser || user?.isOpsTeam || user?.isStaff || user?.role === 'admin' || user?.role === 'manager'}
+              onStatusUpdate={() => {
+                queryClient.invalidateQueries({ queryKey: ['shipments'] });
+                onClose();
+              }}
+            />
           </div>
 
           {/* Status Management Footer */}

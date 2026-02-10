@@ -40,6 +40,7 @@ export const shipmentsApi = {
     if (filters.date) params.append('date', filters.date);
     if (filters.search) params.append('search', filters.search);
     if (filters.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters.orderId) params.append('orderId', String(filters.orderId));
 
     // Add date range if provided
     if (filters.dateRange) {
@@ -113,9 +114,59 @@ export const shipmentsApi = {
     return response.json();
   },
 
+  generateGoogleMapsRoute: async (
+    shipmentIds: number[],
+    startLocation?: { latitude: number; longitude: number },
+    optimize: boolean = true
+  ): Promise<{ success: boolean; url: string; shipment_count: number }> => {
+    const response = await apiRequest("POST", API_ENDPOINTS.shipments.googleMapsRoute, {
+      shipment_ids: shipmentIds,
+      start_location: startLocation,
+      optimize,
+    });
+    return response.json();
+  },
+
   getDashboardMetrics: async (): Promise<DashboardMetrics> => {
     const response = await apiRequest("GET", API_ENDPOINTS.dashboard.metrics);
-    return response.json();
+    const raw = await response.json();
+
+    // Backend returns snake_case fields; map them into the DashboardMetrics
+    // shape expected by the frontend (camelCase plus aggregate fields).
+    const totalShipments = raw.total_shipments ?? 0;
+    const pendingShipments = raw.pending_shipments ?? 0;
+    const inTransitShipments = raw.in_transit_shipments ?? 0;
+    const deliveredShipments = raw.delivered_shipments ?? 0;
+    const pickedUpShipments = raw.picked_up_shipments ?? 0;
+
+    const completed = deliveredShipments + pickedUpShipments;
+    const inProgress = inTransitShipments;
+    const pending = pendingShipments;
+
+    const metrics: DashboardMetrics = {
+      totalShipments,
+      pendingShipments,
+      deliveredShipments,
+      inTransitShipments,
+      completed,
+      inProgress,
+      pending,
+      averageDeliveryTime: raw.average_delivery_time ?? 0,
+      // Build a simple status breakdown so charts have data.
+      statusBreakdown: {
+        Pending: pendingShipments,
+        "In Transit": inTransitShipments,
+        Delivered: deliveredShipments,
+        "Picked Up": pickedUpShipments,
+        Returned: raw.returned_shipments ?? 0,
+        Cancelled: raw.cancelled_shipments ?? 0,
+      },
+      // Route/type breakdowns can be filled in later from richer analytics.
+      typeBreakdown: {},
+      routeBreakdown: {},
+    };
+
+    return metrics;
   },
 
   // External integration endpoints
@@ -131,6 +182,50 @@ export const shipmentsApi = {
 
   sendExternalBatchUpdate: async (payload: ExternalUpdatePayload[]): Promise<BatchSyncResult> => {
     const response = await apiRequest("POST", API_ENDPOINTS.shipments.updateExternalBatch, payload);
+    return response.json();
+  },
+
+  changeRider: async (shipmentId: string, employeeId: string, reason?: string): Promise<{ success: boolean; message: string; shipment: Shipment }> => {
+    const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.get(shipmentId)}/change-rider/`, {
+      employee_id: employeeId,
+      reason: reason || ''
+    });
+    return response.json();
+  },
+
+  batchChangeRider: async (shipmentIds: string[], employeeId: string, reason?: string): Promise<{ success: boolean; message: string; updated_count: number; failed_count: number; results: Array<{ shipment_id: number; success: boolean; old_rider?: string; new_rider?: string; error?: string }> }> => {
+    const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.base}/batch-change-rider/`, {
+      shipment_ids: shipmentIds.map(id => parseInt(id)),
+      employee_id: employeeId,
+      reason: reason || ''
+    });
+    return response.json();
+  },
+
+  getPdfDocument: async (shipmentId: string): Promise<{ success: boolean; pdf_url?: string; is_signed?: boolean; is_template?: boolean; message?: string }> => {
+    const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(shipmentId)}/pdf-document/`);
+    return response.json();
+  },
+
+  uploadSignedPdf: async (shipmentId: string, signedPdfUrl: string): Promise<{ success: boolean; message: string; signed_pdf_url: string }> => {
+    const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.get(shipmentId)}/upload-signed-pdf/`, {
+      signed_pdf_url: signedPdfUrl
+    });
+    return response.json();
+  },
+
+  getAcknowledgmentSettings: async (shipmentId: string): Promise<{ success: boolean; settings?: any }> => {
+    const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(shipmentId)}/acknowledgment-settings/`);
+    return response.json();
+  },
+
+  getAvailableRiders: async (): Promise<{ success: boolean; riders: Array<{ id: string; name: string; email?: string }>; count: number }> => {
+    const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.base}/available-riders/`);
+    return response.json();
+  },
+
+  getAvailableRoutes: async (): Promise<{ success: boolean; routes: Array<{ name: string; value: string }>; count: number }> => {
+    const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.base}/available-routes/`);
     return response.json();
   },
 };

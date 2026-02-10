@@ -19,14 +19,17 @@ import {
   Gauge,
   Settings
 } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-// Mock Leaflet types for now - in real implementation would import from leaflet
-interface MockMap {
-  setView: (center: [number, number], zoom: number) => void;
-  addLayer: (_layer: unknown) => void;
-  removeLayer: (_layer: unknown) => void;
-  fitBounds: (_bounds: unknown) => void;
-}
+// Fix for default markers in React Leaflet
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 interface RouteVisualizationProps {
   sessionId?: string;
@@ -53,41 +56,7 @@ function RouteVisualization({
   const [mapStyle, setMapStyle] = useState('openstreetmap');
   const [showHeatmap, setShowHeatmap] = useState(false);
 
-  const mapRef = useRef<HTMLDivElement>(null);
   const playbackIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const mapInstanceRef = useRef<MockMap | null>(null);
-
-  // Initialize map
-  useEffect(() => {
-    if (!mapRef.current) return;
-
-    // In a real implementation, this would initialize Leaflet map
-    // For now, we'll create a mock map container
-    const mockMap: MockMap = {
-      setView: (center: [number, number], zoom: number) => {
-        console.log(`Map centered at ${center} with zoom ${zoom}`);
-      },
-      addLayer: (_layer: unknown) => {
-        console.log('Layer added to map');
-      },
-      removeLayer: (_layer: unknown) => {
-        console.log('Layer removed from map');
-      },
-      fitBounds: (_bounds: unknown) => {
-        console.log('Map bounds fitted');
-      }
-    };
-
-    mapInstanceRef.current = mockMap;
-
-    // Initialize with default view
-    mockMap.setView([40.7128, -74.0060], 13); // NYC default
-
-    return () => {
-      // Cleanup map
-      mapInstanceRef.current = null;
-    };
-  }, []);
 
   // Load session data
   useEffect(() => {
@@ -129,22 +98,27 @@ function RouteVisualization({
     };
   }, [isPlaying, playbackSpeed, selectedSession]);
 
-  // Update map when session or playback changes
-  useEffect(() => {
-    if (!selectedSession || !mapInstanceRef.current) return;
+  // Component to handle map updates during playback
+  function MapUpdater({ session, pointIndex }: { session: RouteSession | null; pointIndex: number }) {
+    const map = useMap();
 
-    // In real implementation, this would update the Leaflet map
-    // with route polylines, markers, and current position
-    console.log(`Updating map for session ${selectedSession.id}, point ${currentPointIndex}`);
+    useEffect(() => {
+      if (!session || !session.points || session.points.length === 0) return;
 
-    // Mock map update
-    if (selectedSession.points && selectedSession.points.length > 0) {
-      const currentPoint = selectedSession.points[currentPointIndex];
-      if (currentPoint && mapInstanceRef.current) {
-        mapInstanceRef.current.setView([currentPoint.latitude, currentPoint.longitude], 15);
+      const currentPoint = session.points[pointIndex];
+      if (currentPoint) {
+        map.setView([currentPoint.latitude, currentPoint.longitude], 15);
+      } else if (session.points.length > 0) {
+        // Fit bounds to entire route
+        const bounds = L.latLngBounds(
+          session.points.map(p => [p.latitude, p.longitude] as [number, number])
+        );
+        map.fitBounds(bounds, { padding: [50, 50] });
       }
-    }
-  }, [selectedSession, currentPointIndex]);
+    }, [map, session, pointIndex]);
+
+    return null;
+  }
 
   const handleSessionSelect = (session: RouteSession) => {
     setSelectedSession(session);
@@ -331,28 +305,124 @@ function RouteVisualization({
       {/* Map Container */}
       <Card className="h-96">
         <CardContent className="p-0 h-full">
-          <div
-            ref={mapRef}
-            className="w-full h-full bg-gray-100 rounded-md flex items-center justify-center"
-          >
-            {selectedSession ? (
+          {selectedSession && selectedSession.points && selectedSession.points.length > 0 ? (
+            <MapContainer
+              center={[selectedSession.points[0].latitude, selectedSession.points[0].longitude]}
+              zoom={13}
+              style={{ height: '100%', width: '100%', zIndex: 0 }}
+              scrollWheelZoom={true}
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <MapUpdater session={selectedSession} pointIndex={currentPointIndex} />
+              
+              {/* Route polyline */}
+              <Polyline
+                positions={selectedSession.points.map(p => [p.latitude, p.longitude] as [number, number])}
+                color="#3b82f6"
+                weight={4}
+                opacity={0.7}
+              />
+              
+              {/* Start marker */}
+              {selectedSession.points[0] && (
+                <Marker position={[selectedSession.points[0].latitude, selectedSession.points[0].longitude]}>
+                  <Popup>
+                    <div className="text-sm">
+                      <strong>Start</strong><br />
+                      {new Date(selectedSession.points[0].timestamp).toLocaleString()}
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+              
+              {/* Current position marker */}
+              {selectedSession.points[currentPointIndex] && (
+                <Marker
+                  position={[
+                    selectedSession.points[currentPointIndex].latitude,
+                    selectedSession.points[currentPointIndex].longitude
+                  ]}
+                  icon={L.divIcon({
+                    className: 'current-position-marker',
+                    html: '<div style="background-color: #ef4444; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                  })}
+                >
+                  <Popup>
+                    <div className="text-sm">
+                      <strong>Current Position</strong><br />
+                      {new Date(selectedSession.points[currentPointIndex].timestamp).toLocaleString()}<br />
+                      Speed: {selectedSession.points[currentPointIndex].speed?.toFixed(1) || 'N/A'} km/h
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+              
+              {/* End marker */}
+              {selectedSession.points.length > 1 && selectedSession.points[selectedSession.points.length - 1] && (
+                <Marker
+                  position={[
+                    selectedSession.points[selectedSession.points.length - 1].latitude,
+                    selectedSession.points[selectedSession.points.length - 1].longitude
+                  ]}
+                  icon={L.divIcon({
+                    className: 'end-marker',
+                    html: '<div style="background-color: #22c55e; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 10]
+                  })}
+                >
+                  <Popup>
+                    <div className="text-sm">
+                      <strong>End</strong><br />
+                      {new Date(selectedSession.points[selectedSession.points.length - 1].timestamp).toLocaleString()}
+                    </div>
+                  </Popup>
+                </Marker>
+              )}
+              
+              {/* Event markers (pickup/delivery) */}
+              {selectedSession.points
+                .filter(p => p.eventType === 'pickup' || p.eventType === 'delivery')
+                .map((point, idx) => (
+                  <Marker
+                    key={`event-${idx}`}
+                    position={[point.latitude, point.longitude]}
+                    icon={L.divIcon({
+                      className: 'event-marker',
+                      html: `<div style="background-color: ${point.eventType === 'pickup' ? '#10b981' : '#3b82f6'}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                      iconSize: [16, 16],
+                      iconAnchor: [8, 8]
+                    })}
+                  >
+                    <Popup>
+                      <div className="text-sm">
+                        <strong>{point.eventType === 'pickup' ? 'Pickup' : 'Delivery'}</strong><br />
+                        {new Date(point.timestamp).toLocaleString()}
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+            </MapContainer>
+          ) : selectedSession ? (
+            <div className="w-full h-full bg-gray-100 rounded-md flex items-center justify-center">
               <div className="text-center space-y-2">
-                <MapPin className="h-12 w-12 mx-auto text-blue-600" />
-                <p className="text-lg font-medium">Interactive Route Map</p>
-                <p className="text-sm text-gray-600">
-                  Showing route for {selectedSession.employeeName}
-                </p>
-                <p className="text-xs text-gray-500">
-                  In production: Leaflet.js + OpenStreetMap integration
-                </p>
+                <MapPin className="h-12 w-12 mx-auto text-gray-400" />
+                <p className="text-lg text-gray-600">No route points available</p>
               </div>
-            ) : (
+            </div>
+          ) : (
+            <div className="w-full h-full bg-gray-100 rounded-md flex items-center justify-center">
               <div className="text-center space-y-2">
                 <MapPin className="h-12 w-12 mx-auto text-gray-400" />
                 <p className="text-lg text-gray-600">Select a route to visualize</p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

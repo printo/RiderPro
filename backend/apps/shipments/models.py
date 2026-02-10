@@ -90,8 +90,13 @@ class Shipment(models.Model):
     # Acknowledgment
     signature_url = models.TextField(null=True, blank=True)
     photo_url = models.TextField(null=True, blank=True)
+    pdf_url = models.TextField(null=True, blank=True, help_text="URL to PDF document for signing")
+    signed_pdf_url = models.TextField(null=True, blank=True, help_text="URL to signed PDF after recipient signs")
     acknowledgment_captured_at = models.DateTimeField(null=True, blank=True)
     acknowledgment_captured_by = models.CharField(max_length=255, null=True, blank=True)
+    
+    # Region for acknowledgment settings
+    region = models.CharField(max_length=100, null=True, blank=True, help_text="Region/city for acknowledgment settings")
     
     # POPS integration
     pops_order_id = models.IntegerField(null=True, blank=True, db_index=True)  # POPS Order.id
@@ -259,5 +264,214 @@ class RouteTracking(models.Model):
     
     def __str__(self):
         return f"GPS Point {self.id} - Session {self.session_id}"
+
+
+class OrderEvent(models.Model):
+    """
+    Event-driven order management system
+    Tracks all status changes and events for shipments
+    """
+    EVENT_TYPES = [
+        ('status_change', 'Status Change'),
+        ('pickup', 'Pickup'),
+        ('delivery', 'Delivery'),
+        ('assignment', 'Assignment'),
+        ('route_start', 'Route Start'),
+        ('route_end', 'Route End'),
+        ('acknowledgment', 'Acknowledgment'),
+        ('sync', 'Sync Event'),
+        ('error', 'Error'),
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    shipment = models.ForeignKey(Shipment, on_delete=models.CASCADE, related_name='events')
+    
+    event_type = models.CharField(max_length=50, choices=EVENT_TYPES)
+    old_status = models.CharField(max_length=50, null=True, blank=True)
+    new_status = models.CharField(max_length=50, null=True, blank=True)
+    
+    # Event metadata
+    metadata = models.JSONField(null=True, blank=True, help_text="Additional event data")
+    triggered_by = models.CharField(max_length=255, null=True, blank=True, help_text="User or system that triggered the event")
+    
+    # Sync tracking
+    synced_to_pops = models.BooleanField(default=False)
+    sync_attempted_at = models.DateTimeField(null=True, blank=True)
+    sync_error = models.TextField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'order_events'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['shipment', '-created_at']),
+            models.Index(fields=['event_type', '-created_at']),
+            models.Index(fields=['synced_to_pops', 'sync_attempted_at']),
+        ]
+    
+    def __str__(self):
+        return f"{self.get_event_type_display()} - Shipment {self.shipment.id} at {self.created_at}"
+
+
+class Zone(models.Model):
+    """
+    Zone/Area planning for route optimization
+    """
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(null=True, blank=True)
+    
+    # Geographic boundaries (polygon coordinates)
+    boundaries = models.JSONField(null=True, blank=True, help_text="Array of [lat, lng] coordinates defining zone polygon")
+    center_latitude = models.FloatField(null=True, blank=True)
+    center_longitude = models.FloatField(null=True, blank=True)
+    
+    # Zone metadata
+    city = models.CharField(max_length=100, null=True, blank=True)
+    state = models.CharField(max_length=100, null=True, blank=True)
+    pincode = models.CharField(max_length=20, null=True, blank=True)
+    
+    # Capacity and assignment
+    max_shipments = models.IntegerField(default=50, help_text="Maximum shipments per zone per day")
+    assigned_riders = models.ManyToManyField(
+        'authentication.RiderAccount',
+        related_name='zones',
+        blank=True
+    )
+    
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'zones'
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['city', 'is_active']),
+            models.Index(fields=['is_active']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} ({self.city or 'N/A'})"
+
+
+class AcknowledgmentSettings(models.Model):
+    """
+    Region-based acknowledgment requirements
+    Controls whether signature, photo, or both are mandatory/optional
+    """
+    REQUIREMENT_CHOICES = [
+        ('mandatory', 'Mandatory'),
+        ('optional', 'Optional'),
+        ('either', 'Either (one of signature or photo required)'),
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    
+    # Region identification (can be city, state, or custom region name)
+    region = models.CharField(max_length=100, unique=True, help_text="Region identifier (city, state, or custom name)")
+    region_display_name = models.CharField(max_length=255, help_text="Display name for the region")
+    
+    # Signature requirements
+    signature_required = models.CharField(
+        max_length=20,
+        choices=REQUIREMENT_CHOICES,
+        default='optional',
+        help_text="Signature requirement: mandatory, optional, or either"
+    )
+    
+    # Photo requirements
+    photo_required = models.CharField(
+        max_length=20,
+        choices=REQUIREMENT_CHOICES,
+        default='optional',
+        help_text="Photo requirement: mandatory, optional, or either"
+    )
+    
+    # PDF settings
+    require_pdf = models.BooleanField(default=False, help_text="Whether to require PDF document for signing")
+    pdf_template_url = models.TextField(null=True, blank=True, help_text="URL to PDF template for this region")
+    
+    # Additional settings
+    allow_skip_acknowledgment = models.BooleanField(
+        default=False,
+        help_text="Allow riders to skip acknowledgment in exceptional cases"
+    )
+    
+    # Metadata
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        'authentication.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='acknowledgment_settings_created'
+    )
+    
+    class Meta:
+        db_table = 'acknowledgment_settings'
+        ordering = ['region']
+        indexes = [
+            models.Index(fields=['region', 'is_active']),
+            models.Index(fields=['is_active']),
+        ]
+        verbose_name = 'Acknowledgment Setting'
+        verbose_name_plural = 'Acknowledgment Settings'
+    
+    def __str__(self):
+        return f"{self.region_display_name} (Signature: {self.signature_required}, Photo: {self.photo_required})"
+    
+    def get_requirements(self):
+        """
+        Get human-readable requirements summary
+        """
+        requirements = []
+        if self.signature_required == 'mandatory':
+            requirements.append("Signature is mandatory")
+        elif self.signature_required == 'either':
+            requirements.append("Signature or Photo required")
+        else:
+            requirements.append("Signature is optional")
+        
+        if self.photo_required == 'mandatory':
+            requirements.append("Photo is mandatory")
+        elif self.photo_required == 'either':
+            requirements.append("Photo or Signature required")
+        else:
+            requirements.append("Photo is optional")
+        
+        if self.require_pdf:
+            requirements.append("PDF signing required")
+        
+        return "; ".join(requirements)
+    
+    def validate_acknowledgment(self, has_signature: bool, has_photo: bool) -> tuple[bool, str]:
+        """
+        Validate if acknowledgment meets requirements
+        
+        Returns:
+            (is_valid, error_message)
+        """
+        # Check signature requirement
+        if self.signature_required == 'mandatory' and not has_signature:
+            return False, "Signature is mandatory for this region"
+        
+        # Check photo requirement
+        if self.photo_required == 'mandatory' and not has_photo:
+            return False, "Photo is mandatory for this region"
+        
+        # Check "either" requirement
+        if self.signature_required == 'either' and self.photo_required == 'either':
+            if not has_signature and not has_photo:
+                return False, "Either signature or photo is required for this region"
+        elif self.signature_required == 'either' and not has_signature and not has_photo:
+            return False, "Either signature or photo is required for this region"
+        elif self.photo_required == 'either' and not has_signature and not has_photo:
+            return False, "Either signature or photo is required for this region"
+        
+        return True, ""
 
 

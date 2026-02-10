@@ -26,7 +26,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
     });
   };
 
-  const hasActiveFilters = filters.status || filters.type || filters.routeName;
+  const hasActiveFilters = filters.status || filters.type || filters.routeName || filters.employeeId || filters.orderId;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
@@ -95,6 +95,40 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
               <SelectItem value="Route C">Route C</SelectItem>
             </SelectContent>
           </Select>
+
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Rider ID
+            </label>
+            <input
+              type="text"
+              value={filters.employeeId || ""}
+              onChange={(e) => updateFilter("employeeId", e.target.value || "all")}
+              placeholder="Filter by rider ID"
+              className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+              data-testid="input-filter-rider"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Pia Order ID
+            </label>
+            <input
+              type="text"
+              value={filters.orderId?.toString() || ""}
+              onChange={(e) => {
+                const value = e.target.value.trim();
+                onFiltersChange({
+                  ...filters,
+                  orderId: value ? (isNaN(Number(value)) ? value : Number(value)) : undefined,
+                });
+              }}
+              placeholder="Filter by Pia order ID"
+              className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+              data-testid="input-filter-order-id"
+            />
+          </div>
         </div>
       </CollapsibleContent>
     </Collapsible>

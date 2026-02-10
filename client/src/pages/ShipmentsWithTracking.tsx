@@ -8,6 +8,7 @@ import { Edit, RotateCcw, MapPin, AlertCircle } from "lucide-react";
 import ShipmentCardWithTracking from "@/components/shipments/ShipmentCardWithTracking";
 import ShipmentDetailModalWithTracking from "@/components/ui/forms/ShipmentDetailModalWithTracking";
 import BatchUpdateModal from "@/components/ui/forms/BatchUpdateModal";
+import BatchRiderAllocationModal from "@/components/ui/forms/BatchRiderAllocationModal";
 import Filters from "@/components/Filters";
 import { Shipment, ShipmentFilters } from "@shared/types";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
@@ -27,6 +28,7 @@ function ShipmentsWithTracking() {
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
+  const [showBatchRiderModal, setShowBatchRiderModal] = useState(false);
   const { toast } = useToast();
   const { user: currentUser, isAuthenticated, authenticatedFetch: _authenticatedFetch, getAuthHeaders } = useAuth();
 
@@ -58,16 +60,16 @@ function ShipmentsWithTracking() {
   const employeeId = currentUser?.employeeId || currentUser?.username || "";
 
   // Memoize effective filters so query key is stable
+  // Managers/Admins see all shipments, Riders see only their own
+  const isManager = currentUser?.role === "admin" || currentUser?.role === "manager" || currentUser?.isSuperUser || currentUser?.isOpsTeam;
+  
   const effectiveFilters = useMemo<ExtendedShipmentFilters>(() => {
     return {
       ...filters,
-      ...(currentUser?.role !== "admin" &&
-        !currentUser?.isSuperUser &&
-        employeeId
-        ? { employeeId }
-        : {}),
+      // Only filter by employeeId if user is NOT a manager/admin
+      ...(!isManager && employeeId ? { employeeId } : {}),
     };
-  }, [filters, currentUser?.role, employeeId]);
+  }, [filters, isManager, employeeId]);
 
   // Lazy loading
   const [shouldLoadShipments, setShouldLoadShipments] = useState(false);
@@ -141,7 +143,7 @@ function ShipmentsWithTracking() {
     queryKey: ["shipments", queryParams],
     queryFn: () => shipmentsApi.getShipments(queryParams),
     enabled: shouldLoadShipments,
-    refetchInterval: 30000,
+    refetchInterval: 120000, // Reduced from 30s to 120s (2 minutes) to reduce continuous GET calls
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
     // Use placeholderData to prevent undefined data
@@ -220,6 +222,11 @@ function ShipmentsWithTracking() {
   const handleBatchUpdate = () => {
     if (selectedShipmentIds.length === 0) return;
     setShowBatchModal(true);
+  };
+
+  const handleBatchRiderAllocation = () => {
+    if (selectedShipmentIds.length === 0) return;
+    setShowBatchRiderModal(true);
   };
 
   const handleRefresh = () => {
@@ -360,6 +367,15 @@ function ShipmentsWithTracking() {
                 <Edit className="h-4 w-4 mr-2" />
                 Batch Update ({selectedShipmentIds.length})
               </Button>
+              <Button
+                onClick={handleBatchRiderAllocation}
+                disabled={selectedShipmentIds.length === 0}
+                variant="outline"
+                className="border-blue-500 text-blue-600 hover:bg-blue-50"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Allocate to Rider ({selectedShipmentIds.length})
+              </Button>
               <Button variant="secondary" onClick={handleRefresh}>
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Refresh
@@ -470,6 +486,20 @@ function ShipmentsWithTracking() {
           onSuccess={() => {
             setSelectedShipmentIds([]);
             setShowBatchModal(false);
+            refetch();
+          }}
+        />
+      )}
+
+      {showBatchRiderModal && (
+        <BatchRiderAllocationModal
+          selectedCount={selectedShipmentIds.length}
+          selectedIds={selectedShipmentIds}
+          isOpen={showBatchRiderModal}
+          onClose={() => setShowBatchRiderModal(false)}
+          onSuccess={() => {
+            setSelectedShipmentIds([]);
+            setShowBatchRiderModal(false);
             refetch();
           }}
         />

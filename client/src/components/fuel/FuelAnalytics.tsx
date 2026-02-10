@@ -22,7 +22,8 @@ import {
   Legend
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { FuelAnalytics as FuelAnalyticsType } from '@shared/types';
+import { FuelAnalytics as FuelAnalyticsType, RouteFilters } from '@shared/types';
+import { analyticsApi } from '@/apiClient/analytics';
 
 // Helper for currency formatting
 const formatINR = (value: number) => {
@@ -48,6 +49,7 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
 }) => {
   const [analytics, setAnalytics] = useState<FuelAnalyticsType | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'year'>('month');
 
   useEffect(() => {
@@ -57,58 +59,42 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // In a real app, this would be an API call to fetch analytics
-      // Mock data logic preserved from original file but ensured to match interface
-      const mockAnalytics: FuelAnalyticsType = {
+      setError(null);
+
+      const filters: RouteFilters = {
+        ...(city ? { city } : {}),
+        // Convert dateRange to ISO strings if provided
+        ...(dateRange && dateRange[0] && dateRange[1]
+          ? {
+              startDate: dateRange[0].toISOString().split('T')[0],
+              endDate: dateRange[1].toISOString().split('T')[0],
+            }
+          : {}),
+      };
+
+      const fuelData = await analyticsApi.getFuelAnalytics(filters);
+
+      const analytics: FuelAnalyticsType = {
         date: new Date().toISOString(),
-        totalFuelConsumed: 1250.75,
-        totalFuelCost: 125075,
-        totalDistance: 18750,
-        averageEfficiency: 15,
-        totalCO2Emissions: 4500,
-        costPerKm: 6.67,
-        fuelPerKm: 0.067,
-        dailyBreakdown: Array.from({ length: 30 }, (_, i) => ({
-          date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          fuelConsumed: 35 + Math.random() * 15,
-          fuelCost: 3500 + Math.random() * 1500,
-          distance: 500 + Math.random() * 200,
-        })),
+        totalFuelConsumed: fuelData.totalFuelConsumed ?? 0,
+        totalFuelCost: fuelData.totalFuelCost ?? 0,
+        totalDistance: fuelData.totalDistance ?? 0,
+        averageEfficiency: fuelData.averageEfficiency ?? 0,
+        totalCO2Emissions: fuelData.totalCO2Emissions ?? 0,
+        costPerKm: fuelData.costPerKm ?? 0,
+        fuelPerKm: fuelData.fuelPerKm ?? 0,
+        // Leave detailed breakdowns empty until backend supports them
+        dailyBreakdown: [],
         breakdown: {
-          byVehicleType: {
-            'standard-van': {
-              fuelConsumed: 750,
-              fuelCost: 75000,
-              efficiency: 14.5,
-              distance: 10875,
-            },
-            'compact-van': {
-              fuelConsumed: 350,
-              fuelCost: 35000,
-              efficiency: 15.5,
-              distance: 5425,
-            },
-            'electric-van': {
-              fuelConsumed: 150.75,
-              fuelCost: 15075,
-              efficiency: 16.2,
-              distance: 2450,
-            },
-          },
-          byTimeRange: [
-            { period: 'Morning', consumption: 45 },
-            { period: 'Afternoon', consumption: 35 },
-            { period: 'Evening', consumption: 20 },
-          ],
+          byVehicleType: {},
+          byTimeRange: [],
         },
       };
 
-      setAnalytics(mockAnalytics);
+      setAnalytics(analytics);
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
+      setError(error instanceof Error ? error.message : 'Failed to fetch fuel analytics');
     } finally {
       setLoading(false);
     }
@@ -123,7 +109,13 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
   }
 
   if (!analytics) {
-    return <div className="text-center py-10 text-muted-foreground">No data available</div>;
+    return (
+      <div className="text-center py-10 text-muted-foreground">
+        {error
+          ? `No fuel analytics available: ${error}`
+          : 'No fuel analytics data available for the selected period.'}
+      </div>
+    );
   }
 
   // Prepare chart data

@@ -4,7 +4,8 @@ import { Download, RefreshCw } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import * as Select from '@radix-ui/react-select';
 import { Check, ChevronDown } from 'lucide-react';
-import { ReportData, ReportColumn } from '@shared/types';
+import { ReportData, ReportColumn, RouteFilters } from '@shared/types';
+import { analyticsApi } from '@/apiClient/analytics';
 
 type ReportType = 'monthly' | 'vehicle' | 'city';
 
@@ -22,6 +23,7 @@ export const FleetReports: React.FC<FleetReportsProps> = ({
   const [reportType, setReportType] = useState<'monthly' | 'vehicle' | 'city'>('monthly');
   const [loading, setLoading] = useState<boolean>(false);
   const [reportData, setReportData] = useState<ReportData[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReportData();
@@ -30,60 +32,40 @@ export const FleetReports: React.FC<FleetReportsProps> = ({
   const fetchReportData = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Mock data - in a real app, this would come from an API
-      const mockData = generateMockReportData(reportType);
-      setReportData(mockData);
+      setError(null);
+
+      const filters: RouteFilters = {
+        ...(city ? { city } : {}),
+        ...(dateRange && dateRange[0] && dateRange[1]
+          ? {
+              startDate: dateRange[0].toISOString().split('T')[0],
+              endDate: dateRange[1].toISOString().split('T')[0],
+            }
+          : {}),
+      };
+
+      // For now, reuse route metrics/time-based metrics to build simple reports.
+      // This avoids mock data while still giving meaningful summaries.
+      const metrics = await analyticsApi.getTimeBasedMetrics('month', filters);
+
+      const mapped: ReportData[] = metrics.map((m, index) => ({
+        key: index,
+        month: new Date(m.period).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
+        totalDistance: m.totalDistance,
+        totalFuelConsumed: m.fuelConsumed ?? 0,
+        totalFuelCost: m.fuelCost ?? 0,
+        averageEfficiency: m.averageSpeed ?? 0,
+        costPerKm: m.totalDistance > 0 && m.fuelCost != null
+          ? (m.fuelCost / m.totalDistance)
+          : 0,
+      }));
+
+      setReportData(mapped);
     } catch (error) {
       console.error('Error fetching report data:', error);
-      console.error('Failed to load report data');
-      // In a real app, you might want to use a toast notification library here
+      setError(error instanceof Error ? error.message : 'Failed to load report data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const generateMockReportData = (type: string) => {
-    const cities = ['Delhi', 'Bangalore', 'Chennai'];
-    const vehicleTypes = [
-      { id: 'standard-van', name: 'Standard Van' },
-      { id: 'compact-van', name: 'Compact Van' },
-      { id: 'electric-van', name: 'Electric Van' },
-    ];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    if (type === 'monthly') {
-      return months.map((month, index) => ({
-        key: index,
-        month,
-        totalDistance: Math.floor(10000 + Math.random() * 10000),
-        totalFuelConsumed: Math.floor(500 + Math.random() * 500),
-        totalFuelCost: Math.floor(50000 + Math.random() * 50000),
-        averageEfficiency: 12 + Math.random() * 8,
-        costPerKm: 5 + Math.random() * 5,
-      }));
-    } else if (type === 'vehicle') {
-      return vehicleTypes.map((vehicle, index) => ({
-        key: index,
-        vehicleType: vehicle.name,
-        totalDistance: Math.floor(10000 + Math.random() * 10000),
-        totalFuelConsumed: Math.floor(500 + Math.random() * 500),
-        totalFuelCost: Math.floor(50000 + Math.random() * 50000),
-        averageEfficiency: 12 + Math.random() * 8,
-        costPerKm: 5 + Math.random() * 5,
-      }));
-    } else {
-      return cities.map((city, index) => ({
-        key: index,
-        city,
-        totalDistance: Math.floor(10000 + Math.random() * 10000),
-        totalFuelConsumed: Math.floor(500 + Math.random() * 500),
-        totalFuelCost: Math.floor(50000 + Math.random() * 50000),
-        averageEfficiency: 12 + Math.random() * 8,
-        costPerKm: 5 + Math.random() * 5,
-      }));
     }
   };
 

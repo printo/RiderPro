@@ -41,6 +41,7 @@ export const API_ENDPOINTS = {
 
   // Shipments
   shipments: {
+    base: apiUrl('/shipments'),
     fetch: apiUrl('/shipments/fetch'),
     get: (id: string) => apiUrl(`/shipments/${id}`),
     create: apiUrl('/shipments/create'),
@@ -55,6 +56,7 @@ export const API_ENDPOINTS = {
     sync: (id: string) => apiUrl(`/shipments/${id}/sync`),
     syncStatus: apiUrl('/shipments/sync-status'),
     batchSync: apiUrl('/shipments/batch-sync'),
+    googleMapsRoute: apiUrl('/shipments/google-maps-route'),
   },
 
   // Dashboard

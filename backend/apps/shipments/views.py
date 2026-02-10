@@ -8,14 +8,16 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q, Count, Avg, Sum, F
 from django.utils import timezone
+from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Shipment, Acknowledgment, RouteSession, RouteTracking
+from .models import Shipment, Acknowledgment, RouteSession, RouteTracking, AcknowledgmentSettings
 from .serializers import (
     ShipmentSerializer, ShipmentCreateSerializer, ShipmentUpdateSerializer,
     AcknowledgmentSerializer, DashboardMetricsSerializer,
     RouteSessionSerializer, RouteTrackingSerializer,
     RouteSessionCreateSerializer, RouteSessionStopSerializer,
-    CoordinateSerializer, ShipmentEventSerializer
+    CoordinateSerializer, ShipmentEventSerializer,
+    ChangeRiderSerializer, BatchChangeRiderSerializer, AcknowledgmentSettingsSerializer
 )
 from .filters import ShipmentFilter
 from utils.pops_client import pops_client
@@ -47,8 +49,9 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             return queryset
         
         # Drivers/riders see only their assigned shipments
-        if user.employee_id:
-            return queryset.filter(employee_id=user.employee_id)
+        employee_id = self._resolve_user_employee_id(user)
+        if employee_id:
+            return queryset.filter(employee_id=employee_id)
         
         return queryset.none()
     
@@ -59,6 +62,101 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         elif self.action in ['update', 'partial_update']:
             return ShipmentUpdateSerializer
         return ShipmentSerializer
+
+    @staticmethod
+    def _resolve_user_employee_id(user):
+        """
+        Resolve employee identifier from authenticated user.
+        Custom User model does not always expose `employee_id`, so fall back to username.
+        """
+        return (
+            getattr(user, 'employee_id', None)
+            or getattr(user, 'username', None)
+            or str(getattr(user, 'id', ''))
+        )
+
+    @staticmethod
+    def _resolve_pops_token(request):
+        """
+        Prefer service token for server-to-server sync, fall back to user token.
+        """
+        return getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or getattr(request.user, 'access_token', None)
+
+    def _sync_shipment_to_pops(self, shipment, request):
+        """
+        Sync shipment updates to POPS for rider/status/route/remarks/ack artifacts.
+        """
+        if not shipment.pops_order_id:
+            return False
+
+        access_token = self._resolve_pops_token(request)
+        if not access_token:
+            logger.warning("POPS sync skipped: missing access token for shipment %s", shipment.id)
+            shipment.sync_status = 'failed'
+            shipment.sync_error = 'Missing POPS access token'
+            shipment.sync_attempts += 1
+            shipment.last_sync_attempt = timezone.now()
+            shipment.save(update_fields=['sync_status', 'sync_error', 'sync_attempts', 'last_sync_attempt', 'updated_at'])
+            return False
+
+        # Map RiderPro fields to POPS Order fields.
+        payload = {}
+        if shipment.status is not None:
+            payload['status'] = shipment.status
+        if shipment.employee_id:
+            payload['assigned_to'] = shipment.employee_id
+        if shipment.route_name:
+            payload['route'] = shipment.route_name
+        if shipment.remarks:
+            payload['remarks'] = shipment.remarks
+
+        if shipment.photo_url:
+            payload['acknowledgement_url'] = shipment.photo_url
+        if shipment.signed_pdf_url:
+            payload['acknowledgement_submission_file'] = shipment.signed_pdf_url
+        ack_artifacts = {}
+        if shipment.signature_url:
+            ack_artifacts['signature_url'] = shipment.signature_url
+        if shipment.photo_url:
+            ack_artifacts['photo_url'] = shipment.photo_url
+        if shipment.signed_pdf_url:
+            ack_artifacts['signed_pdf_url'] = shipment.signed_pdf_url
+        if ack_artifacts:
+            payload['callback_response'] = {
+                'source': 'riderpro',
+                'riderpro_acknowledgment': ack_artifacts,
+            }
+
+        if not payload:
+            return False
+
+        try:
+            result = pops_client.update_order_fields(shipment.pops_order_id, payload, access_token)
+            if result is None:
+                raise ValueError("POPS sync returned empty response")
+
+            shipment.synced_to_external = True
+            shipment.sync_status = 'synced'
+            shipment.sync_error = ''
+            shipment.sync_attempts = 0
+            shipment.last_sync_attempt = timezone.now()
+            shipment.save(update_fields=[
+                'synced_to_external', 'sync_status', 'sync_error',
+                'sync_attempts', 'last_sync_attempt', 'updated_at'
+            ])
+            return True
+        except Exception as exc:
+            logger.error("Failed POPS sync for shipment %s: %s", shipment.id, exc, exc_info=True)
+            shipment.synced_to_external = False
+            shipment.sync_status = 'failed'
+            shipment.sync_error = str(exc)
+            shipment.sync_attempts += 1
+            shipment.last_sync_attempt = timezone.now()
+            shipment.save(update_fields=[
+                'synced_to_external', 'sync_status', 'sync_error',
+                'sync_attempts', 'last_sync_attempt', 'updated_at'
+            ])
+            return False
     
     def create(self, request, *args, **kwargs):
         """Create new shipment"""
@@ -66,19 +164,8 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         shipment = serializer.save()
         
-        # If pops_order_id is provided, sync to POPS
-        if shipment.pops_order_id and request.user.access_token:
-            try:
-                pops_client.update_order_status(
-                    shipment.pops_order_id,
-                    {'status': shipment.status},
-                    request.user.access_token
-                )
-                shipment.synced_to_external = True
-                shipment.sync_status = 'synced'
-                shipment.save()
-            except Exception as e:
-                logger.error(f"Failed to sync shipment to POPS: {e}")
+        # Sync to POPS when order mapping is available
+        self._sync_shipment_to_pops(shipment, request)
         
         return Response(
             ShipmentSerializer(shipment).data,
@@ -86,11 +173,30 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         )
     
     def update(self, request, *args, **kwargs):
-        """Update shipment"""
+        """
+        Update shipment
+        Managers can update: route_name, special_instructions, remarks, employee_id
+        Riders can update: status (with restrictions)
+        """
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        
+        # Check if user is manager/admin for certain fields
+        is_manager = (request.user.is_superuser or request.user.is_staff or 
+                     request.user.role in ['admin', 'manager'] or request.user.is_ops_team)
+        
+        # If updating route_name, special_instructions, or employee_id, require manager permissions
+        if not is_manager:
+            restricted_fields = ['route_name', 'special_instructions', 'employee_id']
+            if any(field in request.data for field in restricted_fields):
+                return Response(
+                    {'success': False, 'message': 'Only managers can update route, special instructions, or rider assignment'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
+        old_employee_id = instance.employee_id
         
         # Reset sync status when updating
         shipment = serializer.save()
@@ -99,19 +205,22 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         shipment.sync_attempts = 0
         shipment.save()
         
-        # Sync to POPS if pops_order_id exists
-        if shipment.pops_order_id and request.user.access_token:
-            try:
-                pops_client.update_order_status(
-                    shipment.pops_order_id,
-                    {'status': shipment.status},
-                    request.user.access_token
-                )
-                shipment.synced_to_external = True
-                shipment.sync_status = 'synced'
-                shipment.save()
-            except Exception as e:
-                logger.error(f"Failed to sync shipment update to POPS: {e}")
+        # If employee_id changed, create assignment event
+        if 'employee_id' in request.data and request.data['employee_id'] != old_employee_id:
+            from .services import ShipmentStatusService
+            ShipmentStatusService.create_event(
+                shipment=shipment,
+                event_type='assignment',
+                metadata={
+                    'old_employee_id': old_employee_id,
+                    'new_employee_id': request.data['employee_id'],
+                    'changed_by': request.user.username or str(request.user.id)
+                },
+                triggered_by=f"{request.user.username or request.user.id}"
+            )
+        
+        # Sync full mutable payload to POPS (status/rider/route/remarks/ack artifacts)
+        self._sync_shipment_to_pops(shipment, request)
         
         return Response(ShipmentSerializer(shipment).data)
     
@@ -140,25 +249,19 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        shipment.status = status_value
+        # Use centralized status service
+        from .services import ShipmentStatusService
+        triggered_by = f"{request.user.username or request.user.id}"
+        shipment, event = ShipmentStatusService.update_status(
+            shipment=shipment,
+            new_status=status_value,
+            triggered_by=triggered_by,
+            metadata={'remarks': remarks},
+            sync_to_pops=False
+        )
         shipment.remarks = remarks
-        shipment.synced_to_external = False
-        shipment.sync_status = 'pending'
         shipment.save()
-        
-        # Sync to POPS
-        if shipment.pops_order_id and request.user.access_token:
-            try:
-                pops_client.update_order_status(
-                    shipment.pops_order_id,
-                    {'status': status_value, 'remarks': remarks},
-                    request.user.access_token
-                )
-                shipment.synced_to_external = True
-                shipment.sync_status = 'synced'
-                shipment.save()
-            except Exception as e:
-                logger.error(f"Failed to sync remarks to POPS: {e}")
+        self._sync_shipment_to_pops(shipment, request)
         
         return Response({
             'success': True,
@@ -230,10 +333,14 @@ class ShipmentViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def acknowledgement(self, request, pk=None):
-        """Upload acknowledgment (signature and photo)"""
+        """
+        Upload acknowledgment (signature and photo)
+        Validates against region-based acknowledgment settings
+        """
         shipment = self.get_object()
         signature_url = request.data.get('signature_url') or request.data.get('signatureData')
         photo_url = request.data.get('photo_url')
+        signed_pdf_url = request.data.get('signed_pdf_url')
         
         # Handle file uploads if provided
         if 'signature' in request.FILES:
@@ -248,55 +355,450 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             # TODO: Implement file upload handling
             photo_url = f"/media/photos/{photo_file.name}"
         
+        # Validate against acknowledgment settings
+        region = shipment.region
+        if not region and shipment.address and isinstance(shipment.address, dict):
+            region = shipment.address.get('city') or shipment.address.get('state')
+        
+        if region:
+            try:
+                ack_settings = AcknowledgmentSettings.objects.get(region=region, is_active=True)
+                has_signature = bool(signature_url)
+                has_photo = bool(photo_url)
+                
+                is_valid, error_message = ack_settings.validate_acknowledgment(has_signature, has_photo)
+                
+                if not is_valid and not ack_settings.allow_skip_acknowledgment:
+                    return Response(
+                        {'success': False, 'message': error_message},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            except AcknowledgmentSettings.DoesNotExist:
+                pass  # No settings for this region, allow any acknowledgment
+        
         # Create or update acknowledgment
+        captured_by = self._resolve_user_employee_id(request.user)
         acknowledgment, created = Acknowledgment.objects.get_or_create(
             shipment=shipment,
             defaults={
                 'signature_url': signature_url,
                 'photo_url': photo_url,
-                'acknowledgment_captured_by': request.user.employee_id or str(request.user.id)
+                'acknowledgment_captured_by': captured_by
             }
         )
         
         if not created:
             acknowledgment.signature_url = signature_url or acknowledgment.signature_url
             acknowledgment.photo_url = photo_url or acknowledgment.photo_url
-            acknowledgment.acknowledgment_captured_by = request.user.employee_id or str(request.user.id)
+            acknowledgment.acknowledgment_captured_by = captured_by
             acknowledgment.save()
         
         # Update shipment
         shipment.signature_url = acknowledgment.signature_url
         shipment.photo_url = acknowledgment.photo_url
+        if signed_pdf_url:
+            shipment.signed_pdf_url = signed_pdf_url
         shipment.acknowledgment_captured_at = acknowledgment.acknowledgment_captured_at
         shipment.acknowledgment_captured_by = acknowledgment.acknowledgment_captured_by
         shipment.save()
         
         # Sync to POPS
-        if shipment.pops_order_id and request.user.access_token:
-            try:
-                pops_client.update_order_status(
-                    shipment.pops_order_id,
-                    {
-                        'status': shipment.status,
-                        'acknowledgment': {
-                            'signature_url': acknowledgment.signature_url,
-                            'photo_url': acknowledgment.photo_url,
-                            'acknowledgment_captured_at': acknowledgment.acknowledgment_captured_at.isoformat()
-                        }
-                    },
-                    request.user.access_token
-                )
-                shipment.synced_to_external = True
-                shipment.sync_status = 'synced'
-                shipment.save()
-            except Exception as e:
-                logger.error(f"Failed to sync acknowledgment to POPS: {e}")
+        self._sync_shipment_to_pops(shipment, request)
         
         return Response({
             'success': True,
             'message': 'Acknowledgment saved successfully',
             'acknowledgment': AcknowledgmentSerializer(acknowledgment).data
         })
+    
+    @action(detail=True, methods=['post'], url_path='change-rider')
+    def change_rider(self, request, pk=None):
+        """
+        Change the rider assigned to a shipment (Manager only)
+        
+        Validations:
+        - Only managers/admins can change riders
+        - Cannot change if shipment is already in progress (In Transit, Picked Up, Delivered, Returned, Cancelled)
+        - New rider must exist and be approved
+        """
+        shipment = self.get_object()
+        
+        # Check permissions - only managers/admins
+        if not (request.user.is_superuser or request.user.is_staff or 
+                request.user.role in ['admin', 'manager'] or request.user.is_ops_team):
+            return Response(
+                {'success': False, 'message': 'Only managers and admins can change riders'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = ChangeRiderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        new_employee_id = serializer.validated_data['employee_id']
+        reason = serializer.validated_data.get('reason', '')
+        
+        # Validation: Cannot change rider if shipment is already in progress
+        blocked_statuses = ['In Transit', 'Picked Up', 'Delivered', 'Returned', 'Cancelled']
+        if shipment.status in blocked_statuses:
+            return Response(
+                {
+                    'success': False,
+                    'message': f'Cannot change rider. Shipment is already {shipment.status}. '
+                              f'Rider can only be changed when status is Initiated or Assigned.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Validation: Check if new rider exists and is approved
+        try:
+            from apps.authentication.models import RiderAccount
+            RiderAccount.objects.get(
+                rider_id=new_employee_id,
+                is_active=True,
+                is_approved=True
+            )
+        except RiderAccount.DoesNotExist:
+            return Response(
+                {
+                    'success': False,
+                    'message': f'Rider with ID "{new_employee_id}" not found or not approved in Rider Accounts.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Store old rider for event logging
+        old_employee_id = shipment.employee_id
+        
+        # Update shipment
+        shipment.employee_id = new_employee_id
+        shipment.synced_to_external = False
+        shipment.sync_status = 'needs_sync'
+        shipment.save()
+        self._sync_shipment_to_pops(shipment, request)
+        
+        # Create assignment event
+        from .services import ShipmentStatusService
+        ShipmentStatusService.create_event(
+            shipment=shipment,
+            event_type='assignment',
+            metadata={
+                'old_employee_id': old_employee_id,
+                'new_employee_id': new_employee_id,
+                'reason': reason,
+                'changed_by': request.user.username or str(request.user.id)
+            },
+            triggered_by=f"{request.user.username or request.user.id}"
+        )
+        
+        logger.info(
+            f"Rider changed for shipment {shipment.id}: {old_employee_id} -> {new_employee_id} "
+            f"(by {request.user.username or request.user.id})"
+        )
+        
+        return Response({
+            'success': True,
+            'message': f'Rider changed from {old_employee_id} to {new_employee_id}',
+            'shipment': ShipmentSerializer(shipment).data
+        })
+    
+    @action(detail=False, methods=['get'], url_path='available-riders')
+    def available_riders(self, request):
+        """
+        Get list of available riders for assignment
+        Returns active and approved riders from RiderAccount table only
+        """
+        try:
+            from apps.authentication.models import RiderAccount
+            
+            # Get approved riders from RiderAccount table only
+            riders = RiderAccount.objects.filter(
+                is_active=True,
+                is_approved=True
+            ).values('rider_id', 'full_name', 'email').order_by('rider_id')
+            
+            rider_list = [
+                {
+                    'id': r['rider_id'],
+                    'name': r.get('full_name') or r['rider_id'],
+                    'email': r.get('email', '')
+                }
+                for r in riders
+            ]
+            
+            return Response({
+                'success': True,
+                'riders': rider_list,
+                'count': len(rider_list)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error fetching available riders: {e}", exc_info=True)
+            return Response(
+                {'success': False, 'message': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['get'], url_path='available-routes')
+    def available_routes(self, request):
+        """
+        Get list of distinct route names from shipments
+        """
+        try:
+            routes = Shipment.objects.exclude(
+                route_name__isnull=True
+            ).exclude(
+                route_name=''
+            ).values_list('route_name', flat=True).distinct().order_by('route_name')
+            
+            route_list = [{'name': route, 'value': route} for route in routes if route]
+            
+            return Response({
+                'success': True,
+                'routes': route_list,
+                'count': len(route_list)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error fetching available routes: {e}", exc_info=True)
+            return Response(
+                {'success': False, 'message': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=['post'], url_path='batch-change-rider')
+    def batch_change_rider(self, request):
+        """
+        Batch change rider for multiple shipments
+        Only managers and admins can perform this action
+        """
+        # Check permissions
+        is_manager = (request.user.is_superuser or request.user.is_staff or 
+                     request.user.role in ['admin', 'manager'] or request.user.is_ops_team)
+        
+        if not is_manager:
+            return Response(
+                {'success': False, 'message': 'Only managers and admins can batch change riders'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = BatchChangeRiderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        shipment_ids = serializer.validated_data['shipment_ids']
+        new_employee_id = serializer.validated_data['employee_id']
+        reason = serializer.validated_data.get('reason', '')
+        
+        # Validation: Check if new rider exists in RiderAccount
+        try:
+            from apps.authentication.models import RiderAccount
+            RiderAccount.objects.get(
+                rider_id=new_employee_id,
+                is_active=True,
+                is_approved=True
+            )
+        except RiderAccount.DoesNotExist:
+            return Response(
+                {
+                    'success': False,
+                    'message': f'Rider with ID "{new_employee_id}" not found or not approved in Rider Accounts.'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Get shipments
+        shipments = Shipment.objects.filter(id__in=shipment_ids)
+        
+        if not shipments.exists():
+            return Response(
+                {'success': False, 'message': 'No shipments found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Validation: Cannot change rider if shipment is already in progress
+        blocked_statuses = ['In Transit', 'Picked Up', 'Delivered', 'Returned', 'Cancelled']
+        blocked_shipments = shipments.filter(status__in=blocked_statuses)
+        
+        if blocked_shipments.exists():
+            blocked_ids = list(blocked_shipments.values_list('id', flat=True))
+            return Response(
+                {
+                    'success': False,
+                    'message': f'Cannot change rider for {len(blocked_shipments)} shipment(s). '
+                              f'They are already in progress. Shipment IDs: {blocked_ids}',
+                    'blocked_shipment_ids': blocked_ids
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update shipments
+        updated_count = 0
+        failed_count = 0
+        results = []
+        
+        for shipment in shipments:
+            try:
+                old_employee_id = shipment.employee_id
+                
+                # Update shipment
+                shipment.employee_id = new_employee_id
+                shipment.synced_to_external = False
+                shipment.sync_status = 'needs_sync'
+                shipment.save()
+                self._sync_shipment_to_pops(shipment, request)
+                
+                # Create assignment event
+                from .services import ShipmentStatusService
+                ShipmentStatusService.create_event(
+                    shipment=shipment,
+                    event_type='assignment',
+                    metadata={
+                        'old_employee_id': old_employee_id,
+                        'new_employee_id': new_employee_id,
+                        'reason': reason,
+                        'changed_by': request.user.username or str(request.user.id),
+                        'batch_update': True
+                    },
+                    triggered_by=f"{request.user.username or request.user.id}"
+                )
+                
+                updated_count += 1
+                results.append({
+                    'shipment_id': shipment.id,
+                    'success': True,
+                    'old_rider': old_employee_id,
+                    'new_rider': new_employee_id
+                })
+                
+            except Exception as e:
+                failed_count += 1
+                results.append({
+                    'shipment_id': shipment.id,
+                    'success': False,
+                    'error': str(e)
+                })
+                logger.error(f"Failed to update shipment {shipment.id}: {e}")
+        
+        logger.info(
+            f"Batch rider change: {updated_count} updated, {failed_count} failed "
+            f"(by {request.user.username or request.user.id})"
+        )
+        
+        return Response({
+            'success': updated_count > 0,
+            'message': f'Updated {updated_count} shipment(s), {failed_count} failed',
+            'updated_count': updated_count,
+            'failed_count': failed_count,
+            'results': results
+        })
+    
+    @action(detail=True, methods=['get'], url_path='pdf-document')
+    def pdf_document(self, request, pk=None):
+        """
+        Get PDF document for signing (if available)
+        Returns PDF URL or generates one if template exists
+        """
+        shipment = self.get_object()
+        
+        # Check if PDF already exists
+        if shipment.signed_pdf_url:
+            return Response({
+                'success': True,
+                'pdf_url': shipment.signed_pdf_url,
+                'is_signed': True
+            })
+        
+        if shipment.pdf_url:
+            return Response({
+                'success': True,
+                'pdf_url': shipment.pdf_url,
+                'is_signed': False
+            })
+        
+        # Try to get PDF from acknowledgment settings
+        if shipment.region:
+            try:
+                settings = AcknowledgmentSettings.objects.get(region=shipment.region, is_active=True)
+                if settings.pdf_template_url:
+                    return Response({
+                        'success': True,
+                        'pdf_url': settings.pdf_template_url,
+                        'is_signed': False,
+                        'is_template': True
+                    })
+            except AcknowledgmentSettings.DoesNotExist:
+                pass
+        
+        return Response({
+            'success': False,
+            'message': 'No PDF document available for this shipment'
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    @action(detail=True, methods=['post'], url_path='upload-signed-pdf')
+    def upload_signed_pdf(self, request, pk=None):
+        """
+        Upload signed PDF document
+        """
+        shipment = self.get_object()
+        
+        signed_pdf_url = request.data.get('signed_pdf_url')
+        if not signed_pdf_url:
+            return Response(
+                {'success': False, 'message': 'signed_pdf_url is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        shipment.signed_pdf_url = signed_pdf_url
+        shipment.synced_to_external = False
+        shipment.sync_status = 'pending'
+        shipment.save()
+        self._sync_shipment_to_pops(shipment, request)
+        
+        return Response({
+            'success': True,
+            'message': 'Signed PDF uploaded successfully',
+            'signed_pdf_url': signed_pdf_url
+        })
+    
+    @action(detail=True, methods=['get'], url_path='acknowledgment-settings')
+    def acknowledgment_settings(self, request, pk=None):
+        """
+        Get acknowledgment settings for this shipment's region
+        """
+        shipment = self.get_object()
+        
+        if not shipment.region:
+            # Try to infer region from address
+            if shipment.address and isinstance(shipment.address, dict):
+                region = shipment.address.get('city') or shipment.address.get('state')
+            else:
+                region = None
+            
+            if not region:
+                return Response({
+                    'success': False,
+                    'message': 'No region found for this shipment',
+                    'settings': None
+                })
+        else:
+            region = shipment.region
+        
+        try:
+            settings = AcknowledgmentSettings.objects.get(region=region, is_active=True)
+            return Response({
+                'success': True,
+                'settings': AcknowledgmentSettingsSerializer(settings).data
+            })
+        except AcknowledgmentSettings.DoesNotExist:
+            # Return default settings
+            return Response({
+                'success': True,
+                'settings': {
+                    'signature_required': 'optional',
+                    'photo_required': 'optional',
+                    'require_pdf': False,
+                    'allow_skip_acknowledgment': False
+                }
+            })
     
     @action(detail=False, methods=['patch'])
     def batch(self, request):
@@ -318,10 +820,11 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                 shipment = Shipment.objects.get(id=shipment_id)
                 serializer = ShipmentUpdateSerializer(shipment, data=update_data, partial=True)
                 if serializer.is_valid():
-                    serializer.save()
+                    shipment = serializer.save()
                     shipment.synced_to_external = False
                     shipment.sync_status = 'pending'
                     shipment.save()
+                    self._sync_shipment_to_pops(shipment, request)
                     updated_count += 1
             except Shipment.objects.model.DoesNotExist:
                 continue
@@ -654,15 +1157,30 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             shipment_id=serializer.validated_data['shipment_id']
         )
         
-        # Update shipment status if needed
+        # Update shipment status if needed using centralized service
         try:
+            from .services import ShipmentStatusService
             shipment = Shipment.objects.get(id=serializer.validated_data['shipment_id'])
+            triggered_by = f"{request.user.username or request.user.id}" if hasattr(request, 'user') else 'gps_tracking'
+            
             if serializer.validated_data['event_type'] == 'delivery':
-                shipment.status = 'Delivered'
                 shipment.actual_delivery_time = timezone.now()
+                shipment.save()
+                ShipmentStatusService.update_status(
+                    shipment=shipment,
+                    new_status='Delivered',
+                    triggered_by=triggered_by,
+                    metadata={'gps_tracking_id': tracking.id},
+                    sync_to_pops=True
+                )
             elif serializer.validated_data['event_type'] == 'pickup':
-                shipment.status = 'Picked Up'
-            shipment.save()
+                ShipmentStatusService.update_status(
+                    shipment=shipment,
+                    new_status='Picked Up',
+                    triggered_by=triggered_by,
+                    metadata={'gps_tracking_id': tracking.id},
+                    sync_to_pops=True
+                )
         except Shipment.DoesNotExist:
             pass
         
@@ -906,6 +1424,58 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 'session': None,
                 'message': 'No active session found'
             })
+    
+    @action(detail=False, methods=['post'], url_path='google-maps-route')
+    def google_maps_route(self, request):
+        """
+        Generate Google Maps deep link URL for Android navigation with multiple waypoints
+        Expected payload: {
+            "shipment_ids": [1, 2, 3],
+            "start_location": {"latitude": 12.9716, "longitude": 77.5946},  # Optional
+            "optimize": true  # Optional, default true
+        }
+        """
+        shipment_ids = request.data.get('shipment_ids', [])
+        start_location = request.data.get('start_location')
+        optimize = request.data.get('optimize', True)
+        
+        if not shipment_ids:
+            return Response(
+                {'error': 'shipment_ids is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            shipments = Shipment.objects.filter(id__in=shipment_ids)
+            if not shipments.exists():
+                return Response(
+                    {'error': 'No shipments found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            from .services import RoutePlanningService
+            
+            start_tuple = None
+            if start_location:
+                start_tuple = (start_location.get('latitude'), start_location.get('longitude'))
+            
+            url = RoutePlanningService.generate_google_maps_url(
+                shipments=list(shipments),
+                start_location=start_tuple,
+                optimize=optimize
+            )
+            
+            return Response({
+                'success': True,
+                'url': url,
+                'shipment_count': shipments.count()
+            })
+        except Exception as e:
+            logger.error(f"Failed to generate Google Maps route: {e}", exc_info=True)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     
     @action(detail=True, methods=['get'], url_path='summary')
     def session_summary(self, request, pk=None):

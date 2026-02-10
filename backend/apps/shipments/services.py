@@ -1,412 +1,342 @@
 """
-Services for shipment delivery - location tracking for users
-Consolidated from routes app
+Shipment services for RiderPro
+Includes centralized status change management with event emission
 """
 import logging
-import uuid
-from typing import Dict, Any, Optional
-from datetime import datetime
+from typing import Optional, Dict, Any
 from django.utils import timezone
-from django.contrib.auth import get_user_model
-from .models import RouteSession, RouteTracking
+from django.conf import settings
+from .models import Shipment, OrderEvent, Zone
 
 logger = logging.getLogger(__name__)
-User = get_user_model()
 
 
-class LocationTrackingService:
+class ShipmentStatusService:
     """
-    Service for tracking user/rider locations in real-time
-    """
-    
-    @staticmethod
-    def track_location(user_id: str, latitude: float, longitude: float, 
-                      accuracy: Optional[float] = None, speed: Optional[float] = None,
-                      session_id: Optional[str] = None) -> Optional[RouteTracking]:
-        """
-        Track user location
-        
-        Args:
-            user_id: User/employee ID
-            latitude: GPS latitude
-            longitude: GPS longitude
-            accuracy: GPS accuracy in meters
-            speed: Speed in m/s
-            session_id: Optional route session ID
-        
-        Returns:
-            Created RouteTracking record, or None if failed
-        """
-        try:
-            # Get or create active session if session_id not provided
-            if not session_id:
-                active_session = RouteSession.objects.filter(
-                    employee_id=user_id,
-                    status='active'
-                ).order_by('-start_time').first()
-                
-                if active_session:
-                    session_id = active_session.id
-                else:
-                    # Create new session automatically
-                    session_id = f'sess-{int(timezone.now().timestamp() * 1000)}-{user_id}'
-                    active_session = RouteSession.objects.create(
-                        id=session_id,
-                        employee_id=user_id,
-                        start_latitude=latitude,
-                        start_longitude=longitude,
-                        start_time=timezone.now(),
-                        status='active'
-                    )
-                    logger.info(f"Auto-created route session {session_id} for location tracking")
-            
-            # Get session
-            try:
-                session = RouteSession.objects.get(id=session_id, employee_id=user_id)
-            except RouteSession.DoesNotExist:
-                logger.warning(f"Session {session_id} not found for user {user_id}")
-                return None
-            
-            # Create tracking point
-            tracking = RouteTracking.objects.create(
-                session=session,
-                employee_id=user_id,
-                latitude=latitude,
-                longitude=longitude,
-                timestamp=timezone.now(),
-                accuracy=accuracy,
-                speed=speed,
-                event_type='gps'
-            )
-            
-            return tracking
-            
-        except Exception as e:
-            logger.error(f"Failed to track location: {e}", exc_info=True)
-            return None
-    
-    @staticmethod
-    def get_user_current_location(user_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Get user's current location (latest tracking point)
-        
-        Args:
-            user_id: User/employee ID
-        
-        Returns:
-            Latest location data, or None if not found
-        """
-        try:
-            latest_tracking = RouteTracking.objects.filter(
-                employee_id=user_id
-            ).order_by('-timestamp').first()
-            
-            if latest_tracking:
-                return {
-                    'latitude': latest_tracking.latitude,
-                    'longitude': latest_tracking.longitude,
-                    'timestamp': latest_tracking.timestamp.isoformat(),
-                    'accuracy': latest_tracking.accuracy,
-                    'speed': latest_tracking.speed,
-                    'session_id': latest_tracking.session_id
-                }
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Failed to get user location: {e}")
-            return None
-    
-    @staticmethod
-    def get_active_riders_locations() -> list:
-        """
-        Get locations of all active riders
-        
-        Returns:
-            List of rider locations
-        """
-        try:
-            # Get all active route sessions
-            active_sessions = RouteSession.objects.filter(status='active')
-            
-            locations = []
-            for session in active_sessions:
-                latest_tracking = session.tracking_points.order_by('-timestamp').first()
-                if latest_tracking:
-                    locations.append({
-                        'employee_id': session.employee_id,
-                        'latitude': latest_tracking.latitude,
-                        'longitude': latest_tracking.longitude,
-                        'timestamp': latest_tracking.timestamp.isoformat(),
-                        'session_id': session.id,
-                        'start_time': session.start_time.isoformat()
-                    })
-            
-            return locations
-            
-        except Exception as e:
-            logger.error(f"Failed to get active riders locations: {e}")
-            return []
-
-
-# Singleton instance
-location_tracking = LocationTrackingService()
-
-
-# POPS Order Receiver Service
-class PopsOrderReceiver:
-    """
-    Service for receiving and processing orders from POPS
+    Centralized service for managing shipment status changes
+    Emits events and handles POPS synchronization
     """
     
     @staticmethod
-    def receive_order_from_pops(order_data: dict, rider_id: str, api_source: str = None):
+    def update_status(
+        shipment: Shipment,
+        new_status: str,
+        old_status: Optional[str] = None,
+        triggered_by: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        sync_to_pops: bool = True
+    ) -> tuple[Shipment, OrderEvent]:
         """
-        Receive order from POPS and create shipment
+        Update shipment status and emit event
         
         Args:
-            order_data: POPS Order data (can be raw POPS order or transformed shipment)
-            rider_id: Rider/employee ID
-            api_source: Source of the API call (e.g., printo_api_key_2024)
+            shipment: Shipment instance to update
+            new_status: New status value
+            old_status: Previous status (auto-detected if not provided)
+            triggered_by: User/system that triggered the change
+            metadata: Additional event metadata
+            sync_to_pops: Whether to sync to POPS immediately
         
         Returns:
-            Created Shipment instance, or None if failed
+            Tuple of (updated_shipment, created_event)
         """
-        from .models import Shipment
+        if old_status is None:
+            old_status = shipment.status
         
-        try:
-            # Handle both raw POPS order format and transformed shipment format
-            # Transformed format has: orderId, status, deliveryAddress, recipientName, etc.
-            # Raw format has: orderId, is_pickup, locationId, contactPoint, etc.
-            
-            # Log what we received for debugging
-            logger.debug(f"Received order_data with keys: {list(order_data.keys())}")
-            logger.debug(f"Order data sample: {str(order_data)[:200]}")
-            
-            # Get orderId from POPS (changed from 'id' to 'orderId')
-            # Try multiple possible keys for backward compatibility
-            order_id = (
-                order_data.get('orderId') or 
-                order_data.get('order_id') or 
-                order_data.get('id')  # Fallback for legacy format
-            )
-            if not order_id:
-                logger.error(f"Order data missing orderId. Available keys: {list(order_data.keys())}")
-                logger.error(f"Full order_data: {order_data}")
-                return None
-            
-            # Shipment ID will be auto-generated by Django (AutoField)
-            # No need to generate it manually
-            
-            # Don't set type initially - it will be set later when rider picks up
-            # Type starts as None/null and becomes "pickup" when rider picks it up
-            shipment_type = None
-            
-            # Extract customer info (handle both formats)
-            customer_name = (
-                order_data.get('recipientName') or 
-                order_data.get('customerName') or 
-                (order_data.get('contactPoint', {}).get('name') if isinstance(order_data.get('contactPoint'), dict) else '') or
-                ''
-            )
-            customer_mobile = (
-                order_data.get('recipientPhone') or 
-                order_data.get('customerMobile') or 
-                (order_data.get('contactPoint', {}).get('phone') if isinstance(order_data.get('contactPoint'), dict) else '') or
-                ''
-            )
-            
-            # Extract address - POPS now sends addresses as JSON objects directly
-            # No need to build addresses, just use what POPS sends
-            address_json = order_data.get('deliveryAddress')
-            pickup_address_json = order_data.get('pickupAddress')
-            
-            # Ensure addresses are dicts (JSON objects), not strings
-            if address_json and isinstance(address_json, str):
-                # Legacy format: convert string to dict
-                address_json = {"address": address_json}
-            if pickup_address_json and isinstance(pickup_address_json, str):
-                # Legacy format: convert string to dict
-                pickup_address_json = {"address": pickup_address_json}
-            
-            # Extract coordinates (may need geocoding if not present)
-            latitude = order_data.get('latitude')
-            longitude = order_data.get('longitude')
-            
-            # Extract cost
-            cost = float(order_data.get('cost', 0) or 0)
-            
-            # Extract package box information
-            package_boxes = order_data.get('packageBoxes', [])
-            package_summary = order_data.get('packageSummary', {})
-            
-            # Extract weight from summary or legacy fields
-            weight = float(package_summary.get('total_weight', 0) or order_data.get('weight', 0) or 0)
-            
-            # Store package boxes as JSON if available
-            package_boxes_json = None
-            if package_boxes:
-                # package_boxes is already a list/dict, JSONField will handle it
-                package_boxes_json = package_boxes
-            
-            # Extract route name
-            route_name = order_data.get('routeName') or order_data.get('route', '')
-            
-            # Format employee_id as "id-name" if it contains a hyphen (already formatted from POPS)
-            # If not formatted, try to get name from user
-            employee_id_formatted = rider_id
-            if rider_id and '-' not in str(rider_id):
-                # Try to get user name if employee_id is just an ID
-                try:
-                    from django.contrib.auth import get_user_model
-                    User = get_user_model()
-                    # Try to find user by username (which is the email value from estimator) or id
-                    try:
-                        user = User.objects.get(username=rider_id)
-                    except User.DoesNotExist:
-                        try:
-                            user = User.objects.get(id=int(rider_id))
-                        except (ValueError, User.DoesNotExist):
-                            user = None
-                    
-                    if user and user.full_name:
-                        employee_id_formatted = f"{rider_id}-{user.full_name.strip()}"
-                except Exception as e:
-                    logger.debug(f"Could not format employee_id {rider_id}: {e}")
-                    employee_id_formatted = rider_id
-            
-            # Extract delivery time
-            delivery_time_str = order_data.get('estimatedDeliveryTime') or order_data.get('deliveryTime')
-            if delivery_time_str:
-                try:
-                    # Try parsing ISO format first
-                    if isinstance(delivery_time_str, str):
-                        if 'T' in delivery_time_str:
-                            delivery_time_str = delivery_time_str.replace('Z', '+00:00')
-                            delivery_time = datetime.fromisoformat(delivery_time_str)
-                        else:
-                            delivery_time = timezone.now()
-                    elif isinstance(delivery_time_str, (int, float)):
-                        delivery_time = datetime.fromtimestamp(delivery_time_str, tz=timezone.utc)
-                    else:
-                        delivery_time = timezone.now()
-                except Exception:
-                    delivery_time = timezone.now()
-            else:
-                delivery_time = timezone.now()
-            
-            # Set status to "Initiated" when receiving from POPS
-            status = 'Initiated'
-            
-            # Check if shipment already exists by pops_order_id (not by id)
-            pops_order_id_int = int(order_id) if str(order_id).isdigit() else None
-            try:
-                if pops_order_id_int:
-                    shipment = Shipment.objects.get(pops_order_id=pops_order_id_int)
-                    created = False
-                else:
-                    raise Shipment.DoesNotExist
-            except Shipment.DoesNotExist:
-                # Create new shipment - ID will be auto-generated (AutoField)
-                shipment = Shipment.objects.create(
-                    type=shipment_type,  # None initially
-                    customer_name=customer_name,
-                    customer_mobile=customer_mobile,
-                    address=address_json,  # JSON format
-                    pickup_address=pickup_address_json,  # JSON format from clickpost logic
-                    latitude=latitude,
-                    longitude=longitude,
-                    cost=cost,
-                    delivery_time=delivery_time,
-                    route_name=route_name,
-                    employee_id=employee_id_formatted,
-                    weight=weight,
-                    package_boxes=package_boxes_json,
-                    status=status,  # "Initiated"
-                    pops_order_id=pops_order_id_int,
-                    pops_shipment_uuid=order_data.get('uuid'),
-                    sync_status='synced',
-                    synced_to_external=True,
-                    api_source=api_source,  # Track the API source
-                )
-                created = True
-            
-            if not created:
-                # Update existing shipment - but don't overwrite id or type if already set
-                shipment.employee_id = employee_id_formatted
-                if weight > 0:
-                    shipment.weight = weight
-                if package_boxes_json:
-                    shipment.package_boxes = package_boxes_json
-                # Only update status if it's still "Initiated" or null
-                if not shipment.status or shipment.status == 'Initiated':
-                    shipment.status = status
-                shipment.sync_status = 'synced'
-                shipment.synced_to_external = True
-                if address_json:
-                    shipment.address = address_json
-                if pickup_address_json:
-                    shipment.pickup_address = pickup_address_json
-                if customer_name:
-                    shipment.customer_name = customer_name
-                if customer_mobile:
-                    shipment.customer_mobile = customer_mobile
-                # Update API source if provided (for tracking source changes)
-                if api_source:
-                    shipment.api_source = api_source
-                shipment.save()
-            
-            logger.info(f"Order received from {api_source or 'unknown source'}: orderId={order_id}, shipment_id={shipment.id} for rider {rider_id}")
-            return shipment
-            
-        except Exception as e:
-            logger.error(f"Failed to receive order from POPS: {e}", exc_info=True)
-            return None
+        # Update shipment
+        shipment.status = new_status
+        shipment.synced_to_external = False
+        shipment.sync_status = 'pending'
+        shipment.save()
+        
+        # Create event
+        event = OrderEvent.objects.create(
+            shipment=shipment,
+            event_type='status_change',
+            old_status=old_status,
+            new_status=new_status,
+            triggered_by=triggered_by or 'system',
+            metadata=metadata or {}
+        )
+        
+        logger.info(
+            f"Status updated: Shipment {shipment.id} from '{old_status}' to '{new_status}' "
+            f"(Event {event.id}, triggered by {triggered_by or 'system'})"
+        )
+        
+        # Sync to POPS if requested
+        if sync_to_pops and shipment.pops_order_id:
+            ShipmentStatusService._sync_to_pops(shipment, event, new_status)
+        
+        return shipment, event
     
     @staticmethod
-    def update_shipment_status_from_pops(shipment_id: str, status_value: str, pops_order_id: int = None):
+    def _sync_to_pops(shipment: Shipment, event: OrderEvent, status: str) -> bool:
         """
-        Update shipment status from POPS
+        Sync status change to POPS
         
         Args:
-            shipment_id: Shipment ID
-            status_value: New status from POPS
-            pops_order_id: POPS order ID (optional)
+            shipment: Shipment instance
+            event: OrderEvent instance
+            status: New status value
         
         Returns:
-            True if successful, False otherwise
+            True if sync successful, False otherwise
         """
-        from .models import Shipment
-        
         try:
-            shipment = Shipment.objects.get(id=shipment_id)
+            from utils.pops_client import pops_client
             
-            # Map POPS status to Shipment status
+            # Use service token if available
+            pops_access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+            if not pops_access_token:
+                logger.warning("RIDER_PRO_SERVICE_TOKEN not configured. Cannot sync to POPS.")
+                event.sync_error = "RIDER_PRO_SERVICE_TOKEN not configured"
+                event.save()
+                return False
+            
+            # Map RiderPro status to POPS status
             status_mapping = {
-                'ASSIGNED': 'Assigned',
-                'IN_TRANSIT': 'In Transit',
-                'DELIVERED': 'Delivered',
-                'PICKED_UP': 'Picked Up',
-                'RETURNED': 'Returned',
-                'CANCELLED': 'Cancelled',
+                'Initiated': 'INITIATED',
+                'Assigned': 'ASSIGNED',
+                'In Transit': 'IN_TRANSIT',
+                'Delivered': 'DELIVERED',
+                'Picked Up': 'PICKED_UP',
+                'Returned': 'RETURNED',
+                'Cancelled': 'CANCELLED',
             }
             
-            mapped_status = status_mapping.get(status_value.upper(), status_value)
-            shipment.status = mapped_status
-            shipment.sync_status = 'synced'
+            pops_status = status_mapping.get(status, status.upper())
+            
+            # Update POPS
+            sync_response = pops_client.update_order_status(
+                shipment.pops_order_id,
+                {
+                    'status': pops_status,
+                    'type': shipment.type,
+                    'rider_id': shipment.employee_id,
+                    'event_id': event.id,
+                },
+                pops_access_token
+            )
+            if sync_response is None:
+                raise ValueError("POPS status update failed")
+            
+            # Mark as synced
             shipment.synced_to_external = True
+            shipment.sync_status = 'synced'
+            shipment.sync_attempts = 0
+            shipment.last_sync_attempt = timezone.now()
             shipment.save()
             
-            logger.info(f"Shipment {shipment_id} status updated to {mapped_status}")
+            event.synced_to_pops = True
+            event.sync_attempted_at = timezone.now()
+            event.save()
+            
+            logger.info(f"Successfully synced shipment {shipment.id} status to POPS")
             return True
             
-        except Shipment.DoesNotExist:
-            logger.error(f"Shipment {shipment_id} not found")
-            return False
         except Exception as e:
-            logger.error(f"Failed to update shipment status: {e}", exc_info=True)
+            logger.error(f"Failed to sync shipment {shipment.id} to POPS: {e}", exc_info=True)
+            
+            shipment.sync_status = 'failed'
+            shipment.sync_attempts += 1
+            shipment.sync_error = str(e)
+            shipment.last_sync_attempt = timezone.now()
+            shipment.save()
+            
+            event.sync_error = str(e)
+            event.sync_attempted_at = timezone.now()
+            event.save()
+            
             return False
+    
+    @staticmethod
+    def create_event(
+        shipment: Shipment,
+        event_type: str,
+        metadata: Optional[Dict[str, Any]] = None,
+        triggered_by: Optional[str] = None
+    ) -> OrderEvent:
+        """
+        Create a custom event for a shipment
+        
+        Args:
+            shipment: Shipment instance
+            event_type: Type of event (from OrderEvent.EVENT_TYPES)
+            metadata: Additional event data
+            triggered_by: User/system that triggered the event
+        
+        Returns:
+            Created OrderEvent instance
+        """
+        event = OrderEvent.objects.create(
+            shipment=shipment,
+            event_type=event_type,
+            metadata=metadata or {},
+            triggered_by=triggered_by or 'system'
+        )
+        
+        logger.info(f"Event created: {event_type} for shipment {shipment.id} (Event {event.id})")
+        return event
 
 
-# Singleton instance
-pops_order_receiver = PopsOrderReceiver()
+class RoutePlanningService:
+    """
+    Service for route planning and Google Maps integration
+    """
+    
+    @staticmethod
+    def generate_google_maps_url(
+        shipments: list[Shipment],
+        start_location: Optional[tuple[float, float]] = None,
+        optimize: bool = True
+    ) -> str:
+        """
+        Generate Google Maps deep link URL for Android navigation
+        
+        Args:
+            shipments: List of shipments to include in route
+            start_location: Optional start location (lat, lng). If not provided, uses first shipment pickup
+            optimize: Whether to optimize route order
+        
+        Returns:
+            Google Maps deep link URL
+        """
+        if not shipments:
+            return ""
+        
+        # Filter shipments with valid coordinates
+        valid_shipments = [
+            s for s in shipments
+            if s.latitude and s.longitude
+        ]
+        
+        if not valid_shipments:
+            return ""
+        
+        # Determine start location
+        # Priority: 1) Provided start_location, 2) First shipment's pickup_address coordinates, 3) First shipment's delivery coordinates
+        if start_location:
+            start_lat, start_lng = start_location
+        elif valid_shipments[0].pickup_address:
+            # Try to extract from pickup address JSON
+            pickup = valid_shipments[0].pickup_address
+            if isinstance(pickup, dict):
+                # Check if coordinates are directly in pickup address
+                start_lat = pickup.get('latitude') or pickup.get('lat')
+                start_lng = pickup.get('longitude') or pickup.get('lng') or pickup.get('lon')
+                # If not in pickup, use first shipment's delivery coordinates
+                if not start_lat or not start_lng:
+                    start_lat, start_lng = valid_shipments[0].latitude, valid_shipments[0].longitude
+            else:
+                # Pickup address is not a dict, use delivery coordinates
+                start_lat, start_lng = valid_shipments[0].latitude, valid_shipments[0].longitude
+        else:
+            # No pickup address, use first shipment's delivery coordinates as start
+            start_lat, start_lng = valid_shipments[0].latitude, valid_shipments[0].longitude
+        
+        # Build waypoints (all delivery locations)
+        waypoints = [
+            f"{s.latitude},{s.longitude}"
+            for s in valid_shipments
+        ]
+        
+        # If we have a start location different from first waypoint, add it
+        if start_location and (abs(start_lat - valid_shipments[0].latitude) > 0.001 or 
+                               abs(start_lng - valid_shipments[0].longitude) > 0.001):
+            # Use first shipment as destination, others as waypoints
+            destination = waypoints[0]
+            waypoints = waypoints[1:] if len(waypoints) > 1 else []
+        else:
+            # Last shipment is destination
+            destination = waypoints[-1]
+            waypoints = waypoints[:-1] if len(waypoints) > 1 else []
+        
+        # Build Google Maps URL
+        # Format: https://www.google.com/maps/dir/?api=1&origin=lat,lng&destination=lat,lng&waypoints=lat1,lng1|lat2,lng2
+        url = f"https://www.google.com/maps/dir/?api=1"
+        url += f"&origin={start_lat},{start_lng}"
+        url += f"&destination={destination}"
+        
+        if waypoints:
+            url += f"&waypoints={'|'.join(waypoints)}"
+        
+        if optimize:
+            url += "&dir_action=navigate"  # Opens in navigation mode on Android
+        
+        return url
+    
+    @staticmethod
+    def assign_to_zone(shipment: Shipment, zone: Optional[Zone] = None, auto_assign: bool = True) -> Optional[Zone]:
+        """
+        Assign shipment to a zone
+        
+        Args:
+            shipment: Shipment instance
+            zone: Zone to assign (if None and auto_assign=True, finds best zone)
+            auto_assign: Whether to auto-assign if zone is None
+        
+        Returns:
+            Assigned Zone instance or None
+        """
+        if zone:
+            shipment.zone = zone
+            shipment.save()
+            return zone
+        
+        if not auto_assign:
+            return None
+        
+        # Auto-assign based on coordinates
+        if shipment.latitude and shipment.longitude:
+            # Find zone that contains these coordinates
+            zones = Zone.objects.filter(is_active=True)
+            for z in zones:
+                if RoutePlanningService._point_in_zone(
+                    shipment.latitude,
+                    shipment.longitude,
+                    z.boundaries
+                ):
+                    shipment.zone = z
+                    shipment.save()
+                    logger.info(f"Auto-assigned shipment {shipment.id} to zone {z.name}")
+                    return z
+        
+        logger.warning(f"Could not auto-assign shipment {shipment.id} to any zone")
+        return None
+    
+    @staticmethod
+    def _point_in_zone(lat: float, lng: float, boundaries: Optional[list]) -> bool:
+        """
+        Check if a point is inside a zone polygon
+        
+        Args:
+            lat: Latitude
+            lng: Longitude
+            boundaries: List of [lat, lng] coordinates defining polygon
+        
+        Returns:
+            True if point is inside polygon
+        """
+        if not boundaries or not isinstance(boundaries, list) or len(boundaries) < 3:
+            return False
+        
+        # Simple point-in-polygon check (ray casting algorithm)
+        # This is a simplified version - for production, use a proper geospatial library
+        x, y = lng, lat
+        n = len(boundaries)
+        inside = False
+        
+        p1x, p1y = boundaries[0]
+        for i in range(1, n + 1):
+            p2x, p2y = boundaries[i % n]
+            if y > min(p1y, p2y):
+                if y <= max(p1y, p2y):
+                    if x <= max(p1x, p2x):
+                        if p1y != p2y:
+                            xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                        if p1x == p2x or x <= xinters:
+                            inside = not inside
+            p1x, p1y = p2x, p2y
+        
+        return inside

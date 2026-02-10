@@ -126,6 +126,23 @@ export interface Shipment {
   dimensions: string;
   specialInstructions?: string;
   cost?: number;
+  package_boxes?: Array<{
+    sku?: string;
+    name?: string;
+    quantity?: number;
+    dimensions?: {
+      length?: number;
+      breadth?: number;
+      height?: number;
+    };
+    length?: number;
+    breadth?: number;
+    width?: number;
+    height?: number;
+    weight?: number;
+    volume?: number;
+    price?: number;
+  }>;
 
   // Remarks
   remarks?: string;
@@ -142,6 +159,7 @@ export interface Shipment {
   // Assignment fields
   routeName?: string;
   employeeId?: string;
+  orderId?: string | number;      // Alias for pops_order_id
 
   // Tracking fields
   start_latitude?: number;
@@ -153,6 +171,7 @@ export interface Shipment {
   // Acknowledgment fields (merged from acknowledgments table)
   signatureUrl?: string;
   photoUrl?: string;
+  signedPdfUrl?: string;
   acknowledgment_captured_at?: string;
   acknowledgment_captured_by?: string;
 
@@ -327,6 +346,7 @@ export interface ShipmentFilters {
   };
   search?: string;
   employeeId?: string;
+  orderId?: string | number; // Pia order ID filter
   syncStatus?: string; // pending, failed, synced
 
   // Pagination
