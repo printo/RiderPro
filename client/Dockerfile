@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:24.1.0-slim
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ COPY package*.json ./
 COPY client/package*.json ./client/ 2>/dev/null || true
 
 # Install dependencies
-RUN npm ci || npm install
+RUN npm ci
 
 # Copy client source
 COPY client/ ./client/
