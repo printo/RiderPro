@@ -25,7 +25,6 @@ jobs:
 
       - name: Run deploy.sh for this target (with label-aware logic)
         if: |
-          # For non-PR events (push to main/master, workflow_dispatch), always deploy both
           github.event_name != 'pull_request' ||
           github.event.action != 'closed' ||
           github.event.pull_request.merged != true ||
