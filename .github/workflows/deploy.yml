@@ -14,12 +14,6 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
-    if: |
-      github.event_name != 'pull_request' ||
-      github.event.action != 'closed' ||
-      !github.event.pull_request.merged ||
-      !contains(join(github.event.pull_request.labels.*.name, ','), 'frontend') && !contains(join(github.event.pull_request.labels.*.name, ','), 'backend') ||
-      contains(join(github.event.pull_request.labels.*.name, ','), matrix.target)
     strategy:
       fail-fast: false
       matrix:
@@ -30,6 +24,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy ${{ matrix.target }} only
+        if: |
+          github.event_name != 'pull_request' ||
+          github.event.action != 'closed' ||
+          !github.event.pull_request.merged ||
+          (!contains(join(github.event.pull_request.labels.*.name, ','), 'frontend') && !contains(join(github.event.pull_request.labels.*.name, ','), 'backend')) ||
+          contains(join(github.event.pull_request.labels.*.name, ','), matrix.target)
         run: |
           cd /home/ubuntu/RiderPro || exit 1
           ./deploy.sh ${{ matrix.target }}
