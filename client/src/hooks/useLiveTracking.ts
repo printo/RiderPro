@@ -58,13 +58,6 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
 
-  // Get WebSocket URL
-  const getWebSocketUrl = useCallback(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    return `${protocol}//${host}/ws/tracking`;
-  }, []);
-
   // Determine rider status based on last update time
   const getRiderStatus = useCallback((timestamp: string): 'active' | 'idle' | 'offline' => {
     const now = new Date();
@@ -76,204 +69,139 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
     return 'offline';
   }, []);
 
-  // Handle WebSocket messages
-  const handleMessage = useCallback((event: MessageEvent) => {
+  // Fetch active riders from REST API
+  const fetchActiveRiders = useCallback(async () => {
     try {
-      const message: WebSocketMessage = JSON.parse(event.data);
+      setConnectionStatus('connecting');
 
-      switch (message.type) {
-        case 'location_update':
-          setRiders(prev => {
-            const newRiders = new Map(prev);
-            const existingRider = newRiders.get(message.employeeId);
+      const response = await fetch('/api/v1/routes/active-riders', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+      });
 
-            const updatedRider: RiderLocation = {
-              employeeId: message.employeeId,
-              sessionId: message.sessionId,
-              latitude: message.latitude,
-              longitude: message.longitude,
-              timestamp: message.timestamp,
-              accuracy: message.accuracy,
-              speed: message.speed,
-              status: getRiderStatus(message.timestamp),
+      if (!response.ok) {
+        throw new Error(`Failed to fetch active riders: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      setRiders(prev => {
+        const newRiders = new Map();
+
+        // Transform API response to RiderLocation format
+        if (data.locations && Array.isArray(data.locations)) {
+          data.locations.forEach((loc: {
+            employee_id: string;
+            session_id: string;
+            latitude: number;
+            longitude: number;
+            timestamp: string;
+            accuracy?: number;
+            speed?: number;
+            start_time?: string;
+          }) => {
+            const existingRider = prev.get(loc.employee_id);
+
+            const rider: RiderLocation = {
+              employeeId: loc.employee_id,
+              sessionId: loc.session_id,
+              latitude: loc.latitude,
+              longitude: loc.longitude,
+              timestamp: loc.timestamp,
+              accuracy: loc.accuracy,
+              speed: loc.speed,
+              status: getRiderStatus(loc.timestamp),
               employeeName: existingRider?.employeeName,
-              route: existingRider?.route || []
+              route: existingRider?.route || [{ lat: loc.latitude, lng: loc.longitude }]
             };
 
             // Add to route history (keep last 50 points)
             if (existingRider?.route) {
-              updatedRider.route = [
-                ...existingRider.route.slice(-49),
-                { lat: message.latitude, lng: message.longitude }
-              ];
-            } else {
-              updatedRider.route = [{ lat: message.latitude, lng: message.longitude }];
-            }
-
-            newRiders.set(message.employeeId, updatedRider);
-            return newRiders;
-          });
-          break;
-
-        case 'session_status_change':
-          setRiders(prev => {
-            const newRiders = new Map(prev);
-            const rider = newRiders.get(message.employeeId);
-
-            if (rider) {
-              if (message.status === 'completed') {
-                // Remove rider when session is completed
-                newRiders.delete(message.employeeId);
-              } else {
-                // Update rider status
-                newRiders.set(message.employeeId, {
-                  ...rider,
-                  status: message.status as 'active' | 'idle' | 'offline'
-                });
+              const lastPoint = existingRider.route[existingRider.route.length - 1];
+              // Only add if position changed
+              if (lastPoint.lat !== loc.latitude || lastPoint.lng !== loc.longitude) {
+                rider.route = [
+                  ...existingRider.route.slice(-49),
+                  { lat: loc.latitude, lng: loc.longitude }
+                ];
               }
             }
 
-            return newRiders;
+            newRiders.set(loc.employee_id, rider);
           });
-          break;
+        }
 
-        case 'active_sessions':
-          setRiders(prev => {
-            const newRiders = new Map();
+        return newRiders;
+      });
 
-            message.sessions.forEach(session => {
-              const existingRider = prev.get(session.employeeId);
+      setConnectionStatus('connected');
+      setError(null);
+      reconnectAttemptsRef.current = 0;
 
-              const rider: RiderLocation = {
-                employeeId: session.employeeId,
-                sessionId: session.sessionId,
-                latitude: session.latitude,
-                longitude: session.longitude,
-                timestamp: session.timestamp,
-                accuracy: session.accuracy,
-                speed: session.speed,
-                status: getRiderStatus(session.timestamp),
-                employeeName: existingRider?.employeeName,
-                route: existingRider?.route || [{ lat: session.latitude, lng: session.longitude }]
-              };
-
-              newRiders.set(session.employeeId, rider);
-            });
-
-            return newRiders;
-          });
-          break;
-
-        default:
-          console.warn('Unknown WebSocket message type:', message);
-      }
     } catch (error) {
-      console.error('Error parsing WebSocket message:', error);
-    }
-  }, [getRiderStatus]);
+      console.error('Error fetching active riders:', error);
+      setConnectionStatus('error');
+      setError(error instanceof Error ? error.message : 'Failed to fetch rider locations');
 
-  // Connect to WebSocket
+      // Retry logic
+      if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+        reconnectAttemptsRef.current++;
+        log.dev(`Retrying fetch (${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`);
+      }
+    }
+  }, [getRiderStatus, maxReconnectAttempts]);
+
+  // Connect (start polling)
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      return;
-    }
-
     setConnectionStatus('connecting');
     setError(null);
 
-    try {
-      const ws = new WebSocket(getWebSocketUrl());
-      wsRef.current = ws;
+    // Initial fetch
+    fetchActiveRiders();
+  }, [fetchActiveRiders]);
 
-      ws.onopen = () => {
-        log.dev('WebSocket connected for live tracking');
-        setConnectionStatus('connected');
-        setError(null);
-        reconnectAttemptsRef.current = 0;
-
-        // Subscribe to all active tracking
-        ws.send(JSON.stringify({
-          type: 'subscribe_tracking'
-        }));
-      };
-
-      ws.onmessage = handleMessage;
-
-      ws.onclose = (event) => {
-        log.dev('WebSocket disconnected:', event.code, event.reason);
-        setConnectionStatus('disconnected');
-        wsRef.current = null;
-
-        // Attempt to reconnect if not a clean close
-        if (event.code !== 1000 && reconnectAttemptsRef.current < maxReconnectAttempts) {
-          reconnectAttemptsRef.current++;
-          log.dev(`Attempting to reconnect (${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`);
-
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
-          }, reconnectInterval);
-        }
-      };
-
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        setConnectionStatus('error');
-        setError('Connection error occurred');
-      };
-
-    } catch (error) {
-      console.error('Failed to create WebSocket connection:', error);
-      setConnectionStatus('error');
-      setError('Failed to connect to live tracking');
-    }
-  }, [getWebSocketUrl, handleMessage, maxReconnectAttempts, reconnectInterval]);
-
-  // Disconnect from WebSocket
+  // Disconnect (stop polling)
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
     }
 
-    if (wsRef.current) {
-      wsRef.current.close(1000, 'Manual disconnect');
-      wsRef.current = null;
-    }
-
     setConnectionStatus('disconnected');
     setRiders(new Map());
   }, []);
 
-  // Subscribe to specific employee
+  // Subscribe to specific employee (no-op for polling, kept for API compatibility)
   const subscribeToEmployee = useCallback((employeeId: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'subscribe_tracking',
-        employeeId
-      }));
-    }
+    log.dev(`Subscribe to employee ${employeeId} (polling mode - no action needed)`);
   }, []);
 
-  // Unsubscribe from specific employee
+  // Unsubscribe from specific employee (no-op for polling, kept for API compatibility)
   const unsubscribeFromEmployee = useCallback((employeeId: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'unsubscribe_tracking',
-        employeeId
-      }));
-    }
+    log.dev(`Unsubscribe from employee ${employeeId} (polling mode - no action needed)`);
   }, []);
 
-  // Auto-connect on mount
+  // Auto-connect and start polling on mount
   useEffect(() => {
-    if (autoConnect) {
-      connect();
-    }
+    if (!autoConnect) return;
+
+    // Start polling
+    const pollInterval = setInterval(() => {
+      if (connectionStatus !== 'disconnected') {
+        fetchActiveRiders();
+      }
+    }, reconnectInterval);
+
+    // Initial connection
+    connect();
 
     return () => {
+      clearInterval(pollInterval);
       disconnect();
     };
-  }, [autoConnect, connect, disconnect]);
+  }, [autoConnect, connect, disconnect, fetchActiveRiders, reconnectInterval, connectionStatus]);
 
   // Update rider statuses periodically
   useEffect(() => {

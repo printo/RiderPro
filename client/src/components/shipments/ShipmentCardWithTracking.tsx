@@ -71,16 +71,16 @@ function ShipmentCardWithTracking({
 
   const formatAddress = (address: any): string => {
     if (!address) return 'No address';
-    
+
     // If it's already a string, return it
     if (typeof address === 'string') {
       return address;
     }
-    
+
     // If it's an object, format it
     if (typeof address === 'object' && address !== null) {
       const parts: string[] = [];
-      
+
       // Try common address field names
       if (address.address) parts.push(String(address.address));
       if (address.place_name) parts.push(String(address.place_name));
@@ -88,10 +88,10 @@ function ShipmentCardWithTracking({
       if (address.state) parts.push(String(address.state));
       if (address.pincode) parts.push(String(address.pincode));
       if (address.country) parts.push(String(address.country));
-      
+
       return parts.length > 0 ? parts.join(', ') : 'No address';
     }
-    
+
     return 'No address';
   };
 
@@ -284,6 +284,22 @@ function ShipmentCardWithTracking({
                 <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                   <span className="text-xs text-muted-foreground">GPS Tracking:</span>
 
+                  {shipment.latitude && shipment.longitude && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${shipment.latitude},${shipment.longitude}`, '_blank');
+                      }}
+                      className="h-7 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                      data-testid={`btn-navigate-google-${shipment?.shipment_id}`}
+                    >
+                      <Navigation className="h-3 w-3 mr-1" />
+                      Navigate
+                    </Button>
+                  )}
+
                   {canRecordPickup() && (
                     <Button
                       size="sm"
@@ -296,7 +312,7 @@ function ShipmentCardWithTracking({
                       className="h-7 px-2 text-xs"
                       data-testid={`btn-record-pickup-${shipment?.shipment_id}`}
                     >
-                      <Navigation className="h-3 w-3 mr-1" />
+                      <Truck className="h-3 w-3 mr-1" />
                       Record Pickup
                     </Button>
                   )}

@@ -76,6 +76,12 @@ class LocationTrackingService:
                 event_type='gps'
             )
             
+            # Update session current location cache
+            session.current_latitude = latitude
+            session.current_longitude = longitude
+            session.last_updated = timezone.now()
+            session.save(update_fields=['current_latitude', 'current_longitude', 'last_updated'])
+            
             return tracking
             
         except Exception as e:
@@ -94,6 +100,23 @@ class LocationTrackingService:
             Latest location data, or None if not found
         """
         try:
+            # First try to get from active session (faster)
+            active_session = RouteSession.objects.filter(
+                employee_id=user_id,
+                status='active'
+            ).order_by('-start_time').first()
+            
+            if active_session and active_session.current_latitude and active_session.current_longitude:
+                return {
+                    'latitude': active_session.current_latitude,
+                    'longitude': active_session.current_longitude,
+                    'timestamp': active_session.last_updated.isoformat() if active_session.last_updated else timezone.now().isoformat(),
+                    'accuracy': None, # Session cache doesn't store these
+                    'speed': None,
+                    'session_id': active_session.id
+                }
+            
+            # Fallback to latest tracking point
             latest_tracking = RouteTracking.objects.filter(
                 employee_id=user_id
             ).order_by('-timestamp').first()
@@ -123,21 +146,27 @@ class LocationTrackingService:
             List of rider locations
         """
         try:
-            # Get all active route sessions
-            active_sessions = RouteSession.objects.filter(status='active')
+            # Get all active route sessions with location data
+            # Optimized to avoid N+1 queries by using the cached fields
+            active_sessions = RouteSession.objects.filter(
+                status='active',
+                current_latitude__isnull=False,
+                current_longitude__isnull=False
+            ).values(
+                'employee_id', 'current_latitude', 'current_longitude', 
+                'last_updated', 'id', 'start_time'
+            )
             
             locations = []
             for session in active_sessions:
-                latest_tracking = session.tracking_points.order_by('-timestamp').first()
-                if latest_tracking:
-                    locations.append({
-                        'employee_id': session.employee_id,
-                        'latitude': latest_tracking.latitude,
-                        'longitude': latest_tracking.longitude,
-                        'timestamp': latest_tracking.timestamp.isoformat(),
-                        'session_id': session.id,
-                        'start_time': session.start_time.isoformat()
-                    })
+                locations.append({
+                    'employee_id': session['employee_id'],
+                    'latitude': session['current_latitude'],
+                    'longitude': session['current_longitude'],
+                    'timestamp': session['last_updated'].isoformat() if session['last_updated'] else None,
+                    'session_id': session['id'],
+                    'start_time': session['start_time'].isoformat()
+                })
             
             return locations
             

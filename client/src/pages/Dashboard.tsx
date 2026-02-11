@@ -1,3 +1,4 @@
+import { useMemo, useEffect, useState } from 'react';
 import { useDashboard } from "@/hooks/useDashboard";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,14 +11,65 @@ import RouteSummary from "@/components/routes/RouteSummary";
 import RouteSessionControls from "@/components/routes/RouteSessionControls";
 import { Package, CheckCircle, Clock, HourglassIcon } from "lucide-react";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
-// import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { useAuth } from "@/hooks/useAuth";
+import ActiveRouteTracking from "@/components/routes/ActiveRouteTracking";
+import { useRouteSessionContext } from "@/contexts/RouteSessionContext";
+import { scrollToElementId } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 function Dashboard() {
   const { data: metrics, isLoading, error } = useDashboard();
   const { user, logout } = useAuth();
-
   const employeeId = user?.employeeId || user?.username || "default-user";
+  const {
+    session: activeSession,
+    coordinates
+  } = useRouteSessionContext();
+
+  const [showRouteMapDialog, setShowRouteMapDialog] = useState(false);
+
+  // When URL has #route-map (e.g. after click or refresh), scroll to the section
+  useEffect(() => {
+    if (window.location.hash.replace('#', '') !== 'route-map') return;
+    if (!activeSession) return;
+
+    const t = setTimeout(() => {
+      scrollToElementId('route-map');
+    }, 200);
+    return () => clearTimeout(t);
+  }, [activeSession]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      if (window.location.hash.replace('#', '') === 'route-map') {
+        scrollToElementId('route-map');
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const currentLocation = useMemo(() => {
+    if (coordinates.length > 0) {
+      const lastCoord = coordinates[coordinates.length - 1];
+      return { latitude: lastCoord.latitude, longitude: lastCoord.longitude };
+    }
+
+    // Fallback to active session starting position if no coordinates yet
+    if (activeSession?.startLatitude && activeSession?.startLongitude) {
+      return {
+        latitude: activeSession.startLatitude,
+        longitude: activeSession.startLongitude
+      };
+    }
+
+    return undefined;
+  }, [coordinates, activeSession]);
 
   if (isLoading) {
     return (
@@ -201,22 +253,22 @@ function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card data-testid="card-pending" className="shadow-sm border-border/60">
+            <Card data-testid="card-picked-up" className="shadow-sm border-border/60">
               <CardContent className="p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      Pending
+                      Picked Up
                     </p>
                     <p
                       className="text-2xl sm:text-4xl font-extrabold text-blue-600 dark:text-blue-500"
-                      data-testid="text-pending"
+                      data-testid="text-picked-up"
                     >
-                      {metrics.pending}
+                      {metrics.statusBreakdown?.["Picked Up"] || 0}
                     </p>
                   </div>
                   <div className="bg-blue-100 dark:bg-blue-900/30 p-2 sm:p-3 rounded-xl">
-                    <HourglassIcon className="text-blue-600 dark:text-blue-500 h-6 w-6 sm:h-8 sm:w-8" />
+                    <Package className="text-blue-600 dark:text-blue-500 h-6 w-6 sm:h-8 sm:w-8" />
                   </div>
                 </div>
               </CardContent>
@@ -229,12 +281,41 @@ function Dashboard() {
               employeeId={employeeId}
               onSessionStart={() => console.log("Route session started")}
               onSessionStop={() => console.log("Route session stopped")}
+              onOpenRouteMap={() => setShowRouteMapDialog(true)}
             />
 
             <SyncStatusPanel className="flex-1" />
           </div>
         </div>
       </div>
+
+      {/* Route map dialog - opens from "View route map & drop points" so map is always visible */}
+      {activeSession && (
+        <Dialog open={showRouteMapDialog} onOpenChange={setShowRouteMapDialog}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+            <DialogHeader className="p-4 pb-0">
+              <DialogTitle>Route map & drop points</DialogTitle>
+            </DialogHeader>
+            <div className="p-4 pt-2">
+              <ActiveRouteTracking
+                sessionId={activeSession.id}
+                currentLocation={currentLocation}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Active Route Tracking Section: map, drop points, Open in Google Maps (inline) */}
+      {activeSession && (
+        <div id="route-map" className="mb-8 scroll-mt-4">
+          <h3 className="text-lg font-semibold mb-3">Route map & drop points</h3>
+          <ActiveRouteTracking
+            sessionId={activeSession.id}
+            currentLocation={currentLocation}
+          />
+        </div>
+      )}
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">

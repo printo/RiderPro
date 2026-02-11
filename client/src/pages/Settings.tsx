@@ -27,7 +27,7 @@ function Settings() {
         fullName: user.fullName,
         employeeId: user.employeeId,
         email: user.email || '',
-        role: user.role || 'driver',
+        role: user.role || 'rider',
         isStaff: user.isStaff || false,
         isSuperUser: user.isSuperUser || false,
         isOpsTeam: user.isOpsTeam || false,
@@ -81,7 +81,7 @@ function Settings() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Role</label>
                   <Badge variant="secondary" className="capitalize">
-                    {userProfile?.role || user?.role || 'driver'}
+                    {userProfile?.role || user?.role || 'rider'}
                   </Badge>
                 </div>
               </div>
@@ -100,7 +100,7 @@ function Settings() {
                       <Badge variant="secondary" className="text-xs">Staff</Badge>
                     )}
                     {!userProfile?.isSuperUser && !userProfile?.isOpsTeam && !userProfile?.isStaff && (
-                      <Badge variant="outline" className="text-xs">Driver</Badge>
+                      <Badge variant="outline" className="text-xs">Rider</Badge>
                     )}
                   </div>
                 </div>

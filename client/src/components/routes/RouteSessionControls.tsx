@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useRouteSession } from '@/hooks/useRouteSession';
+import { useRouteSessionContext } from '@/contexts/RouteSessionContext';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 import RouteCompletionDialog from '@/components/routes/RouteCompletionDialog';
 import SmartCompletionSettings from '@/components/SmartCompletionSettings';
@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target, Settings } from 'lucide-react';
+import { scrollToElementId } from '@/lib/utils';
 
 interface RouteSessionControlsProps {
   employeeId: string;
@@ -31,6 +32,8 @@ interface RouteSessionControlsProps {
   onSessionStop?: () => void;
   onSessionPause?: () => void;
   onSessionResume?: () => void;
+  /** Open the route map in a dialog (avoids scroll issues) */
+  onOpenRouteMap?: () => void;
 }
 
 function RouteSessionControls({
@@ -38,7 +41,8 @@ function RouteSessionControls({
   onSessionStart,
   onSessionStop,
   onSessionPause,
-  onSessionResume
+  onSessionResume,
+  onOpenRouteMap
 }: RouteSessionControlsProps) {
   const [showSmartSettings, setShowSmartSettings] = useState(false);
   const {
@@ -62,15 +66,7 @@ function RouteSessionControls({
     showGeofenceDialog,
     confirmGeofenceStop,
     cancelGeofenceStop
-  } = useRouteSession({
-    employeeId,
-    trackingInterval: 30000,
-    geofenceRadius: 0.1,
-    enableGeofencing: true,
-    onSessionComplete: (completedSession) => {
-      console.log('Session completed:', completedSession);
-    }
-  });
+  } = useRouteSessionContext();
 
   // Smart route completion integration
   const smartCompletion = useSmartRouteCompletion({
@@ -233,6 +229,30 @@ function RouteSessionControls({
             </div>
           </div>
 
+          {session && (status === 'active' || status === 'paused') && (
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => {
+                if (typeof onOpenRouteMap === 'function') {
+                  onOpenRouteMap();
+                } else {
+                  // Fallback to scrolling to the inline map section
+                  if (window.location.hash !== '#route-map') {
+                    window.location.hash = 'route-map';
+                  } else {
+                    // If already at the hash, force scroll again
+                    scrollToElementId('route-map');
+                  }
+                }
+              }}
+              className="gap-2 w-full"
+            >
+              <MapPin className="h-4 w-4" />
+              View route map & drop points
+            </Button>
+          )}
+
           {/* Smart Completion Status */}
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-md dark:bg-blue-900/20 dark:border-blue-800">
             <div className="flex items-center justify-between">
@@ -321,7 +341,11 @@ function RouteSessionControls({
           {/* Session Info */}
           {session && (
             <div className="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400 pt-2 border-t mt-2">
-              <p>Session ID: <span className="font-medium text-foreground">{session.id.slice(-8)}</span></p>
+              <p>Session ID: <span className="font-medium text-foreground">
+                {session.id.startsWith('sess-')
+                  ? session.id.split('-')[1]
+                  : session.id.slice(-8)}
+              </span></p>
               <p>Employee: <span className="font-medium text-foreground">{session.employeeId}</span></p>
               {session.startTime && (
                 <p>Started: <span className="font-medium text-foreground">{new Date(session.startTime).toLocaleTimeString()}</span></p>

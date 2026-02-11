@@ -2,6 +2,7 @@
 Views for shipments app
 """
 import logging
+import math
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -17,6 +18,7 @@ from .serializers import (
     RouteSessionSerializer, RouteTrackingSerializer,
     RouteSessionCreateSerializer, RouteSessionStopSerializer,
     CoordinateSerializer, ShipmentEventSerializer,
+    RouteOptimizeRequestSerializer, BulkShipmentEventSerializer,
     ChangeRiderSerializer, BatchChangeRiderSerializer, AcknowledgmentSettingsSerializer
 )
 from .filters import ShipmentFilter
@@ -885,6 +887,9 @@ class DashboardViewSet(viewsets.ViewSet):
         returned = queryset.filter(status='Returned').count()
         cancelled = queryset.filter(status='Cancelled').count()
         
+        # New "In Progress" metric: Picked Up + In Transit
+        in_progress = queryset.filter(status__in=['Picked Up', 'In Transit']).count()
+        
         # Calculate revenue (sum of costs for delivered/picked up)
         completed = queryset.filter(status__in=['Delivered', 'Picked Up'])
         total_revenue = completed.aggregate(total=Sum('cost'))['total'] or 0
@@ -905,6 +910,7 @@ class DashboardViewSet(viewsets.ViewSet):
             'total_shipments': total,
             'pending_shipments': pending,
             'in_transit_shipments': in_transit,
+            'in_progress_shipments': in_progress,
             'delivered_shipments': delivered,
             'picked_up_shipments': picked_up,
             'returned_shipments': returned,
@@ -960,8 +966,28 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             start_time=timezone.now(),
             status='active'
         )
-        
-        logger.info(f'Route session started: {session_id} by {user.employee_id}')
+
+        # Automatically transition all 'Picked Up' shipments to 'In Transit'
+        from .services import ShipmentStatusService
+        picked_up_shipments = Shipment.objects.filter(
+            employee_id=user.employee_id,
+            status='Picked Up'
+        )
+        transitioned_count = 0
+        for shipment in picked_up_shipments:
+            ShipmentStatusService.update_status(
+                shipment=shipment,
+                new_status='In Transit',
+                triggered_by=f"route-start-{session_id}"
+            )
+            transitioned_count += 1
+
+        logger.info(
+            "Route session started: %s by %s. %d shipments moved to In Transit.",
+            session_id,
+            user.employee_id,
+            transitioned_count
+        )
         
         return Response({
             'success': True,
@@ -1394,7 +1420,166 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             'riders': locations,
             'count': len(locations)
         })
+
+    @action(detail=False, methods=['post'])
+    def optimize_path(self, request):
+        """Optimize route path using a nearest-neighbor heuristic."""
+        serializer = RouteOptimizeRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        current_lat = serializer.validated_data['current_latitude']
+        current_lng = serializer.validated_data['current_longitude']
+        locations = serializer.validated_data['locations']
+
+        if not locations:
+            return Response({'success': True, 'ordered_locations': []})
+
+        ordered_locations = []
+        remaining_locations = list(locations)
+        current_pos = (current_lat, current_lng)
+
+        def calculate_distance(p1, p2):
+            # Haversine distance in km
+            radius_km = 6371
+            dlat = math.radians(p2[0] - p1[0])
+            dlon = math.radians(p2[1] - p1[1])
+            a = (
+                math.sin(dlat / 2) ** 2
+                + math.cos(math.radians(p1[0]))
+                * math.cos(math.radians(p2[0]))
+                * math.sin(dlon / 2) ** 2
+            )
+            c = 2 * math.asin(math.sqrt(a))
+            return radius_km * c
+
+        while remaining_locations:
+            nearest_idx = 0
+            min_dist = float('inf')
+
+            for idx, loc in enumerate(remaining_locations):
+                dist = calculate_distance(current_pos, (loc['latitude'], loc['longitude']))
+                if dist < min_dist:
+                    min_dist = dist
+                    nearest_idx = idx
+
+            next_loc = remaining_locations.pop(nearest_idx)
+            ordered_locations.append(next_loc)
+            current_pos = (next_loc['latitude'], next_loc['longitude'])
+
+        return Response({
+            'success': True,
+            'ordered_locations': ordered_locations
+        })
     
+    @action(detail=False, methods=['get'])
+    def shipments(self, request):
+        """Get shipments assigned to the current rider session"""
+        user = request.user
+        employee_id = (
+            getattr(user, 'employee_id', None)
+            or getattr(user, 'username', None)
+            or str(getattr(user, 'id', ''))
+        )
+            
+        # Filter shipments assigned to this employee that are not yet delivered/cancelled.
+        # Include 'Picked Up' so drop points stay visible after rider marks pickups.
+        shipments_qs = Shipment.objects.filter(
+            employee_id__iexact=employee_id,
+            status__in=['Assigned', 'In Transit', 'Initiated', 'Picked Up']
+        ).order_by('created_at')
+        
+        # Geocode any shipment missing lat/long (e.g. customer delivery address when POPS didn't send coords)
+        from .geocoding import geocode_address
+        for shipment in shipments_qs:
+            if (shipment.latitude is None or shipment.longitude is None) and shipment.address:
+                try:
+                    coords = geocode_address(shipment.address)
+                    if coords:
+                        shipment.latitude, shipment.longitude = coords
+                        shipment.save(update_fields=['latitude', 'longitude'])
+                except Exception as e:
+                    logger.warning("Geocoding failed for shipment id=%s: %s", shipment.id, e)
+        
+        return Response({
+            'success': True,
+            'count': shipments_qs.count(),
+            'shipments': ShipmentSerializer(shipments_qs, many=True).data
+        })
+
+    @action(detail=False, methods=['post'])
+    def bulk_shipment_event(self, request):
+        """Record event for multiple shipments at once."""
+        serializer = BulkShipmentEventSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        if not user.employee_id:
+            return Response(
+                {'success': False, 'message': 'Unauthorized'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        try:
+            session = RouteSession.objects.get(
+                id=serializer.validated_data['session_id'],
+                employee_id=user.employee_id
+            )
+        except RouteSession.DoesNotExist:
+            return Response(
+                {'success': False, 'message': 'Session not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        event_type = serializer.validated_data['event_type']
+        shipment_ids = serializer.validated_data['shipment_ids']
+        lat = serializer.validated_data['latitude']
+        lng = serializer.validated_data['longitude']
+        triggered_by = f"{request.user.username or request.user.id}" if hasattr(request, 'user') else 'gps_tracking'
+
+        from .services import ShipmentStatusService
+
+        results = []
+        for shipment_id in shipment_ids:
+            RouteTracking.objects.create(
+                session=session,
+                employee_id=user.employee_id,
+                latitude=lat,
+                longitude=lng,
+                timestamp=timezone.now(),
+                event_type=event_type,
+                shipment_id=shipment_id
+            )
+
+            try:
+                shipment = Shipment.objects.get(id=shipment_id)
+                if event_type == 'delivery':
+                    shipment.actual_delivery_time = timezone.now()
+                    shipment.save(update_fields=['actual_delivery_time'])
+                    ShipmentStatusService.update_status(
+                        shipment=shipment,
+                        new_status='Delivered',
+                        triggered_by=triggered_by,
+                        metadata={'bulk_event': True},
+                        sync_to_pops=True
+                    )
+                elif event_type == 'pickup':
+                    ShipmentStatusService.update_status(
+                        shipment=shipment,
+                        new_status='Picked Up',
+                        triggered_by=triggered_by,
+                        metadata={'bulk_event': True},
+                        sync_to_pops=True
+                    )
+                results.append({'shipment_id': shipment_id, 'success': True})
+            except Shipment.DoesNotExist:
+                results.append({'shipment_id': shipment_id, 'success': False, 'message': 'Not found'})
+
+        return Response({
+            'success': True,
+            'results': results,
+            'message': f'Processed {len(results)} shipment events'
+        })
+
     @action(detail=False, methods=['get'], url_path='active/(?P<employee_id>[^/.]+)')
     def active_session(self, request, employee_id=None):
         """Get active session for an employee"""

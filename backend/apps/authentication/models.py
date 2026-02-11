@@ -109,11 +109,16 @@ class User(AbstractBaseUser, PermissionsMixin):
         ]
     
     def __str__(self):
-        return self.username or str(self.id)
-    
+        return self.username
+
+    @property
+    def employee_id(self):
+        """Alias for username to match employee_id usage in views"""
+        return self.username
+
     def get_full_name(self):
         return self.full_name or self.username
-    
+
     def get_short_name(self):
         """
         Short name used by Django admin and other UIs.
@@ -121,6 +126,56 @@ class User(AbstractBaseUser, PermissionsMixin):
         """
         username = self.username or ""
         return username.split("@")[0] if "@" in username else username
+
+
+class Homebase(models.Model):
+    """
+    Homebase/Location Master from POPS
+    Represents physical locations where riders are based
+    """
+    # POPS ID (for sync)
+    pops_homebase_id = models.IntegerField(unique=True, null=True, blank=True, help_text='Homebase ID from POPS')
+    
+    # Basic Info (matching POPS structure)
+    name = models.CharField(max_length=200)
+    homebase_id = models.CharField(max_length=100, unique=True, help_text='Homebase identifier code')
+    aggregator_id = models.CharField(max_length=200, blank=True, default='')
+    
+    # Address Details
+    location = models.CharField(max_length=255, blank=True, default='')
+    address = models.TextField(null=True, blank=True)
+    city = models.CharField(max_length=100, null=True, blank=True)
+    state = models.CharField(max_length=100, null=True, blank=True)
+    pincode = models.CharField(max_length=10, null=True, blank=True)
+    
+    # Geolocation
+    latitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=10, decimal_places=7, null=True, blank=True)
+    
+    # Operational
+    is_active = models.BooleanField(default=True)
+    capacity = models.IntegerField(null=True, blank=True, help_text='Maximum number of riders')
+    
+    # Sync tracking
+    synced_from_pops = models.BooleanField(default=False)
+    last_synced_at = models.DateTimeField(null=True, blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'homebases'
+        indexes = [
+            models.Index(fields=['homebase_id']),
+            models.Index(fields=['pops_homebase_id']),
+            models.Index(fields=['is_active']),
+        ]
+        verbose_name = 'Homebase'
+        verbose_name_plural = 'Homebases'
+    
+    def __str__(self):
+        return f"{self.homebase_id} - {self.name}"
 
 
 class RiderAccount(models.Model):
@@ -134,6 +189,22 @@ class RiderAccount(models.Model):
     password_hash = models.CharField(max_length=255)  # bcrypt hash
     email = models.EmailField(null=True, blank=True)
     
+    # Homebase Assignment
+    primary_homebase = models.ForeignKey(
+        'Homebase',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='primary_riders'
+    )
+    
+    # Multiple homebases support
+    homebases = models.ManyToManyField(
+        'Homebase',
+        through='RiderHomebaseAssignment',
+        related_name='assigned_riders'
+    )
+    
     # Rider type (4 types: bike, auto, 3pl, hyperlocal)
     rider_type = models.CharField(
         max_length=50,
@@ -144,6 +215,19 @@ class RiderAccount(models.Model):
             ('hyperlocal', 'Hyperlocal'),
         ],
         default='bike'
+    )
+    
+    # Dispatch option (type of delivery - matches POPS dispatch_option)
+    dispatch_option = models.CharField(
+        max_length=50,
+        choices=[
+            ('printo-bike', 'Printo Bike'),
+            ('milkround', 'Milkround Auto'),
+            ('goods-auto', 'Goods Auto'),
+            ('3PL', '3PL'),
+        ],
+        default='printo-bike',
+        help_text='Type of delivery this rider handles (synced to POPS as tags)'
     )
     
     # Status
@@ -170,6 +254,40 @@ class RiderAccount(models.Model):
     
     def __str__(self):
         return f"{self.rider_id} - {self.full_name}"
+
+
+class RiderHomebaseAssignment(models.Model):
+    """
+    Junction table for riders and homebases
+    Supports multiple homebase records as per POPS architecture
+    """
+    rider = models.ForeignKey('RiderAccount', on_delete=models.CASCADE)
+    homebase = models.ForeignKey('Homebase', on_delete=models.CASCADE)
+    
+    # Record association
+    is_primary = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    
+    # POPS-specific synchronization
+    pops_rider_id = models.IntegerField(null=True, blank=True, help_text='Rider record ID in POPS for this homebase')
+    synced_to_pops = models.BooleanField(default=False)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'rider_homebase_assignments'
+        unique_together = [['rider', 'homebase']]
+        indexes = [
+            models.Index(fields=['rider', 'is_active']),
+            models.Index(fields=['homebase', 'is_active']),
+        ]
+        verbose_name = 'Rider Homebase Assignment'
+        verbose_name_plural = 'Rider Homebase Assignments'
+    
+    def __str__(self):
+        return f"{self.rider.rider_id} @ {self.homebase.homebase_id}"
 
 
 class UserSession(models.Model):

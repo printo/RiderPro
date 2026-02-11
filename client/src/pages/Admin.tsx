@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/ApiClient";
 import { apiRequest } from "@/lib/queryClient";
-import { Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Database, Plus, X } from "lucide-react";
+import { Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Database, Plus, X, MapPin, Layers } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import FuelSettingsModal from "@/components/ui/forms/FuelSettingsModal";
 import CurrentFuelSettings from "@/components/ui/forms/CurrentFuelSettings";
-import { VehicleType, PendingUser, AllUser } from '@shared/types';
+import { VehicleType, PendingUser, AllUser, Homebase } from '@shared/types';
+import { DispatchBadge } from '@/components/ui/DispatchBadge';
+import { HomebaseBadge, HomebaseIdBadge } from '@/components/ui/HomebaseBadge';
+import AuthService from '@/services/AuthService';
 
 interface EditingUser {
   id: string;
@@ -171,6 +174,7 @@ function AdminPage() {
   const [editingVehicle, setEditingVehicle] = useState<Partial<VehicleType> | null>(null);
   const [loadingVehicleTypes, setLoadingVehicleTypes] = useState(false);
   const [showFuelSettingsModal, setShowFuelSettingsModal] = useState(false);
+  const [isSyncingHomebases, setIsSyncingHomebases] = useState(false);
   const { toast } = useToast();
 
   // Allow both super users and managers (ops_team/staff) to access admin
@@ -223,6 +227,35 @@ function AdminPage() {
       });
     } finally {
       setLoadingAllUsers(false);
+    }
+  };
+
+  const syncHomebases = async () => {
+    setIsSyncingHomebases(true);
+    try {
+      const result = await AuthService.getInstance().syncHomebases();
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: result.message,
+        });
+        loadAllUsers();
+        loadPendingUsers();
+      } else {
+        toast({
+          title: "Error",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to sync homebases",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncingHomebases(false);
     }
   };
 
@@ -921,7 +954,11 @@ function AdminPage() {
                               <Users className="h-5 w-5 text-orange-600" />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h3 className="font-medium truncate">{user.full_name}</h3>
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-medium truncate">{user.full_name}</h3>
+                                {user.dispatch_option && <DispatchBadge dispatchOption={user.dispatch_option} />}
+                                {user.primary_homebase_details && <HomebaseBadge homebase={user.primary_homebase_details} className="text-xs" />}
+                              </div>
                               <p className="text-sm text-muted-foreground truncate">
                                 ID: {user.rider_id} • {user.email}
                               </p>
@@ -990,6 +1027,26 @@ function AdminPage() {
                     </>
                   )}
                 </Button>
+                <Button
+                  onClick={syncHomebases}
+                  disabled={isSyncingHomebases}
+                  variant="outline"
+                  size="sm"
+                  className="ml-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                  title="Sync homebases from POPS"
+                >
+                  {isSyncingHomebases ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-1" />
+                      Sync POPS Homebases
+                    </>
+                  )}
+                </Button>
               </div>
 
               {/* Search */}
@@ -1026,6 +1083,7 @@ function AdminPage() {
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <h3 className="font-medium truncate">{user.full_name}</h3>
+                                {user.dispatch_option && <DispatchBadge dispatchOption={user.dispatch_option} className="text-xs" />}
                                 <Badge variant={user.is_active ? "default" : "secondary"}>
                                   {user.is_active ? "Active" : "Inactive"}
                                 </Badge>
@@ -1035,6 +1093,9 @@ function AdminPage() {
                                 <Badge variant="outline">
                                   {user.role}
                                 </Badge>
+                                {user.primary_homebase_details && (
+                                  <HomebaseBadge homebase={user.primary_homebase_details} className="text-xs" />
+                                )}
                               </div>
                               <p className="text-sm text-muted-foreground truncate">
                                 ID: {user.rider_id} • {user.email}
@@ -1092,21 +1153,21 @@ function AdminPage() {
                 <Label className="block text-sm font-medium mb-1">Full Name</Label>
                 <Input
                   value={editingUser.name}
-                  onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                  onChange={(e) => setEditingUser(prev => prev ? { ...prev, name: e.target.value } : null)}
                 />
               </div>
               <div>
                 <Label className="block text-sm font-medium mb-1">Email</Label>
                 <Input
                   value={editingUser.email}
-                  onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+                  onChange={(e) => setEditingUser(prev => prev ? { ...prev, email: e.target.value } : null)}
                 />
               </div>
               <div>
                 <Label className="block text-sm font-medium mb-1">Rider ID</Label>
                 <Input
                   value={editingUser.riderId}
-                  onChange={(e) => setEditingUser({ ...editingUser, riderId: e.target.value })}
+                  onChange={(e) => setEditingUser(prev => prev ? { ...prev, riderId: e.target.value } : null)}
                 />
               </div>
               <div className="flex items-center space-x-2">
@@ -1114,7 +1175,7 @@ function AdminPage() {
                   type="checkbox"
                   id="isActive"
                   checked={editingUser.isActive}
-                  onChange={(e) => setEditingUser({ ...editingUser, isActive: e.target.checked })}
+                  onChange={(e) => setEditingUser(prev => prev ? { ...prev, isActive: e.target.checked } : null)}
                   className="rounded"
                 />
                 <Label htmlFor="isActive">Active User</Label>
@@ -1129,7 +1190,7 @@ function AdminPage() {
                 Cancel
               </Button>
               <Button
-                onClick={() => updateUser(editingUser.id, {
+                onClick={() => editingUser && updateUser(editingUser.id, {
                   full_name: editingUser.name,
                   email: editingUser.email,
                   rider_id: editingUser.riderId,
@@ -1142,84 +1203,89 @@ function AdminPage() {
             </div>
           </div>
         </div>
-      )}
+      )
+      }
 
       {/* Reset Password Modal */}
-      {resetPasswordModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Reset Password</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Reset password for {resetPasswordModal.userName}
-            </p>
-            <div className="space-y-4">
-              <div>
-                <Label className="text-sm font-medium">New Password</Label>
-                <Input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
-                />
+      {
+        resetPasswordModal.isOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Reset Password</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Reset password for {resetPasswordModal.userName}
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-sm font-medium">New Password</Label>
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <Button
+                  onClick={() => {
+                    setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
+                    setNewPassword('');
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    // Handle password reset logic here
+                    setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
+                    setNewPassword('');
+                  }}
+                  className="flex-1"
+                  disabled={!newPassword.trim()}
+                >
+                  Reset Password
+                </Button>
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
-              <Button
-                onClick={() => {
-                  setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
-                  setNewPassword('');
-                }}
-                variant="outline"
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  // Handle password reset logic here
-                  setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
-                  setNewPassword('');
-                }}
-                className="flex-1"
-                disabled={!newPassword.trim()}
-              >
-                Reset Password
-              </Button>
-            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Vehicle Type Modal */}
-      {showVehicleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">
-                {editingVehicle?.id ? 'Edit Vehicle Type' : 'Add Vehicle Type'}
-              </h3>
-              <Button
-                onClick={() => {
+      {
+        showVehicleModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">
+                  {editingVehicle?.id ? 'Edit Vehicle Type' : 'Add Vehicle Type'}
+                </h3>
+                <Button
+                  onClick={() => {
+                    setShowVehicleModal(false);
+                    setEditingVehicle(null);
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <VehicleTypeForm
+                vehicle={editingVehicle}
+                onSave={saveVehicleType}
+                onCancel={() => {
                   setShowVehicleModal(false);
                   setEditingVehicle(null);
                 }}
-                variant="outline"
-                size="sm"
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              />
             </div>
-            <VehicleTypeForm
-              vehicle={editingVehicle}
-              onSave={saveVehicleType}
-              onCancel={() => {
-                setShowVehicleModal(false);
-                setEditingVehicle(null);
-              }}
-            />
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Fuel Settings Modal */}
       <FuelSettingsModal

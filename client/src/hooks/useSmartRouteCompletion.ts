@@ -11,6 +11,8 @@ export interface SmartCompletionConfig {
   autoConfirmDelay: number; // seconds to wait before auto-confirming
   requireMinDistance: boolean; // require minimum distance traveled
   minDistanceKm: number; // minimum distance in km
+  autoDeliver: boolean; // automatically mark shipments as delivered when in range
+  autoDeliverRadius: number; // radius for auto-delivery in meters
 }
 
 export interface SmartCompletionState {
@@ -41,8 +43,12 @@ const DEFAULT_CONFIG: SmartCompletionConfig = {
   minSessionDuration: 300, // 5 minutes
   autoConfirmDelay: 30, // 30 seconds
   requireMinDistance: true,
-  minDistanceKm: 0.5 // 500 meters minimum
+  minDistanceKm: 0.5, // 500 meters minimum
+  autoDeliver: false,
+  autoDeliverRadius: 100 // 100 meters
 };
+
+const STORAGE_KEY = 'riderpro_smart_completion_config';
 
 export function useSmartRouteCompletion({
   sessionId,
@@ -55,7 +61,10 @@ export function useSmartRouteCompletion({
   onRouteCompletionDetected,
   onRouteCompleted
 }: UseSmartRouteCompletionProps) {
-  const fullConfig = { ...DEFAULT_CONFIG, ...config };
+  const [fullConfig, setFullConfig] = useState<SmartCompletionConfig>(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? { ...DEFAULT_CONFIG, ...JSON.parse(saved), ...config } : { ...DEFAULT_CONFIG, ...config };
+  });
 
   const [state, setState] = useState<SmartCompletionState>({
     isEnabled: fullConfig.enabled,
@@ -254,12 +263,17 @@ export function useSmartRouteCompletion({
 
   // Update configuration
   const updateConfig = useCallback((newConfig: Partial<SmartCompletionConfig>) => {
-    const updatedConfig = { ...fullConfig, ...newConfig };
+    setFullConfig(prev => {
+      const updated = { ...prev, ...newConfig };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
-    // If radius changed and we have an active geofence, update it
-    if (state.geofenceId && newConfig.radius && newConfig.radius !== fullConfig.radius) {
-      geofencingService.current.updateGeofenceRadius(state.geofenceId, newConfig.radius);
-    }
+      // If radius changed and we have an active geofence, update it
+      if (state.geofenceId && newConfig.radius && newConfig.radius !== prev.radius) {
+        geofencingService.current.updateGeofenceRadius(state.geofenceId, newConfig.radius);
+      }
+
+      return updated;
+    });
 
     // If enabled state changed
     if (newConfig.enabled !== undefined) {
@@ -269,8 +283,8 @@ export function useSmartRouteCompletion({
       }));
     }
 
-    log.dev('Smart completion config updated:', updatedConfig);
-  }, [fullConfig, state.geofenceId]);
+    log.dev('Smart completion config updated:', newConfig);
+  }, [state.geofenceId]);
 
   // Enable/disable smart completion
   const setEnabled = useCallback((enabled: boolean) => {

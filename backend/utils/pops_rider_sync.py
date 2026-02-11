@@ -26,56 +26,72 @@ class PopsRiderSyncService:
             POPS rider data if successful, None if failed
         """
         try:
+            # Prepare tags from rider_type and dispatch_option
+            tags_list = []
+            if rider.rider_type:
+                tags_list.append(rider.rider_type)
+            if rider.dispatch_option:
+                tags_list.append(rider.dispatch_option)
+            
+            tags = ",".join(tags_list)
+            
+            # Prepare homebase ID for POPS
+            # POPS expects integer PK or hb_id string ID
+            homebase_id = None
+            if rider.primary_homebase:
+                homebase_id = rider.primary_homebase.pops_homebase_id \
+                             or rider.primary_homebase.homebase_id
+            
             # Prepare rider data for POPS
             rider_data = {
                 'rider_id': rider.rider_id,
-                'full_name': rider.full_name,
-                'email': rider.email or f"{rider.rider_id}@rider.local",
-                'rider_type': rider.rider_type,
-                'is_active': rider.is_active,
-                'is_approved': rider.is_approved,
+                'name': rider.full_name,
+                'phone': '', # Phone not currently stored in RiderAccount
+                'account_code': '', 
+                'tags': tags,
+                'homebaseId': homebase_id
             }
             
-            # Call POPS API to create/update rider
-            # Note: This endpoint may need to be created in POPS
-            # For now, we'll use a placeholder endpoint
-            url = f"{pops_client.base_url}/deliveryq/rider/create/"
-            headers = {
-                'Authorization': f'Bearer {access_token}'
-            }
+            logger.info(f"Syncing rider {rider.rider_id} to POPS with data: {rider_data}")
             
-            response = pops_client.session.post(
-                url,
-                json=rider_data,
-                headers=headers,
-                timeout=30
-            )
+            # Call POPS API to create or update rider
+            if rider.pops_rider_id:
+                # Update existing rider
+                pops_data = pops_client.update_rider(rider.pops_rider_id, rider_data, access_token)
+            else:
+                # Create new rider
+                pops_data = pops_client.create_rider(rider_data, access_token)
             
-            if response.status_code in [200, 201]:
-                pops_data = response.json()
+            if pops_data:
+                # Update local record with POPS response
                 rider.pops_rider_id = pops_data.get('id')
                 rider.synced_to_pops = True
-                rider.pops_sync_error = None
                 rider.save()
                 
-                logger.info(f"Rider {rider.rider_id} synced to POPS successfully")
+                # Update any junction records if needed
+                from apps.authentication.models import RiderHomebaseAssignment
+                if rider.primary_homebase:
+                    assignment, created = RiderHomebaseAssignment.objects.get_or_create(
+                        rider=rider,
+                        homebase=rider.primary_homebase,
+                        defaults={'is_primary': True, 'is_active': True}
+                    )
+                    assignment.pops_rider_id = rider.pops_rider_id
+                    assignment.synced_to_pops = True
+                    assignment.save()
+                
+                logger.info(f"Rider {rider.rider_id} synced to POPS successfully (POPS ID: {rider.pops_rider_id})")
                 return pops_data
             else:
-                error_msg = f"POPS sync failed: {response.status_code} - {response.text}"
+                logger.error(f"POPS sync failed for rider {rider.rider_id}")
                 rider.synced_to_pops = False
-                rider.pops_sync_error = error_msg
                 rider.save()
-                
-                logger.error(error_msg)
                 return None
                 
         except Exception as e:
-            error_msg = f"POPS rider sync error: {e}"
+            logger.error(f"POPS rider sync error for {rider.rider_id}: {e}", exc_info=True)
             rider.synced_to_pops = False
-            rider.pops_sync_error = error_msg
             rider.save()
-            
-            logger.error(error_msg)
             return None
 
 

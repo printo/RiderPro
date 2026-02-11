@@ -5,6 +5,7 @@ import {
 import { ConflictResolutionService } from './ConflictResolutionService';
 import { log } from "../utils/logger.js";
 import config from '../config';
+import { apiRequest } from '@/lib/queryClient';
 
 export class OfflineStorageService {
   private db: IDBDatabase | null = null;
@@ -389,22 +390,16 @@ export class OfflineStorageService {
           continue;
         }
 
-        const response = await fetch('/api/v1/routes/sync-session', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            id: session.id,
-            employeeId: session.employeeId,
-            startTime: session.startTime,
-            endTime: session.endTime,
-            status: session.status,
-            startLatitude: session.startPosition.latitude,
-            startLongitude: session.startPosition.longitude,
-            endLatitude: session.endPosition?.latitude,
-            endLongitude: session.endPosition?.longitude
-          })
+        const response = await apiRequest('POST', '/api/v1/routes/sync-session', {
+          id: session.id,
+          employeeId: session.employeeId,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          status: session.status,
+          startLatitude: session.startPosition.latitude,
+          startLongitude: session.startPosition.longitude,
+          endLatitude: session.endPosition?.latitude,
+          endLongitude: session.endPosition?.longitude
         });
 
         if (response.ok) {
@@ -454,15 +449,9 @@ export class OfflineStorageService {
           accuracy: record.position.accuracy
         }));
 
-        const response = await fetch('/api/v1/routes/sync-coordinates', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sessionId,
-            coordinates
-          })
+        const response = await apiRequest('POST', '/api/v1/routes/sync-coordinates', {
+          sessionId,
+          coordinates
         });
 
         if (response.ok) {

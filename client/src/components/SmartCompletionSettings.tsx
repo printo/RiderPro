@@ -245,6 +245,43 @@ export default function SmartCompletionSettings({
 
           <Separator />
 
+          {/* Auto-Deliver Shipments */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium">Auto-Deliver Shipments</Label>
+                <p className="text-sm text-gray-500">
+                  Automatically mark shipments as delivered when in range
+                </p>
+              </div>
+              <Switch
+                checked={localConfig.autoDeliver}
+                onCheckedChange={(autoDeliver) =>
+                  handleConfigUpdate({ autoDeliver })
+                }
+              />
+            </div>
+
+            {localConfig.autoDeliver && (
+              <div className="space-y-3 pl-4 border-l-2 border-primary/20">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Auto-Delivery Radius</Label>
+                  <Badge variant="outline">{formatDistance(localConfig.autoDeliverRadius || 100)}</Badge>
+                </div>
+                <Slider
+                  value={[localConfig.autoDeliverRadius || 100]}
+                  onValueChange={([autoDeliverRadius]) => handleConfigUpdate({ autoDeliverRadius })}
+                  min={50}
+                  max={300}
+                  step={25}
+                  className="w-full"
+                />
+              </div>
+            )}
+          </div>
+
+          <Separator />
+
           {/* Quick Presets */}
           <div className="space-y-3">
             <Label className="text-base font-medium">Quick Presets</Label>

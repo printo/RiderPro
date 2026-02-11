@@ -20,6 +20,7 @@ import Settings from "@/pages/Settings";
 import RiderSignupForm from "@/pages/RiderSignupForm";
 import AdminRiderManagement from "@/pages/AdminRiderManagement";
 import { PageLoader } from "@/components/ui/Loader";
+import { RouteSessionProvider } from "@/contexts/RouteSessionContext";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -47,21 +48,25 @@ function Router() {
   }
 
   // Show main app if authenticated
+  const empId = user?.employeeId || user?.username || "default-user";
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <Switch>
-        <Route path="/" component={Dashboard} />
-        <Route path="/dashboard" component={Dashboard} />
-        <Route path="/shipments" component={ShipmentsWithTracking} />
-        <Route path="/admin-dashboard" component={AdminPage} />
-        <Route path="/route-analytics" component={RouteAnalytics} />
-        <Route path="/route-visualization" component={RouteVisualizationPage} />
-        <Route path="/settings" component={Settings} />
-        <Route path="/signup" component={RiderSignupForm} />
-        <Route path="/admin-riders" component={AdminRiderManagement} />
-        <Route component={NotFound} />
-      </Switch>
+      <RouteSessionProvider employeeId={empId}>
+        <Switch>
+          <Route path="/" component={Dashboard} />
+          <Route path="/dashboard" component={Dashboard} />
+          <Route path="/shipments" component={ShipmentsWithTracking} />
+          <Route path="/admin-dashboard" component={AdminPage} />
+          <Route path="/route-analytics" component={RouteAnalytics} />
+          <Route path="/route-visualization" component={RouteVisualizationPage} />
+          <Route path="/settings" component={Settings} />
+          <Route path="/signup" component={RiderSignupForm} />
+          <Route path="/admin-riders" component={AdminRiderManagement} />
+          <Route component={NotFound} />
+        </Switch>
+      </RouteSessionProvider>
       <FloatingActionMenu />
     </div>
   );

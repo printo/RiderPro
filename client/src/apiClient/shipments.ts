@@ -138,9 +138,10 @@ export const shipmentsApi = {
     const inTransitShipments = raw.in_transit_shipments ?? 0;
     const deliveredShipments = raw.delivered_shipments ?? 0;
     const pickedUpShipments = raw.picked_up_shipments ?? 0;
+    const inProgressShipments = raw.in_progress_shipments ?? 0;
 
-    const completed = deliveredShipments + pickedUpShipments;
-    const inProgress = inTransitShipments;
+    const completed = deliveredShipments; // Standardizing: Delivered = Completed
+    const inProgress = inProgressShipments; // Picked Up + In Transit (calculated on backend)
     const pending = pendingShipments;
 
     const metrics: DashboardMetrics = {

@@ -4,9 +4,39 @@ Serializers for authentication
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
-from .models import RiderAccount
+from .models import RiderAccount, Homebase, RiderHomebaseAssignment
 
 User = get_user_model()
+
+
+class HomebaseSerializer(serializers.ModelSerializer):
+    """Homebase serializer"""
+    
+    class Meta:
+        model = Homebase
+        fields = [
+            'id', 'pops_homebase_id', 'name', 'homebase_id', 'aggregator_id',
+            'location', 'address', 'city', 'state', 'pincode',
+            'latitude', 'longitude', 'is_active', 'capacity',
+            'synced_from_pops', 'last_synced_at',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class RiderHomebaseAssignmentSerializer(serializers.ModelSerializer):
+    """Rider homebase assignment serializer"""
+    homebase_name = serializers.ReadOnlyField(source='homebase.name')
+    homebase_code = serializers.ReadOnlyField(source='homebase.homebase_id')
+    
+    class Meta:
+        model = RiderHomebaseAssignment
+        fields = [
+            'id', 'rider', 'homebase', 'homebase_name', 'homebase_code',
+            'is_primary', 'is_active', 'pops_rider_id', 'synced_to_pops',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -28,12 +58,16 @@ class RiderAccountSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
     is_super_user = serializers.SerializerMethodField()  # Always return False for riders
     
+    primary_homebase_details = HomebaseSerializer(source='primary_homebase', read_only=True)
+    homebase_assignments = RiderHomebaseAssignmentSerializer(source='riderhomebaseassignment_set', many=True, read_only=True)
+    
     class Meta:
         model = RiderAccount
         fields = [
-            'id', 'rider_id', 'full_name', 'email', 'rider_type',
+            'id', 'rider_id', 'full_name', 'email', 'rider_type', 'dispatch_option',
+            'primary_homebase', 'primary_homebase_details', 'homebase_assignments',
             'is_active', 'is_approved', 'is_rider', 'is_super_user',
-            'pops_rider_id', 'synced_to_pops',
+            'pops_rider_id', 'synced_to_pops', 'password',
             'last_login_at', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'pops_rider_id', 'synced_to_pops', 'created_at', 'updated_at', 'is_super_user']

@@ -131,7 +131,9 @@ function GPSTrackingIndicator({
               </div>
             </div>
             <p className="text-xs text-green-500 dark:text-green-500 mt-1">
-              Session: {activeSession.id.slice(-8)}
+              Session: {activeSession.id.startsWith('sess-')
+                ? activeSession.id.split('-')[1]
+                : activeSession.id.slice(-8)}
             </p>
           </div>
         )}

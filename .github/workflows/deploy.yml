@@ -14,6 +14,13 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+    # On merged PR: run only the job matching the PR label (backend → backend only; frontend → frontend only). On push/manual: run both.
+    if: |
+      github.event_name != 'pull_request' ||
+      github.event.action != 'closed' ||
+      !github.event.pull_request.merged ||
+      !contains(join(github.event.pull_request.labels.*.name, ','), 'frontend') && !contains(join(github.event.pull_request.labels.*.name, ','), 'backend') ||
+      contains(join(github.event.pull_request.labels.*.name, ','), matrix.target)
     strategy:
       fail-fast: false
       matrix:
@@ -23,21 +30,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run deploy.sh for this target (with label-aware logic)
-        if: |
-          github.event_name != 'pull_request' ||
-          github.event.action != 'closed' ||
-          github.event.pull_request.merged != true ||
-          (
-            (
-              !(
-                contains(join(github.event.pull_request.labels.*.name, ','), 'frontend') ||
-                contains(join(github.event.pull_request.labels.*.name, ','), 'backend')
-              )
-            )
-            ||
-            contains(join(github.event.pull_request.labels.*.name, ','), matrix.target)
-          )
+      - name: Deploy ${{ matrix.target }} only
         run: |
           cd /home/ubuntu/RiderPro || exit 1
           ./deploy.sh ${{ matrix.target }}

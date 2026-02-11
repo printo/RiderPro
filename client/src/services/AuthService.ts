@@ -64,7 +64,7 @@ class AuthService {
 
       if (accessToken && fullName && username) {
         // Use new role determination logic
-        const role = isSuperUser ? UserRole.ADMIN : (isRider ? UserRole.MANAGER : UserRole.DRIVER);
+        const role = isSuperUser ? UserRole.ADMIN : (isRider ? UserRole.MANAGER : UserRole.RIDER);
 
         this.state = {
           user: {
@@ -123,8 +123,8 @@ class AuthService {
     if (isOpsTeam === true || isStaff === true) {
       return UserRole.MANAGER; // Ops team and staff get manager access
     }
-    // Default to DRIVER for anything else
-    return UserRole.DRIVER;
+    // Default to RIDER for anything else
+    return UserRole.RIDER;
   }
 
   // Helper method to map PIA response to internal role flags
@@ -148,7 +148,7 @@ class AuthService {
       };
     }
 
-    // Everything else → is_driver (default, no special flags)
+    // Everything else → is_rider (default, no special flags)
     return {
       is_rider: false,
       is_super_user: false
@@ -172,7 +172,7 @@ class AuthService {
   private clearCookies(): void {
     const path = '; Path=/';
     const expire = '; Max-Age=0';
-    
+
     document.cookie = `access=${path}${expire}`;
     document.cookie = `refresh=${path}${expire}`;
     document.cookie = `full_name=${path}${expire}`;
@@ -337,7 +337,7 @@ class AuthService {
   }
 
   // Register new user (local database)
-  public async registerUser(riderId: string, password: string, fullName: string, email?: string): Promise<{ success: boolean; message: string }> {
+  public async registerUser(riderId: string, password: string, fullName: string, email?: string, riderType?: string, dispatchOption?: string, homebaseId?: string): Promise<{ success: boolean; message: string }> {
     try {
       const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
@@ -349,6 +349,9 @@ class AuthService {
           password,
           fullName,
           email,
+          riderType,
+          dispatchOption,
+          homebaseId,
         }),
       });
 
@@ -357,6 +360,49 @@ class AuthService {
     } catch (error) {
       console.error('Registration error:', error);
       return { success: false, message: 'Registration failed. Please try again.' };
+    }
+  }
+
+  // Fetch all homebases
+  public async fetchHomebases(): Promise<{ success: boolean; homebases?: any[]; message?: string }> {
+    try {
+      const response = await fetch('/api/v1/auth/homebases/', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+
+      const data = await response.json();
+      return {
+        success: data.success,
+        homebases: data.homebases,
+        message: data.message
+      };
+    } catch (error) {
+      console.error('Fetch homebases error:', error);
+      return { success: false, message: 'Failed to fetch homebases' };
+    }
+  }
+
+  // Sync homebases from POPS
+  public async syncHomebases(): Promise<{ success: boolean; message: string; stats?: any }> {
+    try {
+      const response = await fetch('/api/v1/auth/homebases/sync', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+
+      const data = await response.json();
+      return {
+        success: data.success,
+        message: data.message,
+        stats: data.stats
+      };
+    } catch (error) {
+      console.error('Sync homebases error:', error);
+      return { success: false, message: 'Failed to sync homebases' };
     }
   }
 
@@ -384,14 +430,14 @@ class AuthService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage = errorData.message || errorData.detail || 'Token refresh failed';
-        
+
         // Check if token is blacklisted or revoked
         if (errorMessage.includes('blacklisted') || errorMessage.includes('revoked')) {
           log.warn('[AuthService] Token is blacklisted or revoked, forcing logout');
           await this.logout();
           return false;
         }
-        
+
         log.error('[AuthService] Token refresh failed:', errorData);
         return false;
       }

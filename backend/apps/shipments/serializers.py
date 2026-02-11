@@ -143,6 +143,7 @@ class DashboardMetricsSerializer(serializers.Serializer):
     total_shipments = serializers.IntegerField()
     pending_shipments = serializers.IntegerField()
     in_transit_shipments = serializers.IntegerField()
+    in_progress_shipments = serializers.IntegerField()
     delivered_shipments = serializers.IntegerField()
     picked_up_shipments = serializers.IntegerField()
     returned_shipments = serializers.IntegerField()
@@ -161,6 +162,7 @@ class RouteSessionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'employee_id', 'start_time', 'end_time', 'status',
             'start_latitude', 'start_longitude', 'end_latitude', 'end_longitude',
+            'current_latitude', 'current_longitude', 'last_updated',
             'total_distance', 'total_time', 'fuel_consumed', 'fuel_cost',
             'average_speed', 'shipments_completed', 'shipment_id',
             'created_at', 'updated_at', 'tracking_points'
@@ -226,6 +228,42 @@ class CoordinateSerializer(serializers.Serializer):
         return data
 
 
+class RouteLocationSerializer(serializers.Serializer):
+    """Simple location serializer for optimization"""
+    id = serializers.CharField(required=False)
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+    shipment_id = serializers.CharField(required=False)
+    shipmentId = serializers.CharField(required=False)
+
+    def validate(self, data):
+        if 'shipmentId' in data:
+            data['shipment_id'] = data.pop('shipmentId')
+        return data
+
+
+class RouteOptimizeRequestSerializer(serializers.Serializer):
+    """Serializer for route optimization request"""
+    current_latitude = serializers.FloatField(required=False)
+    current_longitude = serializers.FloatField(required=False)
+    currentLatitude = serializers.FloatField(required=False)
+    currentLongitude = serializers.FloatField(required=False)
+    locations = RouteLocationSerializer(many=True)
+
+    def validate(self, data):
+        data['current_latitude'] = data.get('current_latitude') or data.get('currentLatitude')
+        data['current_longitude'] = data.get('current_longitude') or data.get('currentLongitude')
+
+        if data.get('current_latitude') is None or data.get('current_longitude') is None:
+            raise serializers.ValidationError('Current location is required.')
+
+        if 'currentLatitude' in data:
+            del data['currentLatitude']
+        if 'currentLongitude' in data:
+            del data['currentLongitude']
+        return data
+
+
 class AcknowledgmentSettingsSerializer(serializers.ModelSerializer):
     """Serializer for AcknowledgmentSettings"""
     
@@ -264,6 +302,33 @@ class ShipmentEventSerializer(serializers.Serializer):
     event_type = serializers.ChoiceField(choices=['pickup', 'delivery'])
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
+
+
+class BulkShipmentEventSerializer(serializers.Serializer):
+    """Serializer for bulk shipment events at one location"""
+    session_id = serializers.CharField(required=False)
+    sessionId = serializers.CharField(required=False)
+    shipment_ids = serializers.ListField(child=serializers.CharField(), required=False)
+    shipmentIds = serializers.ListField(child=serializers.CharField(), required=False)
+    event_type = serializers.ChoiceField(choices=['pickup', 'delivery'], required=False)
+    eventType = serializers.ChoiceField(choices=['pickup', 'delivery'], required=False)
+    latitude = serializers.FloatField()
+    longitude = serializers.FloatField()
+
+    def validate(self, data):
+        data['session_id'] = data.get('session_id') or data.get('sessionId')
+        data['shipment_ids'] = data.get('shipment_ids') or data.get('shipmentIds')
+        data['event_type'] = data.get('event_type') or data.get('eventType')
+
+        required = ['session_id', 'shipment_ids', 'event_type']
+        for field in required:
+            if not data.get(field):
+                raise serializers.ValidationError({field: 'This field is required.'})
+
+        for key in ['sessionId', 'shipmentIds', 'eventType']:
+            if key in data:
+                del data[key]
+        return data
 
 
 

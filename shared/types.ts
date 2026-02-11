@@ -4,11 +4,17 @@ import { GPSPosition, RouteSession, RouteAnalytics, RouteTracking, GPSCoordinate
 export * from './schema';
 
 // --- User Types (from Admin.tsx) ---
+// Homebase types moved to schema.ts
+
 export interface PendingUser {
   id: string;
   rider_id: string;
   full_name: string;
   email?: string;
+  rider_type?: string;
+  dispatch_option?: string;
+  primary_homebase?: number;
+  primary_homebase_details?: Homebase;
   created_at: string;
 }
 
@@ -20,6 +26,11 @@ export interface AllUser {
   is_active: number;
   is_approved: number;
   role: string;
+  rider_type?: string;
+  dispatch_option?: string;
+  primary_homebase?: number;
+  primary_homebase_details?: Homebase;
+  homebase_assignments?: RiderHomebaseAssignment[];
   last_login_at?: string;
   created_at: string;
   updated_at: string;

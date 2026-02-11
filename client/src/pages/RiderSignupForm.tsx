@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { HomebaseSelector } from '@/components/ui/HomebaseSelector';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
@@ -15,6 +16,9 @@ const RiderSignupForm = () => {
     fullName: '',
     password: '',
     confirmPassword: '',
+    riderType: 'bike' as 'bike' | 'auto' | '3pl' | 'hyperlocal',
+    dispatchOption: 'printo-bike' as 'printo-bike' | 'milkround' | 'goods-auto' | '3PL',
+    homebaseId: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -47,7 +51,11 @@ const RiderSignupForm = () => {
       const result = await registerUser(
         formData.riderId,
         formData.password,
-        formData.fullName
+        formData.fullName,
+        undefined, // email
+        formData.riderType,
+        formData.dispatchOption,
+        formData.homebaseId
       );
 
       if (result.success) {
@@ -99,6 +107,57 @@ const RiderSignupForm = () => {
                 disabled={isSubmitting}
                 required
                 autoComplete="name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="riderType" className="text-sm font-medium text-foreground">
+                Rider Type
+              </label>
+              <select
+                id="riderType"
+                name="riderType"
+                value={formData.riderType}
+                onChange={(e) => setFormData(prev => ({ ...prev, riderType: e.target.value as typeof formData.riderType }))}
+                className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+                disabled={isSubmitting}
+                required
+              >
+                <option value="bike">Bike</option>
+                <option value="auto">Auto</option>
+                <option value="3pl">3PL</option>
+                <option value="hyperlocal">Hyperlocal</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="dispatchOption" className="text-sm font-medium text-foreground">
+                Dispatch Option
+              </label>
+              <select
+                id="dispatchOption"
+                name="dispatchOption"
+                value={formData.dispatchOption}
+                onChange={(e) => setFormData(prev => ({ ...prev, dispatchOption: e.target.value as typeof formData.dispatchOption }))}
+                className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+                disabled={isSubmitting}
+                required
+              >
+                <option value="printo-bike">Printo Bike</option>
+                <option value="milkround">Milkround Auto</option>
+                <option value="goods-auto">Goods Auto</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="homebaseId" className="text-sm font-medium text-foreground">
+                Primary Homebase
+              </label>
+              <HomebaseSelector
+                value={formData.homebaseId}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, homebaseId: value }))}
+                placeholder="Select Primary Homebase"
+                disabled={isSubmitting}
               />
             </div>
 

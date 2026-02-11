@@ -69,9 +69,18 @@ fi
 echo "📥 Pulling latest code..."
 git pull origin main
 
-echo "🛑 Stopping containers..."
-docker compose -f docker-compose.prod.yml down || true
-docker compose down || true
+# Only stop the target service(s) – never bring down all containers for single-service deploy
+if [[ "$MODE" == "both" ]]; then
+  echo "🛑 Stopping all containers..."
+  docker compose -f docker-compose.prod.yml down || true
+  docker compose down || true
+elif [[ "$MODE" == "backend" ]]; then
+  echo "🛑 Stopping django only..."
+  docker compose -f docker-compose.prod.yml stop django || true
+elif [[ "$MODE" == "frontend" ]]; then
+  echo "🛑 Stopping frontend only..."
+  docker compose -f docker-compose.prod.yml stop frontend || true
+fi
 
 # Build and start containers (according to mode)
 export NODE_ENV=production
@@ -141,9 +150,13 @@ if [[ "$MODE" == "frontend" || "$MODE" == "both" ]]; then
   ls -t "$BACKUP_DIR"/frontend_backup_*.tar.gz 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
 fi
 
-# Cleanup Docker
-echo "🧹 Cleaning up Docker..."
-docker system prune -f --volumes || true
+# Cleanup Docker (full prune only when deploying both, to avoid affecting other services)
+if [[ "$MODE" == "both" ]]; then
+  echo "🧹 Cleaning up Docker..."
+  docker system prune -f --volumes || true
+else
+  echo "🧹 Skipping full Docker prune (single-service deploy)..."
+fi
 
 echo "✅ Deployment completed! (mode: $MODE)"
 echo ""

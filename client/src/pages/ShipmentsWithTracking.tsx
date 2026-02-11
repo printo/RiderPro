@@ -11,10 +11,11 @@ import BatchUpdateModal from "@/components/ui/forms/BatchUpdateModal";
 import BatchRiderAllocationModal from "@/components/ui/forms/BatchRiderAllocationModal";
 import Filters from "@/components/Filters";
 import { Shipment, ShipmentFilters } from "@shared/types";
-import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import { useAuth } from "@/hooks/useAuth";
+import ActiveRouteTracking from "@/components/routes/ActiveRouteTracking";
+import { useRouteSessionContext } from "@/contexts/RouteSessionContext";
 
 // Lazy load the shipments list component
 // const ShipmentsList = lazy(() => import("@/components/shipments/ShipmentsList"));
@@ -62,7 +63,7 @@ function ShipmentsWithTracking() {
   // Memoize effective filters so query key is stable
   // Managers/Admins see all shipments, Riders see only their own
   const isManager = currentUser?.role === "admin" || currentUser?.role === "manager" || currentUser?.isSuperUser || currentUser?.isOpsTeam;
-  
+
   const effectiveFilters = useMemo<ExtendedShipmentFilters>(() => {
     return {
       ...filters,
@@ -176,7 +177,28 @@ function ShipmentsWithTracking() {
     hasPreviousPage: _hasPreviousPage = false
   } = paginatedData;
 
-  const { hasActiveSession, activeSession: _activeSession } = useRouteTracking(employeeId);
+  const {
+    session: activeSessionState,
+    coordinates: sessionCoordinates
+  } = useRouteSessionContext();
+
+  const hasActiveSession = !!activeSessionState;
+
+  const currentLocation = useMemo(() => {
+    if (sessionCoordinates.length > 0) {
+      const lastCoord = sessionCoordinates[sessionCoordinates.length - 1];
+      return { latitude: lastCoord.latitude, longitude: lastCoord.longitude };
+    }
+
+    if (activeSessionState?.startLatitude && activeSessionState?.startLongitude) {
+      return {
+        latitude: activeSessionState.startLatitude,
+        longitude: activeSessionState.startLongitude
+      };
+    }
+
+    return undefined;
+  }, [sessionCoordinates, activeSessionState]);
 
   // Show welcome toast when shipments are loaded
   useEffect(() => {
@@ -225,7 +247,7 @@ function ShipmentsWithTracking() {
   };
 
   const handleBatchRiderAllocation = () => {
-    if (selectedShipmentIds.length === 0) return;
+    if (selectedShipmentIds.length === 0 || !isManager) return;
     setShowBatchRiderModal(true);
   };
 
@@ -367,15 +389,17 @@ function ShipmentsWithTracking() {
                 <Edit className="h-4 w-4 mr-2" />
                 Batch Update ({selectedShipmentIds.length})
               </Button>
-              <Button
-                onClick={handleBatchRiderAllocation}
-                disabled={selectedShipmentIds.length === 0}
-                variant="outline"
-                className="border-blue-500 text-blue-600 hover:bg-blue-50"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Allocate to Rider ({selectedShipmentIds.length})
-              </Button>
+              {isManager && (
+                <Button
+                  onClick={handleBatchRiderAllocation}
+                  disabled={selectedShipmentIds.length === 0}
+                  variant="outline"
+                  className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Allocate to Rider ({selectedShipmentIds.length})
+                </Button>
+              )}
               <Button variant="secondary" onClick={handleRefresh}>
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Refresh
@@ -388,6 +412,16 @@ function ShipmentsWithTracking() {
           <Filters filters={filters} onFiltersChange={handleFilterChange} />
         </CardContent>
       </Card>
+
+      {/* Active Route Tracking Section - Only show for riders or if session is active */}
+      {showRouteControls && hasActiveSession && (
+        <div className="mb-8">
+          <ActiveRouteTracking
+            sessionId={activeSessionState.id}
+            currentLocation={currentLocation}
+          />
+        </div>
+      )}
 
       {/* Shipments Content */}
       {!shouldLoadShipments ? (

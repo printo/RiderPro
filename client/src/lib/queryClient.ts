@@ -28,11 +28,16 @@ export const apiRequest = async (
     timestamp: new Date().toISOString()
   });
 
+  // Only skip auth for public authentication endpoints (login, register, refresh)
+  // Other /auth/ endpoints like pending-approvals, all-users require authentication
+  const publicAuthEndpoints = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/local-login'];
+  const isPublicEndpoint = publicAuthEndpoints.some(endpoint => url.includes(endpoint));
+
   const config: ApiRequestConfig = {
     url,
     method: method.toUpperCase() as ApiRequestConfig['method'],
     data,
-    skipAuth: url.includes('/auth/'), // Skip auth for auth endpoints
+    skipAuth: isPublicEndpoint,
   };
 
   try {

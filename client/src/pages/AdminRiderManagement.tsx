@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Rider } from '@shared/types';
+import { Rider, Homebase } from '@shared/types';
 import { apiClient } from '@/services/ApiClient';
 import { API_ENDPOINTS } from '@/config/api';
 import { useAuth } from '@/hooks/useAuth';
-
-interface Homebase {
-  id: number;
-  name: string;
-  homebaseId: string;
-}
+import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
+import { HomebaseSelector } from '@/components/ui/HomebaseSelector';
+import AuthService from '@/services/AuthService';
+import { DispatchBadge } from '@/components/ui/DispatchBadge';
 
 interface CreateRiderForm {
   name: string;
@@ -38,20 +36,8 @@ const AdminRiderManagement = () => {
   });
 
   useEffect(() => {
-    const fetchHomebases = async () => {
-      try {
-        const response = await apiClient.get(API_ENDPOINTS.pops.homebases);
-        const data = await response.json();
-        if (data.success && data.homebases) {
-          setHomebases(data.homebases);
-        }
-      } catch (err) {
-        console.error('Failed to fetch homebases:', err);
-        // Don't show error to user - homebases are optional for viewing
-      }
-    };
-
-    fetchHomebases();
+    // We'll use the HomebaseSelector which handles its own loading,
+    // but we can still fetch them here if needed for initial state or other logic.
   }, []);
 
   useEffect(() => {
@@ -63,7 +49,7 @@ const AdminRiderManagement = () => {
       try {
         const response = await apiClient.post(API_ENDPOINTS.auth.resetPassword(riderId), {});
         const data = await response.json();
-        
+
         if (data.success) {
           if (data.password) {
             alert(`Password reset successfully. New password: ${data.password}`);
@@ -90,13 +76,13 @@ const AdminRiderManagement = () => {
 
       // Use approve/reject endpoints or a status update endpoint
       // For now, we'll use the approve endpoint to activate and reject to deactivate
-      const endpoint = !currentStatus 
+      const endpoint = !currentStatus
         ? API_ENDPOINTS.auth.approve(riderId)
         : API_ENDPOINTS.auth.reject(riderId);
-      
+
       const response = await apiClient.post(endpoint, {});
       const data = await response.json();
-      
+
       if (data.success) {
         // Refresh the riders list
         await fetchRiders();
@@ -149,13 +135,13 @@ const AdminRiderManagement = () => {
     try {
       const response = await apiClient.get(API_ENDPOINTS.auth.allUsers);
       const data = await response.json();
-      
+
       if (data.success && data.users) {
         // Filter to show only riders (users with rider_id or role 'is_rider'/'is_driver')
-        const riderUsers = data.users.filter((u: any) => 
+        const riderUsers = data.users.filter((u: any) =>
           u.rider_id || u.role === 'is_rider' || u.role === 'is_driver' || u.role === 'driver'
         );
-        
+
         // Map to Rider type format
         const mappedRiders: Rider[] = riderUsers.map((u: any) => ({
           id: u.id,
@@ -165,8 +151,10 @@ const AdminRiderManagement = () => {
           is_active: u.is_active !== false,
           created_at: u.created_at || '',
           last_login_at: u.last_login_at || '',
+          primary_homebase_details: u.primary_homebase_details,
+          dispatch_option: u.dispatch_option
         }));
-        
+
         setRiders(mappedRiders);
       } else {
         setError(data.message || 'Failed to load riders');
@@ -285,6 +273,9 @@ const AdminRiderManagement = () => {
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       Status
                     </th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Homebase
+                    </th>
                     {/* Removed Role column - riders are always just riders, never super users */}
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       Last Login
@@ -317,7 +308,11 @@ const AdminRiderManagement = () => {
                             {rider.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>
-                        {/* Removed Role column - riders are always just riders, never super users */}
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          {rider.primary_homebase_details && (
+                            <HomebaseBadge homebase={rider.primary_homebase_details} className="text-xs" />
+                          )}
+                        </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {rider.last_login_at
                             ? new Date(rider.last_login_at).toLocaleString()
@@ -342,7 +337,6 @@ const AdminRiderManagement = () => {
                             >
                               {rider.is_active ? 'Deactivate' : 'Activate'}
                             </button>
-                            {/* Removed super user toggle - riders should NEVER have superuser permissions */}
                           </div>
                         </td>
                       </tr>
@@ -350,7 +344,7 @@ const AdminRiderManagement = () => {
                   ) : (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={7}
                         className="px-6 py-4 text-center text-sm text-gray-500"
                       >
                         No riders found
@@ -362,110 +356,105 @@ const AdminRiderManagement = () => {
             </div>
           </div>
         </div>
-      </div>
+      </div >
 
       {/* Create Rider Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Create Rider in POPS</h3>
-              <form onSubmit={handleCreateRider} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Name *</label>
-                  <input
-                    type="text"
-                    required
-                    value={createForm.name}
-                    onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Rider ID *</label>
-                  <input
-                    type="text"
-                    required
-                    value={createForm.rider_id}
-                    onChange={(e) => setCreateForm({ ...createForm, rider_id: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone</label>
-                  <input
-                    type="text"
-                    value={createForm.phone}
-                    onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Homebase *</label>
-                  <select
-                    required
-                    value={createForm.homebaseId}
-                    onChange={(e) => setCreateForm({ ...createForm, homebaseId: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  >
-                    <option value="">Select Homebase</option>
-                    {homebases.map((hb) => (
-                      <option key={hb.id} value={hb.id}>
-                        {hb.name} ({hb.homebaseId})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Tags (comma-separated)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g., printo-bike,goods-auto"
-                    value={createForm.tags}
-                    onChange={(e) => setCreateForm({ ...createForm, tags: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Account Code</label>
-                  <input
-                    type="text"
-                    value={createForm.account_code}
-                    onChange={(e) => setCreateForm({ ...createForm, account_code: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
-                  />
-                </div>
-                {error && (
-                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                    {error}
+      {
+        showCreateModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+              <div className="mt-3">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Create Rider in POPS</h3>
+                <form onSubmit={handleCreateRider} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={createForm.name}
+                      onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                    />
                   </div>
-                )}
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setError('');
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                    disabled={isCreating}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isCreating}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {isCreating ? 'Creating...' : 'Create Rider'}
-                  </button>
-                </div>
-              </form>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Rider ID *</label>
+                    <input
+                      type="text"
+                      required
+                      value={createForm.rider_id}
+                      onChange={(e) => setCreateForm({ ...createForm, rider_id: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Phone</label>
+                    <input
+                      type="text"
+                      value={createForm.phone}
+                      onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Homebase *</label>
+                    <HomebaseSelector
+                      value={createForm.homebaseId.toString()}
+                      onValueChange={(value) => setCreateForm({ ...createForm, homebaseId: value })}
+                      placeholder="Select Homebase"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Tags (comma-separated)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g., printo-bike,goods-auto"
+                      value={createForm.tags}
+                      onChange={(e) => setCreateForm({ ...createForm, tags: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Account Code</label>
+                    <input
+                      type="text"
+                      value={createForm.account_code}
+                      onChange={(e) => setCreateForm({ ...createForm, account_code: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm px-3 py-2 border"
+                    />
+                  </div>
+                  {error && (
+                    <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                      {error}
+                    </div>
+                  )}
+                  <div className="flex justify-end space-x-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateModal(false);
+                        setError('');
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                      disabled={isCreating}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isCreating}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {isCreating ? 'Creating...' : 'Create Rider'}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 

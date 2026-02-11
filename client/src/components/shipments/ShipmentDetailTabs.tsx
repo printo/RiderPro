@@ -22,6 +22,24 @@ import PackageBoxesTable from './PackageBoxesTable';
 import ChangeRiderSection from './ChangeRiderSection';
 import type { Shipment } from '@shared/types';
 
+function formatAddressForDisplay(shipment: Shipment): string | undefined {
+  if (typeof shipment.addressDisplay === 'string' && shipment.addressDisplay) return shipment.addressDisplay;
+  if (typeof shipment.deliveryAddress === 'string' && shipment.deliveryAddress) return shipment.deliveryAddress;
+  const addr = shipment.deliveryAddress ?? shipment.address;
+  if (addr && typeof addr === 'object' && !Array.isArray(addr)) {
+    const parts = [
+      (addr as { address?: string }).address,
+      (addr as { place_name?: string }).place_name,
+      (addr as { city?: string }).city,
+      (addr as { state?: string }).state,
+      (addr as { pincode?: string }).pincode,
+      (addr as { country?: string }).country
+    ].filter(Boolean) as string[];
+    return parts.length ? parts.join(', ') : undefined;
+  }
+  return undefined;
+}
+
 interface ShipmentDetailTabsProps {
   shipment: Shipment;
   employeeId: string;
@@ -359,6 +377,7 @@ export default function ShipmentDetailTabs({
                 stopLatitude={shipment.stop_latitude}
                 stopLongitude={shipment.stop_longitude}
                 kmTravelled={shipment.km_travelled}
+                addressDisplay={formatAddressForDisplay(shipment)}
                 showDirections
               />
             </div>

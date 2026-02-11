@@ -2,7 +2,8 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   RouteSession, StartRouteSession, StopRouteSession,
   GPSCoordinate, RouteAnalytics, RouteFilters, RouteTracking,
-  BatchCoordinatesResponse, SessionSummary
+  BatchCoordinatesResponse, SessionSummary, Shipment,
+  RouteOptimizeRequest, RouteOptimizeResponse, BulkShipmentEvent
 } from "@shared/types";
 import { apiClient } from "../services/ApiClient";
 
@@ -111,7 +112,7 @@ export const routeAPI = {
       throw new Error(result.message || 'Failed to get session coordinates');
     }
 
-    return result.coordinates;
+    return Array.isArray(result.coordinates) ? result.coordinates : [];
   },
 
   /**
@@ -202,6 +203,54 @@ export const routeAPI = {
         errors: [(error as Error).message]
       };
     }
+  },
+
+  /**
+   * Optimize route path
+   */
+  optimizePath: async (data: RouteOptimizeRequest): Promise<RouteOptimizeResponse> => {
+    const response = await apiRequest("POST", "/api/v1/routes/optimize_path", data);
+    return await response.json();
+  },
+
+  /**
+   * Get shipments assigned to the current rider
+   */
+  getShipments: async (): Promise<{ success: boolean; count: number; shipments: Shipment[] }> => {
+    const response = await apiRequest("GET", "/api/v1/routes/shipments");
+    const result = await response.json();
+
+    // Support both route-session payload shape and paginated DRF list shape.
+    // This keeps UI stable if a proxy/middleware serves the trailing-slash variant.
+    if (Array.isArray(result)) {
+      return {
+        success: true,
+        count: result.length,
+        shipments: result,
+      };
+    }
+
+    if (Array.isArray(result?.results)) {
+      return {
+        success: true,
+        count: result.count ?? result.results.length,
+        shipments: result.results,
+      };
+    }
+
+    return {
+      success: Boolean(result?.success ?? true),
+      count: result?.count ?? result?.shipments?.length ?? 0,
+      shipments: Array.isArray(result?.shipments) ? result.shipments : [],
+    };
+  },
+
+  /**
+   * Record event for multiple shipments at once
+   */
+  bulkRecordShipmentEvent: async (data: BulkShipmentEvent): Promise<{ success: boolean; message: string; results: any[] }> => {
+    const response = await apiRequest("POST", "/api/v1/routes/bulk_shipment_event", data);
+    return await response.json();
   },
 
 };

@@ -20,6 +20,11 @@ urlpatterns = [
     path('users/<str:user_id>', views.get_user, name='get_user'),
     path('reset-password/<str:user_id>', views.reset_password, name='reset_password'),
     
+    # Homebase management
+    path('homebases/', views.homebase_list, name='homebase_list'),
+    path('homebases/<int:pk>/', views.homebase_detail, name='homebase_detail'),
+    path('homebases/sync', views.sync_homebases_from_pops, name='sync_homebases_from_pops'),
+    
     # POPS API proxy endpoints
     path('pops/homebases', views.pops_homebases, name='pops_homebases'),
     path('pops/riders', views.pops_create_rider, name='pops_create_rider'),

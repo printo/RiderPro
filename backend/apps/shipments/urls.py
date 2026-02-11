@@ -26,9 +26,6 @@ router.register(r'dashboard', DashboardViewSet, basename='dashboard')
 router.register(r'sync', SyncViewSet, basename='sync')
 
 urlpatterns = [
-    # Standard CRUD endpoints
-    path('', include(router.urls)),
-    
     # Custom endpoints matching Node.js structure
     path('shipments/fetch', ShipmentViewSet.as_view({'get': 'fetch'}), name='shipments-fetch'),
     path('shipments/create', ShipmentViewSet.as_view({'post': 'create'}), name='shipments-create'),
@@ -42,11 +39,16 @@ urlpatterns = [
     path('shipments/<str:pk>/tracking', ShipmentViewSet.as_view({'patch': 'tracking'}), name='shipments-tracking'),
     
     # Route tracking endpoints (consolidated from routes app)
+    # Alias route to ensure /api/v1/routes/shipments resolves to rider-route payload.
+    path('shipments', RouteSessionViewSet.as_view({'get': 'shipments'}), name='route-shipments-alias'),
     path('routes/start', RouteSessionViewSet.as_view({'post': 'start'}), name='route-start'),
+    path('routes/shipments', RouteSessionViewSet.as_view({'get': 'shipments'}), name='route-shipments'),
     path('routes/stop', RouteSessionViewSet.as_view({'post': 'stop'}), name='route-stop'),
     path('routes/coordinates', RouteSessionViewSet.as_view({'post': 'coordinates'}), name='route-coordinates'),
     path('routes/coordinates/batch', RouteSessionViewSet.as_view({'post': 'coordinates_batch'}), name='route-coordinates-batch'),
     path('routes/shipment-event', RouteSessionViewSet.as_view({'post': 'shipment_event'}), name='route-shipment-event'),
+    path('routes/optimize_path', RouteSessionViewSet.as_view({'post': 'optimize_path'}), name='route-optimize-path'),
+    path('routes/bulk_shipment_event', RouteSessionViewSet.as_view({'post': 'bulk_shipment_event'}), name='route-bulk-shipment-event'),
     path('routes/session/<str:pk>', RouteSessionViewSet.as_view({'get': 'session'}), name='route-session'),
     path('routes/sync-session', RouteSessionViewSet.as_view({'post': 'sync_session'}), name='route-sync-session'),
     path('routes/sync-coordinates', RouteSessionViewSet.as_view({'post': 'sync_coordinates'}), name='route-sync-coordinates'),
@@ -81,5 +83,8 @@ urlpatterns = [
     
     # Admin endpoints
     path('admin/access-tokens', admin_views.access_tokens, name='admin-access-tokens'),
+
+    # Standard CRUD endpoints (keep last so explicit custom routes win)
+    path('', include(router.urls)),
 ]
 

@@ -81,9 +81,10 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
     };
 
     const watchId = navigator.geolocation.watchPosition(
-      (position) => {
+      async (position) => {
         const { latitude, longitude, accuracy } = position.coords;
         const newLocation = { latitude, longitude, accuracy };
+        const speed = position.coords.speed || 0;
 
         setLastUpdate(new Date());
 
@@ -105,7 +106,34 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
         }
 
         lastLocationRef.current = { latitude, longitude };
+
+        // Update parent component
         onLocationUpdate?.(newLocation);
+
+        // Send to backend API
+        try {
+          const response = await fetch('/api/v1/routes/track-location', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+              latitude,
+              longitude,
+              accuracy,
+              speed
+            })
+          });
+
+          if (!response.ok) {
+            console.warn('Failed to sync location to backend:', response.statusText);
+          }
+        } catch (syncError) {
+          // Silently fail - location is still tracked locally
+          console.error('Error syncing location to backend:', syncError);
+          // TODO: Implement offline queue for retry
+        }
       },
       (error) => {
         let errorMessage = 'Unknown error occurred';

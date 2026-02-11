@@ -9,8 +9,11 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import LoginSerializer, LoginResponseSerializer, UserSerializer, RiderAccountSerializer
-from .models import RiderAccount
+from .serializers import (
+    LoginSerializer, LoginResponseSerializer, UserSerializer, 
+    RiderAccountSerializer, HomebaseSerializer, RiderHomebaseAssignmentSerializer
+)
+from .models import RiderAccount, Homebase, RiderHomebaseAssignment
 from utils.pops_client import pops_client
 import bcrypt
 
@@ -129,6 +132,8 @@ def register(request):
     full_name = request.data.get('fullName')
     email = request.data.get('email')
     rider_type = request.data.get('riderType', 'bike')
+    dispatch_option = request.data.get('dispatchOption', 'printo-bike')
+    homebase_id_code = request.data.get('homebaseId') # The string ID like 'HB001'
     
     if not rider_id or not password or not full_name:
         return Response({
@@ -179,6 +184,11 @@ def register(request):
     salt = bcrypt.gensalt()
     password_hash = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
     
+    # Find homebase if provided
+    primary_homebase = None
+    if homebase_id_code:
+        primary_homebase = Homebase.objects.filter(homebase_id=homebase_id_code).first()
+    
     # Create rider account
     # IMPORTANT: Riders should NEVER have superuser permissions
     rider = RiderAccount.objects.create(
@@ -187,12 +197,24 @@ def register(request):
         password_hash=password_hash,
         email=email,
         rider_type=rider_type,
+        dispatch_option=dispatch_option,
+        primary_homebase=primary_homebase,
         pops_rider_id=pops_rider_id,
         is_active=False,  # Default to inactive until approved
         is_approved=False,
         is_rider=True,
         synced_to_pops=bool(pops_rider_id)
     )
+    
+    # If homebase provided, also create assignment
+    if primary_homebase:
+        RiderHomebaseAssignment.objects.create(
+            rider=rider,
+            homebase=primary_homebase,
+            is_primary=True,
+            pops_rider_id=pops_rider_id,
+            synced_to_pops=bool(pops_rider_id)
+        )
     
     return Response({
         'success': True,
@@ -630,6 +652,10 @@ def all_users(request):
             'is_active': rider_data.get('is_active', True),
             'is_approved': rider_data.get('is_approved', False),
             'role': rider_data.get('role', 'is_driver'),
+            'rider_type': rider_data.get('rider_type', ''),
+            'dispatch_option': rider_data.get('dispatch_option', ''),
+            'primary_homebase': rider_data.get('primary_homebase', None),
+            'primary_homebase_details': rider_data.get('primary_homebase_details', None),
             'is_super_user': False,  # Riders never have superuser permissions
             'is_staff': False,
             'is_ops_team': False,
@@ -664,10 +690,10 @@ def approve_user(request, user_id):
             rider.is_active = True
             rider.save()
             
-            # Sync to POPS if needed (future implementation)
-            # from utils.pops_rider_sync import PopsRiderSyncService
-            # if request.user.access_token:
-            #     PopsRiderSyncService.sync_rider_to_pops(rider, request.user.access_token)
+            # Sync to POPS if manager has an access token
+            from utils.pops_rider_sync import PopsRiderSyncService
+            if request.user.access_token:
+                PopsRiderSyncService.sync_rider_to_pops(rider, request.user.access_token)
             
             return Response({
                 'success': True,
@@ -991,4 +1017,197 @@ def pops_create_rider(request):
         return Response({
             'success': False,
             'message': f'Failed to create rider: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def homebase_list(request):
+    """
+    Get all homebases or create a new one
+    GET /api/v1/auth/homebases/
+    POST /api/v1/auth/homebases/
+    """
+    # Only managers and admins can manage homebases
+    if not (request.user.is_superuser or request.user.is_ops_team or request.user.is_staff):
+        return Response({
+            'success': False,
+            'message': 'Permission denied'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    if request.method == 'GET':
+        homebases = Homebase.objects.all().order_by('name')
+        
+        # Filter by name or homebaseId if provided
+        name_filter = request.query_params.get('name')
+        if name_filter:
+            homebases = homebases.filter(name__icontains=name_filter)
+            
+        code_filter = request.query_params.get('code')
+        if code_filter:
+            homebases = homebases.filter(homebase_id__icontains=code_filter)
+            
+        serializer = HomebaseSerializer(homebases, many=True)
+        return Response({
+            'success': True,
+            'homebases': serializer.data
+        })
+    
+    elif request.method == 'POST':
+        serializer = HomebaseSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'success': True,
+                'message': 'Homebase created successfully',
+                'homebase': serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            'success': False,
+            'message': 'Invalid data',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def homebase_detail(request, pk):
+    """
+    Get, update or delete a homebase
+    GET/PUT/DELETE /api/v1/auth/homebases/:id/
+    """
+    try:
+        homebase = Homebase.objects.get(pk=pk)
+    except Homebase.DoesNotExist:
+        return Response({
+            'success': False,
+            'message': 'Homebase not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+        
+    # Only managers and admins can manage homebases
+    if not (request.user.is_superuser or request.user.is_ops_team or request.user.is_staff):
+        return Response({
+            'success': False,
+            'message': 'Permission denied'
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    if request.method == 'GET':
+        serializer = HomebaseSerializer(homebase)
+        return Response({
+            'success': True,
+            'homebase': serializer.data
+        })
+        
+    elif request.method == 'PUT':
+        serializer = HomebaseSerializer(homebase, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'success': True,
+                'message': 'Homebase updated successfully',
+                'homebase': serializer.data
+            })
+        return Response({
+            'success': False,
+            'message': 'Invalid data',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
+        
+    elif request.method == 'DELETE':
+        homebase.delete()
+        return Response({
+            'success': True,
+            'message': 'Homebase deleted successfully'
+        })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def sync_homebases_from_pops(request):
+    """
+    Sync homebases from POPS API into local database
+    POST /api/v1/auth/homebases/sync
+    """
+    # Only managers and admins can sync homebases
+    if not (request.user.is_superuser or request.user.is_ops_team or request.user.is_staff):
+        return Response({
+            'success': False,
+            'message': 'Permission denied'
+        }, status=status.HTTP_403_FORBIDDEN)
+        
+    access_token = request.user.access_token
+    if not access_token:
+        return Response({
+            'success': False,
+            'message': 'User must have a valid POPS access token'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+        
+    try:
+        # Fetch homebases from POPS
+        pops_homebases = pops_client.fetch_homebases(access_token)
+        
+        if pops_homebases is None:
+            return Response({
+                'success': False,
+                'message': 'Failed to fetch homebases from POPS'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        sync_stats = {
+            'created': 0,
+            'updated': 0,
+            'failed': 0,
+            'total': len(pops_homebases)
+        }
+        
+        from django.utils import timezone
+        now = timezone.now()
+        
+        for hb_data in pops_homebases:
+            try:
+                # Map POPS data to Homebase model
+                hb_id = hb_data.get('homebaseId')
+                if not hb_id:
+                    sync_stats['failed'] += 1
+                    continue
+                    
+                pops_id = hb_data.get('id')
+                
+                # Check if exists by pops_homebase_id or homebase_id
+                homebase = Homebase.objects.filter(pops_homebase_id=pops_id).first() \
+                           or Homebase.objects.filter(homebase_id=hb_id).first()
+                           
+                if homebase:
+                    # Update
+                    homebase.pops_homebase_id = pops_id
+                    homebase.name = hb_data.get('name', homebase.name)
+                    homebase.homebase_id = hb_id
+                    homebase.aggregator_id = hb_data.get('aggregator_id', homebase.aggregator_id)
+                    homebase.synced_from_pops = True
+                    homebase.last_synced_at = now
+                    homebase.save()
+                    sync_stats['updated'] += 1
+                else:
+                    # Create
+                    Homebase.objects.create(
+                        pops_homebase_id=pops_id,
+                        name=hb_data.get('name', ''),
+                        homebase_id=hb_id,
+                        aggregator_id=hb_data.get('aggregator_id', ''),
+                        synced_from_pops=True,
+                        last_synced_at=now
+                    )
+                    sync_stats['created'] += 1
+            except Exception as e:
+                logger.error(f"Error syncing homebase {hb_data.get('homebaseId')}: {e}")
+                sync_stats['failed'] += 1
+                
+        return Response({
+            'success': True,
+            'message': f"Sync complete. Created {sync_stats['created']}, Updated {sync_stats['updated']}, Failed {sync_stats['failed']}",
+            'stats': sync_stats
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"Error during homebase sync: {e}", exc_info=True)
+        return Response({
+            'success': False,
+            'message': f'Sync failed: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

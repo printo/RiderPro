@@ -393,6 +393,29 @@ class PopsAPIClient:
         except Exception as e:
             logger.error(f"POPS create rider error: {e}")
             return None
+            
+    def update_rider(self, pops_rider_pk: int, rider_data: Dict[str, Any], access_token: str) -> Optional[Dict[str, Any]]:
+        """
+        Update a rider in POPS
+        Uses the master/riders/:id/ endpoint (PATCH)
+        
+        Returns:
+            Updated rider data, or None if failed
+        """
+        url = f"{self.base_url}/master/riders/{pops_rider_pk}/"
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        try:
+            response = self.session.patch(url, json=rider_data, headers=headers, timeout=30)
+            if response.status_code in [200, 201]:
+                return response.json()
+            else:
+                logger.error(f"POPS update rider failed: {response.status_code} - {response.text}")
+                return None
+        except Exception as e:
+            logger.error(f"POPS update rider error: {e}")
+            return None
 
 
 # Singleton instance

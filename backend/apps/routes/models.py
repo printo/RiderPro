@@ -35,6 +35,11 @@ class RouteSession(models.Model):
     end_latitude = models.FloatField(null=True, blank=True)
     end_longitude = models.FloatField(null=True, blank=True)
     
+    # Current Location Cache (for real-time maps)
+    current_latitude = models.FloatField(null=True, blank=True)
+    current_longitude = models.FloatField(null=True, blank=True)
+    last_updated = models.DateTimeField(null=True, blank=True)
+    
     # Route metrics
     total_distance = models.FloatField(default=0)  # in km
     total_time = models.IntegerField(default=0)  # in seconds

@@ -13,6 +13,8 @@ interface GPSLocationDisplayProps {
   stopLongitude?: number;
   kmTravelled?: number;
   showDirections?: boolean;
+  /** When coords are missing, show this address and note that they are added when starting a route */
+  addressDisplay?: string;
   className?: string;
 }
 
@@ -25,6 +27,7 @@ export default function GPSLocationDisplay({
   stopLongitude,
   kmTravelled,
   showDirections = true,
+  addressDisplay,
   className
 }: GPSLocationDisplayProps) {
   const { toast } = useToast();
@@ -56,8 +59,16 @@ export default function GPSLocationDisplay({
     return (
       <Alert className={className}>
         <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          GPS coordinates not available for this shipment
+        <AlertDescription className="space-y-1">
+          <p>GPS coordinates not available for this shipment.</p>
+          {addressDisplay && (
+            <p className="text-xs mt-2 text-muted-foreground">
+              Address: {addressDisplay}
+            </p>
+          )}
+          <p className="text-xs mt-1 text-muted-foreground">
+            Coordinates are added when you start a route from the Dashboard (address is geocoded).
+          </p>
         </AlertDescription>
       </Alert>
     );

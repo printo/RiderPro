@@ -98,6 +98,17 @@ class Shipment(models.Model):
     # Region for acknowledgment settings
     region = models.CharField(max_length=100, null=True, blank=True, help_text="Region/city for acknowledgment settings")
     
+    # Homebase Assignment
+    homebase = models.ForeignKey(
+        'authentication.Homebase',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='shipments'
+    )
+    homebase_slot = models.JSONField(null=True, blank=True, help_text="Homebase slot information from POPS")
+    homebase_transaction_duration = models.IntegerField(null=True, default=300, help_text="Transaction duration at homebase in seconds")
+    
     # POPS integration
     pops_order_id = models.IntegerField(null=True, blank=True, db_index=True)  # POPS Order.id
     pops_shipment_uuid = models.CharField(max_length=255, null=True, blank=True)
@@ -182,6 +193,11 @@ class RouteSession(models.Model):
     start_longitude = models.FloatField()
     end_latitude = models.FloatField(null=True, blank=True)
     end_longitude = models.FloatField(null=True, blank=True)
+    
+    # Current location cache (for real-time tracking efficiency)
+    current_latitude = models.FloatField(null=True, blank=True)
+    current_longitude = models.FloatField(null=True, blank=True)
+    last_updated = models.DateTimeField(null=True, blank=True)
     
     # Route metrics
     total_distance = models.FloatField(default=0)  # in km

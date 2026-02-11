@@ -97,6 +97,39 @@ export interface BatchSyncResult {
 }
 
 // Core entities
+export interface Homebase {
+  id: number;
+  pops_homebase_id?: number;
+  name: string;
+  homebase_id: string;
+  aggregator_id?: string;
+  location?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  latitude?: number;
+  longitude?: number;
+  is_active: boolean;
+  capacity?: number;
+  synced_from_pops: boolean;
+  last_synced_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RiderHomebaseAssignment {
+  id: number;
+  rider: number;
+  homebase: number;
+  homebase_name: string;
+  homebase_code: string;
+  is_primary: boolean;
+  is_active: boolean;
+  pops_rider_id?: number;
+  synced_to_pops: boolean;
+}
+
 export interface Shipment {
   // Primary key (now using shipment_id as primary)
   shipment_id: string;           // External shipment ID (now primary key)
@@ -114,6 +147,7 @@ export interface Shipment {
   pickupAddress: string;
   deliveryAddress: string;
   address?: string;              // Alias for deliveryAddress
+  addressDisplay?: string;       // Formatted address for display
 
   // Contact fields
   recipientName: string;
@@ -517,7 +551,34 @@ export interface RouteFilters {
   endDate?: string;
 }
 
-// Schema validation types (for routes.ts)
+// Route Optimization Types
+export interface RouteLocation {
+  id?: string;
+  latitude: number;
+  longitude: number;
+  shipment_id?: string;
+  address?: string;
+  customerName?: string;
+}
+
+export interface RouteOptimizeRequest {
+  current_latitude: number;
+  current_longitude: number;
+  locations: RouteLocation[];
+}
+
+export interface RouteOptimizeResponse {
+  success: boolean;
+  ordered_locations: RouteLocation[];
+}
+
+export interface BulkShipmentEvent {
+  session_id: string;
+  shipment_ids: string[];
+  event_type: 'pickup' | 'delivery';
+  latitude: number;
+  longitude: number;
+}
 // These are placeholder schemas - in a real app you'd use Zod or similar for validation
 interface InsertShipmentSchema {
   parse: (data: Record<string, unknown>) => InsertShipment;
@@ -1182,7 +1243,7 @@ export interface DashboardStats {
 export enum UserRole {
   ADMIN = 'admin',
   MANAGER = 'manager',
-  DRIVER = 'driver',
+  RIDER = 'rider',
   VIEWER = 'viewer'
 }
 
@@ -1309,6 +1370,8 @@ export interface Rider {
   is_active: boolean;
   isActive?: boolean; // alias for is_active
   isApproved?: boolean;
+  primary_homebase_details?: Homebase;
+  dispatch_option?: string;
   created_at: string;
   createdAt?: string; // alias for created_at
   updated_at?: string;
