@@ -14,7 +14,6 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
-    # On merged PR: run only the job matching the PR label (backend → backend only; frontend → frontend only). On push/manual: run both.
     if: |
       github.event_name != 'pull_request' ||
       github.event.action != 'closed' ||
