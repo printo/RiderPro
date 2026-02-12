@@ -34,6 +34,9 @@ export default defineConfig({
         type: 'module',
       },
       workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         // Exclude /admin and /api paths from service worker navigation handling
         // This allows Django admin to work without SPA interference
         navigateFallbackDenylist: [/^\/admin/, /^\/api/],
@@ -65,18 +68,6 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Separate vendor libraries
-          vendor: ['react', 'react-dom'],
-          // Separate UI components
-          ui: ['lucide-react', 'recharts'],
-          // Separate mapping libraries
-          maps: ['leaflet', 'react-leaflet'],
-        },
-      },
-    },
     // Increase chunk size warning limit
     chunkSizeWarningLimit: 1000,
   },
