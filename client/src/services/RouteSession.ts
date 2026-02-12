@@ -73,14 +73,14 @@ export class RouteSession {
       try {
         const { routeAPI } = await import('@/apiClient/routes');
         const backendSession = await routeAPI.startSession({
-          start_latitude: startPosition.latitude,
-          start_longitude: startPosition.longitude,
-          employee_id: employeeId
+          employeeId: employeeId,
+          latitude: startPosition.latitude,
+          longitude: startPosition.longitude
         });
-        
+
         // Use session ID from backend
         this.sessionId = backendSession.id;
-        this.startTime = new Date(backendSession.start_time);
+        this.startTime = new Date(backendSession.startTime);
       } catch (apiError) {
         // Fallback to local session ID if API call fails (offline mode)
         log.dev('Failed to create session via API, using local session ID:', apiError);
@@ -149,9 +149,9 @@ export class RouteSession {
       if (this.sessionId && this.employeeId) {
         try {
           await routeAPI.stopSession({
-            session_id: this.sessionId,
-            end_latitude: endPosition.latitude,
-            end_longitude: endPosition.longitude
+            sessionId: this.sessionId,
+            latitude: endPosition.latitude,
+            longitude: endPosition.longitude
           });
         } catch (apiError) {
           // Log but don't fail if API call fails (offline mode)

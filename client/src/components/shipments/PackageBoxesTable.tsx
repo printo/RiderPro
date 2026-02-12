@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Package, AlertCircle } from 'lucide-react';
+//import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Package } from 'lucide-react';
 
 interface PackageBox {
   sku?: string;
@@ -32,16 +32,22 @@ export default function PackageBoxesTable({ packageBoxes, className }: PackageBo
       return null;
     }
 
-    return packageBoxes.reduce(
-      (acc, box) => {
-        acc.quantity += box.quantity || 0;
-        acc.weight += box.weight || 0;
-        acc.volume += box.volume || 0;
-        acc.price += box.price || 0;
-        return acc;
-      },
-      { quantity: 0, weight: 0, volume: 0, price: 0 }
-    );
+    interface Totals {
+      quantity: number;
+      weight: number;
+      volume: number;
+      price: number;
+    }
+
+    const initial: Totals = { quantity: 0, weight: 0, volume: 0, price: 0 };
+
+    return packageBoxes.reduce<Totals>((acc, box) => {
+      acc.quantity = acc.quantity + (box.quantity ?? 0);
+      acc.weight = acc.weight + (box.weight ?? 0);
+      acc.volume = acc.volume + (box.volume ?? 0);
+      acc.price = acc.price + (box.price ?? 0);
+      return acc;
+    }, initial);
   }, [packageBoxes]);
 
   if (!packageBoxes || !Array.isArray(packageBoxes) || packageBoxes.length === 0) {

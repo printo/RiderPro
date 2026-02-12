@@ -6,6 +6,8 @@ import math
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q, Count, Avg, Sum, F
 from django.utils import timezone
@@ -26,8 +28,93 @@ from utils.pops_client import pops_client
 
 logger = logging.getLogger(__name__)
 
+ACK_REQUIRED_STATUS_VALUES = {'Delivered', 'Picked Up'}
+ACK_REQUIRED_EVENT_TYPES = {'delivery', 'pickup'}
+DELIVERY_ACK_REQUIRED_MESSAGE = (
+    "Recipient signature and current shipment photo are required before marking as Delivered or Picked Up."
+)
+
+
+def _is_manager_user(user):
+    return (
+        user.is_superuser
+        or user.is_staff
+        or user.is_ops_team
+        or getattr(user, 'role', None) in ['admin', 'manager']
+    )
+
+
+def _has_required_acknowledgment(shipment):
+    signature_url = shipment.signature_url
+    photo_url = shipment.photo_url
+
+    if signature_url and photo_url:
+        return True
+
+    try:
+        acknowledgment = shipment.acknowledgment
+    except Acknowledgment.DoesNotExist:
+        acknowledgment = None
+
+    if acknowledgment:
+        signature_url = signature_url or acknowledgment.signature_url
+        photo_url = photo_url or acknowledgment.photo_url
+
+    return bool(signature_url and photo_url)
+
 
 class ShipmentViewSet(viewsets.ModelViewSet):
+    @action(detail=True, methods=['post'])
+    def toggle_collected_status(self, request, pk=None):
+        """
+        Toggle collected status of a shipment between 'Assigned' and 'Collected'
+        """
+        shipment = self.get_object()
+        user = request.user
+        
+        # Check if user has permission to update this shipment
+        if not (user.is_superuser or user.is_staff or 
+                user.employee_id == shipment.employee_id or
+                getattr(user, 'role', None) in ['admin', 'manager'] or
+                getattr(user, 'is_ops_team', False)):
+            return Response(
+                {'success': False, 'message': 'Not authorized to update this shipment'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        from .services import ShipmentStatusService
+        
+        if shipment.status == 'Assigned':
+            # Mark as Collected
+            new_status = 'Collected'
+            success_message = 'Shipment marked as Collected'
+        elif shipment.status == 'Collected':
+            # Unmark back to Assigned
+            new_status = 'Assigned'
+            success_message = 'Shipment unmarked from Collected status'
+        else:
+            return Response(
+                {'success': False, 'message': 'Only Assigned or Collected shipments can be toggled'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Update status
+        ShipmentStatusService.update_status(
+            shipment=shipment,
+            new_status=new_status,
+            triggered_by=user.username or str(user.id),
+            metadata={
+                'action': 'toggled_collected_status',
+                'previous_status': shipment.status
+            }
+        )
+        
+        from .serializers import ShipmentSerializer
+        return Response({
+            'success': True,
+            'message': success_message,
+            'shipment': ShipmentSerializer(shipment).data
+        })
     """
     ViewSet for shipments
     Supports CRUD operations and role-based filtering
@@ -184,8 +271,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         
         # Check if user is manager/admin for certain fields
-        is_manager = (request.user.is_superuser or request.user.is_staff or 
-                     request.user.role in ['admin', 'manager'] or request.user.is_ops_team)
+        is_manager = _is_manager_user(request.user)
         
         # If updating route_name, special_instructions, or employee_id, require manager permissions
         if not is_manager:
@@ -195,6 +281,17 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                     {'success': False, 'message': 'Only managers can update route, special instructions, or rider assignment'},
                     status=status.HTTP_403_FORBIDDEN
                 )
+
+        requested_status = request.data.get('status')
+        if (
+            requested_status in ACK_REQUIRED_STATUS_VALUES
+            and not is_manager
+            and not _has_required_acknowledgment(instance)
+        ):
+            return Response(
+                {'success': False, 'message': DELIVERY_ACK_REQUIRED_MESSAGE},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
@@ -248,6 +345,16 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         if status_value == 'Picked Up' and shipment.type != 'pickup':
             return Response(
                 {'message': 'Cannot mark a delivery shipment as Picked Up'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if (
+            status_value in ACK_REQUIRED_STATUS_VALUES
+            and not _is_manager_user(request.user)
+            and not _has_required_acknowledgment(shipment)
+        ):
+            return Response(
+                {'success': False, 'message': DELIVERY_ACK_REQUIRED_MESSAGE},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -340,7 +447,11 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         Validates against region-based acknowledgment settings
         """
         shipment = self.get_object()
-        signature_url = request.data.get('signature_url') or request.data.get('signatureData')
+        signature_url = (
+            request.data.get('signature_url')
+            or request.data.get('signatureData')
+            or request.data.get('signature')
+        )
         photo_url = request.data.get('photo_url')
         signed_pdf_url = request.data.get('signed_pdf_url')
         
@@ -813,6 +924,9 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             )
         
         updated_count = 0
+        failed_count = 0
+        results = []
+        is_manager = _is_manager_user(request.user)
         for update_data in updates:
             shipment_id = update_data.get('id')
             if not shipment_id:
@@ -820,6 +934,19 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             
             try:
                 shipment = Shipment.objects.get(id=shipment_id)
+                if (
+                    update_data.get('status') in ACK_REQUIRED_STATUS_VALUES
+                    and not is_manager
+                    and not _has_required_acknowledgment(shipment)
+                ):
+                    failed_count += 1
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': False,
+                        'message': DELIVERY_ACK_REQUIRED_MESSAGE
+                    })
+                    continue
+
                 serializer = ShipmentUpdateSerializer(shipment, data=update_data, partial=True)
                 if serializer.is_valid():
                     shipment = serializer.save()
@@ -828,12 +955,24 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                     shipment.save()
                     self._sync_shipment_to_pops(shipment, request)
                     updated_count += 1
+                    results.append({'shipment_id': shipment_id, 'success': True})
+                else:
+                    failed_count += 1
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': False,
+                        'message': serializer.errors
+                    })
             except Shipment.objects.model.DoesNotExist:
+                failed_count += 1
+                results.append({'shipment_id': shipment_id, 'success': False, 'message': 'Shipment not found'})
                 continue
         
         return Response({
-            'success': True,
-            'updated': updated_count
+            'success': updated_count > 0,
+            'updated': updated_count,
+            'failed': failed_count,
+            'results': results
         })
     
     @action(detail=False, methods=['get'])
@@ -1171,6 +1310,25 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 {'success': False, 'message': 'Session not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+        event_type = serializer.validated_data['event_type']
+        shipment_id = serializer.validated_data['shipment_id']
+
+        shipment = None
+        if event_type in ACK_REQUIRED_EVENT_TYPES:
+            try:
+                shipment = Shipment.objects.get(id=shipment_id)
+            except Shipment.DoesNotExist:
+                return Response(
+                    {'success': False, 'message': 'Shipment not found'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            if not _is_manager_user(user) and not _has_required_acknowledgment(shipment):
+                return Response(
+                    {'success': False, 'message': DELIVERY_ACK_REQUIRED_MESSAGE},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         # Create tracking point for event
         tracking = RouteTracking.objects.create(
@@ -1179,17 +1337,18 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             latitude=serializer.validated_data['latitude'],
             longitude=serializer.validated_data['longitude'],
             timestamp=timezone.now(),
-            event_type=serializer.validated_data['event_type'],
-            shipment_id=serializer.validated_data['shipment_id']
+            event_type=event_type,
+            shipment_id=shipment_id
         )
         
         # Update shipment status if needed using centralized service
         try:
             from .services import ShipmentStatusService
-            shipment = Shipment.objects.get(id=serializer.validated_data['shipment_id'])
+            if shipment is None:
+                shipment = Shipment.objects.get(id=shipment_id)
             triggered_by = f"{request.user.username or request.user.id}" if hasattr(request, 'user') else 'gps_tracking'
             
-            if serializer.validated_data['event_type'] == 'delivery':
+            if event_type == 'delivery':
                 shipment.actual_delivery_time = timezone.now()
                 shipment.save()
                 ShipmentStatusService.update_status(
@@ -1199,7 +1358,7 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                     metadata={'gps_tracking_id': tracking.id},
                     sync_to_pops=True
                 )
-            elif serializer.validated_data['event_type'] == 'pickup':
+            elif event_type == 'pickup':
                 ShipmentStatusService.update_status(
                     shipment=shipment,
                     new_status='Picked Up',
@@ -1210,7 +1369,7 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
         except Shipment.DoesNotExist:
             pass
         
-        logger.info(f'Shipment event recorded: {serializer.validated_data["event_type"]} for {serializer.validated_data["shipment_id"]}')
+        logger.info(f'Shipment event recorded: {event_type} for {shipment_id}')
         
         return Response({
             'success': True,
@@ -1535,23 +1694,37 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
         lat = serializer.validated_data['latitude']
         lng = serializer.validated_data['longitude']
         triggered_by = f"{request.user.username or request.user.id}" if hasattr(request, 'user') else 'gps_tracking'
+        is_manager = _is_manager_user(user)
 
         from .services import ShipmentStatusService
 
         results = []
+        success_count = 0
         for shipment_id in shipment_ids:
-            RouteTracking.objects.create(
-                session=session,
-                employee_id=user.employee_id,
-                latitude=lat,
-                longitude=lng,
-                timestamp=timezone.now(),
-                event_type=event_type,
-                shipment_id=shipment_id
-            )
-
             try:
                 shipment = Shipment.objects.get(id=shipment_id)
+                if (
+                    event_type in ACK_REQUIRED_EVENT_TYPES
+                    and not is_manager
+                    and not _has_required_acknowledgment(shipment)
+                ):
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': False,
+                        'message': DELIVERY_ACK_REQUIRED_MESSAGE
+                    })
+                    continue
+
+                RouteTracking.objects.create(
+                    session=session,
+                    employee_id=user.employee_id,
+                    latitude=lat,
+                    longitude=lng,
+                    timestamp=timezone.now(),
+                    event_type=event_type,
+                    shipment_id=shipment_id
+                )
+
                 if event_type == 'delivery':
                     shipment.actual_delivery_time = timezone.now()
                     shipment.save(update_fields=['actual_delivery_time'])
@@ -1570,14 +1743,17 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                         metadata={'bulk_event': True},
                         sync_to_pops=True
                     )
+                success_count += 1
                 results.append({'shipment_id': shipment_id, 'success': True})
             except Shipment.DoesNotExist:
                 results.append({'shipment_id': shipment_id, 'success': False, 'message': 'Not found'})
 
         return Response({
-            'success': True,
+            'success': success_count > 0,
             'results': results,
-            'message': f'Processed {len(results)} shipment events'
+            'message': f'Processed {len(results)} shipment events',
+            'updated': success_count,
+            'failed': len(results) - success_count
         })
 
     @action(detail=False, methods=['get'], url_path='active/(?P<employee_id>[^/.]+)')

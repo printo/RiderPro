@@ -146,12 +146,24 @@ function ShipmentDetailModalWithTracking({
   };
 
   const handleAcknowledgmentSave = async (data: { photo: File | null; signature: string }) => {
+    const hasPhoto = Boolean(data.photo);
+    const hasSignature = Boolean(data.signature.trim());
+
+    if (!hasPhoto || !hasSignature) {
+      toast({
+        title: "Acknowledgment Required",
+        description: "Delivery/Pickup photo and recipient signature are required before status update.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const formData = new FormData();
     if (data.photo) {
       formData.append('photo', data.photo);
     }
-    if (data.signature) {
-      formData.append('signature', data.signature);
+    if (hasSignature) {
+      formData.append('signature_url', data.signature);
     }
 
     // First save the acknowledgment
@@ -480,6 +492,7 @@ function ShipmentDetailModalWithTracking({
         <AcknowledgmentCapture
           onClose={() => setShowAcknowledgment(false)}
           onSubmit={handleAcknowledgmentSave}
+          requireFullProof
           isSubmitting={isProcessing}
         />
       )}

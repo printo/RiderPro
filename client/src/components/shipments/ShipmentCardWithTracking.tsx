@@ -5,13 +5,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
   Truck, Package, MapPin, Phone, Route, Clock,
-  Navigation, Satellite, User
+  Navigation, Satellite, User, CheckCircle2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { useGPSTracking } from "@/hooks/useGPSTracking";
 import { useToast } from "@/hooks/use-toast";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
+import { CollectedStatusToggle } from "./CollectedStatusToggle";
 
 interface ShipmentCardWithTrackingProps {
   shipment: Shipment;
@@ -267,9 +268,24 @@ function ShipmentCardWithTracking({
                   <Satellite className={`h-4 w-4 mr-2 flex-shrink-0 ${shipment?.latitude && shipment?.longitude ? 'animate-pulse text-green-600' : 'text-gray-500'}`} />
                   <span data-testid={`text-location-${shipment?.shipment_id}`}>
                     {shipment?.latitude && shipment?.longitude ? (
-                      <span className="text-green-600 dark:text-green-400">
-                        GPS Available
-                      </span>
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center space-x-2">
+                          {shipment.type === 'delivery' ? (
+                            <Truck className="h-4 w-4 text-blue-600" />
+                          ) : (
+                            <Package className="h-4 w-4 text-orange-600" />
+                          )}
+                          <span className="text-sm font-medium">
+                            {shipment.type === 'delivery' ? 'Delivery' : 'Pickup'}
+                          </span>
+                        </div>
+                        {shipment.status === 'Collected' && (
+                          <div className="flex items-center text-xs text-green-600 dark:text-green-400">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            <span>Collected</span>
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-gray-500">
                         No GPS Data

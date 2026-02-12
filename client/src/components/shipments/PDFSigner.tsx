@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileText, AlertCircle, CheckCircle } from 'lucide-react';
-import SignatureCanvas from './SignatureCanvas';
+import SignatureCanvas from '@/components/SignatureCanvas';
 import PhotoCapture from './PhotoCapture';
 import CardSection from './CardSection';
 
@@ -19,10 +19,10 @@ export default function PDFSigner({
   pdfUrl,
   onSignatureComplete,
   onPhotoComplete,
-  onSignedPdfUpload,
+  onSignedPdfUpload: _onSignedPdfUpload,
   signatureRequired = 'optional',
   photoRequired = 'optional',
-  requirePdf = false
+  requirePdf: _requirePdf = false
 }: PDFSignerProps) {
   const [signature, setSignature] = useState<string | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -97,8 +97,14 @@ export default function PDFSigner({
         }
       >
         <SignatureCanvas
-          onSignatureComplete={handleSignatureComplete}
-          onClear={() => setSignature(null)}
+          onSignatureChange={(signatureData) => {
+            const normalizedSignature = signatureData?.trim() || '';
+            if (!normalizedSignature) {
+              setSignature(null);
+              return;
+            }
+            handleSignatureComplete(normalizedSignature);
+          }}
         />
       </CardSection>
 
@@ -142,4 +148,3 @@ export default function PDFSigner({
     </div>
   );
 }
-

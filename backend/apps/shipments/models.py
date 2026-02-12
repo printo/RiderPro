@@ -45,6 +45,7 @@ class Shipment(models.Model):
         choices=[
             ('Initiated', 'Initiated'),
             ('Assigned', 'Assigned'),
+            ('Collected', 'Collected'),
             ('In Transit', 'In Transit'),
             ('Delivered', 'Delivered'),
             ('Picked Up', 'Picked Up'),

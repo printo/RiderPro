@@ -98,6 +98,7 @@ class ShipmentStatusService:
             status_mapping = {
                 'Initiated': 'INITIATED',
                 'Assigned': 'ASSIGNED',
+                'Collected': 'COLLECTED',
                 'In Transit': 'IN_TRANSIT',
                 'Delivered': 'DELIVERED',
                 'Picked Up': 'PICKED_UP',

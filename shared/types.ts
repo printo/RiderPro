@@ -1,7 +1,17 @@
-import { GPSPosition, RouteSession, RouteAnalytics, RouteTracking, GPSCoordinate } from './schema';
+import { GPSPosition, RouteSession, RouteAnalytics, RouteTracking, GPSCoordinate, Homebase, RiderHomebaseAssignment } from './schema';
 
 // Re-export everything from schema
 export * from './schema';
+
+export type ShipmentStatus = 
+  | 'Initiated' 
+  | 'Assigned' 
+  | 'Collected' 
+  | 'In Transit' 
+  | 'Delivered' 
+  | 'Picked Up' 
+  | 'Returned' 
+  | 'Cancelled';
 
 // --- User Types (from Admin.tsx) ---
 // Homebase types moved to schema.ts

@@ -15,15 +15,15 @@ interface FleetReportsProps {
   vehicleType?: string;
 }
 
-export const FleetReports: React.FC<FleetReportsProps> = ({ 
-  dateRange, 
-  city, 
-  vehicleType 
+export const FleetReports: React.FC<FleetReportsProps> = ({
+  dateRange,
+  city,
+  vehicleType
 }) => {
   const [reportType, setReportType] = useState<'monthly' | 'vehicle' | 'city'>('monthly');
   const [loading, setLoading] = useState<boolean>(false);
   const [reportData, setReportData] = useState<ReportData[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchReportData();
@@ -38,9 +38,9 @@ export const FleetReports: React.FC<FleetReportsProps> = ({
         ...(city ? { city } : {}),
         ...(dateRange && dateRange[0] && dateRange[1]
           ? {
-              startDate: dateRange[0].toISOString().split('T')[0],
-              endDate: dateRange[1].toISOString().split('T')[0],
-            }
+            startDate: dateRange[0].toISOString().split('T')[0],
+            endDate: dateRange[1].toISOString().split('T')[0],
+          }
           : {}),
       };
 
@@ -52,11 +52,11 @@ export const FleetReports: React.FC<FleetReportsProps> = ({
         key: index,
         month: new Date(m.period).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
         totalDistance: m.totalDistance,
-        totalFuelConsumed: m.fuelConsumed ?? 0,
-        totalFuelCost: m.fuelCost ?? 0,
+        totalFuelConsumed: m.totalFuelConsumed ?? 0,
+        totalFuelCost: m.totalFuelCost ?? 0,
         averageEfficiency: m.averageSpeed ?? 0,
-        costPerKm: m.totalDistance > 0 && m.fuelCost != null
-          ? (m.fuelCost / m.totalDistance)
+        costPerKm: m.totalDistance > 0 && m.totalFuelCost != null
+          ? (m.totalFuelCost / m.totalDistance)
           : 0,
       }));
 
@@ -73,7 +73,7 @@ export const FleetReports: React.FC<FleetReportsProps> = ({
     const headers = getColumns().map(col => col.title);
     const csvContent = [
       headers.join(','),
-      ...reportData.map(row => 
+      ...reportData.map(row =>
         getColumns().map(col => {
           const value = row[col.dataIndex as string];
           return typeof value === 'number' ? value : `"${value}"`;
@@ -90,7 +90,7 @@ export const FleetReports: React.FC<FleetReportsProps> = ({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
+
     console.log('CSV export started!');
     // In a real app, you might want to show a toast notification here
   };
