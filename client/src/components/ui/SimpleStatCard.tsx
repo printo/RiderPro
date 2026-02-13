@@ -1,4 +1,5 @@
 import React from 'react';
+import UnifiedCard from './UnifiedCard';
 
 interface SimpleStatCardProps {
   title: string;
@@ -12,16 +13,17 @@ export default function SimpleStatCard({
   title,
   value,
   suffix,
-  className = 'p-4 bg-muted/50 rounded-lg',
+  className,
   testId
 }: SimpleStatCardProps) {
   return (
-    <div className={className} data-testid={testId}>
-      <div className="text-sm font-medium text-muted-foreground mb-1">{title}</div>
-      <div className="text-2xl font-bold flex items-center gap-2">
-        {value}
-        {suffix && <span className="text-xs text-muted-foreground font-normal">{suffix}</span>}
-      </div>
-    </div>
+    <UnifiedCard
+      title={title}
+      value={value}
+      suffix={suffix}
+      className={className}
+      testId={testId}
+      variant="simple"
+    />
   );
 }

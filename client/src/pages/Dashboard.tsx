@@ -233,12 +233,15 @@ function Dashboard() {
 
           {/* RIGHT COLUMN: Stacked Operations (Tracking & Sync) */}
           <div className="flex flex-col gap-6 h-full">
-            <RouteSessionControls
-              employeeId={employeeId}
-              onSessionStart={() => console.log("Route session started")}
-              onSessionStop={() => console.log("Route session stopped")}
-              onOpenRouteMap={() => setShowRouteMapDialog(true)}
-            />
+            {/* Hide RouteSessionControls for managers/admins - they don't start routes */}
+            {!(user?.role === "admin" || user?.role === "manager" || user?.isSuperUser || user?.isOpsTeam || user?.isStaff) && (
+              <RouteSessionControls
+                employeeId={employeeId}
+                onSessionStart={() => console.log("Route session started")}
+                onSessionStop={() => console.log("Route session stopped")}
+                onOpenRouteMap={() => setShowRouteMapDialog(true)}
+              />
+            )}
 
             <SyncStatusPanel className="flex-1" />
           </div>

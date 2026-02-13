@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import UnifiedCard from './UnifiedCard';
 
 interface StatCardProps {
   title: string;
@@ -13,19 +13,20 @@ interface StatCardProps {
 export default function StatCard({
   title,
   value,
-  valueColor = 'text-2xl font-bold',
-  titleColor = 'text-xs text-muted-foreground',
-  className = 'text-center',
+  valueColor,
+  titleColor,
+  className,
   testId
 }: StatCardProps) {
   return (
-    <div className={className} data-testid={testId}>
-      <div className={valueColor}>
-        {value}
-      </div>
-      <div className={titleColor}>
-        {title}
-      </div>
-    </div>
+    <UnifiedCard
+      title={title}
+      value={value}
+      valueColor={valueColor}
+      titleColor={titleColor}
+      className={className}
+      testId={testId}
+      variant="stat"
+    />
   );
 }
