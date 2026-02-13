@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
+import MetricCard from '@/components/ui/MetricCard';
 import { RouteSession, RoutePoint, RouteData, RouteAnalytics, RouteFilters } from '@shared/types';
 import {
   Route,
@@ -212,59 +213,47 @@ function RouteVisualizationPage() {
 
       {/* Summary Stats */}
       <div className={`grid ${isMobile ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-4'} gap-4`}>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Route className="h-4 w-4 text-blue-600" />
-              <div>
-                <p className="text-2xl font-bold">{aggregatedMetrics.totalSessions || routeSessions.length}</p>
-                <p className="text-sm text-gray-600">Total Routes</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Total Routes"
+          value={aggregatedMetrics.totalSessions || routeSessions.length}
+          icon={Route}
+          iconBgColor="bg-blue-100 dark:bg-blue-900/30"
+          iconColor="text-blue-600"
+          layout="icon-left"
+          testId="card-total-routes"
+        />
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-green-600" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {aggregatedMetrics.totalDistance?.toFixed(0) || routeData.reduce((sum, route) => sum + route.distance, 0).toFixed(0)}km
-                </p>
-                <p className="text-sm text-gray-600">Total Distance</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Total Distance"
+          value={aggregatedMetrics.totalDistance?.toFixed(0) || routeData.reduce((sum, route) => sum + route.distance, 0).toFixed(0)}
+          suffix="km"
+          icon={MapPin}
+          iconBgColor="bg-green-100 dark:bg-green-900/30"
+          iconColor="text-green-600"
+          layout="icon-left"
+          testId="card-total-distance-viz"
+        />
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-orange-600" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {Math.round((aggregatedMetrics.totalTime || routeData.reduce((sum, route) => sum + route.duration, 0)) / 3600)}h
-                </p>
-                <p className="text-sm text-gray-600">Total Time</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Total Time"
+          value={Math.round((aggregatedMetrics.totalTime || routeData.reduce((sum, route) => sum + route.duration, 0)) / 3600)}
+          suffix="h"
+          icon={Clock}
+          iconBgColor="bg-orange-100 dark:bg-orange-900/30"
+          iconColor="text-orange-600"
+          layout="icon-left"
+          testId="card-total-time-viz"
+        />
 
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-purple-600" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {aggregatedMetrics.totalShipmentsCompleted || routeData.reduce((sum, route) => sum + route.shipmentsCompleted, 0)}
-                </p>
-                <p className="text-sm text-gray-600">Shipments Delivered</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Shipments Delivered"
+          value={aggregatedMetrics.totalShipmentsCompleted || routeData.reduce((sum, route) => sum + route.shipmentsCompleted, 0)}
+          icon={Target}
+          iconBgColor="bg-purple-100 dark:bg-purple-900/30"
+          iconColor="text-purple-600"
+          layout="icon-left"
+          testId="card-shipments-delivered"
+        />
       </div>
 
       {/* Main Content Tabs */}

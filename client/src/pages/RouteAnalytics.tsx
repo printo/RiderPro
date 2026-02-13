@@ -8,6 +8,7 @@ import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { Label } from '@/components/ui/label';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import { useIsMobile } from '@/hooks/use-mobile';
+import MetricCard from '@/components/ui/MetricCard';
 import {
   BarChart3,
   MapPin,
@@ -259,61 +260,43 @@ function RouteAnalyticsPage() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Distance</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {summaryMetrics.totalDistance.toFixed(1)} km
-                  </p>
-                </div>
-                <MapPin className="h-8 w-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Total Distance"
+            value={summaryMetrics.totalDistance.toFixed(1)}
+            suffix=" km"
+            icon={MapPin}
+            iconBgColor="bg-blue-100 dark:bg-blue-900/30"
+            iconColor="text-blue-600"
+            testId="card-total-distance"
+          />
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Total Time</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {Math.round(summaryMetrics.totalTime / 3600)} hrs
-                  </p>
-                </div>
-                <Clock className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Total Time"
+            value={Math.round(summaryMetrics.totalTime / 3600)}
+            suffix=" hrs"
+            icon={Clock}
+            iconBgColor="bg-green-100 dark:bg-green-900/30"
+            iconColor="text-green-600"
+            testId="card-total-time"
+          />
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Fuel Cost</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    ${summaryMetrics.totalFuelCost.toFixed(2)}
-                  </p>
-                </div>
-                <Fuel className="h-8 w-8 text-orange-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Fuel Cost"
+            value={`$${summaryMetrics.totalFuelCost.toFixed(2)}`}
+            icon={Fuel}
+            iconBgColor="bg-orange-100 dark:bg-orange-900/30"
+            iconColor="text-orange-600"
+            testId="card-fuel-cost"
+          />
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Shipments</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    {summaryMetrics.totalShipments}
-                  </p>
-                </div>
-                <Users className="h-8 w-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
+          <MetricCard
+            title="Shipments"
+            value={summaryMetrics.totalShipments}
+            icon={Users}
+            iconBgColor="bg-purple-100 dark:bg-purple-900/30"
+            iconColor="text-purple-600"
+            testId="card-shipments"
+          />
         </div>
 
         {/* Analytics Tabs */}

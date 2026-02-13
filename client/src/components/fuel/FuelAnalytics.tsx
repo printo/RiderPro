@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader } from '@/components/ui/Loader';
+import CompactMetricCard from '@/components/ui/CompactMetricCard';
+import SimpleStatCard from '@/components/ui/SimpleStatCard';
 import { 
   Fuel, 
   DollarSign, 
@@ -168,56 +170,40 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">Fuel Consumed</p>
-              <Fuel className="h-4 w-4 text-blue-500" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold">{analytics.totalFuelConsumed?.toFixed(1)}</span>
-              <span className="text-sm text-muted-foreground">L</span>
-            </div>
-          </CardContent>
-        </Card>
+        <CompactMetricCard
+          title="Fuel Consumed"
+          value={analytics.totalFuelConsumed?.toFixed(1) || '0'}
+          suffix="L"
+          icon={Fuel}
+          iconColor="text-blue-500"
+          testId="card-fuel-consumed"
+        />
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">Fuel Cost</p>
-              <DollarSign className="h-4 w-4 text-green-500" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold">{formatINR(analytics.totalFuelCost || 0)}</span>
-            </div>
-          </CardContent>
-        </Card>
+        <CompactMetricCard
+          title="Fuel Cost"
+          value={formatINR(analytics.totalFuelCost || 0)}
+          icon={DollarSign}
+          iconColor="text-green-500"
+          testId="card-fuel-cost"
+        />
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">CO₂ Emissions</p>
-              <Zap className="h-4 w-4 text-orange-500" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold">{analytics.totalCO2Emissions?.toFixed(1)}</span>
-              <span className="text-sm text-muted-foreground">kg</span>
-            </div>
-          </CardContent>
-        </Card>
+        <CompactMetricCard
+          title="CO₂ Emissions"
+          value={analytics.totalCO2Emissions?.toFixed(1) || '0'}
+          suffix="kg"
+          icon={Zap}
+          iconColor="text-orange-500"
+          testId="card-co2-emissions"
+        />
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between space-y-0 pb-2">
-              <p className="text-sm font-medium text-muted-foreground">Avg. Efficiency</p>
-              <TrendingUp className="h-4 w-4 text-purple-500" />
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold">{analytics.averageEfficiency?.toFixed(1)}</span>
-              <span className="text-sm text-muted-foreground">km/L</span>
-            </div>
-          </CardContent>
-        </Card>
+        <CompactMetricCard
+          title="Avg. Efficiency"
+          value={analytics.averageEfficiency?.toFixed(1) || '0'}
+          suffix="km/L"
+          icon={TrendingUp}
+          iconColor="text-purple-500"
+          testId="card-avg-efficiency"
+        />
       </div>
 
       {/* Charts Row 1 */}
@@ -376,29 +362,26 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4">
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground mb-1">Cost per Kilometer</div>
-                <div className="text-2xl font-bold flex items-center gap-2">
-                  ₹{analytics.costPerKm?.toFixed(2)}
-                  <span className="text-xs text-muted-foreground font-normal">/ km</span>
-                </div>
-              </div>
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground mb-1">Fuel per 100km</div>
-                <div className="text-2xl font-bold flex items-center gap-2">
-                  {((analytics.fuelPerKm || 0) * 100).toFixed(1)}
-                  <span className="text-xs text-muted-foreground font-normal">L / 100km</span>
-                </div>
-              </div>
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <div className="text-sm font-medium text-muted-foreground mb-1">CO₂ Intensity</div>
-                <div className="text-2xl font-bold flex items-center gap-2">
-                  {(analytics.totalCO2Emissions && analytics.totalDistance 
-                    ? (analytics.totalCO2Emissions / analytics.totalDistance).toFixed(1) 
-                    : 0)}
-                  <span className="text-xs text-muted-foreground font-normal">g / km</span>
-                </div>
-              </div>
+              <SimpleStatCard
+                title="Cost per Kilometer"
+                value={`₹${analytics.costPerKm?.toFixed(2) || '0'}`}
+                suffix="/ km"
+                testId="stat-cost-per-km"
+              />
+              <SimpleStatCard
+                title="Fuel per 100km"
+                value={((analytics.fuelPerKm || 0) * 100).toFixed(1)}
+                suffix="L / 100km"
+                testId="stat-fuel-per-100km"
+              />
+              <SimpleStatCard
+                title="CO₂ Intensity"
+                value={(analytics.totalCO2Emissions && analytics.totalDistance 
+                  ? (analytics.totalCO2Emissions / analytics.totalDistance).toFixed(1) 
+                  : '0')}
+                suffix="g / km"
+                testId="stat-co2-intensity"
+              />
             </div>
           </CardContent>
         </Card>

@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { withChartErrorBoundary } from '@/components/ErrorBoundary';
+import MetricCard from '@/components/ui/MetricCard';
+import { Package, MapPin, Fuel, Users } from 'lucide-react';
 
 interface MobileRouteAnalyticsProps {
   data: RouteAnalytics[];
@@ -136,35 +138,51 @@ export const MobileRouteAnalytics: React.FC<MobileRouteAnalyticsProps> = ({
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-3">
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-sm text-muted-foreground">Total Routes</div>
-            <div className="text-2xl font-bold">{summary.totalRoutes}</div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Total Routes"
+          value={summary.totalRoutes}
+          icon={Package}
+          iconBgColor="bg-transparent"
+          iconColor="text-transparent"
+          layout="no-icon"
+          className="p-3"
+          testId="card-total-routes-mobile"
+        />
 
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-sm text-muted-foreground">Total Distance</div>
-            <div className="text-2xl font-bold">{formatDistance(summary.totalDistance)}</div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Total Distance"
+          value={formatDistance(summary.totalDistance)}
+          icon={MapPin}
+          iconBgColor="bg-transparent"
+          iconColor="text-transparent"
+          layout="no-icon"
+          className="p-3"
+          testId="card-total-distance-mobile"
+        />
 
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-sm text-muted-foreground">Avg Efficiency</div>
-            <div className={`text-2xl font-bold ${getEfficiencyColor(summary.averageEfficiency)}`}>
-              {formatNumber(summary.averageEfficiency)}%
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Avg Efficiency"
+          value={formatNumber(summary.averageEfficiency)}
+          suffix="%"
+          icon={Fuel}
+          iconBgColor="bg-transparent"
+          iconColor="text-transparent"
+          valueColor={getEfficiencyColor(summary.averageEfficiency)}
+          layout="no-icon"
+          className="p-3"
+          testId="card-avg-efficiency-mobile"
+        />
 
-        <Card>
-          <CardContent className="p-3">
-            <div className="text-sm text-muted-foreground">Fuel Used</div>
-            <div className="text-2xl font-bold">{formatNumber(summary.totalFuelConsumed)}L</div>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title="Fuel Used"
+          value={`${formatNumber(summary.totalFuelConsumed)}L`}
+          icon={Users}
+          iconBgColor="bg-transparent"
+          iconColor="text-transparent"
+          layout="no-icon"
+          className="p-3"
+          testId="card-fuel-used-mobile"
+        />
       </div>
 
       {/* Route List */}

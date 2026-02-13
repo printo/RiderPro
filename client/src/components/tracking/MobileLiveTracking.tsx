@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
+import StatCard from '@/components/ui/StatCard';
 import {
   MapPin,
   Clock,
@@ -132,24 +133,24 @@ export const MobileLiveTracking: React.FC<MobileLiveTrackingProps> = ({
         <CardContent>
           {/* Status Summary */}
           <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {activeRiders.filter(r => r.status === 'active').length}
-              </div>
-              <div className="text-xs text-muted-foreground">Active</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600">
-                {activeRiders.filter(r => r.status === 'inactive').length}
-              </div>
-              <div className="text-xs text-muted-foreground">Inactive</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">
-                {activeRiders.filter(r => r.status === 'offline').length}
-              </div>
-              <div className="text-xs text-muted-foreground">Offline</div>
-            </div>
+            <StatCard
+              title="Active"
+              value={activeRiders.filter(r => r.status === 'active').length}
+              valueColor="text-2xl font-bold text-green-600"
+              testId="stat-active"
+            />
+            <StatCard
+              title="Inactive"
+              value={activeRiders.filter(r => r.status === 'inactive').length}
+              valueColor="text-2xl font-bold text-yellow-600"
+              testId="stat-inactive"
+            />
+            <StatCard
+              title="Offline"
+              value={activeRiders.filter(r => r.status === 'offline').length}
+              valueColor="text-2xl font-bold text-red-600"
+              testId="stat-offline"
+            />
           </div>
 
           {/* Last Update */}

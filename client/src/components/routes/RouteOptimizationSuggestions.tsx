@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { RouteData, OptimizationSuggestion } from '@shared/types';
+import StatCard from '@/components/ui/StatCard';
 import {
   Target,
   Route,
@@ -289,30 +290,34 @@ export default function RouteOptimizationSuggestions({
         <CardContent>
           {/* Potential Savings Summary */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
-                {totalPotentialSavings.distance?.toFixed(1) || '0'}km
-              </div>
-              <div className="text-sm text-gray-600">Distance Savings</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
-                {totalPotentialSavings.time?.toFixed(0) || '0'}min
-              </div>
-              <div className="text-sm text-gray-600">Time Savings</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">
-                {totalPotentialSavings.fuel?.toFixed(1) || '0'}L
-              </div>
-              <div className="text-sm text-gray-600">Fuel Savings</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
-                ${totalPotentialSavings.cost?.toFixed(0) || '0'}
-              </div>
-              <div className="text-sm text-gray-600">Cost Savings</div>
-            </div>
+            <StatCard
+              title="Distance Savings"
+              value={`${totalPotentialSavings.distance?.toFixed(1) || '0'}km`}
+              valueColor="text-2xl font-bold text-blue-600"
+              titleColor="text-sm text-gray-600"
+              testId="stat-distance-savings"
+            />
+            <StatCard
+              title="Time Savings"
+              value={`${totalPotentialSavings.time?.toFixed(0) || '0'}min`}
+              valueColor="text-2xl font-bold text-green-600"
+              titleColor="text-sm text-gray-600"
+              testId="stat-time-savings"
+            />
+            <StatCard
+              title="Fuel Savings"
+              value={`${totalPotentialSavings.fuel?.toFixed(1) || '0'}L`}
+              valueColor="text-2xl font-bold text-orange-600"
+              titleColor="text-sm text-gray-600"
+              testId="stat-fuel-savings"
+            />
+            <StatCard
+              title="Cost Savings"
+              value={`$${totalPotentialSavings.cost?.toFixed(0) || '0'}`}
+              valueColor="text-2xl font-bold text-purple-600"
+              titleColor="text-sm text-gray-600"
+              testId="stat-cost-savings"
+            />
           </div>
 
           {/* Filters */}

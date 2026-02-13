@@ -11,6 +11,7 @@ import RouteSummary from "@/components/routes/RouteSummary";
 import RouteSessionControls from "@/components/routes/RouteSessionControls";
 import { Package, CheckCircle, Clock, HourglassIcon } from "lucide-react";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
+import MetricCard from "@/components/ui/MetricCard";
 import { useAuth } from "@/hooks/useAuth";
 import ActiveRouteTracking from "@/components/routes/ActiveRouteTracking";
 import { useRouteSessionContext } from "@/contexts/RouteSessionContext";
@@ -190,89 +191,44 @@ function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
           {/* LEFT COLUMN: Key Metrics (Compact Grid on Mobile) */}
           <div className="grid grid-cols-2 lg:grid-cols-1 gap-4 h-full">
-            <Card data-testid="card-total-shipments" className="shadow-sm border-border/60">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      Total Shipments
-                    </p>
-                    <p
-                      className="text-2xl sm:text-4xl font-extrabold text-foreground"
-                      data-testid="text-total-shipments"
-                    >
-                      {metrics.totalShipments}
-                    </p>
-                  </div>
-                  <div className="bg-primary/10 p-2 sm:p-3 rounded-xl">
-                    <Package className="text-primary h-6 w-6 sm:h-8 sm:w-8" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard
+              title="Total Orders"
+              value={metrics.totalShipments}
+              icon={Package}
+              iconBgColor="bg-primary/10"
+              iconColor="text-primary"
+              testId="card-total-shipments"
+            />
 
-            <Card data-testid="card-in-progress" className="shadow-sm border-border/60">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      In Progress
-                    </p>
-                    <p
-                      className="text-2xl sm:text-4xl font-extrabold text-amber-600 dark:text-amber-500"
-                      data-testid="text-in-progress"
-                    >
-                      {metrics.inProgress}
-                    </p>
-                  </div>
-                  <div className="bg-amber-100 dark:bg-amber-900/30 p-2 sm:p-3 rounded-xl">
-                    <Clock className="text-amber-600 dark:text-amber-500 h-6 w-6 sm:h-8 sm:w-8" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard
+              title="Picked Up"
+              value={metrics.statusBreakdown?.["Picked Up"] || 0}
+              icon={Package}
+              iconBgColor="bg-blue-100 dark:bg-blue-900/30"
+              iconColor="text-blue-600 dark:text-blue-500"
+              valueColor="text-blue-600 dark:text-blue-500"
+              testId="card-picked-up"
+            />
 
-            <Card data-testid="card-completed" className="shadow-sm border-border/60">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      Completed
-                    </p>
-                    <p
-                      className="text-2xl sm:text-4xl font-extrabold text-green-600 dark:text-green-500"
-                      data-testid="text-completed"
-                    >
-                      {metrics.completed}
-                    </p>
-                  </div>
-                  <div className="bg-green-100 dark:bg-green-900/30 p-2 sm:p-3 rounded-xl">
-                    <CheckCircle className="text-green-600 dark:text-green-500 h-6 w-6 sm:h-8 sm:w-8" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard
+              title="In Progress"
+              value={metrics.inProgress}
+              icon={Clock}
+              iconBgColor="bg-amber-100 dark:bg-amber-900/30"
+              iconColor="text-amber-600 dark:text-amber-500"
+              valueColor="text-amber-600 dark:text-amber-500"
+              testId="card-in-progress"
+            />
 
-            <Card data-testid="card-picked-up" className="shadow-sm border-border/60">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      Picked Up
-                    </p>
-                    <p
-                      className="text-2xl sm:text-4xl font-extrabold text-blue-600 dark:text-blue-500"
-                      data-testid="text-picked-up"
-                    >
-                      {metrics.statusBreakdown?.["Picked Up"] || 0}
-                    </p>
-                  </div>
-                  <div className="bg-blue-100 dark:bg-blue-900/30 p-2 sm:p-3 rounded-xl">
-                    <Package className="text-blue-600 dark:text-blue-500 h-6 w-6 sm:h-8 sm:w-8" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard
+              title="Completed"
+              value={metrics.completed}
+              icon={CheckCircle}
+              iconBgColor="bg-green-100 dark:bg-green-900/30"
+              iconColor="text-green-600 dark:text-green-500"
+              valueColor="text-green-600 dark:text-green-500"
+              testId="card-completed"
+            />
           </div>
 
           {/* RIGHT COLUMN: Stacked Operations (Tracking & Sync) */}
