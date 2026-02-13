@@ -8,12 +8,11 @@ import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Navigation,
   Battery,
-  Wifi,
-  WifiOff,
   Play,
   Square,
   AlertCircle
 } from 'lucide-react';
+import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 
 interface MobileGPSTrackerProps {
   onLocationUpdate?: (location: { latitude: number; longitude: number; accuracy: number }) => void;
@@ -242,14 +241,13 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
           {/* Status Indicators */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1">
-                {isOnline ? (
-                  <Wifi className="h-4 w-4 text-green-600" />
-                ) : (
-                  <WifiOff className="h-4 w-4 text-red-600" />
-                )}
-                <span className="text-sm">{isOnline ? 'Online' : 'Offline'}</span>
-              </div>
+              <ConnectionStatus
+                type="local"
+                isConnected={isOnline}
+                variant="compact"
+                showLabel={true}
+                className="text-sm"
+              />
 
               <div className="flex items-center gap-1">
                 <Battery className={`h-4 w-4 ${getBatteryColor(batteryLevel)}`} />

@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 import { apiClient } from "@/services/ApiClient";
 import { cn } from "@/lib/utils";
+import { ConnectionStatus } from "@/components/ui/ConnectionStatus";
 
 interface SyncStats {
   totalPending: number;
@@ -16,9 +17,6 @@ interface SyncStats {
 }
 
 import { useOfflineSync } from "@/hooks/useOfflineSync";
-import { Wifi } from "lucide-react";
-
-// ... existing imports ...
 
 interface SyncStatusPanelProps {
   className?: string;
@@ -87,6 +85,9 @@ function SyncStatusPanel({ className }: SyncStatusPanelProps) {
     queryClient.invalidateQueries({ queryKey: ["/api/v1/sync/stats"] });
   };
 
+  // Determine cloud server connection status based on API availability and sync stats
+  const isCloudServerConnected = isOnline && !triggerSyncMutation.isError && syncStats !== undefined;
+
   const isSyncing = triggerSyncMutation.isPending || offlineSyncInProgress;
 
   if (isLoading) {
@@ -109,7 +110,6 @@ function SyncStatusPanel({ className }: SyncStatusPanelProps) {
       <CardHeader className="p-4 pb-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
-            <Wifi className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             <CardTitle className="text-base font-semibold">Sync Status</CardTitle>
           </div>
           <Button
@@ -127,11 +127,15 @@ function SyncStatusPanel({ className }: SyncStatusPanelProps) {
 
         {/* Sub-header: Online Status & Date */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted-foreground border-b border-border/40 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-foreground/80 lowercase sm:uppercase">Cloud Server</span>
-            <Wifi className="h-3.5 w-3.5 text-green-500" />
-            <span className="text-green-600 font-medium">Connected</span>
-          </div>
+          <ConnectionStatus
+            type="cloud"
+            isConnected={isCloudServerConnected}
+            isPending={triggerSyncMutation.isPending}
+            hasError={triggerSyncMutation.isError}
+            className="text-xs"
+            showLabel={true}
+            variant="default"
+          />
 
           {syncStats?.lastSyncTime && (
             <div className="flex items-center gap-1.5">
@@ -166,24 +170,27 @@ function SyncStatusPanel({ className }: SyncStatusPanelProps) {
 
           {/* Right Column: Device Connectivity */}
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 bg-card mt-auto sm:mt-0">
-            <div className="flex items-center gap-2.5">
-              <div className="relative flex h-2.5 w-2.5">
-                {isOnline && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
-                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-              </div>
-              <span className="text-sm font-medium text-foreground/80">{isOnline ? 'Local Network: Connected' : 'Local Network: Offline'}</span>
-            </div>
+            <ConnectionStatus
+              type="local"
+              isConnected={isOnline}
+              isPending={false}
+              hasError={false}
+              className="text-sm"
+              showLabel={true}
+              variant="inline"
+            />
 
             <div className="flex items-center gap-2">
               {pendingRecords > 0 && <Badge variant="outline" className="text-[10px] h-5">Local: {pendingRecords}</Badge>}
-              <Wifi className={`h-4 w-4 ${isOnline ? 'text-green-500/70' : 'text-muted-foreground'}`} />
             </div>
           </div>
         </div>
       </CardContent>
     </Card>
   );
-} export default withComponentErrorBoundary(SyncStatusPanel, {
+}
+
+export default withComponentErrorBoundary(SyncStatusPanel, {
   componentVariant: 'card',
   componentName: 'SyncStatusPanel'
 });

@@ -6,8 +6,6 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import {
-  Wifi,
-  WifiOff,
   RefreshCw,
   CheckCircle,
   AlertTriangle,
@@ -18,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { DeviceSyncStatus as SyncStatus } from '@shared/types';
+import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 
 interface DetailedSyncStatus extends SyncStatus {
   unsyncedGPSRecords: number;
@@ -82,7 +81,7 @@ function SyncStatusIndicator({
     }
 
     if (!isOnline) {
-      return <WifiOff className="h-4 w-4" />;
+      return <XCircle className="h-4 w-4" />;
     }
 
     if (syncErrors.length > 0) {
@@ -230,16 +229,15 @@ function SyncStatusDetails({
     <CardContent className="space-y-3">
       {/* Connection Status */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {syncStatus.isOnline ? (
-            <Wifi className="h-4 w-4 text-green-600" />
-          ) : (
-            <WifiOff className="h-4 w-4 text-orange-600" />
-          )}
-          <span className="text-sm">
-            {syncStatus.isOnline ? 'Online' : 'Offline'}
-          </span>
-        </div>
+        <ConnectionStatus
+          type="local"
+          isConnected={syncStatus.isOnline}
+          isPending={syncStatus.syncInProgress}
+          hasError={syncStatus.syncErrors.length > 0}
+          className="text-sm"
+          showLabel={true}
+          variant="compact"
+        />
         <Badge variant="outline" className="text-xs">
           {syncStatus.isOnline ? 'Connected' : 'Disconnected'}
         </Badge>

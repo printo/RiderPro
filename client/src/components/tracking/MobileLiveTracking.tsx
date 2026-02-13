@@ -10,10 +10,10 @@ import {
   Navigation,
   RefreshCw,
   AlertCircle,
-  CheckCircle,
   Play,
   Pause
 } from 'lucide-react';
+import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 
 interface RiderLocation {
   id: string;
@@ -88,6 +88,17 @@ export const MobileLiveTracking: React.FC<MobileLiveTrackingProps> = ({
     const now = new Date();
     const diffMinutes = (now.getTime() - updateTime.getTime()) / (1000 * 60);
     return diffMinutes < 5; // Consider online if updated within 5 minutes
+  };
+
+  const getRiderConnectionStatus = (rider: RiderLocation) => {
+    const isOnline = isRiderOnline(rider.lastUpdate);
+    const hasError = rider.status === 'offline';
+    
+    return {
+      isConnected: isOnline,
+      hasError,
+      isPending: false
+    };
   };
 
   return (
@@ -223,14 +234,14 @@ export const MobileLiveTracking: React.FC<MobileLiveTrackingProps> = ({
                     <Clock className="h-3 w-3" />
                     <span>Updated: {formatTime(rider.lastUpdate)}</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    {isRiderOnline(rider.lastUpdate) ? (
-                      <CheckCircle className="h-3 w-3 text-green-600" />
-                    ) : (
-                      <AlertCircle className="h-3 w-3 text-red-600" />
-                    )}
-                    <span>{isRiderOnline(rider.lastUpdate) ? 'Online' : 'Offline'}</span>
-                  </div>
+                  <ConnectionStatus
+                    type="live-tracking"
+                    isConnected={getRiderConnectionStatus(rider).isConnected}
+                    hasError={getRiderConnectionStatus(rider).hasError}
+                    variant="compact"
+                    showLabel={true}
+                    className="text-xs"
+                  />
                 </div>
               </CardContent>
             </Card>

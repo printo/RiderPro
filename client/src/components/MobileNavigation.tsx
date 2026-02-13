@@ -4,6 +4,7 @@ import { useMobileOptimization } from '../hooks/useMobileOptimization';
 import { useAuth } from '../hooks/useAuth';
 import { UserRole } from '@shared/types';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
+import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 import '../styles/mobile.css';
 
 interface NavigationItem {
@@ -145,11 +146,13 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
           </div>
 
           <div className="nav-status">
-            {!mobileOptimization.networkInfo.isOnline && (
-              <div className="status-indicator offline">
-                📶 Offline
-              </div>
-            )}
+            <ConnectionStatus
+              type="local"
+              isConnected={mobileOptimization.networkInfo.isOnline}
+              variant="compact"
+              showLabel={true}
+              className="text-sm"
+            />
             {unreadNotifications > 0 && (
               <div className="notification-indicator">
                 🔔 {unreadNotifications}
@@ -184,11 +187,13 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
         </div>
 
         <div className="header-actions">
-          {!mobileOptimization.networkInfo.isOnline && (
-            <div className="status-indicator offline" title="Offline">
-              📶
-            </div>
-          )}
+          <ConnectionStatus
+            type="local"
+            isConnected={mobileOptimization.networkInfo.isOnline}
+            variant="inline"
+            showLabel={false}
+            className="status-indicator"
+          />
           {unreadNotifications > 0 && (
             <div className="notification-indicator" title={`${unreadNotifications} notifications`}>
               🔔
@@ -240,9 +245,13 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
           <div className="device-info">
             <div className="info-item">
               <span>Connection:</span>
-              <span className={mobileOptimization.networkInfo.isOnline ? 'online' : 'offline'}>
-                {mobileOptimization.networkInfo.isOnline ? 'Online' : 'Offline'}
-              </span>
+              <ConnectionStatus
+                type="local"
+                isConnected={mobileOptimization.networkInfo.isOnline}
+                variant="compact"
+                showLabel={true}
+                className="text-xs"
+              />
             </div>
             {mobileOptimization.batteryInfo.level !== null && (
               <div className="info-item">

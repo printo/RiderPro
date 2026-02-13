@@ -7,8 +7,6 @@ import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import {
   MapPin,
   Users,
-  Wifi,
-  WifiOff,
   RefreshCw,
   Maximize2,
   Minimize2
@@ -16,6 +14,7 @@ import {
 import LiveTrackingMap from '@/components/tracking/LiveTrackingMap';
 import RiderStatusPanel from '@/components/ui/status/RiderStatusPanel';
 import { useLiveTracking } from '@/hooks/useLiveTracking';
+import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 
 function LiveTrackingDashboard() {
   const [selectedRider, setSelectedRider] = useState<string | undefined>();
@@ -50,18 +49,19 @@ function LiveTrackingDashboard() {
   }, [connect, disconnect]);
 
   const getConnectionStatusBadge = () => {
-    switch (connectionStatus) {
-      case 'connected':
-        return <Badge className="bg-green-100 text-green-800"><Wifi className="h-3 w-3 mr-1" />Connected</Badge>;
-      case 'connecting':
-        return <Badge variant="secondary"><RefreshCw className="h-3 w-3 mr-1 animate-spin" />Connecting</Badge>;
-      case 'disconnected':
-        return <Badge variant="outline"><WifiOff className="h-3 w-3 mr-1" />Disconnected</Badge>;
-      case 'error':
-        return <Badge variant="destructive"><WifiOff className="h-3 w-3 mr-1" />Error</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
+    const isConnected = connectionStatus === 'connected';
+    const isPending = connectionStatus === 'connecting';
+    const hasError = connectionStatus === 'error';
+    
+    return (
+      <ConnectionStatus
+        type="live-tracking"
+        isConnected={isConnected}
+        isPending={isPending}
+        hasError={hasError}
+        variant="badge"
+      />
+    );
   };
 
   const activeRiders = riders.filter(r => r.status === 'active');
@@ -121,7 +121,6 @@ function LiveTrackingDashboard() {
       {/* Error Alert */}
       {error && (
         <Alert className="mx-6 mt-4 border-red-200 bg-red-50">
-          <WifiOff className="h-4 w-4" />
           <AlertDescription className="text-red-800">
             {error}
             <Button
@@ -177,7 +176,6 @@ function LiveTrackingDashboard() {
                     </p>
                     {!isConnected && (
                       <Button onClick={connect} variant="outline">
-                        <Wifi className="h-4 w-4 mr-2" />
                         Connect
                       </Button>
                     )}
@@ -200,7 +198,12 @@ function LiveTrackingDashboard() {
 
           <div className="flex items-center gap-2">
             <span>Real-time updates</span>
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <ConnectionStatus
+              type="live-tracking"
+              isConnected={isConnected}
+              variant="inline"
+              showLabel={false}
+            />
           </div>
         </div>
       </div>
