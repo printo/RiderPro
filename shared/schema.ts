@@ -937,8 +937,8 @@ export interface RouteAnalytics {
   totalDistance: number;
   totalTime: number;
   averageSpeed: number;
-  fuelConsumption: number;
-  fuelConsumed: number; // alias for fuelConsumption
+  fuelConsumed: number; // Changed from fuelConsumption to match backend
+  fuelConsumption: number; // Keep for backward compatibility
   fuelCost: number;
   stops: number;
   efficiency: number;

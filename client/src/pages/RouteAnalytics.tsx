@@ -5,7 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
-
 import { Label } from '@/components/ui/label';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -18,7 +17,6 @@ import {
   Download,
   Filter,
   RefreshCw,
-
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { DateRange } from 'react-day-picker';
@@ -31,16 +29,19 @@ import EmployeePerformanceTable from '@/components/analytics/EmployeePerformance
 import RouteComparisonChart from '@/components/analytics/RouteComparisonChart';
 import ExportDialog from '@/components/ui/forms/ExportDialog';
 
-import { routeAPI } from '@/apiClient/routes';
-
-import { AnalyticsFilters as BaseAnalyticsFilters } from '@shared/types';
+import { AnalyticsFilters as BaseAnalyticsFilters, RouteAnalytics } from '@shared/types';
 
 interface AnalyticsFilters extends Omit<BaseAnalyticsFilters, 'dateRange'> {
   dateRange: DateRange | undefined;
   viewType: 'daily' | 'weekly' | 'monthly';
 }
 
-function RouteAnalytics() {
+interface Employee {
+  id: string;
+  name: string;
+}
+
+function RouteAnalyticsPage() {
   const [filters, setFilters] = useState<AnalyticsFilters>({
     dateRange: {
       from: subDays(new Date(), 30),
@@ -54,18 +55,28 @@ function RouteAnalytics() {
   const [activeTab, setActiveTab] = useState('overview');
   const [showExportDialog, setShowExportDialog] = useState(false);
 
-
   // Fetch analytics data
   const { data: analyticsData, isLoading, error, refetch } = useQuery({
     queryKey: ['route-analytics', filters],
-    queryFn: async () => {
+    queryFn: async (): Promise<RouteAnalytics[]> => {
       const params = {
         startDate: filters.dateRange?.from ? format(filters.dateRange.from, 'yyyy-MM-dd') : undefined,
         endDate: filters.dateRange?.to ? format(filters.dateRange.to, 'yyyy-MM-dd') : undefined,
         employeeId: filters.employeeId
       };
 
-      return await routeAPI.getAnalytics(params);
+      const response = await fetch(`/api/routes/analytics${params.startDate || params.endDate || params.employeeId ? '?' + new URLSearchParams(Object.entries(params).filter(([_, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')) : ''}`, {
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics data');
+      }
+      
+      const result = await response.json();
+      return result.analytics || [];
     },
     enabled: !!filters.dateRange?.from && !!filters.dateRange?.to
   });
@@ -73,11 +84,11 @@ function RouteAnalytics() {
   // Fetch employee list for filter dropdown
   const { data: employees } = useQuery({
     queryKey: ['employees'],
-    queryFn: async () => {
+    queryFn: async (): Promise<Employee[]> => {
       // This would typically come from an employees API
       // For now, we'll extract unique employee IDs from analytics data
       if (analyticsData) {
-        const uniqueEmployees = Array.from(new Set(analyticsData.map(item => item.employeeId)));
+        const uniqueEmployees = Array.from(new Set(analyticsData.map((item: RouteAnalytics) => item.employeeId)));
         return uniqueEmployees.map(id => ({ id, name: `Employee ${id}` }));
       }
       return [];
@@ -98,7 +109,7 @@ function RouteAnalytics() {
       };
     }
 
-    const totals = analyticsData.reduce((acc, item) => ({
+    const totals = analyticsData.reduce((acc, item: RouteAnalytics) => ({
       totalDistance: acc.totalDistance + (item.totalDistance || 0),
       totalTime: acc.totalTime + (item.totalTime || 0),
       totalFuelCost: acc.totalFuelCost + (item.fuelCost || 0),
@@ -138,7 +149,13 @@ function RouteAnalytics() {
     setShowExportDialog(true);
   };
 
-
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p>Loading analytics data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4">
@@ -202,7 +219,7 @@ function RouteAnalytics() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Employees</SelectItem>
-                    {employees?.map((employee) => (
+                    {employees?.map((employee: Employee) => (
                       <SelectItem key={employee.id} value={employee.id}>
                         {employee.name}
                       </SelectItem>
@@ -399,9 +416,9 @@ function RouteAnalytics() {
           data={analyticsData || []}
           availableEmployees={employees || []}
         />
-
-
       </div>
     </div>
   );
-} export default withPageErrorBoundary(RouteAnalytics, 'Route Analytics');
+}
+
+export default withPageErrorBoundary(RouteAnalyticsPage, 'Route Analytics');
