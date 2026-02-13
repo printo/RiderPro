@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
-import { RouteSession, RoutePoint, RouteData } from '@shared/types';
+import { RouteSession, RoutePoint, RouteData, RouteAnalytics, RouteFilters } from '@shared/types';
 import {
   Route,
   BarChart3,
@@ -15,19 +16,18 @@ import {
   Clock
 } from 'lucide-react';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
+import { useRouteAnalytics } from '../hooks/useRouteAnalytics';
+import { useRouteAnalytics as useRouteAnalyticsAPI, useRouteTracking } from '../hooks/useRouteAPI';
+import { analyticsApi } from '../apiClient/analytics';
 
 import RouteVisualization from '@/components/routes/RouteVisualization';
 import RouteComparison from '@/components/routes/RouteComparison';
 import RouteOptimizationSuggestions from '@/components/routes/RouteOptimizationSuggestions';
-
-// Mock data interfaces (in real app, these would come from API)
+import RouteDataTable from '@/components/analytics/RouteDataTable';
 
 function RouteVisualizationPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [routeSessions, setRouteSessions] = useState<RouteSession[]>([]);
-  const [routeData, setRouteData] = useState<RouteData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [filters, setFilters] = useState<RouteFilters>({});
 
   const _mobileOptimization = useMobileOptimization({
     enableGestures: true,
@@ -35,120 +35,89 @@ function RouteVisualizationPage() {
     enableNetworkMonitoring: true
   });
 
-  // Mock data generation
-  useEffect(() => {
-    const generateMockData = () => {
-      const employees = [
-        { id: '1', name: 'John Smith' },
-        { id: '2', name: 'Sarah Johnson' },
-        { id: '3', name: 'Mike Davis' },
-        { id: '4', name: 'Lisa Wilson' }
-      ];
+  // Fetch real route analytics data
+  const {
+    data: analyticsData = [],
+    isLoading: isLoadingAnalytics,
+    error: analyticsError,
+    refetch: refetchAnalytics
+  } = useRouteAnalyticsAPI(filters);
 
-      const sessions: RouteSession[] = [];
-      const data: RouteData[] = [];
+  // Fetch employee metrics for proper names and performance data
+  const {
+    data: employeeMetrics = [],
+    isLoading: isLoadingEmployeeMetrics
+  } = useQuery({
+    queryKey: ['employee-metrics', filters],
+    queryFn: () => analyticsApi.getEmployeeMetrics(filters),
+    enabled: true
+  });
 
-      employees.forEach((employee, _empIndex) => {
-        // Generate 5-10 sessions per employee over the last 30 days
-        const sessionCount = 5 + Math.floor(Math.random() * 6);
+  // Get aggregated metrics from comprehensive analytics hook
+  const {
+    dailySummaries,
+    getAggregatedMetrics,
+    isLoading: isLoadingAdvancedAnalytics,
+    refreshAnalytics
+  } = useRouteAnalytics(filters);
 
-        for (let i = 0; i < sessionCount; i++) {
-          const date = new Date();
-          date.setDate(date.getDate() - Math.floor(Math.random() * 30));
+  // Create employee lookup map for proper names
+  const employeeLookup = React.useMemo(() => {
+    const map = new Map<string, string>();
+    employeeMetrics.forEach((emp: any) => {
+      map.set(emp.employeeId, emp.name || `Employee ${emp.employeeId}`);
+    });
+    return map;
+  }, [employeeMetrics]);
 
-          const sessionId = `session_${employee.id}_${i}`;
-          const startTime = new Date(date);
-          startTime.setHours(8 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 60));
+  // Convert analytics data to route sessions for visualization
+  const routeSessions = React.useMemo(() => {
+    return analyticsData.map((analytics, index) => ({
+      id: analytics.routeId || `session_${analytics.employeeId}_${index}`,
+      employeeId: analytics.employeeId,
+      employeeName: employeeLookup.get(analytics.employeeId) || `Employee ${analytics.employeeId}`,
+      startTime: new Date().toISOString(), // This would come from session data
+      endTime: new Date().toISOString(),
+      status: 'completed',
+      totalDistance: analytics.totalDistance,
+      totalTime: analytics.totalTime,
+      averageSpeed: analytics.averageSpeed,
+      points: [], // Would be populated from session coordinates
+      shipmentsCompleted: analytics.shipmentsCompleted,
+      startLatitude: 0, // Would come from session data
+      startLongitude: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    } as RouteSession));
+  }, [analyticsData, employeeLookup]);
 
-          const duration = 3600 + Math.floor(Math.random() * 14400); // 1-5 hours
-          const endTime = new Date(startTime.getTime() + duration * 1000);
+  // Convert analytics data to route data format
+  const routeData = React.useMemo(() => {
+    return analyticsData.map((analytics) => ({
+      id: analytics.routeId,
+      employeeId: analytics.employeeId,
+      employeeName: employeeLookup.get(analytics.employeeId) || `Employee ${analytics.employeeId}`,
+      date: analytics.date,
+      distance: analytics.totalDistance,
+      duration: analytics.totalTime,
+      shipmentsCompleted: analytics.shipmentsCompleted,
+      fuelConsumption: analytics.fuelConsumption || analytics.fuelConsumed,
+      averageSpeed: analytics.averageSpeed,
+      efficiency: analytics.efficiency,
+      points: [] // Would be populated from coordinate data
+    }));
+  }, [analyticsData, employeeLookup]);
 
-          const shipmentsCompleted = 2 + Math.floor(Math.random() * 8);
-          const baseDistance = shipmentsCompleted * (2 + Math.random() * 3); // 2-5 km per shipment
-          const distance = baseDistance + (Math.random() - 0.5) * baseDistance * 0.3; // ±15% variation
-          const averageSpeed = 25 + Math.random() * 15; // 25-40 km/h
-          const fuelConsumption = distance * (0.08 + Math.random() * 0.04); // 8-12L/100km
+  const isLoading = isLoadingAnalytics || isLoadingAdvancedAnalytics || isLoadingEmployeeMetrics;
+  const lastUpdated = new Date();
 
-          // Generate GPS points
-          const points: RoutePoint[] = [];
-          const pointCount = Math.floor(duration / 300); // Point every 5 minutes
-          const startLat = 40.7128 + (Math.random() - 0.5) * 0.1;
-          const startLng = -74.0060 + (Math.random() - 0.5) * 0.1;
-
-          for (let p = 0; p < pointCount; p++) {
-            const pointTime = new Date(startTime.getTime() + (p * 300 * 1000));
-            const lat = startLat + (Math.random() - 0.5) * 0.02;
-            const lng = startLng + (Math.random() - 0.5) * 0.02;
-
-            points.push({
-              id: `point_${sessionId}_${p}`,
-              latitude: lat,
-              longitude: lng,
-              timestamp: pointTime.toISOString(),
-              accuracy: 5 + Math.random() * 15,
-              speed: averageSpeed + (Math.random() - 0.5) * 10,
-              eventType: p % 10 === 0 ? (Math.random() > 0.5 ? 'pickup' : 'delivery') : 'gps'
-            });
-          }
-
-          const session: RouteSession = {
-            id: sessionId,
-            employeeId: employee.id,
-            employeeName: employee.name,
-            startTime: startTime.toISOString(),
-            endTime: endTime.toISOString(),
-            status: 'completed',
-            totalDistance: distance,
-            totalTime: duration,
-            averageSpeed,
-            points,
-            shipmentsCompleted,
-            startLatitude: startLat,
-            startLongitude: startLng,
-            createdAt: startTime.toISOString(),
-            updatedAt: endTime.toISOString()
-          };
-
-          const routeDataItem: RouteData = {
-            id: sessionId,
-            employeeId: employee.id,
-            employeeName: employee.name,
-            date: date.toISOString().split('T')[0],
-            distance,
-            duration,
-            shipmentsCompleted,
-            fuelConsumption,
-            averageSpeed,
-            efficiency: distance / shipmentsCompleted,
-            points: points.map(p => ({
-              latitude: p.latitude,
-              longitude: p.longitude,
-              timestamp: p.timestamp
-            }))
-          };
-
-          sessions.push(session);
-          data.push(routeDataItem);
-        }
-      });
-
-      setRouteSessions(sessions.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()));
-      setRouteData(data);
-      setIsLoading(false);
-      setLastUpdated(new Date());
-    };
-
-    // Simulate loading delay
-    setTimeout(generateMockData, 1000);
-  }, []);
+  // Get aggregated metrics for summary
+  const aggregatedMetrics = getAggregatedMetrics();
 
   const handleRefreshData = () => {
-    setIsLoading(true);
-    // In real app, this would fetch fresh data from API
-    setTimeout(() => {
-      setLastUpdated(new Date());
-      setIsLoading(false);
-    }, 1000);
+    // Refresh data from the backend
+    refetchAnalytics();
+    refreshAnalytics();
   };
 
   const handleExportData = () => {
@@ -248,7 +217,7 @@ function RouteVisualizationPage() {
             <div className="flex items-center gap-2">
               <Route className="h-4 w-4 text-blue-600" />
               <div>
-                <p className="text-2xl font-bold">{routeSessions.length}</p>
+                <p className="text-2xl font-bold">{aggregatedMetrics.totalSessions || routeSessions.length}</p>
                 <p className="text-sm text-gray-600">Total Routes</p>
               </div>
             </div>
@@ -261,7 +230,7 @@ function RouteVisualizationPage() {
               <MapPin className="h-4 w-4 text-green-600" />
               <div>
                 <p className="text-2xl font-bold">
-                  {routeData.reduce((sum, route) => sum + route.distance, 0).toFixed(0)}km
+                  {aggregatedMetrics.totalDistance?.toFixed(0) || routeData.reduce((sum, route) => sum + route.distance, 0).toFixed(0)}km
                 </p>
                 <p className="text-sm text-gray-600">Total Distance</p>
               </div>
@@ -275,7 +244,7 @@ function RouteVisualizationPage() {
               <Clock className="h-4 w-4 text-orange-600" />
               <div>
                 <p className="text-2xl font-bold">
-                  {Math.round(routeData.reduce((sum, route) => sum + route.duration, 0) / 3600)}h
+                  {Math.round((aggregatedMetrics.totalTime || routeData.reduce((sum, route) => sum + route.duration, 0)) / 3600)}h
                 </p>
                 <p className="text-sm text-gray-600">Total Time</p>
               </div>
@@ -289,7 +258,7 @@ function RouteVisualizationPage() {
               <Target className="h-4 w-4 text-purple-600" />
               <div>
                 <p className="text-2xl font-bold">
-                  {routeData.reduce((sum, route) => sum + route.shipmentsCompleted, 0)}
+                  {aggregatedMetrics.totalShipmentsCompleted || routeData.reduce((sum, route) => sum + route.shipmentsCompleted, 0)}
                 </p>
                 <p className="text-sm text-gray-600">Shipments Delivered</p>
               </div>
@@ -300,13 +269,20 @@ function RouteVisualizationPage() {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="visualization" className="w-full">
-        <TabsList className={`${isMobile ? 'flex flex-col w-full h-auto p-1 bg-muted' : 'grid w-full grid-cols-3'}`}>
+        <TabsList className={`${isMobile ? 'flex flex-col w-full h-auto p-1 bg-muted' : 'grid w-full grid-cols-4'}`}>
           <TabsTrigger
             value="visualization"
             className={`flex items-center gap-2 ${isMobile ? 'w-full min-h-[44px] justify-start px-4 py-3 mb-1' : ''}`}
           >
             <Route className="h-4 w-4" />
             {isMobile ? 'Route Playback' : 'Route Playback'}
+          </TabsTrigger>
+          <TabsTrigger
+            value="data-table"
+            className={`flex items-center gap-2 ${isMobile ? 'w-full min-h-[44px] justify-start px-4 py-3 mb-1' : ''}`}
+          >
+            <BarChart3 className="h-4 w-4" />
+            {isMobile ? 'Route Data' : 'Route Data Table'}
           </TabsTrigger>
           <TabsTrigger
             value="comparison"
@@ -335,6 +311,18 @@ function RouteVisualizationPage() {
           />
         </TabsContent>
 
+        <TabsContent value="data-table" className="mt-6">
+          <RouteDataTable
+            data={analyticsData}
+            dataType="analytics"
+            title="Route Analytics Data"
+            onRowClick={handleViewRouteDetails}
+            showSearch={true}
+            showSorting={true}
+            pageSize={isMobile ? 5 : 10}
+          />
+        </TabsContent>
+
         <TabsContent value="comparison" className="mt-6">
           <RouteComparison
             sessions={routeSessions}
@@ -352,14 +340,17 @@ function RouteVisualizationPage() {
       </Tabs>
 
       {/* No Data State */}
-      {routeSessions.length === 0 && !isLoading && (
+      {(routeSessions.length === 0 && !isLoading) || analyticsError ? (
         <Alert>
           <MapPin className="h-4 w-4" />
           <AlertDescription>
-            No route data available for visualization. Complete some routes with GPS tracking enabled to see historical data and analysis here.
+            {analyticsError 
+              ? `Error loading route data: ${(analyticsError as Error).message}` 
+              : 'No route data available for visualization. Complete some routes with GPS tracking enabled to see historical data and analysis here.'
+            }
           </AlertDescription>
         </Alert>
-      )}
+      ) : null}
     </div>
   );
 } export default withPageErrorBoundary(RouteVisualizationPage, 'Route Visualization');
