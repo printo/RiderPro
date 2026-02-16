@@ -56,10 +56,10 @@ npm run dev
 ### Tables
 
 ```
-shipments          - External shipment data (unique: id)
+shipments          - External shipment data (main table)
 route_sessions     - Route tracking sessions
 route_tracking     - GPS coordinates
-users              - Authentication
+users              - Authentication (Django User model)
 vehicle_types      - Vehicle configurations
 fuel_settings      - Fuel pricing
 ```
@@ -148,7 +148,7 @@ All webhook endpoints support dual authentication:
       "cost": 150.0,
       "routeName": "Route A",
       "employeeId": "EMP001",
-      "pickupAddress": "..." // Optional for pickup orders
+      "pickup_address": "..." // Optional for pickup orders
     }
   ]
 }
@@ -404,8 +404,8 @@ User Login → Role Check → Filter queries by employeeId (riders) or all data 
 
 ```bash
 # Database
-DATABASE_URL=postgres://postgres:password@localhost:5432/riderpro
-BACKUP_DATABASE_URL=postgres://postgres:password@localhost:5433/riderpro_backup
+DATABASE_URL=postgres://postgres:password@localhost:5432/riderpro_django
+BACKUP_DATABASE_URL=postgres://postgres:password@localhost:5433/riderpro_django_backup
 
 # Server
 NODE_ENV=development
@@ -463,12 +463,12 @@ optimal performance and data management.
 
 ```sql
 -- Cleanup old data (older than 3 days)
-DELETE FROM shipments WHERE "createdAt" < (CURRENT_DATE - INTERVAL '3 days');
+DELETE FROM shipments WHERE created_at < (CURRENT_TIMESTAMP - INTERVAL '3 days');
 
 -- Sync recent data from main to replica
 INSERT INTO shipments (...)
 SELECT * FROM main_db.shipments
-WHERE "createdAt" >= (CURRENT_DATE - INTERVAL '3 days')
+WHERE created_at >= (CURRENT_TIMESTAMP - INTERVAL '3 days')
 ON CONFLICT (id) DO UPDATE ...;
 ```
 

@@ -1,309 +1,127 @@
-# Database Documentation
+# RiderPro Database Schema (PostgreSQL 15)
 
-## PostgreSQL 15 Schema
+## Overview
+RiderPro uses **PostgreSQL 15** for core logistics data. The application uses a **Django** backend with a schema that follows Django conventions (snake_case column names).
 
-### Core Tables
-
-#### 1. **shipments** (Primary table)
-External shipment data from API with sync tracking.
-
-**Key Columns**:
-```sql
-id                      VARCHAR(255) PRIMARY KEY  -- External shipment ID (UNIQUE)
-type                    VARCHAR(50)               -- 'delivery' | 'pickup'
-customerName            TEXT
-customerMobile          TEXT
-address                 TEXT
-latitude, longitude     REAL                      -- GPS coordinates
-employeeId              TEXT                      -- Rider/driver ID
-status                  VARCHAR(50)               -- Shipment status
-createdAt, updatedAt    TIMESTAMP WITH TIME ZONE
-priority                VARCHAR(20)               -- 'high' | 'medium' | 'low'
-
--- Tracking fields
-start_latitude, start_longitude  REAL
-stop_latitude, stop_longitude    REAL
-km_travelled            REAL
-
--- Sync tracking
-synced_to_external      BOOLEAN
-sync_status             VARCHAR(20)
-sync_attempts           INTEGER
-last_sync_attempt       TIMESTAMP
-
--- Acknowledgment
-signature_url           TEXT
-photo_url               TEXT
-```
-
-**Unique Constraint**: `id` (shipment ID) prevents duplicates automatically.
-
-**Indexes**:
-```sql
-idx_shipments_employee_id        -- Role-based filtering
-idx_shipments_created_at         -- Date queries
-idx_shipments_sync_status        -- Sync tracking
-```
+**Database Name**: `riderpro_django`
 
 ---
 
-#### 2. **route_sessions**
-Route tracking sessions per employee.
+## Core Tables
 
-**Key Columns**:
-```sql
-id                VARCHAR(255) PRIMARY KEY
-employee_id       VARCHAR(255)
-start_time        TIMESTAMP WITH TIME ZONE
-end_time          TIMESTAMP WITH TIME ZONE
-status            VARCHAR(50)              -- 'active' | 'completed'
-total_distance    REAL
-total_time        INTEGER                  -- seconds
-fuel_consumed     REAL
-shipments_completed INTEGER
-```
+### 1. `shipments` Table
+Stores all delivery and pickup orders.
 
-**Indexes**:
-```sql
-idx_route_sessions_employee      -- Employee queries
-```
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | `VARCHAR(255)` | Primary Key (External shipment ID) |
+| `pops_order_id` | `INTEGER` | Original Order ID from POPS (Indexed) |
+| `type` | `VARCHAR(50)` | `delivery` or `pickup` |
+| `customer_name` | `TEXT` | Recipient name |
+| `customer_mobile` | `TEXT` | Recipient contact |
+| `address` | `TEXT` | Full address (stored as string) |
+| `latitude` | `DOUBLE PRECISION` | Target GPS latitude |
+| `longitude` | `DOUBLE PRECISION` | Target GPS longitude |
+| `employee_id` | `VARCHAR(255)` | Assigned rider/driver ID (Indexed) |
+| `status` | `VARCHAR(50)` | `Initiated`, `Assigned`, `In Transit`, `Delivered`, etc. |
+| `delivery_time` | `TIMESTAMPTZ` | Expected delivery/pickup time |
+| `created_at` | `TIMESTAMPTZ` | Record creation time (Indexed) |
+| `updated_at` | `TIMESTAMPTZ` | Last modification time |
+| `synced_to_external` | `BOOLEAN` | If successfully synced back to POPS |
+| `sync_status` | `VARCHAR(20)` | `pending`, `synced`, `failed` |
 
----
+**Key Indexes**:
+- `shipments_pops_or_060b79_idx`: Optimized for POPS ID lookups.
+- `shipments_employe_1f5ee4_idx`: Optimized for role-based filtering (employee view).
+- `shipments_created_b63910_idx`: Optimized for date-range queries and cleanup.
+- `shipments_status_cde5ad_idx`: Composite index for status/type/route/date filtering.
 
-#### 3. **route_tracking**
-GPS coordinates for route visualization.
+### 2. `route_sessions` Table
+Tracks active delivery sessions for riders.
 
-**Key Columns**:
-```sql
-id            SERIAL PRIMARY KEY
-session_id    VARCHAR(255)
-employee_id   VARCHAR(255)
-latitude      REAL
-longitude     REAL
-timestamp     TIMESTAMP WITH TIME ZONE
-date          DATE
-speed         REAL
-```
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | `VARCHAR(255)` | Primary Key (Session ID) |
+| `employee_id` | `VARCHAR(255)` | Rider ID (Indexed) |
+| `status` | `VARCHAR(50)` | `active`, `completed`, `paused` |
+| `start_time` | `TIMESTAMPTZ` | Session start time |
+| `end_time` | `TIMESTAMPTZ` | Session end time |
+| `total_distance` | `DOUBLE PRECISION` | Total KM travelled |
 
-**Indexes**:
-```sql
-idx_route_tracking_employee_date -- Analytics queries
-idx_route_tracking_timestamp     -- Time-series queries
-```
+**Key Indexes**:
+- `route_sessi_employe_3f278e_idx`: Optimized for employee session lookups.
+- `route_sessi_start_t_ad9d26_idx`: Optimized for time-based analytics.
 
----
+### 3. `route_tracking` Table
+High-frequency GPS breadcrumbs.
 
-#### 4. **users**
-Authentication and authorization.
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | `INTEGER` | Primary Key (Identity) |
+| `session_id` | `VARCHAR(255)` | Foreign Key to `route_sessions` |
+| `employee_id` | `VARCHAR(255)` | Rider ID (Indexed) |
+| `latitude` | `DOUBLE PRECISION` | GPS Latitude |
+| `longitude` | `DOUBLE PRECISION` | GPS Longitude |
+| `timestamp` | `TIMESTAMPTZ` | Time of GPS point |
+| `date` | `DATE` | Optimization for daily analytics |
 
-**Key Columns**:
-```sql
-id              VARCHAR(255) PRIMARY KEY
-username        VARCHAR(255) UNIQUE
-email           VARCHAR(255) UNIQUE
-role            VARCHAR(50)            -- 'viewer' | 'driver' | 'manager' | 'admin'
-employee_id     VARCHAR(255)
-is_active       BOOLEAN
-is_super_user   BOOLEAN
-is_ops_team     BOOLEAN
-```
-
-**Indexes**:
-```sql
-idx_users_employee_id            -- Role-based access
-idx_users_role                   -- Permission checks
-```
+**Key Indexes**:
+- `route_track_employe_f17c96_idx`: Composite index (employee_id, date) for daily paths.
+- `route_track_timesta_accf9f_idx`: Optimized for time-series playback.
+- `route_track_session_059453_idx`: Optimized for session-based path retrieval.
 
 ---
 
 ## Role-Based Query Patterns
 
-### Rider (Driver) - Limited Access
+### 1. Rider View (Fetch assigned shipments)
 ```sql
--- Only their shipments
 SELECT * FROM shipments 
-WHERE "employeeId" = $1           -- Current user's employee_id
-ORDER BY "createdAt" DESC;
-
--- Uses index: idx_shipments_employee_id
+WHERE employee_id = 'EMP123' 
+AND status NOT IN ('Delivered', 'Cancelled', 'Returned')
+ORDER BY created_at DESC;
 ```
 
-### Admin/Ops - Full Access
+### 2. Admin View (Dashboard Metrics)
 ```sql
--- All shipments
-SELECT * FROM shipments 
-WHERE "createdAt" >= $1           -- Optional date filter
-ORDER BY "createdAt" DESC;
+SELECT status, count(*) 
+FROM shipments 
+WHERE created_at >= CURRENT_DATE 
+GROUP BY status;
+```
 
--- Uses index: idx_shipments_created_at
+### 3. Data Cleanup (Retention Policy)
+To maintain performance, shipments older than 3 days are purged or archived daily.
+```sql
+DELETE FROM shipments 
+WHERE created_at < (CURRENT_TIMESTAMP - INTERVAL '3 days');
 ```
 
 ---
 
-## Data Integrity (Duplicate Prevention)
+## Data Integrity Measures
 
-### Shipment CRUD Operations
-
-**Insert (from external API)**:
-```sql
-INSERT INTO shipments (id, type, customerName, ...)
-VALUES ($1, $2, $3, ...)
-ON CONFLICT (id) DO UPDATE SET
-  status = EXCLUDED.status,
-  updatedAt = CURRENT_TIMESTAMP,
-  synced_to_external = EXCLUDED.synced_to_external;
-```
-✅ **Result**: No duplicates, updates existing if ID matches.
-
-**Update (by user)**:
-```sql
-UPDATE shipments 
-SET status = $1, updatedAt = CURRENT_TIMESTAMP
-WHERE id = $2;                    -- id is unique constraint
-```
-✅ **Result**: Single shipment updated, no duplicates possible.
-
-**Delete**:
-```sql
-DELETE FROM shipments WHERE id = $1;
-```
-✅ **Result**: Single shipment deleted.
-
----
-
-## Backup Strategy
-
-### Dev/Alpha: Automatic 3-Day Backup
-- **Frequency**: Every hour
-- **Retention**: Last 3 days (rolling window)
-- **Purpose**: Testing with realistic recent data
-
-```sql
--- Cleanup old data
-DELETE FROM shipments WHERE "createdAt" < (CURRENT_DATE - INTERVAL '3 days');
-
--- Sync recent data
-INSERT INTO shipments (...) 
-SELECT * FROM main_db.shipments 
-WHERE "createdAt" >= (CURRENT_DATE - INTERVAL '3 days')
-ON CONFLICT (id) DO UPDATE ...;
-```
-
-### Production: Manual Backups
-Use PostgreSQL native tools:
-- `pg_dump` for full backups
-- WAL archiving for point-in-time recovery
-- Managed backup services (recommended)
+1. **Unique Order IDs**: `pops_order_id` is indexed and used as a source of truth for uniqueness during sync.
+2. **Transaction Safety**: Django handles database atomicity during status updates and GPS recording.
+3. **Role Enforcement**: `employee_id` is used for data segmentation in the Django view layer (`get_queryset`).
 
 ---
 
 ## Performance Optimization
 
-### Index Strategy
-- **Employee-based queries**: Use `idx_shipments_employee_id`
-- **Date-based queries**: Use `idx_shipments_created_at`
-- **No status-based indexes**: Status has many values, filtering happens in application layer
-
-### Connection Pooling
-```typescript
-max: 20 connections (production)
-max: 10 connections (development)
-idleTimeoutMillis: 30000
-connectionTimeoutMillis: 2000
-```
-
----
-
-## Health Monitoring
-
-### Endpoint: `/health`
-```json
-{
-  "status": "ok",
-  "database": {
-    "main": true,
-    "backup": true
-  }
-}
-```
-
-### Check Active Connections
-```sql
-SELECT count(*) FROM pg_stat_activity;
-```
-
-### Check Slow Queries
-```sql
-SELECT pid, now() - query_start as duration, query 
-FROM pg_stat_activity 
-WHERE state = 'active' 
-ORDER BY duration DESC;
-```
+1. **Indexes**: Django migrations automatically create indices for foreign keys and fields marked with `db_index=True`.
+2. **JSON Content**: Fields like `pickup_address` and `package_boxes` use Django's `JSONField` (stored as `TEXT` in current schema but handled by Django).
+3. **VACUUM Tuning**: Automated vacuuming is managed by PostgreSQL to handle high-frequency updates.
 
 ---
 
 ## Migration Management
 
 ```bash
-# Apply migrations
-npm run db:migrate
-
-# Rollback
-npm run db:migrate:down
-
-# Verify setup
-npm run db:verify
+# Run migrations from within the django container
+python manage.py migrate
 ```
 
-**Migration Table**:
-```sql
-CREATE TABLE schema_migrations (
-  version INTEGER PRIMARY KEY,
-  name VARCHAR(255),
-  applied_at TIMESTAMP WITH TIME ZONE
-);
-```
-
----
-
-## Common Queries
-
-### Get pending sync shipments
-```sql
-SELECT * FROM shipments 
-WHERE synced_to_external = false
-ORDER BY "updatedAt" DESC;
-```
-
-### Get rider's active routes
-```sql
-SELECT * FROM route_sessions 
-WHERE employee_id = $1 
-  AND status = 'active';
-```
-
-### Analytics: Daily shipments by employee
-```sql
-SELECT 
-  "employeeId", 
-  DATE("createdAt") as date,
-  COUNT(*) as total,
-  SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END) as delivered
-FROM shipments
-WHERE DATE("createdAt") >= $1
-GROUP BY "employeeId", DATE("createdAt");
-```
-
----
-
-## Troubleshooting
-
-**Connection issues**: Check `DATABASE_URL` environment variable  
-**Slow queries**: Run `EXPLAIN ANALYZE` on the query  
-**Duplicate data**: Verify `id` column is used as unique identifier  
-**Backup not syncing**: Only works in dev/alpha (`DEPLOYMENT_ENV=localhost`)
-
----
-
-**Schema Version**: 1  
-**Last Updated**: January 2026
+**Metadata**:
+- **Schema Owner**: Django `apps.shipments.models.Shipment`
+- **Last Updated**: February 2026 (Verified against live DB)
