@@ -1,6 +1,8 @@
 # RiderPro - Delivery Management System
 
-Complete PostgreSQL-based logistics platform with real-time GPS tracking, route optimization, role-based access control, and **bidirectional integration system** for external systems.
+Complete PostgreSQL-based logistics platform with real-time GPS tracking, route
+optimization, role-based access control, and **bidirectional integration
+system** for external systems.
 
 ## 📋 Table of Contents
 
@@ -16,8 +18,9 @@ Complete PostgreSQL-based logistics platform with real-time GPS tracking, route 
 10. [Data Flow](#-data-flow)
 11. [Technology Stack](#-technology-stack)
 12. [Environment Variables](#️-environment-variables)
-13. [Troubleshooting](#-troubleshooting)
-14. [Documentation](#-documentation)
+13. [Cron Jobs & Database Maintenance](#-cron-jobs--database-maintenance)
+14. [Troubleshooting](#-troubleshooting)
+15. [Documentation](#-documentation)
 
 ## 🚀 Quick Start
 
@@ -78,7 +81,8 @@ See [DATABASE.md](./DATABASE.md) for schema details.
 
 ## 🔄 Bidirectional Integration System
 
-RiderPro provides a complete **bidirectional integration system** with clean architecture that allows external systems to:
+RiderPro provides a complete **bidirectional integration system** with clean
+architecture that allows external systems to:
 
 1. **Send shipments** to RiderPro via batch webhook endpoints
 2. **Receive real-time updates** when shipment statuses change
@@ -107,6 +111,7 @@ RIDER_PRO_API_KEYS = {
 ```
 
 **Configuration Fields:**
+
 - `key`: API key for authentication (required)
 - `callback_url`: URL where RiderPro sends status updates (required)
 - `active`: Whether this integration is active (required)
@@ -115,7 +120,9 @@ RIDER_PRO_API_KEYS = {
 ### 📥 Inbound Integration (Receiving Shipments)
 
 #### Authentication
+
 All webhook endpoints support dual authentication:
+
 - **API Key**: Include `x-api-key` header with your API key
 - **JWT Token**: Include `Authorization: Bearer <token>` header
 - **Optional**: `X-Service-Name` header for service identification
@@ -126,6 +133,7 @@ All webhook endpoints support dual authentication:
 **Supports**: Both single order and batch shipments formats
 
 **Batch Shipments Format (Recommended):**
+
 ```json
 {
   "shipments": [
@@ -149,6 +157,7 @@ All webhook endpoints support dual authentication:
 #### Response Formats
 
 **Success Response:**
+
 ```json
 {
   "success": true,
@@ -164,12 +173,16 @@ All webhook endpoints support dual authentication:
 ### 📤 Outbound Integration (Sending Updates)
 
 #### Automatic Callbacks
+
 RiderPro automatically sends callbacks when:
+
 - **Shipment Created**: New shipment received from external system
-- **Status Changed**: Shipment status updated (Assigned → In Transit → Delivered)
+- **Status Changed**: Shipment status updated (Assigned → In Transit →
+  Delivered)
 - **Delivery Confirmed**: Special callback for delivery/pickup completion
 
 #### Callback Payload Format
+
 ```json
 {
   "event": "status_update",
@@ -199,6 +212,7 @@ RiderPro automatically sends callbacks when:
 ### 🧪 Testing Integration
 
 #### Using cURL
+
 ```bash
 curl -X POST https://riderpro.printo.in/api/v1/shipments/receive \
   -H "Content-Type: application/json" \
@@ -223,6 +237,7 @@ curl -X POST https://riderpro.printo.in/api/v1/shipments/receive \
 ```
 
 #### Management APIs
+
 - **Test Callback**: `POST /api/v1/callbacks/test`
 - **Manual Callback**: `POST /api/v1/callbacks/send`
 - **Analytics**: `GET /api/v1/analytics/api-sources`
@@ -230,17 +245,21 @@ curl -X POST https://riderpro.printo.in/api/v1/shipments/receive \
 ### 🚀 Production Deployment
 
 #### Required Steps:
+
 1. **Database Migration**:
+
    ```bash
    python3 manage.py makemigrations shipments --name add_api_source_tracking
    python3 manage.py migrate
    ```
 
-2. **Update Configuration**: Replace example URLs with real callback URLs in `localsettings.py`
+2. **Update Configuration**: Replace example URLs with real callback URLs in
+   `localsettings.py`
 
 3. **Restart Django**: `sudo systemctl restart riderpro-django` or equivalent
 
 #### Benefits After Deployment:
+
 - ✅ **Real-time Updates**: Instant status change notifications
 - ✅ **Complete Integration**: External systems stay synchronized
 - ✅ **Full Audit Trail**: Track which system sent each shipment
@@ -397,6 +416,186 @@ PORT=5000
 JWT_SECRET=your-secret-key-32-chars-min
 ```
 
+## ⏰ Cron Jobs & Database Maintenance
+
+RiderPro includes automated cron jobs and database maintenance tasks to ensure
+optimal performance and data management.
+
+### 🗄️ Database Backup System
+
+#### **Daily Backup Cron Job**
+
+- **Script**: `scripts/setup-db-backup-cron.sh`
+- **Schedule**: Daily at 2:00 AM (`0 2 * * *`)
+- **Purpose**: Creates automatic database backups
+- **Backup Script**: `scripts/backup-db.sh`
+- **Storage**: Backups saved in `./db-dumps/` directory
+- **Support**: Both Docker PostgreSQL (local dev) and direct PostgreSQL
+  (production)
+
+#### **Setup Backup Cron Job**
+
+```bash
+# Run the setup script to configure automatic backups
+./scripts/setup-db-backup-cron.sh
+
+# Manual backup (if needed)
+./scripts/backup-db.sh
+```
+
+### 🔄 3-Day Replica Database System
+
+#### **Automatic Replica Maintenance**
+
+- **Schedule**: Daily at 1:00 AM (`0 1 * * *`)
+- **Purpose**: Maintains replica database with last 3 days of data
+- **Environment**: Dev/Alpha environments only (disabled in production)
+- **Cleanup**: Automatically removes data older than 3 days
+
+#### **Replica Database Features**
+
+- **Data Retention**: Exactly 3 days of latest records from main database
+- **Sync Process**: Automatic synchronization from main database
+- **Purpose**: Testing with realistic recent data without full production
+  dataset
+
+#### **Replica Sync Query**
+
+```sql
+-- Cleanup old data (older than 3 days)
+DELETE FROM shipments WHERE "createdAt" < (CURRENT_DATE - INTERVAL '3 days');
+
+-- Sync recent data from main to replica
+INSERT INTO shipments (...)
+SELECT * FROM main_db.shipments
+WHERE "createdAt" >= (CURRENT_DATE - INTERVAL '3 days')
+ON CONFLICT (id) DO UPDATE ...;
+```
+
+### 🧹 Data Cleanup Tasks
+
+#### **Route Data Cleanup** (Deprecated)
+
+- **File**: `deprecated/server/services/scheduler.ts`
+- **Schedule**: Daily at 3:00 AM (`0 3 * * *`)
+- **Purpose**: Deletes route tracking data older than 30 days
+- **Query**: `DELETE FROM route_tracking WHERE date < cutoff_date`
+
+#### **Audit Log Cleanup**
+
+- **Retention**: 90 days
+- **Purpose**: Automatic cleanup of old audit logs
+- **Function**: `cleanupOldAuditLogs(90)`
+
+#### **Performance Metrics Cleanup**
+
+- **Retention**: 1 hour
+- **Scope**: Client-side performance metrics
+- **Purpose**: Prevents memory bloat in browser
+
+### 📋 Database Management Commands
+
+#### **Complete Database Management**
+
+```bash
+# Database manager script (comprehensive tool)
+./scripts/db_manager.sh dump [local|prod] [output_file]
+./scripts/db_manager.sh restore [local|prod] [input_file]
+./scripts/db_manager.sh reset [local|prod]
+./scripts/db_manager.sh setup-permissions [local|prod]
+./scripts/db_manager.sh migrate [local|prod]
+./scripts/db_manager.sh list
+```
+
+#### **Backup Operations**
+
+```bash
+# Create backup
+./scripts/backup-db.sh
+
+# List available dumps
+./scripts/db_manager.sh list
+
+# Restore from backup
+./scripts/db_manager.sh restore local riderpro_django_20240216_020000.dump
+```
+
+### 🗂️ File Structure for Maintenance
+
+```
+scripts/
+├── setup-db-backup-cron.sh    # Setup automatic backup cron job
+├── backup-db.sh               # Manual backup script
+├── db_manager.sh              # Complete database management tool
+├── restore-db.sh              # Restore database from backup
+└── rollback-frontend.sh     # Frontend rollback with cleanup
+
+deprecated/server/services/
+└── scheduler.ts               # Legacy scheduler (route cleanup)
+
+dist/vercel.js                # Active compiled cron jobs
+```
+
+### ⚙️ Configuration
+
+#### **Environment Variables for Replica**
+
+```bash
+# Main database
+DATABASE_URL=postgres://postgres:password@localhost:5432/riderpro
+
+# Replica database (dev/alpha only)
+BACKUP_DATABASE_URL=postgres://postgres:password@localhost:5433/riderpro_backup
+```
+
+#### **Cron Job Management**
+
+```bash
+# View current cron jobs
+crontab -l
+
+# Edit cron jobs
+crontab -e
+
+# Remove backup cron job
+crontab -l | grep -v "backup-db.sh" | crontab -
+```
+
+### 📊 Maintenance Summary
+
+| Task                | Schedule            | Purpose                    | Environment    |
+| ------------------- | ------------------- | -------------------------- | -------------- |
+| Database Backup     | Daily 2:00 AM       | Full database backup       | All            |
+| Replica Cleanup     | Daily 1:00 AM       | Keep last 3 days           | Dev/Alpha only |
+| Route Data Cleanup  | Daily 3:00 AM       | Delete 30+ day old data    | Deprecated     |
+| Audit Log Cleanup   | Manual/Configurable | Delete 90+ day old logs    | All            |
+| Performance Metrics | Every 30 sec        | Delete 1+ hour old metrics | Client-side    |
+
+### 🔍 Monitoring & Logs
+
+#### **Backup Logs**
+
+- **Location**: `./db-backup-cron.log`
+- **Content**: Backup operation results and errors
+
+#### **Database Health**
+
+- **Endpoint**: `/health` (includes database status)
+- **Monitoring**: Automatic health checks with caching
+
+#### **Manual Verification**
+
+```bash
+# Check database connection
+curl http://localhost:5000/health
+
+# Verify backup files
+ls -la ./db-dumps/
+
+# Check cron job status
+crontab -l | grep backup
+```
+
 ## 🆘 Troubleshooting
 
 ### "Connection refused"
@@ -420,19 +619,20 @@ curl http://localhost:5000/health
 
 ## 📖 Documentation
 
-- **Integration Guide** - Complete bidirectional integration documentation (this README)
+- **Integration Guide** - Complete bidirectional integration documentation (this
+  README)
 - **DATABASE.md** - Database schema and queries
 - **Code comments** - Inline documentation in source files
 
 ### Integration Endpoints
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/api/v1/shipments/receive` | POST | Main webhook for receiving shipments |
-| `/api/v1/webhooks/receive-shipments-batch` | POST | Dedicated batch processing |
-| `/api/v1/callbacks/test` | POST | Test callback URLs |
-| `/api/v1/callbacks/send` | POST | Manual callback trigger |
-| `/api/v1/analytics/api-sources` | GET | Integration analytics |
+| Endpoint                                   | Method | Purpose                              |
+| ------------------------------------------ | ------ | ------------------------------------ |
+| `/api/v1/shipments/receive`                | POST   | Main webhook for receiving shipments |
+| `/api/v1/webhooks/receive-shipments-batch` | POST   | Dedicated batch processing           |
+| `/api/v1/callbacks/test`                   | POST   | Test callback URLs                   |
+| `/api/v1/callbacks/send`                   | POST   | Manual callback trigger              |
+| `/api/v1/analytics/api-sources`            | GET    | Integration analytics                |
 
 ## 📄 License
 
