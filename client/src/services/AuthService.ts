@@ -31,11 +31,11 @@ class AuthService {
   private static instance: AuthService;
   private state: AuthState = {
     user: null,
-    accessToken: null,
-    refreshToken: null,
+    access_token: null,
+    refresh_token: null,
     token: null,
-    isAuthenticated: false,
-    isLoading: true,
+    is_authenticated: false,
+    is_loading: true,
   };
   private listeners: ((state: AuthState) => void)[] = [];
 
@@ -72,42 +72,42 @@ class AuthService {
             username: username,
             email: '',
             role,
-            employeeId: username, // Keep for backward compatibility
-            fullName,
-            isActive: true,
-            isApproved: true, // Assume approved if we have valid tokens
-            isRider,
-            isSuperUser,
+            employee_id: username, // Keep for backward compatibility
+            full_name: fullName,
+            is_active: true,
+            is_approved: true, // Assume approved if we have valid tokens
+            is_rider: isRider,
+            is_super_user: isSuperUser,
             // Original PIA roles for server-side filtering
-            isOpsTeam,
-            isStaff,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            is_ops_team: isOpsTeam,
+            is_staff: isStaff,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           },
-          accessToken,
+          access_token: accessToken,
           token: accessToken,
-          refreshToken,
-          isAuthenticated: true,
-          isLoading: false,
+          refresh_token: refreshToken,
+          is_authenticated: true,
+          is_loading: false,
         };
       } else {
         this.state = {
           user: null,
-          accessToken: null,
+          access_token: null,
           token: null,
-          refreshToken: null,
-          isAuthenticated: false,
-          isLoading: false,
+          refresh_token: null,
+          is_authenticated: false,
+          is_loading: false,
         };
       }
     } catch (error) {
       console.error('Error initializing auth from storage:', error);
       this.state = {
         user: null,
-        accessToken: null,
-        refreshToken: null,
-        isAuthenticated: false,
-        isLoading: false,
+        access_token: null,
+        refresh_token: null,
+        is_authenticated: false,
+        is_loading: false,
       };
     }
   }
@@ -182,7 +182,7 @@ class AuthService {
   // Method A: External API Authentication
   public async loginWithExternalAPI(username: string, password: string): Promise<{ success: boolean; message: string }> {
     try {
-      this.setState({ isLoading: true });
+      this.setState({ is_loading: true });
 
       const response = await fetch('/api/v1/auth/login', {
         method: 'POST',
@@ -197,7 +197,7 @@ class AuthService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        this.setState({ isLoading: false });
+        this.setState({ is_loading: false });
         return { success: false, message: errorData.message || 'Invalid credentials' };
       }
 
@@ -233,28 +233,28 @@ class AuthService {
           username: userUsername,
           email: '',
           role,
-          employeeId: userUsername, // Keep for backward compatibility
-          fullName: data.full_name,
-          isActive: true,
-          isApproved: true, // PIA users are always approved
-          isRider: internalRoles.is_rider,
-          isSuperUser: internalRoles.is_super_user,
+          employee_id: userUsername, // Keep for backward compatibility
+          full_name: data.full_name,
+          is_active: true,
+          is_approved: true, // PIA users are always approved
+          is_rider: internalRoles.is_rider,
+          is_super_user: internalRoles.is_super_user,
           // Original PIA roles for server-side filtering
-          isOpsTeam: data.is_ops_team || false,
-          isStaff: data.is_staff || false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          is_ops_team: data.is_ops_team || false,
+          is_staff: data.is_staff || false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
-        accessToken: data.access,
-        refreshToken: data.refresh,
-        isAuthenticated: true,
-        isLoading: false,
+        access_token: data.access,
+        refresh_token: data.refresh,
+        is_authenticated: true,
+        is_loading: false,
       });
 
       return { success: true, message: 'Login successful' };
     } catch (error) {
       console.error('External API login error:', error);
-      this.setState({ isLoading: false });
+      this.setState({ is_loading: false });
       return { success: false, message: 'Login failed. Please try again.' };
     }
   }
@@ -262,7 +262,7 @@ class AuthService {
   // Method B: Local Database Authentication
   public async loginWithLocalDB(riderId: string, password: string): Promise<{ success: boolean; message: string; isApproved?: boolean }> {
     try {
-      this.setState({ isLoading: true });
+      this.setState({ is_loading: true });
 
       const response = await fetch('/api/v1/auth/local-login', {
         method: 'POST',
@@ -278,12 +278,12 @@ class AuthService {
       const data: LocalAuthResponse = await response.json();
 
       if (!data.success) {
-        this.setState({ isLoading: false });
+        this.setState({ is_loading: false });
         return { success: false, message: data.message || 'Login failed' };
       }
 
       if (!data.isApproved) {
-        this.setState({ isLoading: false });
+        this.setState({ is_loading: false });
         return { success: false, message: 'Account pending approval', isApproved: false };
       }
 
@@ -311,27 +311,27 @@ class AuthService {
           username: userUsername,
           email: '',
           role,
-          employeeId: userUsername, // Keep for backward compatibility
-          fullName: data.fullName,
-          isActive: true,
-          isApproved: data.isApproved || false,
-          isRider: internalRoles.is_rider,
-          isSuperUser: internalRoles.is_super_user,
-          isOpsTeam: data.is_ops_team || false,
-          isStaff: data.is_staff || false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          employee_id: userUsername, // Keep for backward compatibility
+          full_name: data.fullName,
+          is_active: true,
+          is_approved: data.isApproved || false,
+          is_rider: internalRoles.is_rider,
+          is_super_user: internalRoles.is_super_user,
+          is_ops_team: data.is_ops_team || false,
+          is_staff: data.is_staff || false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         },
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        isAuthenticated: true,
-        isLoading: false,
+        access_token: data.accessToken,
+        refresh_token: data.refreshToken,
+        is_authenticated: true,
+        is_loading: false,
       });
 
       return { success: true, message: 'Login successful' };
     } catch (error) {
       console.error('Local DB login error:', error);
-      this.setState({ isLoading: false });
+      this.setState({ is_loading: false });
       return { success: false, message: 'Login failed. Please try again.' };
     }
   }
@@ -457,8 +457,8 @@ class AuthService {
 
       // Update state
       this.setState({
-        accessToken: data.access,
-        refreshToken: data.refresh || refreshToken,
+        access_token: data.access,
+        refresh_token: data.refresh || refreshToken,
       });
 
       log.dev('[AuthService] Token refreshed successfully');
@@ -556,10 +556,10 @@ class AuthService {
     // Clear state
     this.setState({
       user: null,
-      accessToken: null,
-      refreshToken: null,
-      isAuthenticated: false,
-      isLoading: false,
+      access_token: null,
+      refresh_token: null,
+      is_authenticated: false,
+      is_loading: false,
     });
   }
 
@@ -586,7 +586,7 @@ class AuthService {
   }
 
   public isAuthenticated(): boolean {
-    return this.state.isAuthenticated && !!this.state.accessToken;
+    return this.state.is_authenticated && !!this.state.access_token;
   }
 
   public getUser(): AuthUser | null {
@@ -594,11 +594,11 @@ class AuthService {
   }
 
   public getAccessToken(): string | null | undefined {
-    return this.state.accessToken;
+    return this.state.access_token;
   }
 
   public getAuthHeaders(): Record<string, string> {
-    const accessToken = this.state.accessToken;
+    const accessToken = this.state.access_token;
     if (!accessToken) {
       return {};
     }

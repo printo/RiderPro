@@ -6,28 +6,28 @@ import PhotoCapture from './PhotoCapture';
 import CardSection from './CardSection';
 
 interface PDFSignerProps {
-  pdfUrl: string;
-  onSignatureComplete: (signatureData: string) => void;
-  onPhotoComplete: (photoFile: File) => void;
-  onSignedPdfUpload: (signedPdfUrl: string) => void;
-  signatureRequired?: 'mandatory' | 'optional' | 'either';
-  photoRequired?: 'mandatory' | 'optional' | 'either';
-  requirePdf?: boolean;
+  pdf_url: string;
+  on_signature_complete: (signature_data: string) => void;
+  on_photo_complete: (photo_file: File) => void;
+  on_signed_pdf_upload: (signed_pdf_url: string) => void;
+  signature_required?: 'mandatory' | 'optional' | 'either';
+  photo_required?: 'mandatory' | 'optional' | 'either';
+  require_pdf?: boolean;
 }
 
 export default function PDFSigner({
-  pdfUrl,
-  onSignatureComplete,
-  onPhotoComplete,
-  onSignedPdfUpload: _onSignedPdfUpload,
-  signatureRequired = 'optional',
-  photoRequired = 'optional',
-  requirePdf: _requirePdf = false
+  pdf_url,
+  on_signature_complete,
+  on_photo_complete,
+  on_signed_pdf_upload: _on_signed_pdf_upload,
+  signature_required = 'optional',
+  photo_required = 'optional',
+  require_pdf: _require_pdf = false
 }: PDFSignerProps) {
-  const [signature, setSignature] = useState<string | null>(null);
-  const [photo, setPhoto] = useState<File | null>(null);
+  const [signature, set_signature] = useState<string | null>(null);
+  const [photo, set_photo] = useState<File | null>(null);
 
-  const getRequirementText = (requirement: string) => {
+  const get_requirement_text = (requirement: string) => {
     switch (requirement) {
       case 'mandatory':
         return 'Required';
@@ -38,30 +38,30 @@ export default function PDFSigner({
     }
   };
 
-  const isSignatureMandatory = signatureRequired === 'mandatory' || (signatureRequired === 'either' && !photo);
-  const isPhotoMandatory = photoRequired === 'mandatory' || (photoRequired === 'either' && !signature);
+  const is_signature_mandatory = signature_required === 'mandatory' || (signature_required === 'either' && !photo);
+  const is_photo_mandatory = photo_required === 'mandatory' || (photo_required === 'either' && !signature);
 
-  const handleSignatureComplete = (signatureData: string) => {
-    setSignature(signatureData);
-    onSignatureComplete(signatureData);
+  const handle_signature_complete = (signature_data: string) => {
+    set_signature(signature_data);
+    on_signature_complete(signature_data);
   };
 
-  const handlePhotoComplete = (photoFile: File) => {
-    setPhoto(photoFile);
-    onPhotoComplete(photoFile);
+  const handle_photo_complete = (photo_file: File) => {
+    set_photo(photo_file);
+    on_photo_complete(photo_file);
   };
 
   return (
     <div className="space-y-6">
       {/* PDF Display */}
-      {pdfUrl && (
+      {pdf_url && (
         <CardSection
           title="Delivery Document"
           icon={<FileText className="h-5 w-5 text-blue-600" />}
         >
           <div className="border-2 border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
             <iframe
-              src={pdfUrl}
+              src={pdf_url}
               className="w-full h-96"
               title="PDF Document"
               onError={() => {
@@ -81,8 +81,8 @@ export default function PDFSigner({
         <AlertDescription className="text-sm">
           <strong className="text-blue-900 dark:text-blue-100">Requirements:</strong>{' '}
           <span className="text-blue-800 dark:text-blue-200">
-            Signature: <strong>{getRequirementText(signatureRequired)}</strong>, 
-            Photo: <strong>{getRequirementText(photoRequired)}</strong>
+            Signature: <strong>{get_requirement_text(signature_required)}</strong>,
+            Photo: <strong>{get_requirement_text(photo_required)}</strong>
           </span>
         </AlertDescription>
       </Alert>
@@ -92,18 +92,18 @@ export default function PDFSigner({
         title={
           <div className="flex items-center gap-2">
             <span className="h-5 w-5 text-purple-600">✍</span>
-            <span>Signature {isSignatureMandatory && <span className="text-red-600 font-bold">*</span>}</span>
+            <span>Signature {is_signature_mandatory && <span className="text-red-600 font-bold">*</span>}</span>
           </div>
         }
       >
         <SignatureCanvas
-          onSignatureChange={(signatureData) => {
-            const normalizedSignature = signatureData?.trim() || '';
-            if (!normalizedSignature) {
-              setSignature(null);
+          onSignatureChange={(signature_data) => {
+            const normalized_signature = signature_data?.trim() || '';
+            if (!normalized_signature) {
+              set_signature(null);
               return;
             }
-            handleSignatureComplete(normalizedSignature);
+            handle_signature_complete(normalized_signature);
           }}
         />
       </CardSection>
@@ -113,13 +113,13 @@ export default function PDFSigner({
         title={
           <div className="flex items-center gap-2">
             <span className="h-5 w-5 text-green-600">📷</span>
-            <span>Proof of Delivery Photo {isPhotoMandatory && <span className="text-red-600 font-bold">*</span>}</span>
+            <span>Proof of Delivery Photo {is_photo_mandatory && <span className="text-red-600 font-bold">*</span>}</span>
           </div>
         }
       >
         <PhotoCapture
-          onPhotoComplete={handlePhotoComplete}
-          onRemove={() => setPhoto(null)}
+          on_photo_complete={handle_photo_complete}
+          on_remove={() => set_photo(null)}
         />
       </CardSection>
 
@@ -137,9 +137,9 @@ export default function PDFSigner({
             <>
               <AlertCircle className="h-4 w-4 text-yellow-600" />
               <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                {isSignatureMandatory && !signature && 'Signature is required. '}
-                {isPhotoMandatory && !photo && 'Photo is required. '}
-                {signatureRequired === 'either' && photoRequired === 'either' && !signature && !photo && 'Either signature or photo is required.'}
+                {is_signature_mandatory && !signature && 'Signature is required. '}
+                {is_photo_mandatory && !photo && 'Photo is required. '}
+                {signature_required === 'either' && photo_required === 'either' && !signature && !photo && 'Either signature or photo is required.'}
               </AlertDescription>
             </>
           )}

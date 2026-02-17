@@ -6,32 +6,32 @@ import PhotoCapture from "@/components/shipments/PhotoCapture";
 import { withModalErrorBoundary } from "@/components/ErrorBoundary";
 
 interface AcknowledgmentCaptureProps {
-  onClose: () => void;
+  on_close: () => void;
   onSubmit: (data: { photo: File | null; signature: string }) => void;
-  requireFullProof?: boolean;
-  isSubmitting?: boolean;
+  require_full_proof?: boolean;
+  is_submitting?: boolean;
 }
 
 function AcknowledgmentCapture({
-  onClose: _onClose,
+  on_close: _on_close,
   onSubmit,
-  requireFullProof = true,
-  isSubmitting = false
+  require_full_proof = true,
+  is_submitting = false
 }: AcknowledgmentCaptureProps) {
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [signatureData, setSignatureData] = useState<string>("");
-  const hasPhoto = Boolean(photoFile);
-  const hasSignature = Boolean(signatureData.trim());
-  const canSubmit = requireFullProof ? hasPhoto && hasSignature : hasPhoto || hasSignature;
+  const [photo_file, set_photo_file] = useState<File | null>(null);
+  const [signature_data, set_signature_data] = useState<string>("");
+  const has_photo = Boolean(photo_file);
+  const has_signature = Boolean(signature_data.trim());
+  const can_submit = require_full_proof ? has_photo && has_signature : has_photo || has_signature;
 
-  const handleSubmit = () => {
-    if (!canSubmit) {
+  const handle_submit = () => {
+    if (!can_submit) {
       return;
     }
 
     onSubmit({
-      photo: photoFile,
-      signature: signatureData
+      photo: photo_file,
+      signature: signature_data
     });
   };
 
@@ -41,14 +41,6 @@ function AcknowledgmentCapture({
       <div className="flex-shrink-0 px-6 py-4 border-b border-border">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold">Capture Acknowledgment</h2>
-          {/* <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={onClose}
-            className="h-9 w-9"
-          >
-            <X className="h-5 w-5" />
-          </Button> */}
         </div>
       </div>
 
@@ -58,14 +50,14 @@ function AcknowledgmentCapture({
           <div className="space-y-4">
             <label className="text-lg font-medium text-foreground">Shipment Photo</label>
             <PhotoCapture
-              onPhotoComplete={setPhotoFile}
-              onRemove={() => setPhotoFile(null)}
+              on_photo_complete={set_photo_file}
+              on_remove={() => set_photo_file(null)}
             />
           </div>
 
           <div className="space-y-4">
             <label className="text-lg font-medium text-foreground">Customer Signature</label>
-            <SignatureCanvas onSignatureChange={setSignatureData} />
+            <SignatureCanvas onSignatureChange={set_signature_data} />
           </div>
         </div>
       </div>
@@ -74,13 +66,13 @@ function AcknowledgmentCapture({
       <div className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="max-w-2xl mx-auto p-4">
           <Button
-            onClick={handleSubmit}
-            disabled={isSubmitting || !canSubmit}
+            onClick={handle_submit}
+            disabled={is_submitting || !can_submit}
             className="w-full h-12 text-lg font-medium"
             data-testid="button-save-acknowledgment"
           >
             <Save className="h-5 w-5 mr-2" />
-            {isSubmitting ? "Saving..." : "Save Acknowledgment"}
+            {is_submitting ? "Saving..." : "Save Acknowledgment"}
           </Button>
         </div>
       </div>

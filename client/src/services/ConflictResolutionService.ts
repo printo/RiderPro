@@ -1,6 +1,6 @@
-import { 
-  GPSPosition, 
-  OfflineGPSRecord, 
+import {
+  GPSPosition,
+  OfflineGPSRecord,
   OfflineRouteSession,
   ServerGPSRecord,
   ServerRouteSession,
@@ -21,7 +21,7 @@ export class ConflictResolutionService {
     gps: new Map(),
     route: new Map()
   };
-  
+
   private resolutionStrategies = new Map<string, ResolutionStrategy<ServerData>>();
 
   constructor() {
@@ -39,8 +39,8 @@ export class ConflictResolutionService {
     }));
 
     this.resolutionStrategies.set('gps_record_timestamp_mismatch', (conflict) => {
-      const localRecord = conflict.localData as OfflineGPSRecord;
-      const serverData = conflict.serverData as ServerGPSRecord;
+      const localRecord = conflict.local_data as OfflineGPSRecord;
+      const serverData = conflict.server_data as ServerGPSRecord;
 
       // Use the record with the more recent timestamp
       const localTime = new Date(localRecord.timestamp).getTime();
@@ -61,20 +61,20 @@ export class ConflictResolutionService {
 
     // Route Session conflicts
     this.resolutionStrategies.set('route_session_duplicate', (conflict) => {
-      const localSession = conflict.localData as OfflineRouteSession;
-      const serverData = conflict.serverData as ServerRouteSession;
+      const localSession = conflict.local_data as OfflineRouteSession;
+      const serverData = conflict.server_data as ServerRouteSession;
 
       // Merge session data, preferring local for status and end time
       const mergedData: ServerRouteSession = {
         ...serverData,
         status: localSession.status,
-        endTime: localSession.endTime || serverData.endTime,
-        endPosition: localSession.endPosition || serverData.endPosition
+        end_time: localSession.end_time || serverData.end_time,
+        end_position: localSession.end_position || serverData.end_position
       };
 
       return {
         action: 'merge',
-        resolvedData: mergedData,
+        resolved_data: mergedData,
         reason: 'Merged local status and end time with server data'
       } as ConflictResolution<ServerRouteSession>;
     });
@@ -97,7 +97,7 @@ export class ConflictResolutionService {
     }
 
     const conflictId = `gps_${localRecord.id}`;
-    let conflictReason: DataConflict['conflictReason'] = 'duplicate';
+    let conflictReason: DataConflict['conflict_reason'] = 'duplicate';
 
     // Check for timestamp mismatch
     const localTime = new Date(localRecord.timestamp).getTime();
@@ -127,9 +127,9 @@ export class ConflictResolutionService {
     const conflict: DataConflict<ServerGPSRecord> = {
       id: conflictId,
       type: 'gps_record',
-      localData: localRecord,
-      serverData: serverRecord,
-      conflictReason,
+      local_data: localRecord,
+      server_data: serverRecord,
+      conflict_reason: conflictReason,
       timestamp: new Date()
     };
 
@@ -149,11 +149,11 @@ export class ConflictResolutionService {
     }
 
     const conflictId = `session_${localSession.id}`;
-    let conflictReason: DataConflict['conflictReason'] = 'duplicate';
+    let conflictReason: DataConflict['conflict_reason'] = 'duplicate';
 
     // Check if server data is newer
-    const localUpdate = new Date(localSession.endTime || localSession.startTime).getTime();
-    const serverUpdate = new Date(serverSession.endTime || serverSession.startTime).getTime();
+    const localUpdate = new Date(localSession.end_time || localSession.start_time).getTime();
+    const serverUpdate = new Date(serverSession.end_time || serverSession.start_time).getTime();
 
     if (serverUpdate > localUpdate) {
       conflictReason = 'server_newer';
@@ -167,9 +167,9 @@ export class ConflictResolutionService {
     const conflict: DataConflict<ServerRouteSession> = {
       id: conflictId,
       type: 'route_session',
-      localData: localSession,
-      serverData: serverSession,
-      conflictReason,
+      local_data: localSession,
+      server_data: serverSession,
+      conflict_reason: conflictReason,
       timestamp: new Date()
     };
 
@@ -184,9 +184,9 @@ export class ConflictResolutionService {
     // Try to find the conflict in GPS conflicts
     const gpsConflict = this.conflicts.gps.get(conflictId);
     if (gpsConflict) {
-      const strategyKey = `gps_record_${gpsConflict.conflictReason}`.toLowerCase();
+      const strategyKey = `gps_record_${gpsConflict.conflict_reason}`.toLowerCase();
       const strategy = this.resolutionStrategies.get(strategyKey);
-      
+
       if (strategy) {
         return strategy(gpsConflict);
       }
@@ -195,9 +195,9 @@ export class ConflictResolutionService {
     // Try to find the conflict in Route session conflicts
     const routeConflict = this.conflicts.route.get(conflictId);
     if (routeConflict) {
-      const strategyKey = `route_session_${routeConflict.conflictReason}`.toLowerCase();
+      const strategyKey = `route_session_${routeConflict.conflict_reason}`.toLowerCase();
       const strategy = this.resolutionStrategies.get(strategyKey);
-      
+
       if (strategy) {
         return strategy(routeConflict);
       }
@@ -294,7 +294,7 @@ export class ConflictResolutionService {
 
     for (const conflict of this.getAllConflicts()) {
       stats.byType[conflict.type] = (stats.byType[conflict.type] || 0) + 1;
-      stats.byReason[conflict.conflictReason] = (stats.byReason[conflict.conflictReason] || 0) + 1;
+      stats.byReason[conflict.conflict_reason] = (stats.byReason[conflict.conflict_reason] || 0) + 1;
     }
 
     return stats;
@@ -326,8 +326,8 @@ export class ConflictResolutionService {
     const Δλ = (pos2.longitude - pos1.longitude) * Math.PI / 180;
 
     const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // in metres
@@ -339,13 +339,13 @@ export class ConflictResolutionService {
   validateResolution(resolution: ConflictResolution, conflict: DataConflict): boolean {
     switch (resolution.action) {
       case 'use_local':
-        return conflict.localData !== undefined;
+        return conflict.local_data !== undefined;
 
       case 'use_server':
-        return conflict.serverData !== undefined;
+        return conflict.server_data !== undefined;
 
       case 'merge':
-        return resolution.resolvedData !== undefined;
+        return resolution.resolved_data !== undefined;
 
       case 'skip':
         return true;

@@ -31,10 +31,10 @@ export function useOfflineSync({
   const fullConfig = { ...DEFAULT_CONFIG, ...config };
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
-    isOnline: navigator.onLine,
-    pendingRecords: 0,
-    syncInProgress: false,
-    syncErrors: []
+    is_online: navigator.onLine,
+    pending_records: 0,
+    sync_in_progress: false,
+    sync_errors: []
   });
 
   const offlineStorageRef = useRef<OfflineStorageService | null>(null);
@@ -49,10 +49,10 @@ export function useOfflineSync({
     const handleSyncStatusUpdate = (status: SyncStatus) => {
       setSyncStatus(status);
 
-      if (!status.syncInProgress && status.syncErrors.length === 0) {
+      if (!status.sync_in_progress && status.sync_errors.length === 0) {
         onSyncComplete?.(status);
-      } else if (status.syncErrors.length > 0) {
-        onSyncError?.(status.syncErrors.join(', '));
+      } else if (status.sync_errors.length > 0) {
+        onSyncError?.(status.sync_errors.join(', '));
       }
     };
 
@@ -61,7 +61,7 @@ export function useOfflineSync({
     // Setup auto-sync interval
     if (fullConfig.autoSyncInterval > 0) {
       autoSyncIntervalRef.current = setInterval(() => {
-        if (navigator.onLine && !syncStatus.syncInProgress) {
+        if (navigator.onLine && !syncStatus.sync_in_progress) {
           offlineStorageRef.current?.startBackgroundSync();
         }
       }, fullConfig.autoSyncInterval);
@@ -107,12 +107,12 @@ export function useOfflineSync({
    */
   const storeRouteSessionOffline = useCallback(async (session: {
     id: string;
-    employeeId: string;
-    startTime: string;
-    endTime?: string;
+    employee_id: string;
+    start_time: string;
+    end_time?: string;
     status: 'active' | 'completed' | 'paused';
-    startPosition: GPSPosition;
-    endPosition?: GPSPosition;
+    start_position: GPSPosition;
+    end_position?: GPSPosition;
   }): Promise<void> => {
     if (!offlineStorageRef.current) {
       throw new Error('Offline storage not initialized');
@@ -129,12 +129,12 @@ export function useOfflineSync({
       throw new Error('Offline storage not initialized');
     }
 
-    if (!syncStatus.isOnline) {
+    if (!syncStatus.is_online) {
       throw new Error('Cannot sync while offline');
     }
 
     return offlineStorageRef.current.forceSyncNow();
-  }, [syncStatus.isOnline]);
+  }, [syncStatus.is_online]);
 
   /**
    * Clear synced data manually
@@ -163,9 +163,9 @@ export function useOfflineSync({
 
       return {
         ...syncStatus,
-        unsyncedGPSRecords: unsyncedGPS.length,
-        unsyncedSessions: unsyncedSessions.length,
-        totalPending: unsyncedGPS.length + unsyncedSessions.length
+        unsynced_gps_records: unsyncedGPS.length,
+        unsynced_sessions: unsyncedSessions.length,
+        total_pending: unsyncedGPS.length + unsyncedSessions.length
       };
     } catch (error) {
       console.error('Failed to get detailed sync status:', error);
@@ -177,29 +177,29 @@ export function useOfflineSync({
    * Check if we should store data offline
    */
   const shouldStoreOffline = useCallback((): boolean => {
-    return !syncStatus.isOnline || syncStatus.syncInProgress;
-  }, [syncStatus.isOnline, syncStatus.syncInProgress]);
+    return !syncStatus.is_online || syncStatus.sync_in_progress;
+  }, [syncStatus.is_online, syncStatus.sync_in_progress]);
 
   /**
    * Get sync health status
    */
   const getSyncHealth = useCallback(() => {
     const now = Date.now();
-    const lastSyncTime = syncStatus.lastSyncTime?.getTime() || 0;
+    const lastSyncTime = syncStatus.last_sync_at?.getTime() || 0;
     const timeSinceLastSync = now - lastSyncTime;
 
     let health: 'good' | 'warning' | 'error' = 'good';
     let message = 'Sync is healthy';
 
-    if (!syncStatus.isOnline) {
+    if (!syncStatus.is_online) {
       health = 'warning';
       message = 'Device is offline';
-    } else if (syncStatus.pendingRecords > 100) {
+    } else if (syncStatus.pending_records > 100) {
       health = 'warning';
-      message = `${syncStatus.pendingRecords} records pending sync`;
-    } else if (syncStatus.syncErrors.length > 0) {
+      message = `${syncStatus.pending_records} records pending sync`;
+    } else if (syncStatus.sync_errors.length > 0) {
       health = 'error';
-      message = `Sync errors: ${syncStatus.syncErrors.length}`;
+      message = `Sync errors: ${syncStatus.sync_errors.length}`;
     } else if (timeSinceLastSync > fullConfig.autoSyncInterval * 3) {
       health = 'warning';
       message = 'Sync overdue';
@@ -211,11 +211,11 @@ export function useOfflineSync({
   return {
     // Status
     syncStatus,
-    isOnline: syncStatus.isOnline,
-    pendingRecords: syncStatus.pendingRecords,
-    syncInProgress: syncStatus.syncInProgress,
-    syncErrors: syncStatus.syncErrors,
-    lastSyncTime: syncStatus.lastSyncTime,
+    is_online: syncStatus.is_online,
+    pending_records: syncStatus.pending_records,
+    sync_in_progress: syncStatus.sync_in_progress,
+    sync_errors: syncStatus.sync_errors,
+    last_sync_at: syncStatus.last_sync_at,
 
     // Actions
     storeGPSPositionOffline,

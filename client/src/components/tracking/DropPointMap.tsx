@@ -118,7 +118,7 @@ function DropPointMap({
             latitude: s.latitude,
             longitude: s.longitude,
             shipments: [],
-            address: s.addressDisplay || s.deliveryAddress || 'Unknown Address'
+            address: s.address_display || 'Unknown Address'
           };
         }
         points[key].shipments.push(s);
@@ -247,8 +247,11 @@ function DropPointMap({
                 </div>
                 <div className="max-h-[100px] overflow-y-auto border-t pt-1">
                   {point.shipments.map(s => (
-                    <div key={s.shipment_id} className="text-[10px] py-0.5 border-b last:border-0">
-                      {s.customerName} - {s.shipment_id.slice(-6)}
+                    <div key={s.shipment_id ?? `${s.customer_name}-${idx}`} className="text-[10px] py-0.5 border-b last:border-0">
+                      {s.customer_name}
+                      {s.shipment_id && (
+                        <> - {s.shipment_id.slice(-6)}</>
+                      )}
                     </div>
                   ))}
                 </div>

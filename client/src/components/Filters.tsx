@@ -26,7 +26,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
     });
   };
 
-  const hasActiveFilters = filters.status || filters.type || filters.routeName || filters.employeeId || filters.orderId;
+  const hasActiveFilters = filters.status || filters.type || filters.route_name || filters.employee_id || filters.pops_order_id;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
@@ -82,8 +82,8 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
           </Select>
 
           <Select
-            value={filters.routeName || "all"}
-            onValueChange={(value) => updateFilter("routeName", value)}
+            value={filters.route_name || "all"}
+            onValueChange={(value) => updateFilter("route_name" as keyof ShipmentFilters, value)}
           >
             <SelectTrigger data-testid="select-filter-route">
               <SelectValue placeholder="All Routes" />
@@ -102,8 +102,8 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
             </label>
             <input
               type="text"
-              value={filters.employeeId || ""}
-              onChange={(e) => updateFilter("employeeId", e.target.value || "all")}
+              value={filters.employee_id || ""}
+              onChange={(e) => updateFilter("employee_id" as keyof ShipmentFilters, e.target.value || "all")}
               placeholder="Filter by rider ID"
               className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
               data-testid="input-filter-rider"
@@ -116,12 +116,12 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
             </label>
             <input
               type="text"
-              value={filters.orderId?.toString() || ""}
+              value={filters.pops_order_id?.toString() || ""}
               onChange={(e) => {
                 const value = e.target.value.trim();
                 onFiltersChange({
                   ...filters,
-                  orderId: value ? (isNaN(Number(value)) ? value : Number(value)) : undefined,
+                  pops_order_id: value ? (isNaN(Number(value)) ? value : Number(value)) : undefined,
                 });
               }}
               placeholder="Filter by Pia order ID"

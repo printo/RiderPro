@@ -22,16 +22,16 @@ import { useRouteSessionContext } from "@/contexts/RouteSessionContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useToast } from "@/hooks/use-toast";
 
-type ExtendedShipmentFilters = ShipmentFilters & { employeeId?: string };
+type ExtendedShipmentFilters = ShipmentFilters & { employee_id?: string };
 
 function ShipmentsWithTracking() {
   const [filters, setFilters] = useState<ExtendedShipmentFilters>({});
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
-  const [selectedShipmentIds, setSelectedShipmentIds] = useState<string[]>([]);
-  const [showBatchModal, setShowBatchModal] = useState(false);
-  const [showBatchRiderModal, setShowBatchRiderModal] = useState(false);
+  const [selected_shipment_ids, set_selected_shipment_ids] = useState<string[]>([]);
+  const [show_batch_modal, set_show_batch_modal] = useState(false);
+  const [show_batch_rider_modal, set_show_batch_rider_modal] = useState(false);
   const { toast } = useToast();
-  const { user: currentUser, isAuthenticated, authenticatedFetch: _authenticatedFetch, getAuthHeaders } = useAuth();
+  const { user: current_user, isAuthenticated, getAuthHeaders } = useAuth();
 
   // Debug: Log component mount and auth state
   useEffect(() => {
@@ -39,50 +39,50 @@ function ShipmentsWithTracking() {
     console.log('🚢 ShipmentsWithTracking mounted');
     console.log('📊 Current auth state:', {
       isAuthenticated,
-      user: currentUser,
+      user: current_user,
       hasAuthHeaders: !!authHeaders.Authorization,
-      userRole: currentUser?.role,
-      employeeId: currentUser?.employeeId || currentUser?.username
+      userRole: current_user?.role,
+      employee_id: current_user?.employee_id || current_user?.username
     });
 
-  }, [isAuthenticated, currentUser, getAuthHeaders]);
+  }, [isAuthenticated, current_user, getAuthHeaders]);
 
   // Monitor auth state changes
   useEffect(() => {
     const authHeaders = getAuthHeaders();
     console.log('🔄 Auth state changed in ShipmentsWithTracking:', {
       isAuthenticated,
-      hasUser: !!currentUser,
+      hasUser: !!current_user,
       hasAuthHeaders: !!authHeaders.Authorization,
       timestamp: new Date().toISOString()
     });
-  }, [isAuthenticated, currentUser, getAuthHeaders]);
+  }, [isAuthenticated, current_user, getAuthHeaders]);
 
-  const employeeId = currentUser?.employeeId || currentUser?.username || "";
+  const employee_id = current_user?.employee_id || current_user?.username || "";
 
   // Memoize effective filters so query key is stable
   // Managers/Admins see all shipments, Riders see only their own
-  const isManager = currentUser?.role === "admin" || currentUser?.role === "manager" || currentUser?.isSuperUser || currentUser?.isOpsTeam;
+  const is_manager = current_user?.role === "admin" || current_user?.role === "manager" || current_user?.is_super_user || current_user?.is_ops_team;
 
   const effectiveFilters = useMemo<ExtendedShipmentFilters>(() => {
     return {
       ...filters,
-      // Only filter by employeeId if user is NOT a manager/admin
-      ...(!isManager && employeeId ? { employeeId } : {}),
+      // Only filter by employee_id if user is NOT a manager/admin
+      ...(!is_manager && employee_id ? { employee_id } : {}),
     };
-  }, [filters, isManager, employeeId]);
+  }, [filters, is_manager, employee_id]);
 
   // Lazy loading
-  const [shouldLoadShipments, setShouldLoadShipments] = useState(false);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [should_load_shipments, set_should_load_shipments] = useState(false);
+  const sentinel_ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") {
-      setShouldLoadShipments(true);
+      set_should_load_shipments(true);
       return;
     }
     if (!("IntersectionObserver" in window)) {
-      setShouldLoadShipments(true);
+      set_should_load_shipments(true);
       return;
     }
 
@@ -90,7 +90,7 @@ function ShipmentsWithTracking() {
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
-            setShouldLoadShipments(true);
+            set_should_load_shipments(true);
             obs.disconnect();
             break;
           }
@@ -99,10 +99,10 @@ function ShipmentsWithTracking() {
       { root: null, rootMargin: "300px", threshold: 0.05 }
     );
 
-    if (sentinelRef.current) {
-      obs.observe(sentinelRef.current);
+    if (sentinel_ref.current) {
+      obs.observe(sentinel_ref.current);
     } else {
-      const t = setTimeout(() => setShouldLoadShipments(true), 1000);
+      const t = setTimeout(() => set_should_load_shipments(true), 1000);
       return () => clearTimeout(t);
     }
 
@@ -110,20 +110,20 @@ function ShipmentsWithTracking() {
   }, []);
 
   // State for pagination
-  const [pagination, _setPagination] = useState({
+  const [pagination] = useState({
     page: 1,
     limit: 20,
   });
 
   // Combine filters with pagination
-  const queryParams = useMemo(() => ({
+  const query_params = useMemo(() => ({
     ...effectiveFilters,
     page: pagination.page,
     limit: pagination.limit,
   }), [effectiveFilters, pagination.page, pagination.limit]);
 
   // Default paginated response
-  const defaultPaginatedResponse: PaginatedResponse<Shipment> = {
+  const default_paginated_response: PaginatedResponse<Shipment> = {
     data: [],
     total: 0,
     page: 1,
@@ -135,24 +135,24 @@ function ShipmentsWithTracking() {
 
   // Use the useQuery hook with the new paginated response type
   const {
-    data: shipmentsData = defaultPaginatedResponse,
+    data: shipments_data = default_paginated_response,
     isLoading,
     error,
     refetch,
     isFetching,
   } = useQuery<PaginatedResponse<Shipment>, Error>({
-    queryKey: ["shipments", queryParams],
-    queryFn: () => shipmentsApi.getShipments(queryParams),
-    enabled: shouldLoadShipments,
+    queryKey: ["shipments", query_params],
+    queryFn: () => shipmentsApi.getShipments(query_params),
+    enabled: should_load_shipments,
     refetchInterval: 120000, // Reduced from 30s to 120s (2 minutes) to reduce continuous GET calls
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
     // Use placeholderData to prevent undefined data
-    placeholderData: defaultPaginatedResponse
+    placeholderData: default_paginated_response
   });
 
   // Type guard to check if the data is a paginated response
-  const isPaginatedResponse = (data: unknown): data is PaginatedResponse<Shipment> => {
+  const is_paginated_response = (data: unknown): data is PaginatedResponse<Shipment> => {
     return Boolean(
       data &&
       typeof data === 'object' &&
@@ -163,133 +163,106 @@ function ShipmentsWithTracking() {
   };
 
   // Extract data from paginated response with proper type safety
-  const paginatedData = isPaginatedResponse(shipmentsData)
-    ? shipmentsData
-    : defaultPaginatedResponse;
+  const paginated_data = is_paginated_response(shipments_data)
+    ? shipments_data
+    : default_paginated_response;
 
   const {
     data: shipments = [],
-    total: _total = 0,
-    page: _page = 1,
-    limit: _pageSize = 20,
-    totalPages: _totalPages = 1,
-    hasNextPage: _hasNextPage = false,
-    hasPreviousPage: _hasPreviousPage = false
-  } = paginatedData;
+  } = paginated_data;
 
   const {
-    session: activeSessionState,
-    coordinates: sessionCoordinates
+    session: active_session_state,
+    coordinates: session_coordinates
   } = useRouteSessionContext();
 
-  const hasActiveSession = !!activeSessionState;
+  const has_active_session = !!active_session_state;
 
-  const currentLocation = useMemo(() => {
-    if (sessionCoordinates.length > 0) {
-      const lastCoord = sessionCoordinates[sessionCoordinates.length - 1];
-      return { latitude: lastCoord.latitude, longitude: lastCoord.longitude };
+  const current_location = useMemo(() => {
+    if (session_coordinates.length > 0) {
+      const last_coord = session_coordinates[session_coordinates.length - 1];
+      return { latitude: last_coord.latitude, longitude: last_coord.longitude };
     }
 
-    if (activeSessionState?.startLatitude && activeSessionState?.startLongitude) {
+    if (active_session_state?.start_latitude && active_session_state?.start_longitude) {
       return {
-        latitude: activeSessionState.startLatitude,
-        longitude: activeSessionState.startLongitude
+        latitude: active_session_state.start_latitude,
+        longitude: active_session_state.start_longitude
       };
     }
 
     return undefined;
-  }, [sessionCoordinates, activeSessionState]);
+  }, [session_coordinates, active_session_state]);
 
   // Show welcome toast when shipments are loaded
   useEffect(() => {
     if (shipments?.length > 0 && !isLoading && !error) {
-      const userName = currentUser?.fullName?.split?.(' ')?.[0] || currentUser?.username || 'User';
+      const userName = current_user?.full_name?.split?.(' ')?.[0] || current_user?.username || 'User';
       toast({
         title: `Welcome back, ${userName}! 👋`,
         description: `You have ${shipments.length} shipment${shipments.length !== 1 ? 's' : ''} to manage today.`,
       });
     }
-  }, [shipments?.length, isLoading, error, currentUser, toast]);
+  }, [shipments?.length, isLoading, error, current_user, toast]);
 
-  const handleShipmentSelect = (shipmentId: string, selected: boolean) => {
-    setSelectedShipmentIds((prev) =>
-      selected ? [...prev, shipmentId] : prev.filter((id) => id !== shipmentId)
+  const handleShipmentSelect = (shipment_id: string, selected: boolean) => {
+    set_selected_shipment_ids((prev) =>
+      selected ? [...prev, shipment_id] : prev.filter((id) => id !== shipment_id)
     );
   };
 
   const handleSelectAll = (selected: boolean) => {
     if (selected && shipments?.length > 0) {
-      setSelectedShipmentIds(shipments.map((s: Shipment) => s?.shipment_id).filter(Boolean));
+      set_selected_shipment_ids(shipments.map((s: Shipment) => s?.id).filter(Boolean));
     } else {
-      setSelectedShipmentIds([]);
+      set_selected_shipment_ids([]);
     }
   };
 
-  // Handle page change
-  // const _handlePageChange = (newPage: number) => {
-  //   setPagination(prev => ({
-  //     ...prev,
-  //     page: newPage,
-  //   }));
-  // };
-
-  // Handle page size change
-  // const _handlePageSizeChange = (newSize: number) => {
-  //   setPagination(prev => ({
-  //     page: 1, // Reset to first page when changing page size
-  //     limit: newSize,
-  //   }));
-  // };
-
   const handleBatchUpdate = () => {
-    if (selectedShipmentIds.length === 0) return;
-    setShowBatchModal(true);
+    if (selected_shipment_ids.length === 0) return;
+    set_show_batch_modal(true);
   };
 
   const handleBatchRiderAllocation = () => {
-    if (selectedShipmentIds.length === 0 || !isManager) return;
-    setShowBatchRiderModal(true);
+    if (selected_shipment_ids.length === 0 || !is_manager) return;
+    set_show_batch_rider_modal(true);
   };
 
   const handleRefresh = () => {
-    if (!shouldLoadShipments) {
-      setShouldLoadShipments(true);
+    if (!should_load_shipments) {
+      set_should_load_shipments(true);
     } else {
       refetch();
     }
   };
 
-
-
   // Debounce filter changes to prevent excessive API calls
-  const debouncedFilters = useDebounce(effectiveFilters, 500);
+  const debounced_filters = useDebounce(effectiveFilters, 500);
 
   // Update query params when debounced filters change
   useEffect(() => {
-    if (!shouldLoadShipments) return;
+    if (!should_load_shipments) return;
     refetch();
-  }, [debouncedFilters, refetch, shouldLoadShipments]);
+  }, [debounced_filters, refetch, should_load_shipments]);
 
   // Handle filter changes
-  const handleFilterChange = useCallback((newFilters: Partial<ExtendedShipmentFilters>) => {
+  const handleFilterChange = useCallback((new_filters: Partial<ExtendedShipmentFilters>) => {
     setFilters(prev => ({
       ...prev,
-      ...newFilters,
+      ...new_filters,
       // Reset to first page when filters change
       page: 1
     }));
   }, []);
 
-  // Add missing toggleRouteControls function
-  const [showRouteControls, setShowRouteControls] = useState(true);
+  const [show_route_controls, set_show_route_controls] = useState(true);
   const toggleRouteControls = () => {
-    setShowRouteControls(prev => !prev);
+    set_show_route_controls(prev => !prev);
   };
 
-
-
   // Initial loading skeleton
-  if (isLoading && shouldLoadShipments && !isFetching) {
+  if (isLoading && should_load_shipments && !isFetching) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <Card className="mb-6" data-testid="card-filters">
@@ -301,15 +274,15 @@ function ShipmentsWithTracking() {
               <div className="flex items-center gap-2">
                 <Button
                   onClick={handleBatchUpdate}
-                  disabled={selectedShipmentIds.length === 0}
+                  disabled={selected_shipment_ids.length === 0}
                   className="bg-primary text-primary-foreground"
                 >
                   <Edit className="h-4 w-4 mr-2" />
-                  Batch Update ({selectedShipmentIds.length})
+                  Batch Update ({selected_shipment_ids.length})
                 </Button>
                 <Button variant="outline" onClick={toggleRouteControls}>
                   <MapPin className="h-4 w-4 mr-2" />
-                  {showRouteControls ? "Hide" : "Show"} Tracking
+                  {show_route_controls ? "Hide" : "Show"} Tracking
                 </Button>
                 <Button variant="secondary" onClick={handleRefresh}>
                   <RotateCcw className="h-4 w-4 mr-2" />
@@ -345,10 +318,8 @@ function ShipmentsWithTracking() {
     );
   }
 
-
-
   // Render error state
-  const renderErrorState = () => (
+  const render_error_state = () => (
     <Alert variant="destructive" className="mb-6">
       <AlertCircle className="h-4 w-4" />
       <AlertTitle>Error</AlertTitle>
@@ -367,11 +338,8 @@ function ShipmentsWithTracking() {
     </Alert>
   );
 
-
-
   return (
     <div className="container mx-auto p-4 space-y-6">
-
 
       {/* Filters Section */}
       <Card>
@@ -383,21 +351,21 @@ function ShipmentsWithTracking() {
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 onClick={handleBatchUpdate}
-                disabled={selectedShipmentIds.length === 0}
+                disabled={selected_shipment_ids.length === 0}
                 className="bg-primary text-primary-foreground"
               >
                 <Edit className="h-4 w-4 mr-2" />
-                Batch Update ({selectedShipmentIds.length})
+                Batch Update ({selected_shipment_ids.length})
               </Button>
-              {isManager && (
+              {is_manager && (
                 <Button
                   onClick={handleBatchRiderAllocation}
-                  disabled={selectedShipmentIds.length === 0}
+                  disabled={selected_shipment_ids.length === 0}
                   variant="outline"
                   className="border-blue-500 text-blue-600 hover:bg-blue-50"
                 >
                   <Edit className="h-4 w-4 mr-2" />
-                  Allocate to Rider ({selectedShipmentIds.length})
+                  Allocate to Rider ({selected_shipment_ids.length})
                 </Button>
               )}
               <Button variant="secondary" onClick={handleRefresh}>
@@ -414,37 +382,37 @@ function ShipmentsWithTracking() {
       </Card>
 
       {/* Active Route Tracking Section - Only show for riders or if session is active */}
-      {showRouteControls && hasActiveSession && (
+      {show_route_controls && has_active_session && (
         <div className="mb-8">
           <ActiveRouteTracking
-            sessionId={activeSessionState.id}
-            currentLocation={currentLocation}
+            sessionId={active_session_state.id}
+            currentLocation={current_location}
           />
         </div>
       )}
 
       {/* Shipments Content */}
-      {!shouldLoadShipments ? (
+      {!should_load_shipments ? (
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground mb-4">
               Shipments will load when this section scrolls into view. You can also load them now.
             </p>
             <div className="flex justify-center gap-2">
-              <Button onClick={() => setShouldLoadShipments(true)}>Load Shipments</Button>
-              <Button variant="outline" onClick={() => setShouldLoadShipments(true)}>
+              <Button onClick={() => set_should_load_shipments(true)}>Load Shipments</Button>
+              <Button variant="outline" onClick={() => set_should_load_shipments(true)}>
                 Load & Keep Filters
               </Button>
             </div>
           </CardContent>
         </Card>
       ) : error ? (
-        renderErrorState()
+        render_error_state()
       ) : !shipments || shipments.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground" data-testid="text-no-shipments">
-              {filters.status || filters.type || filters.routeName || filters.date || filters.employeeId
+              {filters.status || filters.type || filters.route_name || filters.date || filters.employee_id || filters.pops_order_id
                 ? "No shipments match the current filters. Try adjusting your filters."
                 : "No shipments available at the moment. Please check back later."}
             </p>
@@ -460,7 +428,7 @@ function ShipmentsWithTracking() {
           <div className="flex items-center gap-2 px-2">
             <input
               type="checkbox"
-              checked={shipments?.length > 0 && selectedShipmentIds.length === shipments.length}
+              checked={shipments?.length > 0 && selected_shipment_ids.length === shipments.length}
               onChange={(e) => handleSelectAll(e.target.checked)}
               className="rounded border-gray-300"
               data-testid="checkbox-select-all"
@@ -468,7 +436,7 @@ function ShipmentsWithTracking() {
             <span className="text-sm text-muted-foreground">
               Select all ({shipments?.length || 0} shipments)
             </span>
-            {hasActiveSession && (
+            {has_active_session && (
               <span className="text-xs text-green-600 dark:text-green-400 ml-4">
                 • GPS tracking active - locations will be recorded automatically
               </span>
@@ -483,14 +451,14 @@ function ShipmentsWithTracking() {
 
           {/* Shipment Cards */}
           {shipments?.map?.((shipment: Shipment) =>
-            shipment?.shipment_id ? (
+            shipment?.id ? (
               <ShipmentCardWithTracking
-                key={shipment.shipment_id}
+                key={shipment.id}
                 shipment={shipment}
-                selected={selectedShipmentIds.includes(shipment.shipment_id)}
-                onSelect={(selected) => handleShipmentSelect(shipment.shipment_id, selected)}
+                selected={selected_shipment_ids.includes(shipment.id)}
+                onSelect={(selected) => handleShipmentSelect(shipment.id, selected)}
                 onViewDetails={() => setSelectedShipment(shipment)}
-                employeeId={employeeId}
+                employeeId={employee_id}
                 showTrackingControls={true}
               />
             ) : null
@@ -499,7 +467,7 @@ function ShipmentsWithTracking() {
       )}
 
       {/* Sentinel for lazy loading */}
-      <div ref={sentinelRef} />
+      <div ref={sentinel_ref} />
 
       {/* Modals */}
       {selectedShipment && (
@@ -507,33 +475,33 @@ function ShipmentsWithTracking() {
           shipment={selectedShipment}
           isOpen={true}
           onClose={() => setSelectedShipment(null)}
-          employeeId={employeeId}
+          employeeId={employee_id}
         />
       )}
 
-      {showBatchModal && (
+      {show_batch_modal && (
         <BatchUpdateModal
-          selectedCount={selectedShipmentIds.length}
-          selectedIds={selectedShipmentIds}
-          isOpen={showBatchModal}
-          onClose={() => setShowBatchModal(false)}
+          selectedCount={selected_shipment_ids.length}
+          selectedIds={selected_shipment_ids}
+          isOpen={show_batch_modal}
+          onClose={() => set_show_batch_modal(false)}
           onSuccess={() => {
-            setSelectedShipmentIds([]);
-            setShowBatchModal(false);
+            set_selected_shipment_ids([]);
+            set_show_batch_modal(false);
             refetch();
           }}
         />
       )}
 
-      {showBatchRiderModal && (
+      {show_batch_rider_modal && (
         <BatchRiderAllocationModal
-          selectedCount={selectedShipmentIds.length}
-          selectedIds={selectedShipmentIds}
-          isOpen={showBatchRiderModal}
-          onClose={() => setShowBatchRiderModal(false)}
+          selectedCount={selected_shipment_ids.length}
+          selectedIds={selected_shipment_ids}
+          isOpen={show_batch_rider_modal}
+          onClose={() => set_show_batch_rider_modal(false)}
           onSuccess={() => {
-            setSelectedShipmentIds([]);
-            setShowBatchRiderModal(false);
+            set_selected_shipment_ids([]);
+            set_show_batch_rider_modal(false);
             refetch();
           }}
         />

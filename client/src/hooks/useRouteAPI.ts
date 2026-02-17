@@ -11,12 +11,12 @@ export const routeQueryKeys = {
   all: ['routes'] as const,
   sessions: () => [...routeQueryKeys.all, 'sessions'] as const,
   session: (id: string) => [...routeQueryKeys.sessions(), id] as const,
-  activeSession: (employeeId: string) => [...routeQueryKeys.sessions(), 'active', employeeId] as const,
+  active_session: (employee_id: string) => [...routeQueryKeys.sessions(), 'active', employee_id] as const,
   coordinates: () => [...routeQueryKeys.all, 'coordinates'] as const,
-  sessionCoordinates: (sessionId: string) => [...routeQueryKeys.coordinates(), sessionId] as const,
+  session_coordinates: (session_id: string) => [...routeQueryKeys.coordinates(), session_id] as const,
   analytics: () => [...routeQueryKeys.all, 'analytics'] as const,
-  analyticsFiltered: (filters: RouteFilters) => [...routeQueryKeys.analytics(), filters] as const,
-  summary: (sessionId: string) => [...routeQueryKeys.all, 'summary', sessionId] as const,
+  analytics_filtered: (filters: RouteFilters) => [...routeQueryKeys.analytics(), filters] as const,
+  summary: (session_id: string) => [...routeQueryKeys.all, 'summary', session_id] as const,
 };
 
 /**
@@ -29,7 +29,7 @@ export function useRouteSessions() {
     mutationFn: (data: StartRouteSession) => routeAPI.startSession(data),
     onSuccess: (session: RouteSession) => {
       // Invalidate active session queries
-      queryClient.invalidateQueries({ queryKey: routeQueryKeys.activeSession(session.employeeId) });
+      queryClient.invalidateQueries({ queryKey: routeQueryKeys.active_session(session.employee_id) });
       queryClient.invalidateQueries({ queryKey: routeQueryKeys.sessions() });
     },
   });
@@ -38,7 +38,7 @@ export function useRouteSessions() {
     mutationFn: (data: StopRouteSession) => routeAPI.stopSession(data),
     onSuccess: (session: RouteSession) => {
       // Invalidate related queries
-      queryClient.invalidateQueries({ queryKey: routeQueryKeys.activeSession(session.employeeId) });
+      queryClient.invalidateQueries({ queryKey: routeQueryKeys.active_session(session.employee_id) });
       queryClient.invalidateQueries({ queryKey: routeQueryKeys.sessions() });
       queryClient.invalidateQueries({ queryKey: routeQueryKeys.analytics() });
     },
@@ -57,11 +57,11 @@ export function useRouteSessions() {
 /**
  * Hook for getting active session
  */
-export function useActiveSession(employeeId: string, enabled = true) {
+export function useActiveSession(employee_id: string, enabled = true) {
   return useQuery({
-    queryKey: routeQueryKeys.activeSession(employeeId),
-    queryFn: () => routeAPI.getActiveSession(employeeId),
-    enabled: enabled && !!employeeId,
+    queryKey: routeQueryKeys.active_session(employee_id),
+    queryFn: () => routeAPI.getActiveSession(employee_id),
+    enabled: enabled && !!employee_id,
     refetchInterval: 30000, // Refetch every 30 seconds
     retry: (failureCount, error) => {
       // Don't retry if it's a 404 (no active session)
@@ -83,9 +83,9 @@ export function useGPSCoordinates() {
     mutationFn: (coordinate: GPSCoordinate) => routeAPI.submitCoordinates(coordinate),
     onSuccess: (_, variables) => {
       // Invalidate session coordinates
-      if (variables.sessionId) {
+      if (variables.session_id) {
         queryClient.invalidateQueries({
-          queryKey: routeQueryKeys.sessionCoordinates(variables.sessionId)
+          queryKey: routeQueryKeys.session_coordinates(variables.session_id)
         });
       }
     },
@@ -95,11 +95,11 @@ export function useGPSCoordinates() {
     mutationFn: (coordinates: GPSCoordinate[]) => routeAPI.batchSubmitCoordinates(coordinates),
     onSuccess: (_, variables) => {
       // Invalidate all coordinate queries for affected sessions
-      const sessionIds = Array.from(new Set(variables.map(c => c.sessionId).filter(Boolean)));
-      sessionIds.forEach(sessionId => {
-        if (sessionId) {
+      const session_ids = Array.from(new Set(variables.map(c => c.session_id).filter(Boolean)));
+      session_ids.forEach(session_id => {
+        if (session_id) {
           queryClient.invalidateQueries({
-            queryKey: routeQueryKeys.sessionCoordinates(sessionId)
+            queryKey: routeQueryKeys.session_coordinates(session_id)
           });
         }
       });
@@ -108,22 +108,22 @@ export function useGPSCoordinates() {
 
   const recordShipmentEventMutation = useMutation({
     mutationFn: ({
-      sessionId,
-      shipmentId,
-      eventType,
+      session_id,
+      shipment_id,
+      event_type,
       latitude,
       longitude
     }: {
-      sessionId: string;
-      shipmentId: string;
-      eventType: 'pickup' | 'delivery';
+      session_id: string;
+      shipment_id: string;
+      event_type: 'pickup' | 'delivery';
       latitude: number;
       longitude: number;
-    }) => routeAPI.recordShipmentEvent(sessionId, shipmentId, eventType, latitude, longitude),
+    }) => routeAPI.recordShipmentEvent(session_id, shipment_id, event_type, latitude, longitude),
     onSuccess: (_, variables) => {
       // Invalidate session coordinates
       queryClient.invalidateQueries({
-        queryKey: routeQueryKeys.sessionCoordinates(variables.sessionId)
+        queryKey: routeQueryKeys.session_coordinates(variables.session_id)
       });
     },
   });
@@ -144,11 +144,11 @@ export function useGPSCoordinates() {
 /**
  * Hook for getting session coordinates
  */
-export function useSessionCoordinates(sessionId: string, enabled = true) {
+export function useSessionCoordinates(session_id: string, enabled = true) {
   return useQuery({
-    queryKey: routeQueryKeys.sessionCoordinates(sessionId),
-    queryFn: () => routeAPI.getSessionCoordinates(sessionId),
-    enabled: enabled && !!sessionId,
+    queryKey: routeQueryKeys.session_coordinates(session_id),
+    queryFn: () => routeAPI.getSessionCoordinates(session_id),
+    enabled: enabled && !!session_id,
     refetchInterval: 60000, // Refetch every minute
   });
 }
@@ -158,7 +158,7 @@ export function useSessionCoordinates(sessionId: string, enabled = true) {
  */
 export function useRouteAnalytics(filters: RouteFilters = {}, enabled = true) {
   return useQuery({
-    queryKey: routeQueryKeys.analyticsFiltered(filters),
+    queryKey: routeQueryKeys.analytics_filtered(filters),
     queryFn: () => routeAPI.getRouteAnalytics(filters),
     enabled,
     refetchInterval: 300000, // Refetch every 5 minutes
@@ -168,11 +168,11 @@ export function useRouteAnalytics(filters: RouteFilters = {}, enabled = true) {
 /**
  * Hook for session summary
  */
-export function useSessionSummary(sessionId: string, enabled = true) {
+export function useSessionSummary(session_id: string, enabled = true) {
   return useQuery({
-    queryKey: routeQueryKeys.summary(sessionId),
-    queryFn: () => routeAPI.getSessionSummary(sessionId),
-    enabled: enabled && !!sessionId,
+    queryKey: routeQueryKeys.summary(session_id),
+    queryFn: () => routeAPI.getSessionSummary(session_id),
+    enabled: enabled && !!session_id,
   });
 }
 
@@ -182,15 +182,15 @@ export function useSessionSummary(sessionId: string, enabled = true) {
 export function useOfflineSync() {
   const [syncStatus, setSyncStatus] = useState<{
     issyncing: boolean;
-    lastSync: Date | null;
-    pendingCount: number;
+    last_sync: Date | null;
+    pending_count: number;
   }>({
     issyncing: false,
-    lastSync: null,
-    pendingCount: 0
+    last_sync: null,
+    pending_count: 0
   });
 
-  const syncOfflineCoordinates = useCallback(async (coordinates: GPSCoordinate[]) => {
+  const sync_offline_coordinates = useCallback(async (coordinates: GPSCoordinate[]) => {
     if (coordinates.length === 0) {
       return { successful: 0, failed: 0, errors: [] };
     }
@@ -203,8 +203,8 @@ export function useOfflineSync() {
       setSyncStatus(prev => ({
         ...prev,
         issyncing: false,
-        lastSync: new Date(),
-        pendingCount: Math.max(0, prev.pendingCount - result.successful)
+        last_sync: new Date(),
+        pending_count: Math.max(0, prev.pending_count - result.successful)
       }));
 
       return result;
@@ -214,13 +214,13 @@ export function useOfflineSync() {
     }
   }, []);
 
-  const updatePendingCount = useCallback((count: number) => {
-    setSyncStatus(prev => ({ ...prev, pendingCount: count }));
+  const update_pending_count = useCallback((count: number) => {
+    setSyncStatus(prev => ({ ...prev, pending_count: count }));
   }, []);
 
   return {
-    syncOfflineCoordinates,
-    updatePendingCount,
+    syncOfflineCoordinates: sync_offline_coordinates,
+    updatePendingCount: update_pending_count,
     ...syncStatus
   };
 }
@@ -229,11 +229,11 @@ export function useOfflineSync() {
 /**
  * Combined hook for complete route tracking functionality
  */
-export function useRouteTracking(employeeId: string) {
-  const { data: activeSession, isLoading: isLoadingSession } = useActiveSession(employeeId);
+export function useRouteTracking(employee_id: string) {
+  const { data: activeSession, isLoading: isLoadingSession } = useActiveSession(employee_id);
   const { startSession, stopSession, isStarting, isstopping } = useRouteSessions();
   const { submitCoordinate, recordShipmentEvent, isSubmitting } = useGPSCoordinates();
-  const { syncOfflineCoordinates, issyncing, pendingCount } = useOfflineSync();
+  const { syncOfflineCoordinates, issyncing, pending_count } = useOfflineSync();
 
   const sessionCoordinates = useSessionCoordinates(
     activeSession?.id || '',
@@ -241,26 +241,26 @@ export function useRouteTracking(employeeId: string) {
   );
 
   const handleStartSession = useCallback(async (latitude: number, longitude: number) => {
-    return await startSession({ employeeId, latitude, longitude });
-  }, [employeeId, startSession]);
+    return await startSession({ employee_id, start_latitude: latitude, start_longitude: longitude });
+  }, [employee_id, startSession]);
 
   const handleStopSession = useCallback(async (latitude: number, longitude: number) => {
     if (!activeSession?.id) {
       throw new Error('No active session to stop');
     }
-    return await stopSession({ sessionId: activeSession.id, latitude, longitude });
+    return await stopSession({ session_id: activeSession.id, end_latitude: latitude, end_longitude: longitude });
   }, [activeSession?.id, stopSession]);
 
-  const handleSubmitCoordinate = useCallback(async (coordinate: Omit<GPSCoordinate, 'sessionId'>) => {
+  const handleSubmitCoordinate = useCallback(async (coordinate: Omit<GPSCoordinate, 'session_id'>) => {
     if (!activeSession?.id) {
       throw new Error('No active session for coordinate submission');
     }
-    return await submitCoordinate({ ...coordinate, sessionId: activeSession.id });
+    return await submitCoordinate({ ...coordinate, session_id: activeSession.id });
   }, [activeSession?.id, submitCoordinate]);
 
   const handleRecordShipmentEvent = useCallback(async (
-    shipmentId: string,
-    eventType: 'pickup' | 'delivery',
+    shipment_id: string,
+    event_type: 'pickup' | 'delivery',
     latitude: number,
     longitude: number
   ) => {
@@ -268,9 +268,9 @@ export function useRouteTracking(employeeId: string) {
       throw new Error('No active session for shipment event');
     }
     return await recordShipmentEvent({
-      sessionId: activeSession.id,
-      shipmentId,
-      eventType,
+      session_id: activeSession.id,
+      shipment_id,
+      event_type,
       latitude,
       longitude
     });
@@ -298,7 +298,7 @@ export function useRouteTracking(employeeId: string) {
 
     // Status
     hasActiveSession: !!activeSession,
-    pendingCount,
+    pending_count,
 
     // Refetch functions
     refetchSession: () => sessionCoordinates.refetch(),

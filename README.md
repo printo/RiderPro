@@ -64,7 +64,7 @@ vehicle_types      - Vehicle configurations
 fuel_settings      - Fuel pricing
 ```
 
-See [DATABASE.md](./DATABASE.md) for schema details.
+See [Database Schema](./database-schema.md) for schema details.
 
 ## 🔑 Authentication & Roles
 
@@ -354,13 +354,13 @@ RiderPro/
 │   │   ├── components/  # UI components
 │   │   ├── pages/       # Page components
 │   │   ├── hooks/       # Custom hooks
-│   │   └── services/    # Business logic
-├── server/              # Express backend
-│   ├── db/             # Database layer
-│   ├── routes/         # API endpoints
-│   └── middleware/     # Auth & security
-├── shared/             # Shared types
-└── docker-compose.yml  # Docker configuration
+│   │   └── services/    # Business logic and API clients
+├── backend/             # Django backend
+│   ├── apps/            # Django apps (shipments, routes, authentication, etc.)
+│   ├── settings/        # Django settings
+│   └── manage.py        # Django management entry point
+├── shared/              # Shared types between frontend and backend
+└── docker-compose.yml   # Docker configuration
 ```
 
 ## 🔄 Data Flow
@@ -390,13 +390,13 @@ Printo API → Webhook → Validation → PostgreSQL (main)
 ### UI Data Access (Role-Based)
 
 ```
-User Login → Role Check → Filter queries by employeeId (riders) or all data (admin/ops)
+User Login → Role Check → Filter queries by employee_id (riders) or all data (admin/ops)
 ```
 
 ## 🎯 Technology Stack
 
 **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, TanStack Query\
-**Backend**: Node.js, Express, TypeScript\
+**Backend**: Django, Django REST Framework, Python 3.12\
 **Database**: PostgreSQL 15 with connection pooling\
 **Infrastructure**: Docker, Docker Compose
 
@@ -619,10 +619,12 @@ curl http://localhost:5000/health
 
 ## 📖 Documentation
 
-- **Integration Guide** - Complete bidirectional integration documentation (this
-  README)
-- **DATABASE.md** - Database schema and queries
-- **Code comments** - Inline documentation in source files
+- **Integration Guide**: This README (bidirectional integration overview)
+- **Database Schema**: [database-schema.md](./database-schema.md)
+- **System Architecture**: [system-architecture.md](./system-architecture.md)
+- **Authentication System**: [authentication-system.md](./authentication-system.md)
+- **API Reference**: [api-documentation.md](./api-documentation.md)
+- **Code Comments**: Inline documentation in source files
 
 ### Integration Endpoints
 

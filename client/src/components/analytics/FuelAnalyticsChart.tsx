@@ -22,23 +22,23 @@ import { RouteAnalytics } from '@shared/types';
 
 interface FuelAnalyticsChartProps {
   data: RouteAnalytics[];
-  viewType: 'daily' | 'weekly' | 'monthly';
+  view_type: 'daily' | 'weekly' | 'monthly';
   detailed?: boolean;
 }
 
 interface GroupedFuelMetrics {
   date: string;
-  fuelConsumed: number;
-  fuelCost: number;
-  totalDistance: number;
+  fuel_consumption: number;
+  fuel_cost: number;
+  total_distance: number;
   count: number;
 }
 
 interface EmployeeFuelAggregate {
-  employeeId: string;
-  fuelConsumed: number;
-  fuelCost: number;
-  totalDistance: number;
+  employee_id: string;
+  fuel_consumption: number;
+  fuel_cost: number;
+  total_distance: number;
 }
 
 interface EmployeeFuelMetrics extends EmployeeFuelAggregate {
@@ -50,76 +50,76 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 
 export default function FuelAnalyticsChart({
   data,
-  viewType,
+  view_type,
   detailed = false
 }: FuelAnalyticsChartProps) {
   // Group and aggregate fuel data by date
-  const chartData = React.useMemo(() => {
+  const chart_data = React.useMemo(() => {
     const grouped = data.reduce<Record<string, GroupedFuelMetrics>>((acc, item) => {
       const key = item.date;
       if (!acc[key]) {
         acc[key] = {
           date: key,
-          fuelConsumed: 0,
-          fuelCost: 0,
-          totalDistance: 0,
+          fuel_consumption: 0,
+          fuel_cost: 0,
+          total_distance: 0,
           count: 0
         };
       }
 
-      acc[key].fuelConsumed += item.fuelConsumed || 0;
-      acc[key].fuelCost += item.fuelCost || 0;
-      acc[key].totalDistance += item.totalDistance || 0;
+      acc[key].fuel_consumption += item.fuel_consumption || 0;
+      acc[key].fuel_cost += item.fuel_cost || 0;
+      acc[key].total_distance += item.total_distance || 0;
       acc[key].count += 1;
       return acc;
     }, {});
 
     return Object.values(grouped).map((item) => ({
       ...item,
-      fuelEfficiency: item.fuelConsumed > 0 ? (item.totalDistance / item.fuelConsumed) : 0,
-      costPerKm: item.totalDistance > 0 ? (item.fuelCost / item.totalDistance) : 0,
+      fuel_efficiency: item.fuel_consumption > 0 ? (item.total_distance / item.fuel_consumption) : 0,
+      cost_per_km: item.total_distance > 0 ? (item.fuel_cost / item.total_distance) : 0,
       date: new Date(item.date).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
-        ...(viewType === 'monthly' && { year: 'numeric' })
+        ...(view_type === 'monthly' && { year: 'numeric' })
       })
     })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [data, viewType]);
+  }, [data, view_type]);
 
   // Employee fuel consumption breakdown
-  const employeeFuelData = React.useMemo<EmployeeFuelMetrics[]>(() => {
+  const employee_fuel_data = React.useMemo<EmployeeFuelMetrics[]>(() => {
     const employeeData = data.reduce<Record<string, EmployeeFuelAggregate>>((acc, item) => {
-      if (!acc[item.employeeId]) {
-        acc[item.employeeId] = {
-          employeeId: item.employeeId,
-          fuelConsumed: 0,
-          fuelCost: 0,
-          totalDistance: 0
+      if (!acc[item.employee_id]) {
+        acc[item.employee_id] = {
+          employee_id: item.employee_id,
+          fuel_consumption: 0,
+          fuel_cost: 0,
+          total_distance: 0
         };
       }
 
-      acc[item.employeeId].fuelConsumed += item.fuelConsumed || 0;
-      acc[item.employeeId].fuelCost += item.fuelCost || 0;
-      acc[item.employeeId].totalDistance += item.totalDistance || 0;
+      acc[item.employee_id].fuel_consumption += item.fuel_consumption || 0;
+      acc[item.employee_id].fuel_cost += item.fuel_cost || 0;
+      acc[item.employee_id].total_distance += item.total_distance || 0;
       return acc;
     }, {});
 
     return Object.values(employeeData).map((item) => ({
       ...item,
-      name: `Employee ${item.employeeId}`,
-      efficiency: item.fuelConsumed > 0 ? (item.totalDistance / item.fuelConsumed) : 0
+      name: `Employee ${item.employee_id}`,
+      efficiency: item.fuel_consumption > 0 ? (item.total_distance / item.fuel_consumption) : 0
     }));
   }, [data]);
 
-  const formatTooltipValue = (value: number, name: string) => {
+  const format_tooltip_value = (value: number, name: string) => {
     switch (name) {
-      case 'fuelConsumed':
-        return [`${value.toFixed(2)} L`, 'Fuel Consumed'];
-      case 'fuelCost':
+      case 'fuel_consumption':
+        return [`${value.toFixed(2)} L`, 'Fuel Consumption'];
+      case 'fuel_cost':
         return [`$${value.toFixed(2)}`, 'Fuel Cost'];
-      case 'fuelEfficiency':
+      case 'fuel_efficiency':
         return [`${value.toFixed(2)} km/L`, 'Fuel Efficiency'];
-      case 'costPerKm':
+      case 'cost_per_km':
         return [`$${value.toFixed(3)}/km`, 'Cost per KM'];
       default:
         return [value, name];
@@ -137,15 +137,15 @@ export default function FuelAnalyticsChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={chartData}>
+            <AreaChart data={chart_data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip formatter={formatTooltipValue} />
+              <Tooltip formatter={format_tooltip_value} />
               <Legend />
               <Area
                 type="monotone"
-                dataKey="fuelCost"
+                dataKey="fuel_cost"
                 stackId="1"
                 stroke="#ef4444"
                 fill="#ef4444"
@@ -154,7 +154,7 @@ export default function FuelAnalyticsChart({
               />
               <Area
                 type="monotone"
-                dataKey="fuelConsumed"
+                dataKey="fuel_consumption"
                 stackId="2"
                 stroke="#f59e0b"
                 fill="#f59e0b"
@@ -180,17 +180,17 @@ export default function FuelAnalyticsChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData}>
+            <LineChart data={chart_data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis yAxisId="left" />
               <YAxis yAxisId="right" orientation="right" />
-              <Tooltip formatter={formatTooltipValue} />
+              <Tooltip formatter={format_tooltip_value} />
               <Legend />
               <Line
                 yAxisId="left"
                 type="monotone"
-                dataKey="fuelConsumed"
+                dataKey="fuel_consumed"
                 stroke="#f59e0b"
                 strokeWidth={2}
                 name="Fuel Consumed (L)"
@@ -198,7 +198,7 @@ export default function FuelAnalyticsChart({
               <Line
                 yAxisId="right"
                 type="monotone"
-                dataKey="fuelCost"
+                dataKey="fuel_cost"
                 stroke="#ef4444"
                 strokeWidth={2}
                 name="Fuel Cost ($)"
@@ -218,22 +218,22 @@ export default function FuelAnalyticsChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={chartData}>
+            <BarChart data={chart_data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis yAxisId="left" />
               <YAxis yAxisId="right" orientation="right" />
-              <Tooltip formatter={formatTooltipValue} />
+              <Tooltip formatter={format_tooltip_value} />
               <Legend />
               <Bar
                 yAxisId="left"
-                dataKey="fuelEfficiency"
+                dataKey="fuel_efficiency"
                 fill="#10b981"
                 name="Fuel Efficiency (km/L)"
               />
               <Bar
                 yAxisId="right"
-                dataKey="costPerKm"
+                dataKey="cost_per_km"
                 fill="#8b5cf6"
                 name="Cost per KM ($)"
               />
@@ -255,20 +255,20 @@ export default function FuelAnalyticsChart({
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={employeeFuelData}
+                  data={employee_fuel_data}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
-                  dataKey="fuelConsumed"
+                  dataKey="fuel_consumption"
                 >
-                  {employeeFuelData.map((entry, index) => (
+                  {employee_fuel_data.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => [`${Number(value).toFixed(2)} L`, 'Fuel Consumed']} />
+                <Tooltip formatter={(value) => [`${Number(value).toFixed(2)} L`, 'Fuel Consumption']} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -283,12 +283,12 @@ export default function FuelAnalyticsChart({
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={employeeFuelData} layout="horizontal">
+              <BarChart data={employee_fuel_data} layout="horizontal">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" />
                 <YAxis dataKey="name" type="category" width={100} />
                 <Tooltip formatter={(value) => [`$${Number(value).toFixed(2)}`, 'Fuel Cost']} />
-                <Bar dataKey="fuelCost" fill="#ef4444" />
+                <Bar dataKey="fuel_cost" fill="#ef4444" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -305,7 +305,7 @@ export default function FuelAnalyticsChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={employeeFuelData}>
+            <BarChart data={employee_fuel_data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />

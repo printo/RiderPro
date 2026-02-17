@@ -1,4 +1,4 @@
-import { RouteFilters, EmployeePerformanceMetrics, FuelAnalyticsData } from '@shared/types';
+import { RouteFilters, EmployeePerformance, FuelAnalytics } from '@shared/types';
 import {
   RoutePerformanceMetrics,
   TimeBasedMetrics
@@ -13,7 +13,7 @@ export interface AnalyticsAPIResponse<T = unknown> {
 }
 
 export interface EmployeeMetricsResponse extends AnalyticsAPIResponse {
-  metrics: EmployeePerformanceMetrics[];
+  metrics: EmployeePerformance[];
   count: number;
 }
 
@@ -29,20 +29,19 @@ export interface TimeMetricsResponse extends AnalyticsAPIResponse {
 }
 
 export interface FuelAnalyticsResponse extends AnalyticsAPIResponse {
-  analytics: FuelAnalyticsData & {
-    costPerKm: number;
-    fuelPerKm: number;
+  analytics: FuelAnalytics & {
+    cost_per_km: number;
+    fuel_per_km: number;
   };
 }
 
 export interface TopPerformersResponse extends AnalyticsAPIResponse {
   performers: Array<{
-    employeeId: string;
-    totalDistance: number;
-    totalShipments: number;
+    employee_id: string;
+    distance: number;
     efficiency: number;
-    fuelEfficiency: number;
-    workingDays: number;
+    fuel: number;
+    shipments: number;
   }>;
   metric: string;
   count: number;
@@ -52,12 +51,12 @@ export const analyticsApi = {
   /**
    * Get employee performance metrics
    */
-  getEmployeeMetrics: async (filters: RouteFilters = {}): Promise<EmployeePerformanceMetrics[]> => {
+  getEmployeeMetrics: async (filters: RouteFilters = {}): Promise<EmployeePerformance[]> => {
     const params = new URLSearchParams();
-    if (filters.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters.employee_id) params.append('employee_id', filters.employee_id);
     if (filters.date) params.append('date', filters.date);
-    if (filters.startDate) params.append('startDate', filters.startDate);
-    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.start_date) params.append('start_date', filters.start_date);
+    if (filters.end_date) params.append('end_date', filters.end_date);
 
     const url = `/api/v1/analytics/employees${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
@@ -75,10 +74,10 @@ export const analyticsApi = {
    */
   getRouteMetrics: async (filters: RouteFilters = {}): Promise<RoutePerformanceMetrics[]> => {
     const params = new URLSearchParams();
-    if (filters.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters.employee_id) params.append('employee_id', filters.employee_id);
     if (filters.date) params.append('date', filters.date);
-    if (filters.startDate) params.append('startDate', filters.startDate);
-    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.start_date) params.append('start_date', filters.start_date);
+    if (filters.end_date) params.append('end_date', filters.end_date);
 
     const url = `/api/v1/analytics/routes${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
@@ -99,10 +98,10 @@ export const analyticsApi = {
     filters: RouteFilters = {}
   ): Promise<TimeBasedMetrics[]> => {
     const params = new URLSearchParams();
-    if (filters.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters.employee_id) params.append('employee_id', filters.employee_id);
     if (filters.date) params.append('date', filters.date);
-    if (filters.startDate) params.append('startDate', filters.startDate);
-    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.start_date) params.append('start_date', filters.start_date);
+    if (filters.end_date) params.append('end_date', filters.end_date);
 
     const url = `/api/v1/analytics/time/${groupBy}${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
@@ -118,12 +117,12 @@ export const analyticsApi = {
   /**
    * Get fuel analytics
    */
-  getFuelAnalytics: async (filters: RouteFilters = {}): Promise<FuelAnalyticsData & { costPerKm: number; fuelPerKm: number }> => {
+  getFuelAnalytics: async (filters: RouteFilters = {}): Promise<FuelAnalytics & { cost_per_km: number; fuel_per_km: number }> => {
     const params = new URLSearchParams();
-    if (filters.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters.employee_id) params.append('employee_id', filters.employee_id);
     if (filters.date) params.append('date', filters.date);
-    if (filters.startDate) params.append('startDate', filters.startDate);
-    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.start_date) params.append('start_date', filters.start_date);
+    if (filters.end_date) params.append('end_date', filters.end_date);
 
     const url = `/api/v1/analytics/fuel${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
@@ -163,10 +162,10 @@ export const analyticsApi = {
     employees: number;
   }>> => {
     const params = new URLSearchParams();
-    if (filters.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters.employee_id) params.append('employee_id', filters.employee_id);
     if (filters.date) params.append('date', filters.date);
-    if (filters.startDate) params.append('startDate', filters.startDate);
-    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.start_date) params.append('start_date', filters.start_date);
+    if (filters.end_date) params.append('end_date', filters.end_date);
 
     const url = `/api/v1/analytics/activity/hourly${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
@@ -183,9 +182,9 @@ export const analyticsApi = {
    * Get comprehensive dashboard data
    */
   getDashboardData: async (filters: RouteFilters = {}): Promise<{
-    employeeMetrics: EmployeePerformanceMetrics[];
+    employeeMetrics: EmployeePerformance[];
     timeMetrics: TimeBasedMetrics[];
-    fuelAnalytics: FuelAnalyticsData & { costPerKm: number; fuelPerKm: number };
+    fuelAnalytics: FuelAnalytics & { cost_per_km: number; fuel_per_km: number };
     topPerformers: {
       byDistance: TopPerformersResponse['performers'];
       byEfficiency: TopPerformersResponse['performers'];

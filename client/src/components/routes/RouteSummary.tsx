@@ -3,11 +3,11 @@ import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
 import { RouteStatusBreakdown } from "@shared/types";
 
 interface RouteSummaryProps {
-  routeBreakdown: Record<string, RouteStatusBreakdown>;
+  route_breakdown: Record<string, RouteStatusBreakdown>;
 }
 
-function RouteSummary({ routeBreakdown }: RouteSummaryProps) {
-  const routes = Object.entries(routeBreakdown);
+function RouteSummary({ route_breakdown }: RouteSummaryProps) {
+  const routes = Object.entries(route_breakdown);
 
   return (
     <Card data-testid="card-route-summary">
@@ -22,25 +22,25 @@ function RouteSummary({ routeBreakdown }: RouteSummaryProps) {
                 <p>No route data available</p>
               </div>
             ) : (
-              routes.map(([routeName, routeData]) => (
+              routes.map(([route_name, route_data]) => (
                 <div
-                  key={routeName}
+                  key={route_name}
                   className="border border-border rounded-lg p-4 min-w-0"
-                  data-testid={`card-route-${routeName.toLowerCase()}`}
+                  data-testid={`card-route-${route_name.toLowerCase()}`}
                 >
                   <div className="flex items-center justify-between mb-2 min-w-0">
                     <h4
                       className="font-medium text-foreground truncate pr-2"
-                      title={routeName}
-                      data-testid={`text-route-name-${routeName}`}
+                      title={route_name}
+                      data-testid={`text-route-name-${route_name}`}
                     >
-                      {routeName}
+                      {route_name}
                     </h4>
                     <span
                       className="text-sm text-muted-foreground flex-shrink-0"
-                      data-testid={`text-route-total-${routeName}`}
+                      data-testid={`text-route-total-${route_name}`}
                     >
-                      {routeData.total} shipments
+                      {route_data.total} shipments
                     </span>
                   </div>
                   <div className="space-y-1">
@@ -48,45 +48,45 @@ function RouteSummary({ routeBreakdown }: RouteSummaryProps) {
                       <span className="text-muted-foreground">Delivered:</span>
                       <span
                         className="text-green-600 font-medium"
-                        data-testid={`text-route-delivered-${routeName}`}
+                        data-testid={`text-route-delivered-${route_name}`}
                       >
-                        {routeData.delivered}
+                        {route_data.delivered}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Picked Up:</span>
                       <span
                         className="text-green-600 font-medium"
-                        data-testid={`text-route-picked-up-${routeName}`}
+                        data-testid={`text-route-picked-up-${route_name}`}
                       >
-                        {routeData.pickedUp || 0}
+                        {route_data.pickedup || 0}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Delivery Pending:</span>
                       <span
                         className="text-blue-600 font-medium"
-                        data-testid={`text-route-delivery-pending-${routeName}`}
+                        data-testid={`text-route-delivery-pending-${route_name}`}
                       >
-                        {routeData.deliveryPending || 0}
+                        {route_data.delivery_pending || 0}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Pickup Pending:</span>
                       <span
                         className="text-orange-600 font-medium"
-                        data-testid={`text-route-pickup-pending-${routeName}`}
+                        data-testid={`text-route-pickup-pending-${route_name}`}
                       >
-                        {routeData.pickupPending || 0}
+                        {route_data.pickup_pending || 0}
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Cancelled:</span>
                       <span
                         className="text-red-600 font-medium"
-                        data-testid={`text-route-cancelled-${routeName}`}
+                        data-testid={`text-route-cancelled-${route_name}`}
                       >
-                        {routeData.cancelled || 0}
+                        {route_data.cancelled || 0}
                       </span>
                     </div>
                   </div>

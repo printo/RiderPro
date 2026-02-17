@@ -7,12 +7,12 @@ interface SignatureCanvasProps {
 }
 
 function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [hasSignature, setHasSignature] = useState(false);
+  const canvas_ref = useRef<HTMLCanvasElement>(null);
+  const [is_drawing, set_is_drawing] = useState(false);
+  const [has_signature, set_has_signature] = useState(false);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = canvas_ref.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
@@ -34,11 +34,11 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }, []);
 
-  const startDrawing = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
+  const start_drawing = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvas_ref.current;
     if (!canvas) return;
 
-    setIsDrawing(true);
+    set_is_drawing(true);
     const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -58,9 +58,9 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
   };
 
   const draw = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+    if (!is_drawing) return;
 
-    const canvas = canvasRef.current;
+    const canvas = canvas_ref.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
@@ -79,23 +79,23 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
 
     ctx.lineTo(x, y);
     ctx.stroke();
-    setHasSignature(true);
+    set_has_signature(true);
   };
 
-  const stopDrawing = () => {
-    if (!isDrawing) return;
-    setIsDrawing(false);
+  const stop_drawing = () => {
+    if (!is_drawing) return;
+    set_is_drawing(false);
 
     // Convert to base64 and notify parent
-    const canvas = canvasRef.current;
-    if (canvas && hasSignature) {
+    const canvas = canvas_ref.current;
+    if (canvas && has_signature) {
       const dataUrl = canvas.toDataURL('image/png');
       onSignatureChange(dataUrl);
     }
   };
 
-  const clearSignature = () => {
-    const canvas = canvasRef.current;
+  const clear_signature = () => {
+    const canvas = canvas_ref.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
@@ -103,22 +103,22 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
 
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    setHasSignature(false);
+    set_has_signature(false);
     onSignatureChange('');
   };
 
   return (
     <div className="border border-border rounded-lg p-4 bg-muted/20">
       <canvas
-        ref={canvasRef}
+        ref={canvas_ref}
         className="w-full h-32 bg-white rounded border border-border cursor-crosshair touch-none"
-        onMouseDown={startDrawing}
+        onMouseDown={start_drawing}
         onMouseMove={draw}
-        onMouseUp={stopDrawing}
-        onMouseLeave={stopDrawing}
-        onTouchStart={startDrawing}
+        onMouseUp={stop_drawing}
+        onMouseLeave={stop_drawing}
+        onTouchStart={start_drawing}
         onTouchMove={draw}
-        onTouchEnd={stopDrawing}
+        onTouchEnd={stop_drawing}
         data-testid="canvas-signature"
       />
       <div className="flex justify-between items-center mt-2">
@@ -127,7 +127,7 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
           type="button"
           variant="ghost"
           size="sm"
-          onClick={clearSignature}
+          onClick={clear_signature}
           className="text-sm text-primary hover:text-primary/80"
           data-testid="button-clear-signature"
         >

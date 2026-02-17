@@ -6,23 +6,16 @@ export interface ExternalShipmentPayload {
   status: string;
   priority: string;
   type: string;
-  pickupAddress: string;
-  deliveryAddress: string;       // Maps to address in database
-  recipientName: string;         // Maps to customerName in database
-  recipientPhone: string;        // Maps to customerMobile in database
+  pickup_address: string;
+  address: string;               // Maps to address in database
+  customer_name: string;         // Maps to customer_name in database
+  customer_mobile: string;       // Maps to customer_mobile in database
   weight: number;
   dimensions: string;
-  specialInstructions?: string;
-  estimatedDeliveryTime: string; // Maps to deliveryTime in database
-  customerName: string;          // Same as recipientName for compatibility
-  customerMobile: string;        // Same as recipientPhone for compatibility
-  address: string;               // Same as deliveryAddress
-  latitude: number;
-  longitude: number;
-  cost: number;
-  deliveryTime: string;          // Same as estimatedDeliveryTime
-  routeName: string;
-  employeeId: string;
+  special_instructions?: string;
+  delivery_time: string;         // Maps to delivery_time in database
+  route_name: string;
+  employee_id: string;
 }
 
 export interface ExternalShipmentBatch {
@@ -37,27 +30,27 @@ export interface ExternalShipmentBatch {
 export interface ExternalUpdatePayload {
   piashipmentid: string;
   status: string;
-  statusTimestamp: string;
+  status_timestamp: string;
   location?: {
     latitude: number;
     longitude: number;
     accuracy?: number;
   };
-  employeeId: string;
-  employeeName?: string;
-  deliveryDetails?: {
-    actualDeliveryTime?: string;
-    recipientName?: string;
-    deliveryNotes?: string;
+  employee_id: string;
+  employee_name?: string;
+  delivery_details?: {
+    actual_delivery_time?: string;
+    customer_name?: string;
+    delivery_notes?: string;
     signature?: string;
     photo?: string;
     acknowledgment_captured_by?: string;
   };
-  routeInfo?: {
-    routeName: string;
-    sessionId?: string;
-    totalDistance?: number;
-    travelTime?: number;
+  route_info?: {
+    route_name: string;
+    session_id?: string;
+    total_distance?: number;
+    total_time?: number;
   };
 }
 
@@ -71,9 +64,9 @@ export interface ShipmentReceptionResponse {
     failed: number;
     duplicates: number;
   };
-  processedShipments: Array<{
+  processed_shipments: Array<{
     piashipmentid: string;
-    internalId: string;
+    internal_id: string;
     status: 'created' | 'updated' | 'failed';
     message: string;
   }>;
@@ -88,7 +81,7 @@ export interface BatchSyncResult {
     sent: number;
     failed: number;
   };
-  processedUpdates: Array<{
+  processed_updates: Array<{
     piashipmentid: string;
     status: 'sent' | 'failed';
     message: string;
@@ -131,34 +124,31 @@ export interface RiderHomebaseAssignment {
 }
 
 export interface Shipment {
-  // Primary key (now using shipment_id as primary)
-  shipment_id: string;           // External shipment ID (now primary key)
-  trackingNumber?: string;       // Legacy field for compatibility
-  createdAt: string;
-  updatedAt: string;
+  // Primary key
+  id: string;                    // Internal database ID
+  shipment_id?: string;          // Optional external/alias ID if provided by backend
+  created_at: string;
+  updated_at: string;
 
   // External integration fields
-  piashipmentid?: string;        // External system tracking ID
+  pops_order_id?: number | string; // External system tracking ID
   status: string;                // Assigned, In Transit, Delivered, etc.
   priority: string;              // high, medium, low
   type: string;                  // delivery, pickup
 
   // Address fields
-  pickupAddress: string;
-  deliveryAddress: string;
-  address?: string;              // Alias for deliveryAddress
-  addressDisplay?: string;       // Formatted address for display
+  pickup_address?: any;
+  address?: any;
+  address_display?: string;       // Formatted address for display (backend: addressDisplay)
 
   // Contact fields
-  recipientName: string;
-  recipientPhone: string;
-  customerName?: string;         // Alias for recipientName
-  customerMobile?: string;       // Alias for recipientPhone
+  customer_name: string;          // Maps to customerName, recipientName
+  customer_mobile: string;        // Maps to customerMobile, recipientPhone
 
   // Package fields
   weight: number;
-  dimensions: string;
-  specialInstructions?: string;
+  dimensions?: string;
+  special_instructions?: string;
   cost?: number;
   package_boxes?: Array<{
     sku?: string;
@@ -186,71 +176,12 @@ export interface Shipment {
   longitude?: number;
 
   // Timing fields
-  estimatedDeliveryTime?: string;
-  deliveryTime?: string;         // Alias for estimatedDeliveryTime
-  expectedDeliveryTime?: string; // Renamed from actualDeliveryTime
+  delivery_time?: string;
+  actual_delivery_time?: string;
 
   // Assignment fields
-  routeName?: string;
-  employeeId?: string;
-  orderId?: string | number;      // Alias for pops_order_id
-
-  // Tracking fields
-  start_latitude?: number;
-  start_longitude?: number;
-  stop_latitude?: number;
-  stop_longitude?: number;
-  km_travelled?: number;
-
-  // Acknowledgment fields (merged from acknowledgments table)
-  signatureUrl?: string;
-  photoUrl?: string;
-  signedPdfUrl?: string;
-  acknowledgment_captured_at?: string;
-  acknowledgment_captured_by?: string;
-
-  // Sync tracking fields (merged from sync_status table)
-  synced_to_external?: boolean;
-  last_sync_attempt?: string;
-  sync_error?: string;
-  sync_attempts?: number;
-}
-
-export interface InsertShipment {
-  // Required fields
-  shipment_id: string;           // External shipment ID (now required)
-  trackingNumber?: string;       // Legacy field for compatibility
-  status: string;
-  priority: string;
-  type: string;
-  pickupAddress: string;
-  deliveryAddress: string;
-  recipientName: string;
-  recipientPhone: string;
-  weight: number;
-  dimensions: string;
-
-  // Remarks
-  remarks?: string;
-
-  // Optional fields
-  piashipmentid?: string;        // External system tracking ID
-  specialInstructions?: string;
-  estimatedDeliveryTime?: string;
-  expectedDeliveryTime?: string; // Renamed from actualDeliveryTime
-
-  // Alias fields for compatibility
-  customerName?: string;         // Alias for recipientName
-  customerMobile?: string;       // Alias for recipientPhone
-  address?: string;              // Alias for deliveryAddress
-  deliveryTime?: string;         // Alias for estimatedDeliveryTime
-
-  // Location and assignment fields
-  latitude?: number;
-  longitude?: number;
-  cost?: number;
-  routeName?: string;
-  employeeId?: string;
+  route_name?: string;
+  employee_id?: string;
 
   // Tracking fields
   start_latitude?: number;
@@ -260,8 +191,69 @@ export interface InsertShipment {
   km_travelled?: number;
 
   // Acknowledgment fields
-  signatureUrl?: string;
-  photoUrl?: string;
+  signature_url?: string;
+  photo_url?: string;
+  pdf_url?: string;
+  signed_pdf_url?: string;
+  acknowledgment_captured_at?: string;
+  acknowledgment_captured_by?: string;
+  region?: string;
+  homebase?: number;
+  homebase_slot?: any;
+  homebase_transaction_duration?: number;
+
+  // Sync tracking fields
+  synced_to_external?: boolean;
+  last_sync_attempt?: string;
+  sync_error?: string;
+  sync_status?: string;
+  sync_attempts?: number;
+
+  // Additional fields for compatibility
+  tracking_number?: string;       // Legacy tracking number (backend: trackingNumber)
+}
+
+export interface InsertShipment {
+  // Required fields
+  status: string;
+  priority: string;
+  type: string;
+  pickup_address: any;
+  address: any;
+  customer_name: string;
+  customer_mobile: string;
+  weight: number;
+  dimensions?: string;
+
+  // Remarks
+  remarks?: string;
+
+  // Optional fields
+  pops_order_id?: number | string;
+  pops_shipment_uuid?: string;
+  api_source?: string;
+  special_instructions?: string;
+  delivery_time?: string;
+  actual_delivery_time?: string;
+
+  // Location and assignment fields
+  latitude?: number;
+  longitude?: number;
+  cost?: number;
+  route_name?: string;
+  employee_id?: string;
+  tracking_number?: string;
+
+  // Tracking fields
+  start_latitude?: number;
+  start_longitude?: number;
+  stop_latitude?: number;
+  stop_longitude?: number;
+  km_travelled?: number;
+
+  // Acknowledgment fields
+  signature_url?: string;
+  photo_url?: string;
   acknowledgment_captured_at?: string;
   acknowledgment_captured_by?: string;
 
@@ -269,50 +261,46 @@ export interface InsertShipment {
   synced_to_external?: boolean;
   last_sync_attempt?: string;
   sync_error?: string;
+  sync_status?: string;
   sync_attempts?: number;
 }
 
 export interface UpdateShipment {
-  shipment_id: string;
+  id?: string;
 
   // Core fields that can be updated
   status?: string;
   priority?: string;
   type?: string;
-  pickupAddress?: string;
-  deliveryAddress?: string;
-  recipientName?: string;
-  recipientPhone?: string;
+  pickup_address?: any;
+  address?: any;
+  customer_name?: string;
+  customer_mobile?: string;
   weight?: number;
   dimensions?: string;
-  specialInstructions?: string;
-  estimatedDeliveryTime?: string;
-  actualDeliveryTime?: string;
+  special_instructions?: string;
+  delivery_time?: string;
+  actual_delivery_time?: string;
   remarks?: string;
 
   // External integration fields
-  piashipmentid?: string;
-
-  // Alias fields for compatibility
-  customerName?: string;         // Alias for recipientName
-  customerMobile?: string;       // Alias for recipientPhone
-  address?: string;              // Alias for deliveryAddress
-  deliveryTime?: string;         // Alias for estimatedDeliveryTime
+  pops_order_id?: number | string;
 
   // Location and assignment fields
   latitude?: number;
   longitude?: number;
   cost?: number;
-  routeName?: string;
-  employeeId?: string;
+  route_name?: string;
+  employee_id?: string;
+  tracking_number?: string;
 
-  // Acknowledgment fields (consolidated from acknowledgments table)
+  // Acknowledgment fields
   signature_url?: string;
   photo_url?: string;
   acknowledgment_captured_at?: string;
   acknowledgment_captured_by?: string;
 
-  // Sync tracking fields (consolidated from sync_status table)
+  // Sync tracking fields
   synced_to_external?: boolean;
   last_sync_attempt?: string;
   sync_error?: string | null;
@@ -328,42 +316,42 @@ export interface BatchUpdate {
 export interface Acknowledgment {
   id: string;
   shipment_id: string;
-  signatureUrl?: string;
-  photoUrl?: string;
+  signature_url?: string;
+  photo_url?: string;
   acknowledgment_captured_at: string;
   acknowledgment_captured_by?: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface InsertAcknowledgment {
   shipment_id: string;
-  signatureUrl?: string;
-  photoUrl?: string;
+  signature_url?: string;
+  photo_url?: string;
   acknowledgment_captured_at: string;
   acknowledgment_captured_by?: string;
 }
 
 export interface DashboardMetrics {
-  totalShipments: number;
-  pendingShipments?: number;
-  deliveredShipments?: number;
-  inTransitShipments?: number;
+  total_shipments: number;
+  pending_shipments?: number;
+  delivered_shipments?: number;
+  in_transit_shipments?: number;
   completed: number;
-  inProgress: number;
+  in_progress: number;
   pending: number;
-  averageDeliveryTime?: number;
-  onTimeDeliveryRate?: number;
-  statusBreakdown?: Record<string, number>;
-  typeBreakdown?: Record<string, number>;
-  routeBreakdown?: Record<string, {
+  average_delivery_time?: number;
+  on_time_delivery_rate?: number;
+  status_breakdown?: Record<string, number>;
+  type_breakdown?: Record<string, number>;
+  route_breakdown?: Record<string, {
     total: number;
     delivered: number;
-    pickedUp: number;
+    pickedup: number;
     pending: number;
     cancelled: number;
-    pickupPending: number;
-    deliveryPending: number;
+    pickup_pending: number;
+    delivery_pending: number;
   }>;
 }
 
@@ -372,36 +360,36 @@ export interface ShipmentFilters {
   status?: string;
   priority?: string;
   type?: string;
-  routeName?: string;
+  route_name?: string;
   date?: string;
-  dateRange?: {
+  date_range?: {
     start: string;
     end: string;
   };
   search?: string;
-  employeeId?: string;
-  orderId?: string | number; // Pia order ID filter
-  syncStatus?: string; // pending, failed, synced
+  employee_id?: string;
+  pops_order_id?: string | number;
+  sync_status?: string;
 
   // Pagination
   page?: number | string;
   limit?: number | string;
 
   // Sorting
-  sortField?: string;
-  sortOrder?: 'ASC' | 'DESC';
+  sort_field?: string;
+  sort_order?: 'ASC' | 'DESC';
 }
 
 // Route schemas
 export interface startRouteSessionSchema {
-  routeId: string;
-  driverId: string;
-  vehicleId: string;
+  route_id: string;
+  driver_id: string;
+  vehicle_id: string;
 }
 
 export interface stopRouteSessionSchema {
-  sessionId: string;
-  endLocation: {
+  session_id: string;
+  end_location: {
     latitude: number;
     longitude: number;
   };
@@ -409,19 +397,19 @@ export interface stopRouteSessionSchema {
 
 // Aliases for API compatibility
 export interface StartRouteSession {
-  employeeId: string;
-  latitude: number;
-  longitude: number;
-  routeId?: string;
-  driverId?: string;
-  vehicleId?: string;
+  employee_id: string;
+  start_latitude: number;
+  start_longitude: number;
+  route_id?: string;
+  driver_id?: string;
+  vehicle_id?: string;
 }
 
 export interface StopRouteSession {
-  sessionId: string;
-  latitude: number;
-  longitude: number;
-  endLocation?: {
+  session_id: string;
+  end_latitude: number;
+  end_longitude: number;
+  end_location?: {
     latitude: number;
     longitude: number;
   };
@@ -437,83 +425,83 @@ export interface gpsCoordinateSchema {
 }
 
 export interface routeFiltersSchema {
-  dateRange?: {
+  date_range?: {
     start: string;
     end: string;
   };
-  driverId?: string;
+  driver_id?: string;
   status?: string;
 }
 
 // Additional route tracking types
 export interface RouteTracking {
   id: string;
-  sessionId: string;
-  employeeId: string;
+  session_id: string;
+  employee_id: string;
   latitude: number;
   longitude: number;
   timestamp: string;
   accuracy?: number;
   speed?: number;
-  eventType?: string;
-  shipmentId?: string;
+  event_type?: string;
+  shipment_id?: string;
   date: string;
-  vehicleType?: string;
-  fuelConsumed?: number;
-  fuelCost?: number;
-  totalDistance?: number;
-  totalTime?: number;
-  averageSpeed?: number;
-  shipmentsCompleted?: number;
-  fuelEfficiency?: number;
-  fuelPrice?: number;
+  vehicle_type?: string;
+  fuel_consumption?: number;
+  fuel_cost?: number;
+  total_distance?: number;
+  total_time?: number;
+  average_speed?: number;
+  shipments_completed?: number;
+  fuel_efficiency?: number;
+  fuel_price?: number;
 }
 
 export interface InsertRouteTracking {
-  sessionId: string;
-  employeeId: string;
+  session_id: string;
+  employee_id: string;
   latitude: number;
   longitude: number;
   timestamp: string;
   accuracy?: number;
   speed?: number;
-  eventType?: string;
-  shipmentId?: string;
+  event_type?: string;
+  shipment_id?: string;
   date: string;
-  vehicleType?: string;
-  fuelConsumed?: number;
-  fuelCost?: number;
-  totalDistance?: number;
-  totalTime?: number;
-  averageSpeed?: number;
-  shipmentsCompleted?: number;
-  fuelEfficiency?: number;
-  fuelPrice?: number;
+  vehicle_type?: string;
+  fuel_consumption?: number;
+  fuel_cost?: number;
+  total_distance?: number;
+  total_time?: number;
+  average_speed?: number;
+  shipments_completed?: number;
+  fuel_efficiency?: number;
+  fuel_price?: number;
 }
 
 export interface RouteSession {
   id: string;
-  employeeId: string;
-  employeeName?: string;
-  startTime: string;
-  endTime?: string;
+  employee_id: string;
+  employee_name?: string;
+  start_time: string;
+  end_time?: string;
   status: string;
-  startLatitude: number;
-  startLongitude: number;
-  endLatitude?: number;
-  endLongitude?: number;
-  totalDistance?: number;
-  totalTime?: number;
-  averageSpeed?: number;
+  start_latitude: number;
+  start_longitude: number;
+  end_latitude?: number;
+  end_longitude?: number;
+  total_distance?: number;
+  total_time?: number;
+  average_speed?: number;
   points?: RoutePoint[]; // RoutePoint array for visualization
-  shipmentsCompleted?: number;
-  createdAt: string;
-  updatedAt: string;
+  shipments_completed?: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface GPSCoordinate {
   id?: string;
-  sessionId?: string;
+  session_id?: string;
   latitude: number;
   longitude: number;
   timestamp: string;
@@ -539,16 +527,16 @@ export interface GPSError {
 export type GPSPermissionStatus = 'granted' | 'denied' | 'prompt' | 'unknown';
 
 export interface RouteFilters {
-  dateRange?: {
+  date_range?: {
     start: string;
     end: string;
   };
-  employeeId?: string;
+  employee_id?: string;
   status?: string;
-  sessionStatus?: string;
+  session_status?: string;
   date?: string;
-  startDate?: string;
-  endDate?: string;
+  start_date?: string;
+  end_date?: string;
 }
 
 // Route Optimization Types
@@ -558,7 +546,7 @@ export interface RouteLocation {
   longitude: number;
   shipment_id?: string;
   address?: string;
-  customerName?: string;
+  customer_name?: string;
 }
 
 export interface RouteOptimizeRequest {
@@ -588,25 +576,11 @@ interface InsertShipmentSchema {
 export const insertShipmentSchema: InsertShipmentSchema = {
   parse: (data: Record<string, unknown>): InsertShipment => {
     const mutable = { ...(data as unknown as InsertShipment) };
-    // Map address to deliveryAddress if needed
-    if (data.address && !data.deliveryAddress) {
-      data.deliveryAddress = data.address;
-    }
 
-    // Map customerName to recipientName if needed
-    if (data.customerName && !data.recipientName) {
-      data.recipientName = data.customerName;
-    }
-
-    // Map customerMobile to recipientPhone if needed
-    if (data.customerMobile && !data.recipientPhone) {
-      data.recipientPhone = data.customerMobile;
-    }
-
-    // Basic validation for required fields (trackingNumber is now optional for external shipments)
+    // Basic validation for required fields
     const requiredFields: Array<keyof InsertShipment> = [
-      'status', 'priority', 'type', 'pickupAddress',
-      'deliveryAddress', 'recipientName', 'recipientPhone', 'weight', 'dimensions'
+      'status', 'priority', 'type', 'pickup_address',
+      'address', 'customer_name', 'customer_mobile', 'weight'
     ];
 
     const missingFields = requiredFields.filter(field => !(mutable as Record<string, unknown>)[field]);
@@ -617,10 +591,6 @@ export const insertShipmentSchema: InsertShipmentSchema = {
     // Type validation
     if (typeof mutable.weight !== 'number' || mutable.weight <= 0) {
       throw new Error('Weight must be a positive number');
-    }
-
-    if (mutable.trackingNumber && (typeof mutable.trackingNumber !== 'string' || mutable.trackingNumber.trim() === '')) {
-      throw new Error('Tracking number must be a non-empty string');
     }
 
     // Validate latitude and longitude if provided
@@ -708,14 +678,14 @@ export const shipmentFiltersSchema: ShipmentFiltersSchema = {
       status: data.status as string | undefined,
       priority: data.priority as string | undefined,
       type: data.type as string | undefined,
-      routeName: data.routeName as string | undefined,
+      route_name: data.route_name as string | undefined,
       date: data.date as string | undefined,
       search: data.search as string | undefined,
-      employeeId: data.employeeId as string | undefined,
+      employee_id: data.employee_id as string | undefined,
       page: data.page ? parseInt(String(data.page), 10) : 1,
       limit: data.limit ? parseInt(String(data.limit), 10) : 20,
-      sortField: data.sortField as string | undefined,
-      sortOrder: data.sortOrder as ShipmentFilters['sortOrder'] | undefined
+      sort_field: data.sort_field as string | undefined,
+      sort_order: data.sort_order as ShipmentFilters['sort_order'] | undefined
     };
   },
   validate: (_data: unknown): _data is ShipmentFilters => true
@@ -747,10 +717,9 @@ export const externalShipmentPayloadSchema: ExternalShipmentPayloadSchema = {
   parse: (data: Record<string, unknown>): ExternalShipmentPayload => {
     // Required fields for external shipment payload
     const requiredFields: Array<keyof ExternalShipmentPayload> = [
-      'id', 'status', 'priority', 'type', 'pickupAddress', 'deliveryAddress',
-      'recipientName', 'recipientPhone', 'weight', 'dimensions', 'estimatedDeliveryTime',
-      'customerName', 'customerMobile', 'address', 'latitude', 'longitude',
-      'cost', 'deliveryTime', 'routeName', 'employeeId'
+      'id', 'status', 'priority', 'type', 'pickup_address', 'address',
+      'customer_name', 'customer_mobile', 'weight', 'dimensions', 'delivery_time',
+      'route_name', 'employee_id'
     ];
 
     const missingFields = requiredFields.filter(field => !(data as Record<string, unknown>)[field] && (data as Record<string, unknown>)[field] !== 0);
@@ -796,13 +765,13 @@ export const externalShipmentPayloadSchema: ExternalShipmentPayloadSchema = {
 
     // Validate phone number format (basic validation for Indian numbers)
     const phoneRegex = /^[+]?[0-9]{10,15}$/;
-    const recipientPhone = String(data.recipientPhone ?? '');
-    if (!phoneRegex.test(recipientPhone.replace(/\s+/g, ''))) {
+    const customer_name = String(data.customer_name ?? '');
+    if (!phoneRegex.test(customer_name.replace(/\s+/g, ''))) {
       throw new Error('Recipient phone must be a valid phone number');
     }
 
-    const customerMobile = String(data.customerMobile ?? '');
-    if (!phoneRegex.test(customerMobile.replace(/\s+/g, ''))) {
+    const customer_mobile = String(data.customer_mobile ?? '');
+    if (!phoneRegex.test(customer_mobile.replace(/\s+/g, ''))) {
       throw new Error('Customer mobile must be a valid phone number');
     }
 
@@ -873,7 +842,7 @@ interface ExternalUpdatePayloadSchema {
 export const externalUpdatePayloadSchema: ExternalUpdatePayloadSchema = {
   parse: (data: Record<string, unknown>): ExternalUpdatePayload => {
     // Required fields for external update payload
-    const requiredFields = ['piashipmentid', 'status', 'statusTimestamp', 'employeeId'];
+    const requiredFields = ['piashipmentid', 'status', 'status_timestamp', 'employee_id'];
 
     const missingFields = requiredFields.filter(field => !(data as Record<string, unknown>)[field]);
     if (missingFields.length > 0) {
@@ -882,7 +851,7 @@ export const externalUpdatePayloadSchema: ExternalUpdatePayloadSchema = {
 
     // Validate timestamp format (ISO 8601)
     const timestampRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?$/;
-    if (!timestampRegex.test(String(data.statusTimestamp))) {
+    if (!timestampRegex.test(String(data.status_timestamp))) {
       throw new Error('Status timestamp must be in ISO 8601 format');
     }
 
@@ -901,20 +870,20 @@ export const externalUpdatePayloadSchema: ExternalUpdatePayloadSchema = {
     }
 
     // Validate delivery details if provided
-    const deliveryDetails = data.deliveryDetails as ExternalUpdatePayload['deliveryDetails'] | undefined;
-    if (deliveryDetails) {
-      if (deliveryDetails.actualDeliveryTime && !timestampRegex.test(deliveryDetails.actualDeliveryTime)) {
+    const delivery_details = data.delivery_details as ExternalUpdatePayload['delivery_details'] | undefined;
+    if (delivery_details) {
+      if (delivery_details.actual_delivery_time && !timestampRegex.test(delivery_details.actual_delivery_time)) {
         throw new Error('Actual delivery time must be in ISO 8601 format');
       }
     }
 
     // Validate route info if provided
-    const routeInfo = data.routeInfo as ExternalUpdatePayload['routeInfo'] | undefined;
-    if (routeInfo) {
-      if (routeInfo.totalDistance !== undefined && (typeof routeInfo.totalDistance !== 'number' || routeInfo.totalDistance < 0)) {
+    const route_info = data.route_info as ExternalUpdatePayload['route_info'] | undefined;
+    if (route_info) {
+      if (route_info.total_distance !== undefined && (typeof route_info.total_distance !== 'number' || route_info.total_distance < 0)) {
         throw new Error('Total distance must be a non-negative number');
       }
-      if (routeInfo.travelTime !== undefined && (typeof routeInfo.travelTime !== 'number' || routeInfo.travelTime < 0)) {
+      if (route_info.total_time !== undefined && (typeof route_info.total_time !== 'number' || route_info.total_time < 0)) {
         throw new Error('Travel time must be a non-negative number');
       }
     }
@@ -932,145 +901,125 @@ export const externalUpdatePayloadSchema: ExternalUpdatePayloadSchema = {
 };
 
 export interface RouteAnalytics {
-  routeId: string;
-  employeeId: string;
-  totalDistance: number;
-  totalTime: number;
-  averageSpeed: number;
-  fuelConsumed: number; // Changed from fuelConsumption to match backend
-  fuelConsumption: number; // Keep for backward compatibility
-  fuelCost: number;
+  route_id: string;
+  employee_id: string;
+  total_distance: number;
+  total_time: number;
+  average_speed: number;
+  fuel_consumption: number;
+  fuel_cost: number;
   stops: number;
   efficiency: number;
-  shipmentsCompleted: number;
+  shipments_completed: number;
   date: string;
 }
 
 export interface DailyRouteSummary {
-  employeeId: string;
+  employee_id: string;
   date: string; // YYYY-MM-DD
-  totalSessions?: number;
-  totalDistance: number; // km
-  totalTime: number; // seconds
-  totalFuelConsumed?: number; // liters
-  totalFuelCost?: number; // currency
-  fuelConsumed?: number; // alias for totalFuelConsumed
-  fuelCost?: number; // alias for totalFuelCost
-  shipmentsCompleted: number;
-  averageSpeed?: number; // km/h
+  total_sessions?: number;
+  total_distance: number; // km
+  total_time: number; // seconds
+  total_fuel_consumed?: number; // liters
+  total_fuel_cost?: number; // currency
+  shipments_completed: number;
+  average_speed?: number; // km/h
   efficiency: number; // km per shipment
-  stationaryTime?: number; // seconds
-  movingTime?: number; // seconds
-  maxSpeed?: number; // km/h
+  stationary_time?: number; // seconds
+  moving_time?: number; // seconds
+  max_speed?: number; // km/h
   sessions?: RouteSessionSummary[];
 }
 
 export interface WeeklyRouteSummary {
-  employeeId: string;
-  weekStart: string; // YYYY-MM-DD
-  weekEnd?: string; // YYYY-MM-DD
-  dailySummaries?: DailyRouteSummary[];
-  totalSessions?: number;
-  totalDistance: number;
-  totalTime: number;
-  totalFuelConsumed?: number;
-  totalFuelCost?: number;
-  fuelConsumed?: number; // alias
-  fuelCost?: number; // alias
-  totalShipmentsCompleted?: number;
-  shipmentsCompleted?: number; // alias
-  averageSpeed?: number;
+  employee_id: string;
+  week_start: string; // YYYY-MM-DD
+  week_end?: string; // YYYY-MM-DD
+  daily_summaries?: DailyRouteSummary[];
+  total_sessions?: number;
+  total_distance: number;
+  total_time: number;
+  total_fuel_consumed?: number;
+  total_fuel_cost?: number;
+  total_shipments_completed?: number;
+  average_speed?: number;
   efficiency: number;
 }
 
 export interface MonthlyRouteSummary {
-  employeeId: string;
+  employee_id: string;
   month: string; // YYYY-MM
-  weeklySummaries?: WeeklyRouteSummary[];
-  totalSessions?: number;
-  totalDistance: number;
-  totalTime: number;
-  totalFuelConsumed?: number;
-  totalFuelCost?: number;
-  fuelConsumed?: number; // alias
-  fuelCost?: number; // alias
-  totalShipmentsCompleted?: number;
-  shipmentsCompleted?: number; // alias
-  averageSpeed?: number;
+  weekly_summaries?: WeeklyRouteSummary[];
+  total_sessions?: number;
+  total_distance: number;
+  total_time: number;
+  total_fuel_consumed?: number;
+  total_fuel_cost?: number;
+  total_shipments_completed?: number;
+  average_speed?: number;
   efficiency: number;
-  workingDays?: number;
+  working_days?: number;
 }
 
 export interface RouteSessionSummary {
-  sessionId: string;
-  employeeId: string;
+  session_id: string;
+  employee_id: string;
   date?: string;
-  startTime: string;
-  endTime?: string;
-  distance?: number; // km
-  duration?: number; // seconds
-  totalDistance?: number; // alias for distance
-  totalTime?: number; // alias for duration
-  averageSpeed?: number; // km/h
-  maxSpeed?: number; // km/h
-  fuelConsumed?: number; // liters
-  fuelCost?: number; // currency
-  shipmentsCompleted?: number;
-  coordinateCount?: number;
+  start_time: string;
+  end_time?: string;
+  total_distance?: number;
+  total_time?: number;
+  average_speed?: number; // km/h
+  max_speed?: number; // km/h
+  fuel_consumption?: number; // liters
+  fuel_cost?: number; // currency
+  shipments_completed?: number;
+  coordinate_count?: number;
   efficiency?: number; // km per shipment
 }
 
 export interface RouteMetrics {
-  sessionId?: string;
-  routeId?: string;
-  employeeId: string;
+  session_id?: string;
+  route_id?: string;
+  employee_id: string;
   date: string;
   distance?: number;
   duration?: number;
-  fuelUsed?: number;
-  averageSpeed: number;
+  fuel_used?: number;
+  average_speed: number;
   stops?: number;
   efficiency: number;
-  totalDistance: number;
-  totalTime: number;
-  fuelConsumed: number;
-  fuelCost: number;
-  shipmentsCompleted: number;
+  total_distance: number;
+  total_time: number;
+  fuel_consumed: number;
+  fuel_cost: number;
+  shipments_completed: number;
 }
 
 export interface EmployeePerformance {
-  employeeId: string;
+  employee_id: string;
   name?: string;
-  totalRoutes?: number;
-  totalDistance: number;
-  totalTime?: number;
-  totalFuelConsumed?: number;
-  totalFuelCost?: number;
-  totalShipmentsCompleted?: number;
-  averageSpeed?: number;
-  averageEfficiency?: number;
+  total_routes?: number;
+  total_distance: number;
+  total_time?: number;
+  fuel_consumption?: number;
+  fuel_cost?: number;
+  shipments_completed?: number;
+  average_speed?: number;
+  average_efficiency?: number;
   efficiency?: number; // km per shipment
-  onTimeDeliveries?: number;
-  totalDeliveries?: number;
-  fuelEfficiency?: number;
-  fuelEfficiencyRating?: 'excellent' | 'good' | 'average' | 'poor';
+  on_time_deliveries?: number;
+  total_deliveries?: number;
+  fuel_efficiency?: number;
+  fuel_efficiency_rating?: 'excellent' | 'good' | 'average' | 'poor';
   rating?: number;
-  performanceScore?: number; // 0-100
-  workingDays?: number;
-  averageDistancePerDay?: number;
-  averageShipmentsPerDay?: number;
+  performance_score?: number; // 0-100
+  working_days?: number;
+  average_distance_per_day?: number;
+  average_shipments_per_day?: number;
 }
 
-// Alias for backward compatibility
-export type EmployeePerformanceMetrics = EmployeePerformance;
-export interface EmployeeMetrics extends EmployeePerformance {
-  // Additional fields used in EmployeePerformanceTable (aliases for compatibility)
-  fuelConsumed?: number; // alias for totalFuelConsumed
-  fuelCost?: number; // alias for totalFuelCost
-  shipmentsCompleted?: number; // alias for totalShipmentsCompleted
-  avgDistancePerDay?: number; // alias for averageDistancePerDay
-  avgShipmentsPerDay?: number; // alias for averageShipmentsPerDay
-}
+export type EmployeeMetrics = EmployeePerformance;
 
 export interface FuelAnalytics {
   date?: string;
@@ -1078,40 +1027,40 @@ export interface FuelAnalytics {
   cost?: number;
   efficiency?: number;
   distance?: number;
-  totalFuelConsumed?: number;
-  totalFuelCost?: number;
-  totalDistance?: number;
-  averageEfficiency?: number;
-  totalCO2Emissions?: number;
-  costPerKm?: number;
-  fuelPerKm?: number;
-  dailyBreakdown?: Array<{
+  total_fuel_consumed?: number;
+  total_fuel_cost?: number;
+  total_distance?: number;
+  average_efficiency?: number;
+  total_co2_emissions?: number;
+  cost_per_km?: number;
+  fuel_per_km?: number;
+  daily_breakdown?: Array<{
     date: string;
-    fuelConsumed: number;
-    fuelCost: number;
+    fuel_consumed: number;
+    fuel_cost: number;
     distance: number;
   }>;
   breakdown?: {
-    byVehicleType: Record<string, {
-      fuelConsumed: number;
-      fuelCost: number;
+    by_vehicle_type: Record<string, {
+      fuel_consumed: number;
+      fuel_cost: number;
       efficiency: number;
       distance: number;
     }>;
-    byTimeRange: Array<{
+    by_time_range: Array<{
       period: string;
       consumption: number;
     }>;
   };
-  byVehicleType?: Record<string, {
-    fuelConsumed: number;
-    fuelCost: number;
+  by_vehicle_type?: Record<string, {
+    fuel_consumed: number;
+    fuel_cost: number;
     efficiency: number;
     distance: number;
   }>;
-  byEmployee?: Record<string, {
-    fuelConsumed: number;
-    fuelCost: number;
+  by_employee?: Record<string, {
+    fuel_consumed: number;
+    fuel_cost: number;
     efficiency: number;
     distance: number;
   }>;
@@ -1123,26 +1072,23 @@ export interface FuelAnalytics {
   }>;
 }
 
-// Alias for backward compatibility
-export type FuelAnalyticsData = FuelAnalytics;
-
 export interface PerformanceMetrics {
   date: string;
-  averageSpeed: number;
+  average_speed: number;
   efficiency: number;
-  deliveryTime: number;
-  customerSatisfaction: number;
+  delivery_time: number;
+  customer_satisfaction: number;
 }
 
 export interface ExportOptions {
   format: 'csv' | 'json' | 'pdf';
-  dateRange: {
+  date_range: {
     start: string;
     end: string;
   };
-  includeRoutes: boolean;
-  includeAnalytics: boolean;
-  includePerformance: boolean;
+  include_routes: boolean;
+  include_analytics: boolean;
+  include_performance: boolean;
 }
 
 export interface ExportProgress {
@@ -1153,16 +1099,16 @@ export interface ExportProgress {
 }
 
 export interface AnalyticsFilters {
-  dateRange?: {
+  date_range?: {
     start: string;
     end: string;
   };
-  employeeId?: string;
-  routeId?: string;
-  metricType?: 'fuel' | 'performance' | 'efficiency';
-  startDate?: string;
-  endDate?: string;
-  vehicleType?: string;
+  employee_id?: string;
+  route_id?: string;
+  metric_type?: 'fuel' | 'performance' | 'efficiency';
+  start_date?: string;
+  end_date?: string;
+  vehicle_type?: string;
   city?: string;
 }
 
@@ -1231,12 +1177,12 @@ export interface UpdateFuelSetting {
 }
 
 export interface DashboardStats {
-  totalRoutes: number;
-  totalDistance: number;
-  totalFuelConsumed: number;
-  averageEfficiency: number;
-  activeEmployees: number;
-  completedShipments: number;
+  total_routes: number;
+  total_distance: number;
+  total_fuel_consumed: number;
+  average_efficiency: number;
+  active_employees: number;
+  completed_shipments: number;
 }
 
 // User and Authentication Types
@@ -1252,18 +1198,18 @@ export interface User {
   username: string;
   email: string;
   role: UserRole;
-  employeeId: string;
-  fullName: string;
-  isActive: boolean;
-  isApproved: boolean;
+  employee_id: string;
+  full_name: string;
+  is_active: boolean;
+  is_approved: boolean;
   // Simplified role structure
-  isRider: boolean;
-  isSuperUser: boolean;
+  is_rider: boolean;
+  is_super_user: boolean;
   // Original PIA roles for server-side filtering
-  isOpsTeam?: boolean;
-  isStaff?: boolean;
-  createdAt: string;
-  updatedAt: string;
+  is_ops_team?: boolean;
+  is_staff?: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AuthUser {
@@ -1271,16 +1217,16 @@ export interface AuthUser {
   username: string;
   email: string;
   role: string;
-  employeeId: string;
-  fullName: string;
-  isActive: boolean;
-  isApproved: boolean;
-  isRider: boolean;
-  isSuperUser: boolean;
-  isOpsTeam?: boolean;
-  isStaff?: boolean;
-  createdAt: string;
-  updatedAt: string;
+  employee_id: string;
+  full_name: string;
+  is_active: boolean;
+  is_approved: boolean;
+  is_rider: boolean;
+  is_super_user: boolean;
+  is_ops_team?: boolean;
+  is_staff?: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface LoginCredentials {
@@ -1297,24 +1243,24 @@ export interface AuthResponse {
 export interface AuthState {
   user: AuthUser | null;
   token?: string | null;
-  accessToken?: string | null;
-  refreshToken?: string | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
+  access_token?: string | null;
+  refresh_token?: string | null;
+  is_authenticated: boolean;
+  is_loading: boolean;
   error?: string | null;
 }
 
 export interface PrivacySettings {
-  dataRetention: number;
-  locationTracking: boolean;
-  analyticsTracking: boolean;
-  marketingEmails: boolean;
-  dataSharing: boolean;
-  gpsTrackingConsent: boolean;
-  dataAnalyticsConsent: boolean;
-  dataExportConsent: boolean;
-  performanceMonitoringConsent: boolean;
-  lastUpdated: string;
+  data_retention: number;
+  location_tracking: boolean;
+  analytics_tracking: boolean;
+  marketing_emails: boolean;
+  data_sharing: boolean;
+  gps_tracking_consent: boolean;
+  data_analytics_consent: boolean;
+  data_export_consent: boolean;
+  performance_monitoring_consent: boolean;
+  last_updated: string;
 }
 
 export interface ConsentType {
@@ -1323,25 +1269,25 @@ export interface ConsentType {
   description: string;
   required: boolean;
   granted: boolean;
-  grantedAt?: string;
+  granted_at?: string;
 }
 
 export interface AuditLogEntry {
   id: string;
-  userId: string;
+  user_id: string;
   action: string;
   resource: string;
   timestamp: string;
-  ipAddress?: string;
-  userAgent?: string;
+  ip_address?: string;
+  user_agent?: string;
   details?: Record<string, unknown>;
 }
 
 export interface AuditLogFilters {
-  userId?: string;
+  user_id?: string;
   action?: string;
   resource?: string;
-  dateRange?: {
+  date_range?: {
     start: string;
     end: string;
   };
@@ -1350,11 +1296,11 @@ export interface AuditLogFilters {
 }
 
 export interface AuditStatistics {
-  totalEntries: number;
-  uniqueUsers: number;
-  actionBreakdown: Record<string, number>;
-  resourceBreakdown: Record<string, number>;
-  timeRange: {
+  total_entries: number;
+  unique_users: number;
+  action_breakdown: Record<string, number>;
+  resource_breakdown: Record<string, number>;
+  time_range: {
     start: string;
     end: string;
   };
@@ -1365,58 +1311,53 @@ export interface Rider {
   id: string;
   rider_id: string;
   full_name: string;
-  name?: string; // alias for full_name
   email: string;
   is_active: boolean;
-  isActive?: boolean; // alias for is_active
-  isApproved?: boolean;
   primary_homebase_details?: Homebase;
   dispatch_option?: string;
   created_at: string;
-  createdAt?: string; // alias for created_at
   updated_at?: string;
-  updatedAt?: string; // alias for updated_at
   last_login_at?: string | null;
   is_super_user?: boolean;
 }
 
 export interface UserProfile {
-  fullName: string;
-  employeeId: string;
+  full_name: string;
+  employee_id: string;
   email: string;
   role: string;
-  isActive: boolean;
-  isStaff?: boolean;
-  isSuperUser?: boolean;
-  isOpsTeam?: boolean;
-  accessToken?: string;
-  refreshToken?: string;
+  is_active: boolean;
+  is_staff?: boolean;
+  is_super_user?: boolean;
+  is_ops_team?: boolean;
+  access_token?: string;
+  refresh_token?: string;
 }
 
 // Visualization Types
 export interface RoutePoint {
   id?: string;
-  sessionId?: string;
+  session_id?: string;
   latitude: number;
   longitude: number;
   timestamp: string;
   accuracy?: number;
   speed?: number;
   heading?: number;
-  eventType?: 'pickup' | 'delivery' | 'gps' | string;
-  shipmentId?: string;
+  event_type?: 'pickup' | 'delivery' | 'gps' | string;
+  shipment_id?: string;
 }
 
 export interface RouteData {
   id: string;
-  employeeId: string;
-  employeeName: string;
+  employee_id: string;
+  employee_name: string;
   date: string;
-  distance: number;
-  duration: number;
-  shipmentsCompleted: number;
-  fuelConsumption: number;
-  averageSpeed: number;
+  total_distance: number;
+  total_time: number;
+  shipments_completed: number;
+  fuel_consumption: number;
+  average_speed: number;
   efficiency: number; // km per shipment
   points: Array<{
     latitude: number;
@@ -1428,10 +1369,10 @@ export interface RouteData {
 export interface RouteStatusBreakdown {
   total: number;
   delivered: number;
-  pickedUp: number;
+  pickedup: number;
   pending?: number;
-  deliveryPending?: number;
-  pickupPending?: number;
+  delivery_pending?: number;
+  pickup_pending?: number;
   cancelled?: number;
 }
 
@@ -1440,20 +1381,20 @@ export type FuelType = 'gasoline' | 'diesel' | 'electric';
 export type City = 'Delhi' | 'Bangalore' | 'Chennai';
 
 export interface FuelPrice {
-  fuelType: FuelType;
+  fuel_type: FuelType;
   city: City;
-  pricePerUnit: number;
-  gstPercent: number;
+  price_per_unit: number;
+  gst_percent: number;
   currency: 'INR';
-  lastUpdated: string;
+  last_updated: string;
 }
 
 export interface FuelConsumptionResult {
   distance: number;
-  fuelConsumed: number;
-  fuelCost: number;
-  formattedCost: string;       // formatted for INR
-  co2Emissions?: number;
+  fuel_consumed: number;
+  fuel_cost: number;
+  formatted_cost: string;       // formatted for INR
+  co2_emissions?: number;
   efficiency: number;
 }
 
@@ -1463,7 +1404,7 @@ export interface FuelOptimizationSuggestion {
   severity: 'low' | 'medium' | 'high';
   title: string;
   description: string;
-  potentialSaving: {
+  potential_saving: {
     fuel?: number;
     cost?: number;
     co2?: number;
@@ -1476,16 +1417,16 @@ export interface FuelOptimizationSuggestion {
 // Fleet Report Types
 export interface FleetReport {
   city?: City;
-  vehicleId?: string;
-  vehicleType?: string;
-  totalDistance: number;
-  totalFuelConsumed: number;
-  totalFuelCost: number;
-  totalCO2Emissions?: number;
-  averageEfficiency: number;
-  costPerKm: number;
-  fuelPerKm: number;
-  formattedTotalCost: string; // formatted INR
+  vehicle_id?: string;
+  vehicle_type?: string;
+  total_distance: number;
+  total_fuel_consumed: number;
+  total_fuel_cost: number;
+  total_co2_emissions?: number;
+  average_efficiency: number;
+  cost_per_km: number;
+  fuel_per_km: number;
+  formatted_total_cost: string; // formatted INR
 }
 
 export interface MonthlyFleetReport extends FleetReport {
@@ -1499,21 +1440,21 @@ export interface OptimizationSuggestion {
   priority: 'high' | 'medium' | 'low';
   title: string;
   description: string;
-  potentialSavings: {
+  potential_savings: {
     distance?: number; // km
     time?: number; // minutes
     fuel?: number; // liters
     cost?: number; // currency
   };
   confidence: number; // 0-100
-  affectedEmployees: string[];
+  affected_employees: string[];
   implementation: string;
   effort: 'low' | 'medium' | 'high';
 }
 
 export interface ReportColumn {
   title: string;
-  dataIndex: string;
+  data_index: string;
   key: string;
   render?: (value: string | number) => React.ReactNode;
 }
@@ -1521,12 +1462,12 @@ export interface ReportColumn {
 export interface ReportData {
   key: number;
   month?: string;
-  vehicleType?: string;
+  vehicle_type?: string;
   city?: string;
-  totalDistance: number;
-  totalFuelConsumed: number;
-  totalFuelCost: number;
-  averageEfficiency: number;
-  costPerKm: number;
+  total_distance: number;
+  total_fuel_consumed: number;
+  total_fuel_cost: number;
+  average_efficiency: number;
+  cost_per_km: number;
   [key: string]: string | number | undefined;
 }

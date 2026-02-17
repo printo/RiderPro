@@ -66,7 +66,7 @@ function RouteVisualizationPage() {
   const employeeLookup = React.useMemo(() => {
     const map = new Map<string, string>();
     employeeMetrics.forEach((emp: any) => {
-      map.set(emp.employeeId, emp.name || `Employee ${emp.employeeId}`);
+      map.set(emp.employee_id, emp.name || `Employee ${emp.employee_id}`);
     });
     return map;
   }, [employeeMetrics]);
@@ -74,36 +74,36 @@ function RouteVisualizationPage() {
   // Convert analytics data to route sessions for visualization
   const routeSessions = React.useMemo(() => {
     return analyticsData.map((analytics, index) => ({
-      id: analytics.routeId || `session_${analytics.employeeId}_${index}`,
-      employeeId: analytics.employeeId,
-      employeeName: employeeLookup.get(analytics.employeeId) || `Employee ${analytics.employeeId}`,
-      startTime: new Date().toISOString(), // This would come from session data
-      endTime: new Date().toISOString(),
+      id: analytics.route_id || `session_${analytics.employee_id}_${index}`,
+      employee_id: analytics.employee_id,
+      employee_name: employeeLookup.get(analytics.employee_id) || `Employee ${analytics.employee_id}`,
+      start_time: new Date().toISOString(), // This would come from session data
+      end_time: new Date().toISOString(),
       status: 'completed',
-      totalDistance: analytics.totalDistance,
-      totalTime: analytics.totalTime,
-      averageSpeed: analytics.averageSpeed,
+      total_distance: analytics.total_distance,
+      total_time: analytics.total_time,
+      average_speed: analytics.average_speed,
       points: [], // Would be populated from session coordinates
-      shipmentsCompleted: analytics.shipmentsCompleted,
-      startLatitude: 0, // Would come from session data
-      startLongitude: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      shipments_completed: analytics.shipments_completed,
+      start_latitude: 0, // Would come from session data
+      start_longitude: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     } as RouteSession));
   }, [analyticsData, employeeLookup]);
 
   // Convert analytics data to route data format
   const routeData = React.useMemo(() => {
     return analyticsData.map((analytics) => ({
-      id: analytics.routeId,
-      employeeId: analytics.employeeId,
-      employeeName: employeeLookup.get(analytics.employeeId) || `Employee ${analytics.employeeId}`,
+      id: analytics.route_id,
+      employee_id: analytics.employee_id,
+      employee_name: employeeLookup.get(analytics.employee_id) || `Employee ${analytics.employee_id}`,
       date: analytics.date,
-      distance: analytics.totalDistance,
-      duration: analytics.totalTime,
-      shipmentsCompleted: analytics.shipmentsCompleted,
-      fuelConsumption: analytics.fuelConsumption || analytics.fuelConsumed,
-      averageSpeed: analytics.averageSpeed,
+      distance: analytics.total_distance,
+      duration: analytics.total_time,
+      shipments_completed: analytics.shipments_completed,
+      fuel_consumption: analytics.fuel_consumption || analytics.fuel_consumed,
+      average_speed: analytics.average_speed,
       efficiency: analytics.efficiency,
       points: [] // Would be populated from coordinate data
     }));
@@ -333,8 +333,8 @@ function RouteVisualizationPage() {
         <Alert>
           <MapPin className="h-4 w-4" />
           <AlertDescription>
-            {analyticsError 
-              ? `Error loading route data: ${(analyticsError as Error).message}` 
+            {analyticsError
+              ? `Error loading route data: ${(analyticsError as Error).message}`
               : 'No route data available for visualization. Complete some routes with GPS tracking enabled to see historical data and analysis here.'
             }
           </AlertDescription>

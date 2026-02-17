@@ -2,11 +2,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { withChartErrorBoundary } from "@/components/ErrorBoundary";
 
 interface StatusDistributionPieChartProps {
-  statusBreakdown: Record<string, number>;
+  status_breakdown: Record<string, number>;
 }
 
-function StatusDistributionPieChart({ statusBreakdown }: StatusDistributionPieChartProps) {
-  const statuses = Object.entries(statusBreakdown);
+function StatusDistributionPieChart({ status_breakdown }: StatusDistributionPieChartProps) {
+  const statuses = Object.entries(status_breakdown);
   const total = statuses.reduce((sum, [, count]) => sum + count, 0);
 
   if (total === 0) {
@@ -23,19 +23,19 @@ function StatusDistributionPieChart({ statusBreakdown }: StatusDistributionPieCh
   }
 
   // Calculate percentages and create pie chart data
-  const pieData = statuses.map(([status, count]) => ({
+  const pie_data = statuses.map(([status, count]) => ({
     status,
     count,
     percentage: Math.round((count / total) * 100)
   })).sort((a, b) => b.count - a.count);
 
   // Generate SVG pie chart
-  let cumulativePercentage = 0;
+  let cumulative_percentage = 0;
   const radius = 60;
-  const centerX = 80;
-  const centerY = 80;
+  const center_x = 80;
+  const center_y = 80;
 
-  const getStatusColor = (status: string) => {
+  const get_status_color = (status: string) => {
     switch (status) {
       case "Delivered":
       case "Picked Up":
@@ -51,29 +51,29 @@ function StatusDistributionPieChart({ statusBreakdown }: StatusDistributionPieCh
     }
   };
 
-  const createPath = (percentage: number) => {
-    const startAngle = (cumulativePercentage * 360) / 100;
-    const endAngle = ((cumulativePercentage + percentage) * 360) / 100;
+  const create_path = (percentage: number) => {
+    const start_angle = (cumulative_percentage * 360) / 100;
+    const end_angle = ((cumulative_percentage + percentage) * 360) / 100;
 
-    const startAngleRad = (startAngle * Math.PI) / 180;
-    const endAngleRad = (endAngle * Math.PI) / 180;
+    const start_angle_rad = (start_angle * Math.PI) / 180;
+    const end_angle_rad = (end_angle * Math.PI) / 180;
 
-    const x1 = centerX + radius * Math.cos(startAngleRad);
-    const y1 = centerY + radius * Math.sin(startAngleRad);
-    const x2 = centerX + radius * Math.cos(endAngleRad);
-    const y2 = centerY + radius * Math.sin(endAngleRad);
+    const x1 = center_x + radius * Math.cos(start_angle_rad);
+    const y1 = center_y + radius * Math.sin(start_angle_rad);
+    const x2 = center_x + radius * Math.cos(end_angle_rad);
+    const y2 = center_y + radius * Math.sin(end_angle_rad);
 
-    const largeArcFlag = percentage > 50 ? 1 : 0;
+    const large_arc_flag = percentage > 50 ? 1 : 0;
 
-    const pathData = [
-      `M ${centerX} ${centerY}`,
+    const path_data = [
+      `M ${center_x} ${center_y}`,
       `L ${x1} ${y1}`,
-      `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+      `A ${radius} ${radius} 0 ${large_arc_flag} 1 ${x2} ${y2}`,
       'Z'
     ].join(' ');
 
-    cumulativePercentage += percentage;
-    return pathData;
+    cumulative_percentage += percentage;
+    return path_data;
   };
 
   return (
@@ -84,11 +84,11 @@ function StatusDistributionPieChart({ statusBreakdown }: StatusDistributionPieCh
           {/* Pie Chart */}
           <div className="flex-shrink-0">
             <svg width="160" height="160" viewBox="0 0 160 160" className="drop-shadow-sm">
-              {pieData.map(({ status, percentage }, _index) => (
+              {pie_data.map(({ status, percentage }, _index) => (
                 <path
                   key={status}
-                  d={createPath(percentage)}
-                  fill={getStatusColor(status)}
+                  d={create_path(percentage)}
+                  fill={get_status_color(status)}
                   className="transition-all duration-300 hover:opacity-80 hover:scale-105 transform origin-center"
                   style={{ cursor: 'pointer' }}
                   onMouseEnter={(e) => {
@@ -104,11 +104,11 @@ function StatusDistributionPieChart({ statusBreakdown }: StatusDistributionPieCh
 
           {/* Legend */}
           <div className="flex-1 space-y-2 min-w-0">
-            {pieData.map(({ status, count, percentage }) => (
+            {pie_data.map(({ status, count, percentage }) => (
               <div key={status} className="flex items-center space-x-3">
                 <div
                   className="w-4 h-4 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: getStatusColor(status) }}
+                  style={{ backgroundColor: get_status_color(status) }}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">

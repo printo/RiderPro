@@ -15,53 +15,53 @@ import {
 import { GPSPosition } from '@shared/types';
 
 export interface RouteCompletionData {
-  sessionId: string;
-  startPosition: GPSPosition;
-  currentPosition: GPSPosition;
-  distanceFromStart: number;
-  geofenceRadius: number;
-  sessionDuration: number; // in seconds
-  totalDistance: number; // in km
-  shipmentsCompleted: number;
+  session_id: string;
+  start_position: GPSPosition;
+  current_position: GPSPosition;
+  distance_from_start: number;
+  geofence_radius: number;
+  session_duration: number; // in seconds
+  total_distance: number; // in km
+  shipments_completed: number;
 }
 
 interface RouteCompletionDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  onCancel: () => void;
+  is_open: boolean;
+  on_close: () => void;
+  on_confirm: () => void;
+  on_cancel: () => void;
   data: RouteCompletionData;
-  autoConfirmSeconds?: number;
+  auto_confirm_seconds?: number;
 }
 
 function RouteCompletionDialog({
-  isOpen,
-  onClose,
-  onConfirm,
-  onCancel,
+  is_open,
+  on_close,
+  on_confirm,
+  on_cancel,
   data,
-  autoConfirmSeconds = 30
+  auto_confirm_seconds = 30
 }: RouteCompletionDialogProps) {
-  const [countdown, setCountdown] = useState(autoConfirmSeconds);
-  const [isAutoConfirming, setIsAutoConfirming] = useState(true);
+  const [countdown, setCountdown] = useState(auto_confirm_seconds);
+  const [is_auto_confirming, set_is_auto_confirming] = useState(true);
 
   // Reset countdown when dialog opens
   useEffect(() => {
-    if (isOpen) {
-      setCountdown(autoConfirmSeconds);
-      setIsAutoConfirming(true);
+    if (is_open) {
+      setCountdown(auto_confirm_seconds);
+      set_is_auto_confirming(true);
     }
-  }, [isOpen, autoConfirmSeconds]);
+  }, [is_open, auto_confirm_seconds]);
 
   // Countdown timer
   useEffect(() => {
-    if (!isOpen || !isAutoConfirming) return;
+    if (!is_open || !is_auto_confirming) return;
 
     const timer = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
-          setIsAutoConfirming(false);
-          onConfirm();
+          set_is_auto_confirming(false);
+          on_confirm();
           return 0;
         }
         return prev - 1;
@@ -69,19 +69,19 @@ function RouteCompletionDialog({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isOpen, isAutoConfirming, onConfirm]);
+  }, [is_open, is_auto_confirming, on_confirm]);
 
-  const handleManualConfirm = () => {
-    setIsAutoConfirming(false);
-    onConfirm();
+  const handle_manual_confirm = () => {
+    set_is_auto_confirming(false);
+    on_confirm();
   };
 
-  const handleCancel = () => {
-    setIsAutoConfirming(false);
-    onCancel();
+  const handle_cancel = () => {
+    set_is_auto_confirming(false);
+    on_cancel();
   };
 
-  const formatDuration = (seconds: number): string => {
+  const format_duration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
@@ -95,7 +95,7 @@ function RouteCompletionDialog({
     }
   };
 
-  const formatDistance = (meters: number): string => {
+  const format_distance = (meters: number): string => {
     if (meters < 1000) {
       return `${Math.round(meters)}m`;
     } else {
@@ -103,12 +103,12 @@ function RouteCompletionDialog({
     }
   };
 
-  const completionPercentage = Math.max(0, Math.min(100,
-    ((data.geofenceRadius - data.distanceFromStart) / data.geofenceRadius) * 100
+  const completion_percentage = Math.max(0, Math.min(100,
+    ((data.geofence_radius - data.distance_from_start) / data.geofence_radius) * 100
   ));
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={is_open} onOpenChange={on_close}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -133,7 +133,7 @@ function RouteCompletionDialog({
                     You're back at the starting location!
                   </h3>
                   <p className="text-sm text-green-700">
-                    Distance from start: {formatDistance(data.distanceFromStart)}
+                    Distance from start: {format_distance(data.distance_from_start)}
                   </p>
                 </div>
               </div>
@@ -144,11 +144,11 @@ function RouteCompletionDialog({
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600">Completion Zone</span>
-              <span className="font-medium">{completionPercentage.toFixed(0)}%</span>
+              <span className="font-medium">{completion_percentage.toFixed(0)}%</span>
             </div>
-            <Progress value={completionPercentage} className="h-2" />
+            <Progress value={completion_percentage} className="h-2" />
             <p className="text-xs text-gray-500">
-              Within {formatDistance(data.geofenceRadius)} completion radius
+              Within {format_distance(data.geofence_radius)} completion radius
             </p>
           </div>
 
@@ -158,7 +158,7 @@ function RouteCompletionDialog({
               <Clock className="h-4 w-4 text-gray-400" />
               <div>
                 <p className="text-gray-600">Duration</p>
-                <p className="font-medium">{formatDuration(data.sessionDuration)}</p>
+                <p className="font-medium">{format_duration(data.session_duration)}</p>
               </div>
             </div>
 
@@ -166,7 +166,7 @@ function RouteCompletionDialog({
               <Navigation className="h-4 w-4 text-gray-400" />
               <div>
                 <p className="text-gray-600">Distance</p>
-                <p className="font-medium">{data.totalDistance.toFixed(1)} km</p>
+                <p className="font-medium">{data.total_distance.toFixed(1)} km</p>
               </div>
             </div>
 
@@ -174,7 +174,7 @@ function RouteCompletionDialog({
               <MapPin className="h-4 w-4 text-gray-400" />
               <div>
                 <p className="text-gray-600">Shipments</p>
-                <p className="font-medium">{data.shipmentsCompleted}</p>
+                <p className="font-medium">{data.shipments_completed}</p>
               </div>
             </div>
 
@@ -182,13 +182,13 @@ function RouteCompletionDialog({
               <Target className="h-4 w-4 text-gray-400" />
               <div>
                 <p className="text-gray-600">Accuracy</p>
-                <p className="font-medium">{formatDistance(data.distanceFromStart)}</p>
+                <p className="font-medium">{format_distance(data.distance_from_start)}</p>
               </div>
             </div>
           </div>
 
           {/* Auto-confirm countdown */}
-          {isAutoConfirming && (
+          {is_auto_confirming && (
             <Card className="border-blue-200 bg-blue-50">
               <CardContent className="pt-4">
                 <div className="flex items-center gap-3">
@@ -199,7 +199,7 @@ function RouteCompletionDialog({
                     </p>
                     <div className="mt-2">
                       <Progress
-                        value={(countdown / autoConfirmSeconds) * 100}
+                        value={(countdown / auto_confirm_seconds) * 100}
                         className="h-1"
                       />
                     </div>
@@ -214,13 +214,13 @@ function RouteCompletionDialog({
             <div className="flex justify-between">
               <span>Start Position:</span>
               <span>
-                {data.startPosition.latitude.toFixed(6)}, {data.startPosition.longitude.toFixed(6)}
+                {data.start_position.latitude.toFixed(6)}, {data.start_position.longitude.toFixed(6)}
               </span>
             </div>
             <div className="flex justify-between">
               <span>Current Position:</span>
               <span>
-                {data.currentPosition.latitude.toFixed(6)}, {data.currentPosition.longitude.toFixed(6)}
+                {data.current_position.latitude.toFixed(6)}, {data.current_position.longitude.toFixed(6)}
               </span>
             </div>
           </div>
@@ -229,16 +229,16 @@ function RouteCompletionDialog({
         <DialogFooter className="flex gap-2">
           <Button
             variant="outline"
-            onClick={handleCancel}
-            disabled={!isAutoConfirming}
+            onClick={handle_cancel}
+            disabled={!is_auto_confirming}
           >
             Continue Route
           </Button>
           <Button
-            onClick={handleManualConfirm}
+            onClick={handle_manual_confirm}
             className="bg-green-600 hover:bg-green-700"
           >
-            {isAutoConfirming ? `Complete Now (${countdown}s)` : 'Complete Route'}
+            {is_auto_confirming ? `Complete Now (${countdown}s)` : 'Complete Route'}
           </Button>
         </DialogFooter>
       </DialogContent>

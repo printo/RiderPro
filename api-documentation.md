@@ -200,21 +200,21 @@ This document provides comprehensive documentation for all API endpoints in the 
 ## Shipment Management
 
 ### Get Shipments
-- **GET** `/api/shipments/fetch`
+- **GET** `/api/v1/shipments/fetch`
 - **Purpose**: Get shipments with optional filters, pagination, and sorting
 - **Authentication**: Required (Bearer token)
 - **Query Parameters**:
   - `status`: Filter by shipment status
   - `priority`: Filter by priority level
   - `type`: Filter by shipment type (delivery/pickup)
-  - `routeName`: Filter by route name
+  - `route_name`: Filter by route name
   - `date`: Filter by delivery date
   - `search`: Search in customer name/mobile/address
-  - `employeeId`: Filter by assigned employee
+  - `employee_id`: Filter by assigned employee
   - `page`: Page number (default: 1)
   - `limit`: Items per page (default: 20)
-  - `sortBy`: Sort field (default: createdAt)
-  - `sortOrder`: Sort direction (asc/desc)
+  - `sort_by`: Sort field (default: created_at)
+  - `sort_order`: Sort direction (asc/desc)
 - **Response**:
   ```json
   {
@@ -222,22 +222,22 @@ This document provides comprehensive documentation for all API endpoints in the 
       {
         "shipment_id": "string",
         "type": "delivery",
-        "customerName": "string",
-        "customerMobile": "string",
+        "customer_name": "string",
+        "customer_mobile": "string",
         "address": "string",
         "latitude": 0.0,
         "longitude": 0.0,
         "cost": 0.0,
-        "deliveryTime": "string",
-        "routeName": "string",
-        "employeeId": "string",
+        "delivery_time": "string",
+        "route_name": "string",
+        "employee_id": "string",
         "status": "Assigned",
         "priority": "medium",
-        "pickupAddress": "string",
+        "pickup_address": "string",
         "weight": 0.0,
         "dimensions": "string",
-        "specialInstructions": "string",
-        "actualDeliveryTime": "string",
+        "special_instructions": "string",
+        "actual_delivery_time": "string",
         "start_latitude": 0.0,
         "start_longitude": 0.0,
         "stop_latitude": 0.0,
@@ -251,8 +251,8 @@ This document provides comprehensive documentation for all API endpoints in the 
         "signature_url": "string",
         "photo_url": "string",
         "acknowledgment_captured_at": "string",
-        "createdAt": "string",
-        "updatedAt": "string"
+        "created_at": "string",
+        "updated_at": "string"
       }
     ],
     "total": 100,
@@ -265,33 +265,33 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Get Single Shipment
-- **GET** `/api/shipments/:id`
+- **GET** `/api/v1/shipments/:id`
 - **Purpose**: Get a specific shipment by ID
 - **Authentication**: None required
 - **Response**: Single shipment object (same structure as above)
 
 ### Create Shipment
-- **POST** `/api/shipments/create`
+- **POST** `/api/v1/shipments/create`
 - **Purpose**: Create a new shipment
 - **Authentication**: None required
 - **Request Body**:
   ```json
   {
     "shipment_id": "string",
-    "trackingNumber": "string",
+    "tracking_number": "string",
     "type": "delivery",
-    "customerName": "string",
-    "customerMobile": "string",
+    "customer_name": "string",
+    "customer_mobile": "string",
     "address": "string",
     "latitude": 0.0,
     "longitude": 0.0,
     "cost": 0.0,
-    "deliveryTime": "string",
-    "routeName": "string",
-    "employeeId": "string",
+    "delivery_time": "string",
+    "route_name": "string",
+    "employee_id": "string",
     "status": "Assigned",
     "priority": "medium",
-    "pickupAddress": "string",
+    "pickup_address": "string",
     "weight": 0.0,
     "dimensions": "string",
     "specialInstructions": "string"
@@ -299,7 +299,7 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Update Shipment Tracking
-- **PATCH** `/api/shipments/:id/tracking`
+- **PATCH** `/api/v1/shipments/:id/tracking`
 - **Purpose**: Update shipment tracking data
 - **Authentication**: None required
 - **Request Body**:
@@ -311,18 +311,18 @@ This document provides comprehensive documentation for all API endpoints in the 
     "stop_longitude": 0.0,
     "km_travelled": 0.0,
     "status": "string",
-    "actualDeliveryTime": "string"
+    "actual_delivery_time": "string"
   }
   ```
 
 ### Update Single Shipment
-- **PATCH** `/api/shipments/:id`
+- **PATCH** `/api/v1/shipments/:id`
 - **Purpose**: Update a specific shipment
 - **Authentication**: None required
 - **Request Body**: Partial shipment object with fields to update
 
 ### Batch Update Shipments
-- **PATCH** `/api/shipments/batch`
+- **PATCH** `/api/v1/shipments/batch`
 - **Purpose**: Update multiple shipments in a single request
 - **Authentication**: None required
 - **Request Body**:
@@ -332,14 +332,14 @@ This document provides comprehensive documentation for all API endpoints in the 
       {
         "shipment_id": "string",
         "status": "Delivered",
-        "actualDeliveryTime": "string"
+        "actual_delivery_time": "string"
       }
     ]
   }
   ```
 
 ### Delete Shipment
-- **DELETE** `/api/shipments/:id`
+- **DELETE** `/api/v1/shipments/:id`
 - **Purpose**: Delete a shipment (admin only)
 - **Authentication**: Admin required
 - **Response**:
@@ -352,43 +352,39 @@ This document provides comprehensive documentation for all API endpoints in the 
 ## Route Tracking & GPS
 
 ### Start Route Session
-- **POST** `/api/routes/start`
+- **POST** `/api/v1/routes/start`
 - **Purpose**: Start a new route tracking session
 - **Authentication**: None required
 - **Request Body**:
   ```json
   {
-    "employeeId": "string",
-    "startLatitude": 0.0,
-    "startLongitude": 0.0,
-    "vehicleType": "string",
-    "routeName": "string"
+    "start_latitude": 0.0,
+    "start_longitude": 0.0,
+    "shipment_id": "string"
   }
   ```
 
 ### Stop Route Session
-- **POST** `/api/routes/stop`
+- **POST** `/api/v1/routes/stop`
 - **Purpose**: Stop an active route session
 - **Authentication**: None required
 - **Request Body**:
   ```json
   {
-    "sessionId": "string",
-    "endLatitude": 0.0,
-    "endLongitude": 0.0,
-    "totalDistance": 0.0,
-    "totalTime": 0.0
+    "session_id": "string",
+    "end_latitude": 0.0,
+    "end_longitude": 0.0
   }
   ```
 
 ### Submit GPS Coordinates
-- **POST** `/api/routes/coordinates`
+- **POST** `/api/v1/routes/coordinates`
 - **Purpose**: Submit GPS coordinates for a route session
 - **Authentication**: None required
 - **Request Body**:
   ```json
   {
-    "sessionId": "string",
+    "session_id": "string",
     "latitude": 0.0,
     "longitude": 0.0,
     "accuracy": 0.0,
@@ -399,13 +395,13 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Batch Submit GPS Coordinates
-- **POST** `/api/routes/coordinates/batch`
+- **POST** `/api/v1/routes/coordinates/batch`
 - **Purpose**: Submit multiple GPS coordinates for offline sync
 - **Authentication**: None required
 - **Request Body**:
   ```json
   {
-    "sessionId": "string",
+    "session_id": "string",
     "coordinates": [
       {
         "latitude": 0.0,
@@ -420,15 +416,15 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Record Shipment Event
-- **POST** `/api/routes/shipment-event`
+- **POST** `/api/v1/routes/shipment-event`
 - **Purpose**: Record pickup/delivery event for a session
 - **Authentication**: None required
 - **Request Body**:
   ```json
   {
-    "sessionId": "string",
-    "shipmentId": "string",
-    "eventType": "pickup|delivery",
+    "session_id": "string",
+    "shipment_id": "string",
+    "event_type": "pickup|delivery",
     "latitude": 0.0,
     "longitude": 0.0,
     "timestamp": "string",
@@ -437,19 +433,19 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Get Session Data
-- **GET** `/api/routes/session/:sessionId`
+- **GET** `/api/v1/routes/session/:session_id`
 - **Purpose**: Get route session data and statistics
 - **Authentication**: None required
 - **Response**:
   ```json
   {
-    "sessionId": "string",
-    "employeeId": "string",
-    "startTime": "string",
-    "endTime": "string",
+    "session_id": "string",
+    "employee_id": "string",
+    "start_time": "string",
+    "end_time": "string",
     "status": "active|completed",
-    "totalDistance": 0.0,
-    "totalTime": 0.0,
+    "total_distance": 0.0,
+    "total_time": 0.0,
     "coordinates": [
       {
         "latitude": 0.0,
@@ -461,19 +457,19 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Sync Offline Session
-- **POST** `/api/routes/sync-session`
+- **POST** `/api/v1/routes/sync-session`
 - **Purpose**: Sync a route session created while offline
 - **Authentication**: None required
 
 ### Sync Offline Coordinates
-- **POST** `/api/routes/sync-coordinates`
+- **POST** `/api/v1/routes/sync-coordinates`
 - **Purpose**: Sync GPS coordinates captured while offline
 - **Authentication**: None required
 
 ## Vehicle Types Management
 
 ### Get Vehicle Types
-- **GET** `/api/vehicle-types`
+- **GET** `/api/v1/vehicle-types`
 - **Purpose**: Get all available vehicle types
 - **Authentication**: None required
 - **Response**:
@@ -493,12 +489,12 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Get Vehicle Type by ID
-- **GET** `/api/vehicle-types/:id`
+- **GET** `/api/v1/vehicle-types/:id`
 - **Purpose**: Get a specific vehicle type
 - **Authentication**: None required
 
 ### Create Vehicle Type
-- **POST** `/api/vehicle-types`
+- **POST** `/api/v1/vehicle-types`
 - **Purpose**: Create a new vehicle type
 - **Authentication**: Admin required
 - **Request Body**:
@@ -513,19 +509,19 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Update Vehicle Type
-- **PUT** `/api/vehicle-types/:id`
+- **PUT** `/api/v1/vehicle-types/:id`
 - **Purpose**: Update a vehicle type
 - **Authentication**: Admin required
 
 ### Delete Vehicle Type
-- **DELETE** `/api/vehicle-types/:id`
+- **DELETE** `/api/v1/vehicle-types/:id`
 - **Purpose**: Delete a vehicle type
 - **Authentication**: Admin required
 
 ## Fuel Settings Management
 
 ### Get Fuel Settings
-- **GET** `/api/fuel-settings`
+- **GET** `/api/v1/fuel-settings`
 - **Purpose**: Get all fuel price settings
 - **Authentication**: None required
 - **Response**:
@@ -547,12 +543,12 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Get Fuel Setting by ID
-- **GET** `/api/fuel-settings/:id`
+- **GET** `/api/v1/fuel-settings/:id`
 - **Purpose**: Get a specific fuel setting
 - **Authentication**: None required
 
 ### Create Fuel Setting
-- **POST** `/api/fuel-settings`
+- **POST** `/api/v1/fuel-settings`
 - **Purpose**: Create a new fuel price setting
 - **Authentication**: Admin required
 - **Request Body**:
@@ -569,7 +565,7 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Update Fuel Setting
-- **PUT** `/api/fuel-settings/:id`
+- **PUT** `/api/v1/fuel-settings/:id`
 - **Purpose**: Update a fuel price setting
 - **Authentication**: Admin required
 - **Request Body**:
@@ -585,7 +581,7 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Delete Fuel Setting
-- **DELETE** `/api/fuel-settings/:id`
+- **DELETE** `/api/v1/fuel-settings/:id`
 - **Purpose**: Delete a fuel price setting
 - **Authentication**: Admin required
 
@@ -598,7 +594,7 @@ This document provides comprehensive documentation for all API endpoints in the 
 ## External System Integration
 
 ### Sync Single Shipment
-- **POST** `/api/shipments/:id/sync`
+- **POST** `/api/v1/shipments/:id/sync`
 - **Purpose**: Sync a shipment to external system
 - **Authentication**: None required
 - **Response**:
@@ -606,38 +602,38 @@ This document provides comprehensive documentation for all API endpoints in the 
   {
     "success": true,
     "message": "Shipment synced successfully",
-    "syncedAt": "string",
-    "externalId": "string"
+    "synced_at": "string",
+    "external_id": "string"
   }
   ```
 
 ### Batch Sync Shipments
-- **POST** `/api/shipments/batch-sync`
+- **POST** `/api/v1/shipments/batch-sync`
 - **Purpose**: Sync multiple shipments to external system
 - **Authentication**: None required
 - **Request Body**:
   ```json
   {
-    "shipmentIds": ["string"]
+    "shipment_ids": ["string"]
   }
   ```
 
 ### Get Sync Status
-- **GET** `/api/shipments/sync-status`
+- **GET** `/api/v1/shipments/sync-status`
 - **Purpose**: Get sync status for shipments
 - **Authentication**: None required
 - **Query Parameters**:
-  - `shipmentId`: Filter by specific shipment
+  - `shipment_id`: Filter by specific shipment
   - `status`: Filter by sync status (pending/success/failed)
 - **Response**:
   ```json
   {
-    "syncStatus": [
+    "sync_status": [
       {
-        "shipmentId": "string",
-        "externalId": "string",
+        "shipment_id": "string",
+        "external_id": "string",
         "status": "success|failed|pending",
-        "lastAttempt": "string",
+        "last_attempt": "string",
         "error": "string"
       }
     ]
@@ -645,7 +641,7 @@ This document provides comprehensive documentation for all API endpoints in the 
   ```
 
 ### Receive External Shipment
-- **POST** `/api/shipments/receive`
+- **POST** `/api/v1/shipments/receive`
 - **Purpose**: Receive shipment data from external system
 - **Authentication**: Webhook authentication required
 - **Request Body**:
@@ -657,45 +653,45 @@ This document provides comprehensive documentation for all API endpoints in the 
         "status": "string",
         "priority": "string",
         "type": "string",
-        "pickupAddress": "string",
-        "deliveryAddress": "string",
-        "recipientName": "string",
-        "recipientPhone": "string",
+        "pickup_address": "string",
+        "delivery_address": "string",
+        "recipient_name": "string",
+        "recipient_phone": "string",
         "weight": 0.0,
         "dimensions": "string",
         "specialInstructions": "string",
-        "estimatedDeliveryTime": "string",
+        "estimated_delivery_time": "string",
         "latitude": 0.0,
         "longitude": 0.0,
         "cost": 0.0,
-        "routeName": "string",
-        "employeeId": "string"
+        "route_name": "string",
+        "employee_id": "string"
       }
     ]
   }
   ```
 
 ### Send External Update
-- **POST** `/api/shipments/update/external`
+- **POST** `/api/v1/shipments/update/external`
 - **Purpose**: Send single shipment update to external system
 - **Authentication**: Webhook authentication required
 
 ### Send Batch External Updates
-- **POST** `/api/shipments/update/external/batch`
+- **POST** `/api/v1/shipments/update/external/batch`
 - **Purpose**: Send batch shipment updates to external system
 - **Authentication**: Webhook authentication required
 
 ## File Upload & Acknowledgments
 
 ### Upload Acknowledgment
-- **POST** `/api/shipments/:id/acknowledgement`
+- **POST** `/api/v1/shipments/:id/acknowledgement`
 - **Purpose**: Upload acknowledgment with photo and signature
 - **Authentication**: None required
 - **Content-Type**: `multipart/form-data`
 - **Form Fields**:
-  - `photo`: Image file (optional)
-  - `signatureData`: Base64 signature data (optional)
-  - `remarks`: Text remarks (optional)
+-  - `photo`: Image file (optional)
+-  - `signature_data`: Base64 signature data (optional)
+-  - `remarks`: Text remarks (optional)
 - **Response**:
   ```json
   {
@@ -810,234 +806,4 @@ This document provides comprehensive documentation for all API endpoints in the 
 
 ### Mobile-Responsive Design
 - **Breakpoints**: `sm:`, `lg:`, `xl:` responsive breakpoints
-- **Tab Navigation**: Mobile-optimized tab layouts
-- **Touch Interactions**: 44px minimum touch targets
-- **Performance**: Optimized rendering for mobile devices
 
-## Error Handling
-
-### Log Error
-- **POST** `/api/errors`
-- **Purpose**: Log application errors
-- **Authentication**: None required
-- **Request Body**:
-  ```json
-  {
-    "message": "string",
-    "stack": "string",
-    "url": "string",
-    "userAgent": "string",
-    "timestamp": "string"
-  }
-  ```
-
-## Data Models
-
-### Shipment Model
-```typescript
-interface Shipment {
-  shipment_id: string;           // Primary key
-  type: string;                  // "delivery" | "pickup"
-  customerName: string;
-  customerMobile: string;
-  address: string;
-  latitude?: number;
-  longitude?: number;
-  cost: number;
-  deliveryTime: string;
-  routeName: string;
-  employeeId: string;
-  status: string;                // "Assigned" | "In Transit" | "Delivered" | etc.
-  priority: string;              // "low" | "medium" | "high"
-  pickupAddress?: string;
-  weight: number;
-  dimensions?: string;
-  specialInstructions?: string;
-  actualDeliveryTime?: string;
-  start_latitude?: number;
-  start_longitude?: number;
-  stop_latitude?: number;
-  stop_longitude?: number;
-  km_travelled: number;
-  synced_to_external: boolean;
-  last_sync_attempt?: string;
-  sync_error?: string;
-  sync_status: string;           // "pending" | "success" | "failed"
-  sync_attempts: number;
-  signature_url?: string;
-  photo_url?: string;
-  acknowledgment_captured_at?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-```
-
-### Route Session Model
-```typescript
-interface RouteSession {
-  id: string;
-  employee_id: string;
-  start_time: string;
-  end_time?: string;
-  status: string;                // "active" | "completed" | "paused"
-  start_latitude: number;
-  start_longitude: number;
-  end_latitude?: number;
-  end_longitude?: number;
-  total_distance?: number;
-  total_time?: number;
-  vehicle_type?: string;
-  route_name?: string;
-  created_at: string;
-  updated_at: string;
-}
-```
-
-### GPS Tracking Model
-```typescript
-interface RouteTracking {
-  id: string;
-  session_id: string;
-  employee_id: string;
-  latitude: number;
-  longitude: number;
-  accuracy?: number;
-  speed?: number;
-  heading?: number;
-  timestamp: string;
-  date: string;
-  created_at: string;
-}
-```
-
-### Vehicle Type Model
-```typescript
-interface VehicleType {
-  id: string;
-  name: string;
-  description?: string;
-  icon: string;
-  fuel_type: string;             // "petrol" | "diesel" | "electric"
-  co2_emissions?: number;
-  created_at: string;
-  updated_at: string;
-}
-```
-
-## Rate Limiting & Security
-
-### Rate Limits
-- **Health Check**: 10 requests per minute per IP
-- **Authentication**: 5 requests per minute per IP
-- **File Upload**: 10 requests per minute per user
-- **API Endpoints**: 100 requests per minute per authenticated user
-
-### Authentication Methods
-1. **Bearer Token**: For authenticated endpoints
-2. **Webhook Authentication**: For external system integration
-3. **Admin Authentication**: For administrative operations
-
-### Security Features
-- Password hashing with bcrypt (12 salt rounds)
-- JWT tokens for session management
-- CORS enabled for cross-origin requests
-- Input validation and sanitization
-- SQL injection prevention
-- XSS protection
-- Rate limiting to prevent abuse
-
-### Error Response Format
-```json
-{
-  "success": false,
-  "message": "Error description",
-  "code": "ERROR_CODE",
-  "details": {
-    "field": "validation error details"
-  }
-}
-```
-
-### Success Response Format
-```json
-{
-  "success": true,
-  "message": "Operation completed successfully",
-  "data": {
-    // Response data
-  }
-}
-```
-
-## Database Schema
-
-The system uses three separate SQLite databases:
-
-1. **main.db**: Primary operational database with daily cleanup
-2. **replica.db**: 3-day data retention for backup and recovery
-3. **userdata.db**: User profiles and local authentication data
-
-### Key Tables
-- `shipments`: Main shipment data with consolidated sync and acknowledgment fields
-- `route_sessions`: Route tracking sessions
-- `route_tracking`: GPS coordinate tracking data
-- `rider_accounts`: User authentication and profile data
-- `vehicle_types`: Available vehicle types
-- `system_health_metrics`: System monitoring data
-- `feature_flags`: Feature toggle configuration
-- `system_config`: System configuration settings
-
-## Integration Examples
-
-### Client-Side API Usage
-```typescript
-// Get shipments with filters
-const shipments = await apiClient.get('/api/shipments/fetch', {
-  params: {
-    status: 'Assigned',
-    employeeId: 'EMP001',
-    page: 1,
-    limit: 20
-  }
-});
-
-// Update shipment status
-await apiClient.patch(`/api/shipments/${shipmentId}`, {
-  status: 'Delivered',
-  actualDeliveryTime: new Date().toISOString()
-});
-
-// Start route session
-const session = await apiClient.post('/api/routes/start', {
-  employeeId: 'EMP001',
-  startLatitude: 12.9716,
-  startLongitude: 77.5946,
-  vehicleType: 'bike',
-  routeName: 'Route A'
-});
-```
-
-### External System Integration
-```typescript
-// Receive shipments from external system
-const response = await fetch('/api/shipments/receive', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Webhook-Signature': 'signature'
-  },
-  body: JSON.stringify({
-    shipments: [
-      {
-        id: 'EXT001',
-        status: 'Assigned',
-        type: 'delivery',
-        customerName: 'John Doe',
-        // ... other fields
-      }
-    ]
-  })
-});
-```
-
-This documentation covers all current API endpoints and provides comprehensive information for developers integrating with the RiderPro system.

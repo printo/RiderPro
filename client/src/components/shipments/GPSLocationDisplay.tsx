@@ -7,27 +7,27 @@ import { useToast } from '@/hooks/use-toast';
 interface GPSLocationDisplayProps {
   latitude?: number;
   longitude?: number;
-  startLatitude?: number;
-  startLongitude?: number;
-  stopLatitude?: number;
-  stopLongitude?: number;
-  kmTravelled?: number;
-  showDirections?: boolean;
+  start_latitude?: number;
+  start_longitude?: number;
+  stop_latitude?: number;
+  stop_longitude?: number;
+  km_travelled?: number;
+  show_directions?: boolean;
   /** When coords are missing, show this address and note that they are added when starting a route */
-  addressDisplay?: string;
+  address_display?: string;
   className?: string;
 }
 
 export default function GPSLocationDisplay({
   latitude,
   longitude,
-  startLatitude,
-  startLongitude,
-  stopLatitude,
-  stopLongitude,
-  kmTravelled,
-  showDirections = true,
-  addressDisplay,
+  start_latitude,
+  start_longitude,
+  stop_latitude,
+  stop_longitude,
+  km_travelled,
+  show_directions = true,
+  address_display,
   className
 }: GPSLocationDisplayProps) {
   const { toast } = useToast();
@@ -61,9 +61,9 @@ export default function GPSLocationDisplay({
         <AlertCircle className="h-4 w-4" />
         <AlertDescription className="space-y-1">
           <p>GPS coordinates not available for this shipment.</p>
-          {addressDisplay && (
+          {address_display && (
             <p className="text-xs mt-2 text-muted-foreground">
-              Address: {addressDisplay}
+              Address: {address_display}
             </p>
           )}
           <p className="text-xs mt-1 text-muted-foreground">
@@ -81,7 +81,7 @@ export default function GPSLocationDisplay({
           <MapPin className="h-4 w-4 text-blue-600" />
           <span className="text-sm font-medium">GPS Location</span>
         </div>
-        {showDirections && (
+        {show_directions && (
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -114,32 +114,31 @@ export default function GPSLocationDisplay({
         </p>
       </div>
 
-      {startLatitude && startLongitude && (
+      {start_latitude && start_longitude && (
         <div className="pt-2 border-t">
           <p className="text-xs text-muted-foreground">
             <span className="font-medium">Start Location:</span>{' '}
-            <span className="font-mono">{startLatitude.toFixed(6)}, {startLongitude.toFixed(6)}</span>
+            <span className="font-mono">{start_latitude.toFixed(6)}, {start_longitude.toFixed(6)}</span>
           </p>
         </div>
       )}
 
-      {stopLatitude && stopLongitude && (
+      {stop_latitude && stop_longitude && (
         <div>
           <p className="text-xs text-muted-foreground">
             <span className="font-medium">Stop Location:</span>{' '}
-            <span className="font-mono">{stopLatitude.toFixed(6)}, {stopLongitude.toFixed(6)}</span>
+            <span className="font-mono">{stop_latitude.toFixed(6)}, {stop_longitude.toFixed(6)}</span>
           </p>
         </div>
       )}
 
-      {kmTravelled && kmTravelled > 0 && (
+      {km_travelled && km_travelled > 0 && (
         <div>
           <p className="text-xs text-muted-foreground">
-            <span className="font-medium">Distance Travelled:</span> {kmTravelled.toFixed(2)} km
+            <span className="font-medium">Distance Travelled:</span> {km_travelled.toFixed(2)} km
           </p>
         </div>
       )}
     </div>
   );
 }
-

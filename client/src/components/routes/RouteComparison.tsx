@@ -25,140 +25,140 @@ interface ComparisonMetric {
   name: string;
   icon: React.ReactNode;
   unit: string;
-  getValue: (session: RouteSession) => number;
+  get_value: (session: RouteSession) => number;
   format: (value: number) => string;
-  higherIsBetter: boolean;
+  higher_is_better: boolean;
 }
 
 interface RouteComparisonProps {
   sessions: RouteSession[];
-  onSessionSelect?: (sessionId: string) => void;
-  onOptimizationSuggestion?: (suggestion: string) => void;
+  on_session_select?: (sessionId: string) => void;
+  on_optimization_suggestion?: (suggestion: string) => void;
 }
 
 function RouteComparison({
   sessions,
-  onSessionSelect: _onSessionSelect,
-  onOptimizationSuggestion
+  on_session_select: _on_session_select,
+  on_optimization_suggestion
 }: RouteComparisonProps) {
-  const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
-  const [comparisonMode, setComparisonMode] = useState<'side-by-side' | 'overlay'>('side-by-side');
-  const [sortBy, setSortBy] = useState<'efficiency' | 'distance' | 'duration' | 'speed'>('efficiency');
-  const [filterBy, setFilterBy] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [selected_sessions, set_selected_sessions] = useState<string[]>([]);
+  const [comparison_mode, set_comparison_mode] = useState<'side-by-side' | 'overlay'>('side-by-side');
+  const [sort_by, set_sort_by] = useState<'efficiency' | 'distance' | 'duration' | 'speed'>('efficiency');
+  const [filter_by, set_filter_by] = useState<'all' | 'today' | 'week' | 'month'>('all');
 
   const comparisonMetrics: ComparisonMetric[] = [
     {
       name: 'Distance',
       icon: <Route className="h-4 w-4" />,
       unit: 'km',
-      getValue: (session) => session.totalDistance || 0,
+      get_value: (session) => session.total_distance || 0,
       format: (value) => `${value.toFixed(1)} km`,
-      higherIsBetter: false
+      higher_is_better: false
     },
     {
       name: 'Duration',
       icon: <Clock className="h-4 w-4" />,
       unit: 'hours',
-      getValue: (session) => (session.totalTime || 0) / 3600,
+      get_value: (session) => (session.total_time || 0) / 3600,
       format: (value) => {
         const hours = Math.floor(value);
         const minutes = Math.floor((value % 1) * 60);
         return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
       },
-      higherIsBetter: false
+      higher_is_better: false
     },
     {
       name: 'Average Speed',
       icon: <Gauge className="h-4 w-4" />,
       unit: 'km/h',
-      getValue: (session) => session.averageSpeed || 0,
+      get_value: (session) => session.average_speed || session.avg_speed || 0,
       format: (value) => `${value.toFixed(1)} km/h`,
-      higherIsBetter: true
+      higher_is_better: true
     },
     {
       name: 'Shipments',
       icon: <MapPin className="h-4 w-4" />,
       unit: 'count',
-      getValue: (session) => session.shipmentsCompleted || 0,
+      get_value: (session) => session.shipments_completed || 0,
       format: (value) => `${Math.round(value)}`,
-      higherIsBetter: true
+      higher_is_better: true
     },
     {
       name: 'Efficiency',
       icon: <Target className="h-4 w-4" />,
       unit: 'km/shipment',
-      getValue: (session) => {
-        const distance = session.totalDistance || 0;
-        const shipments = session.shipmentsCompleted || 1;
+      get_value: (session) => {
+        const distance = session.total_distance || 0;
+        const shipments = session.shipments_completed || 1;
         return distance / shipments;
       },
       format: (value) => `${value.toFixed(2)} km/shipment`,
-      higherIsBetter: false
+      higher_is_better: false
     },
     {
       name: 'Fuel Consumption',
       icon: <Zap className="h-4 w-4" />,
       unit: 'L',
-      getValue: (session) => {
+      get_value: (session) => {
         // Calculate estimated fuel consumption based on distance and average efficiency
-        const distance = session.totalDistance || 0;
+        const distance = session.total_distance || 0;
         const estimatedFuelEfficiency = 8; // km per liter (default estimate)
         return distance / estimatedFuelEfficiency;
       },
       format: (value) => `${value.toFixed(1)} L`,
-      higherIsBetter: false
+      higher_is_better: false
     }
   ];
 
-  const filteredSessions = useMemo(() => {
+  const filtered_sessions = useMemo(() => {
     let filtered = sessions.filter(session => session.status === 'completed');
 
-    // Apply date filter using startTime
+    // Apply date filter using start_time
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    switch (filterBy) {
+    switch (filter_by) {
       case 'today':
-        filtered = filtered.filter(session => new Date(session.startTime) >= today);
+        filtered = filtered.filter(session => new Date(session.start_time) >= today);
         break;
       case 'week':
-        filtered = filtered.filter(session => new Date(session.startTime) >= weekAgo);
+        filtered = filtered.filter(session => new Date(session.start_time) >= weekAgo);
         break;
       case 'month':
-        filtered = filtered.filter(session => new Date(session.startTime) >= monthAgo);
+        filtered = filtered.filter(session => new Date(session.start_time) >= monthAgo);
         break;
     }
 
     // Apply sorting
     filtered.sort((a, b) => {
-      switch (sortBy) {
+      switch (sort_by) {
         case 'efficiency': {
-          const aEfficiency = (a.totalDistance || 0) / (a.shipmentsCompleted || 1);
-          const bEfficiency = (b.totalDistance || 0) / (b.shipmentsCompleted || 1);
+          const aEfficiency = (a.total_distance || 0) / (a.shipments_completed || 1);
+          const bEfficiency = (b.total_distance || 0) / (b.shipments_completed || 1);
           return aEfficiency - bEfficiency;
         }
         case 'distance':
-          return (a.totalDistance || 0) - (b.totalDistance || 0);
+          return (a.total_distance || 0) - (b.total_distance || 0);
         case 'duration':
-          return (a.totalTime || 0) - (b.totalTime || 0);
+          return (a.total_time || 0) - (b.total_time || 0);
         case 'speed':
-          return (b.averageSpeed || 0) - (a.averageSpeed || 0);
+          return ((b.average_speed || b.avg_speed) || 0) - ((a.average_speed || a.avg_speed) || 0);
         default:
           return 0;
       }
     });
 
     return filtered;
-  }, [sessions, filterBy, sortBy]);
+  }, [sessions, filter_by, sort_by]);
 
-  const selectedSessionsData = useMemo(() => {
-    return selectedSessions.map(id => filteredSessions.find(s => s.id === id)).filter(Boolean) as RouteSession[];
-  }, [selectedSessions, filteredSessions]);
+  const selected_sessions_data = useMemo(() => {
+    return selected_sessions.map(id => filtered_sessions.find(s => s.id === id)).filter(Boolean) as RouteSession[];
+  }, [selected_sessions, filtered_sessions]);
 
-  const handleSessionToggle = (sessionId: string) => {
-    setSelectedSessions(prev => {
+  const handle_session_toggle = (sessionId: string) => {
+    set_selected_sessions(prev => {
       if (prev.includes(sessionId)) {
         return prev.filter(id => id !== sessionId);
       } else if (prev.length < 4) { // Limit to 4 sessions for comparison
@@ -168,16 +168,16 @@ function RouteComparison({
     });
   };
 
-  const getComparisonValue = (session: RouteSession, metric: ComparisonMetric, baseline?: RouteSession) => {
-    const value = metric.getValue(session);
+  const get_comparison_value = (session: RouteSession, metric: ComparisonMetric, baseline?: RouteSession) => {
+    const value = metric.get_value(session);
     if (!baseline) return { value, trend: 'neutral' as const, percentage: 0 };
 
-    const baselineValue = metric.getValue(baseline);
+    const baselineValue = metric.get_value(baseline);
     const percentage = baselineValue !== 0 ? ((value - baselineValue) / baselineValue) * 100 : 0;
 
     let trend: 'better' | 'worse' | 'neutral' = 'neutral';
     if (Math.abs(percentage) > 5) { // 5% threshold for significance
-      if (metric.higherIsBetter) {
+      if (metric.higher_is_better) {
         trend = percentage > 0 ? 'better' : 'worse';
       } else {
         trend = percentage < 0 ? 'better' : 'worse';
@@ -187,7 +187,7 @@ function RouteComparison({
     return { value, trend, percentage };
   };
 
-  const getTrendIcon = (trend: 'better' | 'worse' | 'neutral') => {
+  const get_trend_icon = (trend: 'better' | 'worse' | 'neutral') => {
     switch (trend) {
       case 'better':
         return <TrendingUp className="h-3 w-3 text-green-600" />;
@@ -198,15 +198,15 @@ function RouteComparison({
     }
   };
 
-  const generateOptimizationSuggestions = (): string[] => {
-    if (selectedSessionsData.length < 2) return [];
+  const generate_optimization_suggestions = (): string[] => {
+    if (selected_sessions_data.length < 2) return [];
 
     const suggestions: string[] = [];
 
     // Calculate efficiency for each session
-    const sessionsWithEfficiency = selectedSessionsData.map(session => ({
+    const sessionsWithEfficiency = selected_sessions_data.map(session => ({
       ...session,
-      efficiency: (session.totalDistance || 0) / (session.shipmentsCompleted || 1)
+      efficiency: (session.total_distance || 0) / (session.shipments_completed || 1)
     }));
 
     const bestSession = sessionsWithEfficiency.reduce((best, current) =>
@@ -221,22 +221,25 @@ function RouteComparison({
       const efficiencyDiff = ((worstSession.efficiency - bestSession.efficiency) / bestSession.efficiency) * 100;
 
       if (efficiencyDiff > 20) {
-        suggestions.push(`${worstSession.employeeName || 'Employee'} could improve efficiency by ${efficiencyDiff.toFixed(1)}% by following ${bestSession.employeeName || 'best performer'}'s route patterns`);
+        suggestions.push(`${worstSession.employee_name || 'Employee'} could improve efficiency by ${efficiencyDiff.toFixed(1)}% by following ${bestSession.employee_name || 'best performer'}'s route patterns`);
       }
 
-      if ((bestSession.averageSpeed || 0) > (worstSession.averageSpeed || 0) * 1.15) {
-        suggestions.push(`Consider route optimization for ${worstSession.employeeName || 'employee'} - average speed is ${(((bestSession.averageSpeed || 0) / (worstSession.averageSpeed || 1) - 1) * 100).toFixed(1)}% higher in best performing routes`);
+      const bestSpeed = bestSession.average_speed || bestSession.avg_speed || 0;
+      const worstSpeed = worstSession.average_speed || worstSession.avg_speed || 0;
+
+      if (bestSpeed > worstSpeed * 1.15) {
+        suggestions.push(`Consider route optimization for ${worstSession.employee_name || 'employee'} - average speed is ${((bestSpeed / (worstSpeed || 1) - 1) * 100).toFixed(1)}% higher in best performing routes`);
       }
 
-      if ((worstSession.totalDistance || 0) > (bestSession.totalDistance || 0) * 1.2) {
-        suggestions.push(`${worstSession.employeeName || 'Employee'}'s routes are ${(((worstSession.totalDistance || 0) / (bestSession.totalDistance || 1) - 1) * 100).toFixed(1)}% longer - consider route consolidation`);
+      if ((worstSession.total_distance || 0) > (bestSession.total_distance || 0) * 1.2) {
+        suggestions.push(`${worstSession.employee_name || 'Employee'}'s routes are ${(((worstSession.total_distance || 0) / (bestSession.total_distance || 1) - 1) * 100).toFixed(1)}% longer - consider route consolidation`);
       }
     }
 
     return suggestions;
   };
 
-  const optimizationSuggestions = generateOptimizationSuggestions();
+  const optimization_suggestions = generate_optimization_suggestions();
 
   return (
     <div className="w-full space-y-4">
@@ -249,7 +252,7 @@ function RouteComparison({
               <span>Route Comparison</span>
             </div>
             <Badge variant="outline">
-              {selectedSessions.length}/4 selected
+              {selected_sessions.length}/4 selected
             </Badge>
           </CardTitle>
         </CardHeader>
@@ -257,7 +260,7 @@ function RouteComparison({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Filter by Date</label>
-              <Select value={filterBy} onValueChange={(value: 'all' | 'today' | 'week' | 'month') => setFilterBy(value)}>
+              <Select value={filter_by} onValueChange={(value: 'all' | 'today' | 'week' | 'month') => set_filter_by(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -272,7 +275,7 @@ function RouteComparison({
 
             <div>
               <label className="text-sm font-medium mb-2 block">Sort by</label>
-              <Select value={sortBy} onValueChange={(value: 'efficiency' | 'distance' | 'duration' | 'speed') => setSortBy(value)}>
+              <Select value={sort_by} onValueChange={(value: 'efficiency' | 'distance' | 'duration' | 'speed') => set_sort_by(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -287,7 +290,7 @@ function RouteComparison({
 
             <div>
               <label className="text-sm font-medium mb-2 block">Comparison Mode</label>
-              <Select value={comparisonMode} onValueChange={(value: 'side-by-side' | 'overlay') => setComparisonMode(value)}>
+              <Select value={comparison_mode} onValueChange={(value: 'side-by-side' | 'overlay') => set_comparison_mode(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -308,36 +311,36 @@ function RouteComparison({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
-            {filteredSessions.map((session) => (
+            {filtered_sessions.map((session) => (
               <div
                 key={session.id}
-                className={`p-3 border rounded-md cursor-pointer transition-colors ${selectedSessions.includes(session.id)
+                className={`p-3 border rounded-md cursor-pointer transition-colors ${selected_sessions.includes(session.id)
                   ? 'border-blue-500 bg-blue-50'
                   : 'border-gray-200 hover:border-gray-300'
                   }`}
-                onClick={() => handleSessionToggle(session.id)}
+                onClick={() => handle_session_toggle(session.id)}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-gray-500" />
-                    <span className="font-medium text-sm">{session.employeeName || 'Unknown'}</span>
+                    <span className="font-medium text-sm">{session.employee_name || 'Unknown'}</span>
                   </div>
                   <Badge variant="outline" className="text-xs">
-                    {((session.totalDistance || 0) / (session.shipmentsCompleted || 1)).toFixed(1)} km/shipment
+                    {((session.total_distance || 0) / (session.shipments_completed || 1)).toFixed(1)} km/shipment
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-600">
                   <Calendar className="h-3 w-3" />
-                  <span>{new Date(session.startTime).toLocaleDateString()}</span>
+                  <span>{new Date(session.start_time).toLocaleDateString()}</span>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-gray-500">Distance:</span>
-                    <span className="ml-1 font-medium">{(session.totalDistance || 0).toFixed(1)}km</span>
+                    <span className="ml-1 font-medium">{(session.total_distance || 0).toFixed(1)}km</span>
                   </div>
                   <div>
                     <span className="text-gray-500">Shipments:</span>
-                    <span className="ml-1 font-medium">{session.shipmentsCompleted || 0}</span>
+                    <span className="ml-1 font-medium">{session.shipments_completed || 0}</span>
                   </div>
                 </div>
               </div>
@@ -347,7 +350,7 @@ function RouteComparison({
       </Card>
 
       {/* Comparison Results */}
-      {selectedSessionsData.length > 1 && (
+      {selected_sessions_data.length > 1 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Comparison Results</CardTitle>
@@ -362,9 +365,9 @@ function RouteComparison({
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {selectedSessionsData.map((session, index) => {
-                      const baseline = index === 0 ? undefined : selectedSessionsData[0];
-                      const comparison = getComparisonValue(session, metric, baseline);
+                    {selected_sessions_data.map((session, index) => {
+                      const baseline = index === 0 ? undefined : selected_sessions_data[0];
+                      const comparison = get_comparison_value(session, metric, baseline);
 
                       return (
                         <div
@@ -373,8 +376,8 @@ function RouteComparison({
                             }`}
                         >
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium">{session.employeeName}</span>
-                            {index > 0 && getTrendIcon(comparison.trend)}
+                            <span className="text-sm font-medium">{session.employee_name}</span>
+                            {index > 0 && get_trend_icon(comparison.trend)}
                           </div>
                           <div className="text-lg font-bold">
                             {metric.format(comparison.value)}
@@ -399,7 +402,7 @@ function RouteComparison({
       )}
 
       {/* Optimization Suggestions */}
-      {optimizationSuggestions.length > 0 && (
+      {optimization_suggestions.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -409,7 +412,7 @@ function RouteComparison({
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {optimizationSuggestions.map((suggestion, index) => (
+              {optimization_suggestions.map((suggestion, index) => (
                 <Alert key={index}>
                   <TrendingUp className="h-4 w-4" />
                   <AlertDescription className="flex items-center justify-between">
@@ -417,7 +420,7 @@ function RouteComparison({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => onOptimizationSuggestion?.(suggestion)}
+                      onClick={() => on_optimization_suggestion?.(suggestion)}
                     >
                       Apply
                     </Button>
@@ -430,7 +433,7 @@ function RouteComparison({
       )}
 
       {/* No Data State */}
-      {filteredSessions.length === 0 && (
+      {filtered_sessions.length === 0 && (
         <Alert>
           <BarChart3 className="h-4 w-4" />
           <AlertDescription>
@@ -440,7 +443,7 @@ function RouteComparison({
       )}
 
       {/* Selection Prompt */}
-      {filteredSessions.length > 0 && selectedSessions.length < 2 && (
+      {filtered_sessions.length > 0 && selected_sessions.length < 2 && (
         <Alert>
           <Target className="h-4 w-4" />
           <AlertDescription>

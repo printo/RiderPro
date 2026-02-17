@@ -10,93 +10,93 @@ import { Package, MapPin, Fuel, Users } from 'lucide-react';
 
 interface MobileRouteAnalyticsProps {
   data: RouteAnalytics[];
-  onExport?: () => void;
-  onRefresh?: () => void;
+  on_export?: () => void;
+  on_refresh?: () => void;
 }
 
 interface AnalyticsSummary {
-  totalRoutes: number;
-  totalDistance: number;
-  averageEfficiency: number;
-  totalFuelConsumed: number;
-  averageSpeed: number;
+  total_routes: number;
+  total_distance: number;
+  average_efficiency: number;
+  total_fuel_consumed: number;
+  average_speed: number;
 }
 
 export const MobileRouteAnalytics: React.FC<MobileRouteAnalyticsProps> = ({
   data,
-  onExport,
-  onRefresh
+  on_export,
+  on_refresh
 }) => {
-  const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month'>('week');
+  const [selected_period, set_selected_period] = useState<'day' | 'week' | 'month'>('week');
   const [analytics, setAnalytics] = useState<RouteAnalytics[]>([]);
 
   useEffect(() => {
     setAnalytics(data);
   }, [data]);
 
-  const calculateSummary = (data: RouteAnalytics[]): AnalyticsSummary => {
+  const calculate_summary = (data: RouteAnalytics[]): AnalyticsSummary => {
     if (data.length === 0) {
       return {
-        totalRoutes: 0,
-        totalDistance: 0,
-        averageEfficiency: 0,
-        totalFuelConsumed: 0,
-        averageSpeed: 0
+        total_routes: 0,
+        total_distance: 0,
+        average_efficiency: 0,
+        total_fuel_consumed: 0,
+        average_speed: 0
       };
     }
 
-    const totalRoutes = data.length;
-    const totalDistance = data.reduce((sum, item) => sum + item.totalDistance, 0);
-    const totalFuelConsumed = data.reduce((sum, item) => sum + item.fuelConsumption, 0);
-    const averageEfficiency = data.reduce((sum, item) => sum + item.efficiency, 0) / totalRoutes;
-    const averageSpeed = data.reduce((sum, item) => sum + item.averageSpeed, 0) / totalRoutes;
+    const total_routes = data.length;
+    const total_distance = data.reduce((sum, item) => sum + (item.total_distance || 0), 0);
+    const total_fuel_consumed = data.reduce((sum, item) => sum + (item.fuel_consumption || 0), 0);
+    const average_efficiency = data.reduce((sum, item) => sum + (item.efficiency || 0), 0) / total_routes;
+    const average_speed = data.reduce((sum, item) => sum + (item.average_speed || 0), 0) / total_routes;
 
     return {
-      totalRoutes,
-      totalDistance,
-      averageEfficiency,
-      totalFuelConsumed,
-      averageSpeed
+      total_routes,
+      total_distance,
+      average_efficiency,
+      total_fuel_consumed,
+      average_speed
     };
   };
 
-  const summary = calculateSummary(analytics);
+  const summary = calculate_summary(analytics);
 
-  const formatNumber = (num: number, decimals: number = 1): string => {
+  const format_number = (num: number, decimals: number = 1): string => {
     return num.toFixed(decimals);
   };
 
-  const formatDistance = (distance: number): string => {
+  const format_distance = (distance: number): string => {
     if (distance >= 1000) {
-      return `${formatNumber(distance / 1000)} km`;
+      return `${format_number(distance / 1000)} km`;
     }
-    return `${formatNumber(distance)} m`;
+    return `${format_number(distance)} m`;
   };
 
-  const getEfficiencyColor = (efficiency: number): string => {
+  const get_efficiency_color = (efficiency: number): string => {
     if (efficiency >= 80) return 'text-green-600';
     if (efficiency >= 60) return 'text-yellow-600';
     return 'text-red-600';
   };
 
-  const getEfficiencyBadgeVariant = (efficiency: number): "default" | "secondary" | "destructive" | "outline" => {
+  const get_efficiency_badge_variant = (efficiency: number): "default" | "secondary" | "destructive" | "outline" => {
     if (efficiency >= 80) return 'default';
     if (efficiency >= 60) return 'secondary';
     return 'destructive';
   };
 
-  const getMetricValue = (metric: string, item: RouteAnalytics): string => {
+  const get_metric_value = (metric: string, item: RouteAnalytics): string => {
     switch (metric) {
       case 'distance':
-        return formatDistance(item.totalDistance);
+        return format_distance(item.total_distance);
       case 'efficiency':
-        return `${formatNumber(item.efficiency)}%`;
+        return `${format_number(item.efficiency || 0)}%`;
       case 'fuel':
-        return `${formatNumber(item.fuelConsumption)}L`;
+        return `${format_number(item.fuel_consumption || 0)}L`;
       case 'speed':
-        return `${formatNumber(item.averageSpeed)} km/h`;
+        return `${format_number(item.average_speed || 0)} km/h`;
       case 'time':
-        return `${formatNumber(item.totalTime / 60)} min`;
+        return `${format_number((item.total_time || 0) / 60)} min`;
       default:
         return 'N/A';
     }
@@ -108,13 +108,13 @@ export const MobileRouteAnalytics: React.FC<MobileRouteAnalyticsProps> = ({
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold">Route Analytics</h2>
         <div className="flex gap-2">
-          {onRefresh && (
-            <Button variant="outline" size="sm" onClick={onRefresh}>
+          {on_refresh && (
+            <Button variant="outline" size="sm" onClick={on_refresh}>
               Refresh
             </Button>
           )}
-          {onExport && (
-            <Button variant="outline" size="sm" onClick={onExport}>
+          {on_export && (
+            <Button variant="outline" size="sm" onClick={on_export}>
               Export
             </Button>
           )}
@@ -126,9 +126,9 @@ export const MobileRouteAnalytics: React.FC<MobileRouteAnalyticsProps> = ({
         {(['day', 'week', 'month'] as const).map((period) => (
           <Button
             key={period}
-            variant={selectedPeriod === period ? 'default' : 'outline'}
+            variant={selected_period === period ? 'default' : 'outline'}
             size="sm"
-            onClick={() => setSelectedPeriod(period)}
+            onClick={() => set_selected_period(period)}
             className="capitalize"
           >
             {period}
@@ -140,7 +140,7 @@ export const MobileRouteAnalytics: React.FC<MobileRouteAnalyticsProps> = ({
       <div className="grid grid-cols-2 gap-3">
         <MetricCard
           title="Total Routes"
-          value={summary.totalRoutes}
+          value={summary.total_routes}
           icon={Package}
           iconBgColor="bg-transparent"
           iconColor="text-transparent"
@@ -151,7 +151,7 @@ export const MobileRouteAnalytics: React.FC<MobileRouteAnalyticsProps> = ({
 
         <MetricCard
           title="Total Distance"
-          value={formatDistance(summary.totalDistance)}
+          value={format_distance(summary.total_distance)}
           icon={MapPin}
           iconBgColor="bg-transparent"
           iconColor="text-transparent"
@@ -162,12 +162,12 @@ export const MobileRouteAnalytics: React.FC<MobileRouteAnalyticsProps> = ({
 
         <MetricCard
           title="Avg Efficiency"
-          value={formatNumber(summary.averageEfficiency)}
+          value={format_number(summary.average_efficiency)}
           suffix="%"
           icon={Fuel}
           iconBgColor="bg-transparent"
           iconColor="text-transparent"
-          valueColor={getEfficiencyColor(summary.averageEfficiency)}
+          valueColor={get_efficiency_color(summary.average_efficiency)}
           layout="no-icon"
           className="p-3"
           testId="card-avg-efficiency-mobile"
@@ -175,7 +175,7 @@ export const MobileRouteAnalytics: React.FC<MobileRouteAnalyticsProps> = ({
 
         <MetricCard
           title="Fuel Used"
-          value={`${formatNumber(summary.totalFuelConsumed)}L`}
+          value={`${format_number(summary.total_fuel_consumed)}L`}
           icon={Users}
           iconBgColor="bg-transparent"
           iconColor="text-transparent"
@@ -201,36 +201,36 @@ export const MobileRouteAnalytics: React.FC<MobileRouteAnalyticsProps> = ({
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div className="font-medium">Route #{index + 1}</div>
-                    <Badge variant={getEfficiencyBadgeVariant(route.efficiency)}>
-                      {formatNumber(route.efficiency)}% efficiency
+                    <Badge variant={get_efficiency_badge_variant(route.efficiency || 0)}>
+                      {format_number(route.efficiency || 0)}% efficiency
                     </Badge>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div>
                       <span className="text-muted-foreground">Distance:</span>
-                      <span className="ml-1 font-medium">{getMetricValue('distance', route)}</span>
+                      <span className="ml-1 font-medium">{get_metric_value('distance', route)}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Speed:</span>
-                      <span className="ml-1 font-medium">{getMetricValue('speed', route)}</span>
+                      <span className="ml-1 font-medium">{get_metric_value('speed', route)}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Fuel:</span>
-                      <span className="ml-1 font-medium">{getMetricValue('fuel', route)}</span>
+                      <span className="ml-1 font-medium">{get_metric_value('fuel', route)}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Time:</span>
-                      <span className="ml-1 font-medium">{getMetricValue('time', route)}</span>
+                      <span className="ml-1 font-medium">{get_metric_value('time', route)}</span>
                     </div>
                   </div>
 
                   <div className="mt-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                       <span>Efficiency</span>
-                      <span>{formatNumber(route.efficiency)}%</span>
+                      <span>{format_number(route.efficiency || 0)}%</span>
                     </div>
-                    <Progress value={route.efficiency} className="h-2" />
+                    <Progress value={route.efficiency || 0} className="h-2" />
                   </div>
                 </CardContent>
               </Card>

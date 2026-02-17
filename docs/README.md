@@ -21,21 +21,21 @@ Welcome to the comprehensive documentation for RiderPro Delivery Management Syst
 
 ### 🏗️ Core System Documentation
 
-#### **[System Architecture](./system-architecture.md)**
+#### **[System Architecture](../system-architecture.md)**
 - Technical architecture overview
 - Design decisions and patterns
 - Component relationships
 - Infrastructure setup
 - Performance considerations
 
-#### **[Database Schema](./database-schema.md)**
+#### **[Database Schema](../database-schema.md)**
 - Complete database design
 - Table relationships and constraints
 - Data lifecycle management
 - Migration strategies
 - Performance optimization
 
-#### **[Authentication System](./authentication-system.md)**
+#### **[Authentication System](../authentication-system.md)**
 - Simplified local authentication
 - Role-based access control
 - Token management (localStorage only)
@@ -44,7 +44,7 @@ Welcome to the comprehensive documentation for RiderPro Delivery Management Syst
 
 ### 🔌 API Documentation
 
-#### **[API Documentation](./api-documentation.md)**
+#### **[API Documentation](../api-documentation.md)**
 - Complete REST API reference
 - 40+ documented endpoints
 - Request/response schemas
@@ -77,10 +77,10 @@ Welcome to the comprehensive documentation for RiderPro Delivery Management Syst
 ## 🚀 Quick Navigation
 
 ### For Developers
-1. Start with [System Architecture](./system-architecture.md) for technical overview
-2. Review [Authentication System](./authentication-system.md) for security implementation
-3. Reference [API Documentation](./api-documentation.md) for endpoint documentation
-4. Check [Database Schema](./database-schema.md) for data structure
+1. Start with [System Architecture](../system-architecture.md) for technical overview
+2. Review [Authentication System](../authentication-system.md) for security implementation
+3. Reference [API Documentation](../api-documentation.md) for endpoint documentation
+4. Check [Database Schema](../database-schema.md) for data structure
 
 ### For DevOps/Deployment
 1. Follow [Production Migration Strategy](./production-migration-strategy.md)
@@ -118,7 +118,6 @@ Welcome to the comprehensive documentation for RiderPro Delivery Management Syst
 ### Development
 - [React Documentation](https://react.dev/)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [Express.js Guide](https://expressjs.com/en/guide/routing.html)
 - [SQLite Documentation](https://www.sqlite.org/docs.html)
 
 ### Deployment

@@ -3,14 +3,14 @@ import { GPSPosition, RouteSession, RouteAnalytics, RouteTracking, GPSCoordinate
 // Re-export everything from schema
 export * from './schema';
 
-export type ShipmentStatus = 
-  | 'Initiated' 
-  | 'Assigned' 
-  | 'Collected' 
-  | 'In Transit' 
-  | 'Delivered' 
-  | 'Picked Up' 
-  | 'Returned' 
+export type ShipmentStatus =
+  | 'Initiated'
+  | 'Assigned'
+  | 'Collected'
+  | 'In Transit'
+  | 'Delivered'
+  | 'Picked Up'
+  | 'Returned'
   | 'Cancelled';
 
 // --- User Types (from Admin.tsx) ---
@@ -55,20 +55,20 @@ export interface ErrorLog {
   message: string;
   details?: unknown;
   stack?: string;
-  userAgent?: string;
+  user_agent?: string;
   url?: string;
-  userId?: string;
-  sessionId?: string;
+  user_id?: string;
+  session_id?: string;
   resolved: boolean;
 }
 
 export interface ErrorStats {
   total: number;
-  recentErrors: number;
-  criticalErrors: number;
-  resolvedErrors: number;
-  byCategory: Record<string, number>;
-  byLevel: Record<string, number>;
+  recent_errors: number;
+  critical_errors: number;
+  resolved_errors: number;
+  by_category: Record<string, number>;
+  by_level: Record<string, number>;
 }
 
 export interface SystemHealth {
@@ -84,13 +84,13 @@ export interface ErrorRecoveryAction {
 }
 
 export interface ErrorHandlingConfig {
-  enableLogging: boolean;
-  enableRemoteLogging: boolean;
-  maxLocalLogs: number;
-  logRetentionDays: number;
-  enableAutoRecovery: boolean;
-  enableUserNotifications: boolean;
-  criticalErrorThreshold: number;
+  enable_logging: boolean;
+  enable_remote_logging: boolean;
+  max_local_logs: number;
+  log_retention_days: number;
+  enable_auto_recovery: boolean;
+  enable_user_notifications: boolean;
+  critical_error_threshold: number;
 }
 
 // --- API Response Types ---
@@ -131,14 +131,14 @@ export interface BatchCoordinatesResponse extends RouteAPIResponse {
 }
 
 export interface SessionSummary {
-  sessionId: string;
-  employeeId: string;
-  startTime: string;
-  endTime: string;
-  totalDistance: number;
-  totalTimeSeconds: number;
-  averageSpeed: number;
-  coordinateCount: number;
+  session_id: string;
+  employee_id: string;
+  start_time: string;
+  end_time: string;
+  total_distance: number;
+  total_time_seconds: number;
+  average_speed: number;
+  coordinate_count: number;
   status: string;
 }
 
@@ -149,44 +149,44 @@ export interface SessionSummaryResponse extends RouteAPIResponse {
 // --- Offline Storage & Sync Types ---
 export interface OfflineGPSRecord {
   id: string;
-  sessionId: string;
+  session_id: string;
   position: GPSPosition;
   timestamp: string;
   synced: boolean;
-  syncAttempts: number;
-  lastSyncAttempt?: string;
+  sync_attempts: number;
+  last_sync_attempt?: string;
 }
 
 export interface OfflineRouteSession {
   id: string;
-  employeeId: string;
-  startTime: string;
-  endTime?: string;
+  employee_id: string;
+  start_time: string;
+  end_time?: string;
   status: 'active' | 'completed' | 'paused';
-  startPosition: GPSPosition;
-  endPosition?: GPSPosition;
+  start_position: GPSPosition;
+  end_position?: GPSPosition;
   synced: boolean;
-  syncAttempts: number;
-  lastSyncAttempt?: string;
+  sync_attempts: number;
+  last_sync_attempt?: string;
 }
 
 export interface ServerConflict {
-  localId: string;
-  serverData: unknown;
+  local_id: string;
+  server_data: unknown;
 }
 
 export interface DeviceSyncStatus {
-  isOnline: boolean;
-  pendingRecords: number;
-  lastSyncTime?: Date;
-  syncInProgress: boolean;
-  syncErrors: string[];
+  is_online: boolean;
+  pending_records: number;
+  last_sync_at?: Date;
+  sync_in_progress: boolean;
+  sync_errors: string[];
 }
 
 // --- Conflict Resolution Types ---
 export interface ServerGPSRecord {
   id: string;
-  sessionId: string;
+  session_id: string;
   latitude: number;
   longitude: number;
   accuracy: number;
@@ -195,9 +195,9 @@ export interface ServerGPSRecord {
   synced: boolean;
 }
 
-export type ServerRouteSession = Omit<OfflineRouteSession, 'startPosition' | 'endPosition'> & {
-  startPosition: GPSPosition;
-  endPosition?: GPSPosition;
+export type ServerRouteSession = Omit<OfflineRouteSession, 'start_position' | 'end_position'> & {
+  start_position: GPSPosition;
+  end_position?: GPSPosition;
 };
 
 export type ServerData = ServerGPSRecord | ServerRouteSession;
@@ -205,15 +205,15 @@ export type ServerData = ServerGPSRecord | ServerRouteSession;
 export interface DataConflict<T = ServerData> {
   id: string;
   type: 'gps_record' | 'route_session';
-  localData: OfflineGPSRecord | OfflineRouteSession;
-  serverData?: T;
-  conflictReason: 'duplicate' | 'timestamp_mismatch' | 'data_mismatch' | 'server_newer';
+  local_data: OfflineGPSRecord | OfflineRouteSession;
+  server_data?: T;
+  conflict_reason: 'duplicate' | 'timestamp_mismatch' | 'data_mismatch' | 'server_newer';
   timestamp: Date;
 }
 
 export interface ConflictResolution<T = ServerData> {
   action: 'use_local' | 'use_server' | 'merge' | 'skip';
-  resolvedData?: T;
+  resolved_data?: T;
   reason: string;
 }
 
@@ -222,8 +222,8 @@ export interface ApiRequestConfig {
   url: string;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   data?: unknown;
-  skipAuth?: boolean;
-  retryCount?: number;
+  skip_auth?: boolean;
+  retry_count?: number;
   headers?: Record<string, string>;
 }
 
@@ -240,23 +240,23 @@ export enum ErrorType {
 export interface ErrorContext {
   url: string;
   method: string;
-  retryCount: number;
+  retry_count: number;
   timestamp: number;
-  userAgent: string;
+  user_agent: string;
 }
 
 export interface ApiError extends Error {
   status?: number;
   data?: unknown;
-  isNetworkError?: boolean;
-  isAuthError?: boolean;
-  isRetryable?: boolean;
-  originalError?: unknown;
-  errorType?: ErrorType;
+  is_network_error?: boolean;
+  is_auth_error?: boolean;
+  is_retryable?: boolean;
+  original_error?: unknown;
+  error_type?: ErrorType;
   context?: ErrorContext;
   timestamp?: number;
-  userFriendlyMessage?: string;
-  recoverySuggestions?: string[];
+  user_friendly_message?: string;
+  recovery_suggestions?: string[];
 }
 
 // --- Export Types ---
@@ -265,18 +265,18 @@ export type ExportFormat = 'csv' | 'json';
 
 export interface ExportOptions {
   filename?: string;
-  dateRange?: {
+  date_range?: {
     from: Date;
     to: Date;
   };
-  employeeIds?: string[];
-  includeHeaders?: boolean;
+  employee_ids?: string[];
+  include_headers?: boolean;
   format?: ExportFormat;
 }
 
 export interface ExportResult {
   success: boolean;
   filename: string;
-  recordCount: number;
+  record_count: number;
   error?: string;
 }

@@ -6,29 +6,29 @@ import { ShipmentStatus } from "@shared/types";
 import { cn } from "@/lib/utils";
 
 interface CollectedStatusToggleProps {
-  shipmentId: string;
-  currentStatus: ShipmentStatus;
-  onStatusChange: (newStatus: ShipmentStatus) => void;
+  shipment_id: string;
+  current_status: ShipmentStatus;
+  on_status_change: (new_status: ShipmentStatus) => void;
   className?: string;
   variant?: 'default' | 'outline' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
 }
 
 export function CollectedStatusToggle({
-  shipmentId,
-  currentStatus,
-  onStatusChange,
+  shipment_id,
+  current_status,
+  on_status_change,
   className = "",
   variant = 'outline',
   size = 'default',
 }: CollectedStatusToggleProps) {
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
+  const [is_loading, set_is_loading] = useState(false);
 
-  const handleToggle = async () => {
+  const handle_toggle = async () => {
     try {
-      setIsLoading(true);
-      const response = await fetch(`/api/shipments/${shipmentId}/toggle_collected_status/`, {
+      set_is_loading(true);
+      const response = await fetch(`/api/shipments/${shipment_id}/toggle_collected_status/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -42,8 +42,8 @@ export function CollectedStatusToggle({
         throw new Error(data.message || "Failed to update status");
       }
 
-      onStatusChange(data.shipment.status);
-      
+      on_status_change(data.shipment.status);
+
       toast({
         title: "Success",
         description: data.message,
@@ -56,40 +56,40 @@ export function CollectedStatusToggle({
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      set_is_loading(false);
     }
   };
 
-  if (currentStatus === 'Assigned' || currentStatus === 'Collected') {
-    const isCollected = currentStatus === 'Collected';
-    
+  if (current_status === 'Assigned' || current_status === 'Collected') {
+    const is_collected = current_status === 'Collected';
+
     return (
       <Button
-        onClick={handleToggle}
-        disabled={isLoading}
+        onClick={handle_toggle}
+        disabled={is_loading}
         variant={variant}
         size={size}
         className={cn(
           'inline-flex items-center',
-          isCollected 
+          is_collected
             ? 'bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-300 dark:hover:bg-green-900/30'
             : 'bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30',
           className
         )}
       >
-        {isLoading ? (
+        {is_loading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Updating...
           </>
         ) : (
           <>
-            {isCollected ? (
+            {is_collected ? (
               <X className="mr-2 h-4 w-4" />
             ) : (
               <PackageCheck className="mr-2 h-4 w-4" />
             )}
-            {isCollected ? 'Unmark as Collected' : 'Mark as Collected'}
+            {is_collected ? 'Unmark as Collected' : 'Mark as Collected'}
           </>
         )}
       </Button>

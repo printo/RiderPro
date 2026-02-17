@@ -9,7 +9,7 @@ import StatusDistributionPieChart from "@/components/analytics/StatusDistributio
 import RoutePerformanceChart from "@/components/analytics/RoutePerformanceChart";
 import RouteSummary from "@/components/routes/RouteSummary";
 import RouteSessionControls from "@/components/routes/RouteSessionControls";
-import { Package, CheckCircle, Clock, HourglassIcon } from "lucide-react";
+import { Package, CheckCircle, Clock } from "lucide-react";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import MetricCard from "@/components/ui/MetricCard";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,13 +26,13 @@ import {
 function Dashboard() {
   const { data: metrics, isLoading, error } = useDashboard();
   const { user, logout } = useAuth();
-  const employeeId = user?.employeeId || user?.username || "default-user";
+  const employee_id = user?.employee_id || user?.username || "default-user";
   const {
     session: activeSession,
     coordinates
   } = useRouteSessionContext();
 
-  const [showRouteMapDialog, setShowRouteMapDialog] = useState(false);
+  const [show_route_map_dialog, set_show_route_map_dialog] = useState(false);
 
   // When URL has #route-map (e.g. after click or refresh), scroll to the section
   useEffect(() => {
@@ -55,17 +55,17 @@ function Dashboard() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  const currentLocation = useMemo(() => {
+  const current_location = useMemo(() => {
     if (coordinates.length > 0) {
-      const lastCoord = coordinates[coordinates.length - 1];
-      return { latitude: lastCoord.latitude, longitude: lastCoord.longitude };
+      const last_coord = coordinates[coordinates.length - 1];
+      return { latitude: last_coord.latitude, longitude: last_coord.longitude };
     }
 
     // Fallback to active session starting position if no coordinates yet
-    if (activeSession?.startLatitude && activeSession?.startLongitude) {
+    if (activeSession?.start_latitude && activeSession?.start_longitude) {
       return {
-        latitude: activeSession.startLatitude,
-        longitude: activeSession.startLongitude
+        latitude: activeSession.start_latitude,
+        longitude: activeSession.start_longitude
       };
     }
 
@@ -96,15 +96,15 @@ function Dashboard() {
     console.error('Dashboard error:', error);
 
     // Check for common error cases
-    let errorMessage = 'Failed to load dashboard metrics';
-    let showRetry = true;
+    let error_message = 'Failed to load dashboard metrics';
+    let show_retry = true;
 
     if (error instanceof Error) {
       if (error.message.includes('401')) {
-        errorMessage = 'Session expired. Please log in again.';
-        showRetry = false;
+        error_message = 'Session expired. Please log in again.';
+        show_retry = false;
       } else if (error.message.includes('NetworkError')) {
-        errorMessage = 'Network error. Please check your connection.';
+        error_message = 'Network error. Please check your connection.';
       }
     }
 
@@ -118,7 +118,7 @@ function Dashboard() {
               </svg>
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800 dark:text-red-400">{errorMessage}</h3>
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-400">{error_message}</h3>
               {config.debug && (
                 <div className="mt-2 text-sm text-red-700 dark:text-red-400">
                   <p>Error details:</p>
@@ -127,7 +127,7 @@ function Dashboard() {
                   </pre>
                 </div>
               )}
-              {showRetry && (
+              {show_retry && (
                 <div className="mt-4">
                   <button
                     onClick={() => window.location.reload()}
@@ -137,7 +137,7 @@ function Dashboard() {
                   </button>
                 </div>
               )}
-              {!showRetry && (
+              {!show_retry && (
                 <div className="mt-4">
                   <button
                     onClick={async () => {
@@ -193,7 +193,7 @@ function Dashboard() {
           <div className="grid grid-cols-2 lg:grid-cols-1 gap-4 h-full">
             <MetricCard
               title="Total Orders"
-              value={metrics.totalShipments}
+              value={metrics.total_shipments}
               icon={Package}
               iconBgColor="bg-primary/10"
               iconColor="text-primary"
@@ -202,7 +202,7 @@ function Dashboard() {
 
             <MetricCard
               title="Picked Up"
-              value={metrics.statusBreakdown?.["Picked Up"] || 0}
+              value={metrics.status_breakdown?.["Picked Up"] || 0}
               icon={Package}
               iconBgColor="bg-blue-100 dark:bg-blue-900/30"
               iconColor="text-blue-600 dark:text-blue-500"
@@ -212,7 +212,7 @@ function Dashboard() {
 
             <MetricCard
               title="In Progress"
-              value={metrics.inProgress}
+              value={metrics.in_progress_shipments ?? 0}
               icon={Clock}
               iconBgColor="bg-amber-100 dark:bg-amber-900/30"
               iconColor="text-amber-600 dark:text-amber-500"
@@ -222,7 +222,7 @@ function Dashboard() {
 
             <MetricCard
               title="Completed"
-              value={metrics.completed}
+              value={metrics.delivered_shipments ?? 0}
               icon={CheckCircle}
               iconBgColor="bg-green-100 dark:bg-green-900/30"
               iconColor="text-green-600 dark:text-green-500"
@@ -234,12 +234,12 @@ function Dashboard() {
           {/* RIGHT COLUMN: Stacked Operations (Tracking & Sync) */}
           <div className="flex flex-col gap-6 h-full">
             {/* Hide RouteSessionControls for managers/admins - they don't start routes */}
-            {!(user?.role === "admin" || user?.role === "manager" || user?.isSuperUser || user?.isOpsTeam || user?.isStaff) && (
+            {!(user?.role === "admin" || user?.role === "manager" || user?.is_super_user || user?.is_ops_team || user?.is_staff) && (
               <RouteSessionControls
-                employeeId={employeeId}
+                employeeId={employee_id}
                 onSessionStart={() => console.log("Route session started")}
                 onSessionStop={() => console.log("Route session stopped")}
-                onOpenRouteMap={() => setShowRouteMapDialog(true)}
+                onOpenRouteMap={() => set_show_route_map_dialog(true)}
               />
             )}
 
@@ -250,7 +250,7 @@ function Dashboard() {
 
       {/* Route map dialog - opens from "View route map & drop points" so map is always visible */}
       {activeSession && (
-        <Dialog open={showRouteMapDialog} onOpenChange={setShowRouteMapDialog}>
+        <Dialog open={show_route_map_dialog} onOpenChange={set_show_route_map_dialog}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0 gap-0">
             <DialogHeader className="p-4 pb-0">
               <DialogTitle>Route map & drop points</DialogTitle>
@@ -258,7 +258,7 @@ function Dashboard() {
             <div className="p-4 pt-2">
               <ActiveRouteTracking
                 sessionId={activeSession.id}
-                currentLocation={currentLocation}
+                currentLocation={current_location}
               />
             </div>
           </DialogContent>
@@ -271,19 +271,19 @@ function Dashboard() {
           <h3 className="text-lg font-semibold mb-3">Route map & drop points</h3>
           <ActiveRouteTracking
             sessionId={activeSession.id}
-            currentLocation={currentLocation}
+            currentLocation={current_location}
           />
         </div>
       )}
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-        <StatusDistributionPieChart statusBreakdown={metrics.statusBreakdown ?? {}} />
-        <RoutePerformanceChart routeBreakdown={metrics.routeBreakdown ?? {}} />
+        <StatusDistributionPieChart statusBreakdown={metrics.status_breakdown ?? {}} />
+        <RoutePerformanceChart routeBreakdown={metrics.route_breakdown ?? {}} />
       </div>
 
       {/* Route Summary */}
-      <RouteSummary routeBreakdown={metrics.routeBreakdown ?? {}} />
+      <RouteSummary routeBreakdown={metrics.route_breakdown ?? {}} />
     </div>
   );
 }

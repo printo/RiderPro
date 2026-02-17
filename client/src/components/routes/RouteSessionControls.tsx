@@ -37,14 +37,14 @@ interface RouteSessionControlsProps {
 }
 
 function RouteSessionControls({
-  employeeId,
+  employeeId: _employeeId,
   onSessionStart,
   onSessionStop,
   onSessionPause,
   onSessionResume,
   onOpenRouteMap
 }: RouteSessionControlsProps) {
-  const [showSmartSettings, setShowSmartSettings] = useState(false);
+  const [show_smart_settings, set_show_smart_settings] = useState(false);
   const {
     session,
     status,
@@ -69,18 +69,18 @@ function RouteSessionControls({
   } = useRouteSessionContext();
 
   // Smart route completion integration
-  const smartCompletion = useSmartRouteCompletion({
-    sessionId: session?.id || null,
-    startPosition: session ? {
-      latitude: session.startLatitude || 0,
-      longitude: session.startLongitude || 0,
-      timestamp: session.startTime,
+  const smart_completion = useSmartRouteCompletion({
+    session_id: session?.id || null,
+    start_position: session ? {
+      latitude: session.start_latitude || 0,
+      longitude: session.start_longitude || 0,
+      timestamp: session.start_time,
       accuracy: 10
     } : null,
-    currentPosition: null, // Would need to get this from GPS tracker
-    sessionStartTime: session ? new Date(session.startTime) : null,
-    totalDistance: metrics?.totalDistance || 0,
-    shipmentsCompleted: 0, // This would come from shipment tracking
+    current_position: null, // Would need to get this from GPS tracker
+    session_start_time: session ? new Date(session.start_time) : null,
+    total_distance: metrics?.total_distance || 0,
+    shipments_completed: 0, // This would come from shipment tracking
     onRouteCompletionDetected: (data) => {
       console.log('Smart route completion detected:', data);
     },
@@ -125,8 +125,8 @@ function RouteSessionControls({
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  const getStatusColor = (current_status: string) => {
+    switch (current_status) {
       case 'active':
         return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
       case 'paused':
@@ -138,8 +138,8 @@ function RouteSessionControls({
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
+  const getStatusIcon = (current_status: string) => {
+    switch (current_status) {
       case 'active':
         return <Play className="h-3 w-3" />;
       case 'paused':
@@ -161,7 +161,7 @@ function RouteSessionControls({
               Route Tracking
             </span>
             <div className="flex items-center gap-2">
-              {smartCompletion.isEnabled && smartCompletion.isInCompletionZone && (
+              {smart_completion.isEnabled && smart_completion.isInCompletionZone && (
                 <Badge className="bg-green-100 text-green-800">
                   <Target className="h-3 w-3 mr-1" />
                   Near Start
@@ -194,7 +194,6 @@ function RouteSessionControls({
           )}
 
           {/* Session Metrics */}
-          {/* Session Metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-gray-50 rounded-md dark:bg-gray-800/50">
             <div className="flex flex-col gap-1 items-start">
               <div className="flex items-center gap-1.5 text-gray-500">
@@ -225,7 +224,7 @@ function RouteSessionControls({
                 <MapPin className="h-3 w-3" />
                 <span className="text-[10px] uppercase tracking-wider font-semibold">Points</span>
               </div>
-              <p className="text-sm font-semibold pl-[18px]">{metrics?.coordinateCount || 0}</p>
+              <p className="text-sm font-semibold pl-[18px]">{metrics?.coordinate_count || metrics?.coordinateCount || 0}</p>
             </div>
           </div>
 
@@ -260,16 +259,16 @@ function RouteSessionControls({
                 <Target className="h-4 w-4 text-blue-600" />
                 <div>
                   <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    Smart Completion {smartCompletion.isEnabled ? 'Active' : 'Inactive'}
+                    Smart Completion {smart_completion.isEnabled ? 'Active' : 'Inactive'}
                   </p>
                   <p className="text-xs text-blue-600 dark:text-blue-300">
                     Distance from start: {
                       !session ? '0m' :
-                        smartCompletion.distanceFromStart === Number.POSITIVE_INFINITY || smartCompletion.distanceFromStart === null
+                        smart_completion.distanceFromStart === Number.POSITIVE_INFINITY || smart_completion.distanceFromStart === null
                           ? 'Unknown'
-                          : smartCompletion.distanceFromStart < 1000
-                            ? `${Math.round(smartCompletion.distanceFromStart)}m`
-                            : `${(smartCompletion.distanceFromStart / 1000).toFixed(1)}km`
+                          : smart_completion.distanceFromStart < 1000
+                            ? `${Math.round(smart_completion.distanceFromStart)}m`
+                            : `${(smart_completion.distanceFromStart / 1000).toFixed(1)}km`
                     }
                   </p>
                 </div>
@@ -277,7 +276,7 @@ function RouteSessionControls({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowSmartSettings(!showSmartSettings)}
+                onClick={() => set_show_smart_settings(!show_smart_settings)}
                 className="h-8 w-8 p-0"
               >
                 <Settings className="h-4 w-4" />
@@ -346,9 +345,9 @@ function RouteSessionControls({
                   ? session.id.split('-')[1]
                   : session.id.slice(-8)}
               </span></p>
-              <p>Employee: <span className="font-medium text-foreground">{session.employeeId}</span></p>
-              {session.startTime && (
-                <p>Started: <span className="font-medium text-foreground">{new Date(session.startTime).toLocaleTimeString()}</span></p>
+              <p>Employee: <span className="font-medium text-foreground">{session.employee_id}</span></p>
+              {session.start_time && (
+                <p>Started: <span className="font-medium text-foreground">{new Date(session.start_time).toLocaleTimeString()}</span></p>
               )}
             </div>
           )}
@@ -365,7 +364,7 @@ function RouteSessionControls({
       </Card>
 
       {/* Smart Completion Settings Modal */}
-      <Dialog open={showSmartSettings} onOpenChange={setShowSmartSettings}>
+      <Dialog open={show_smart_settings} onOpenChange={set_show_smart_settings}>
         <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden flex flex-col gap-0">
           <div className="p-6 pr-12 border-b bg-background sticky top-0 z-10">
             <DialogHeader>
@@ -374,10 +373,10 @@ function RouteSessionControls({
           </div>
           <div className="flex-1 overflow-y-auto p-6 pt-2">
             <SmartCompletionSettings
-              config={smartCompletion.config}
-              onConfigChange={smartCompletion.updateConfig}
+              config={smart_completion.config}
+              onConfigChange={smart_completion.updateConfig}
               isActive={session?.status === 'active'}
-              currentDistance={smartCompletion.distanceFromStart}
+              currentDistance={smart_completion.distanceFromStart}
             />
           </div>
         </DialogContent>
@@ -386,14 +385,14 @@ function RouteSessionControls({
 
 
       {/* Route Completion Dialog */}
-      {smartCompletion.showCompletionDialog && smartCompletion.completionData && (
+      {smart_completion.showCompletionDialog && smart_completion.completionData && (
         <RouteCompletionDialog
-          isOpen={smartCompletion.showCompletionDialog}
-          onClose={smartCompletion.handleCompletionCancel}
-          onConfirm={smartCompletion.handleRouteCompletion}
-          onCancel={smartCompletion.handleCompletionCancel}
-          data={smartCompletion.completionData}
-          autoConfirmSeconds={smartCompletion.config.autoConfirmDelay}
+          isOpen={smart_completion.showCompletionDialog}
+          onClose={smart_completion.handleCompletionCancel}
+          onConfirm={smart_completion.handleRouteCompletion}
+          onCancel={smart_completion.handleCompletionCancel}
+          data={smart_completion.completionData}
+          autoConfirmSeconds={smart_completion.config.auto_confirm_delay || smart_completion.config.autoConfirmDelay}
         />
       )}
 

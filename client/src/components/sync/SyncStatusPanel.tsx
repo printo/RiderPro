@@ -10,10 +10,10 @@ import { cn } from "@/lib/utils";
 import { ConnectionStatus } from "@/components/ui/ConnectionStatus";
 
 interface SyncStats {
-  totalPending: number;
-  totalSent: number;
-  totalFailed: number;
-  lastSyncTime?: string;
+  total_pending: number;
+  total_sent: number;
+  total_failed: number;
+  last_sync_at?: string;
 }
 
 import { useOfflineSync } from "@/hooks/useOfflineSync";
@@ -28,9 +28,9 @@ function SyncStatusPanel({ className }: SyncStatusPanelProps) {
 
   // Offline Sync Hook
   const {
-    isOnline,
-    pendingRecords,
-    syncInProgress: offlineSyncInProgress,
+    is_online: isOnline,
+    pending_records: pendingRecords,
+    sync_in_progress: offlineSyncInProgress,
     forceSyncNow
   } = useOfflineSync({});
 
@@ -137,10 +137,10 @@ function SyncStatusPanel({ className }: SyncStatusPanelProps) {
             variant="default"
           />
 
-          {syncStats?.lastSyncTime && (
+          {syncStats?.last_sync_at && (
             <div className="flex items-center gap-1.5">
               <Clock className="h-3 w-3" />
-              <span>Last synced {new Date(syncStats.lastSyncTime).toLocaleString()}</span>
+              <span>Last synced {new Date(syncStats.last_sync_at).toLocaleString()}</span>
             </div>
           )}
         </div>
@@ -153,17 +153,17 @@ function SyncStatusPanel({ className }: SyncStatusPanelProps) {
             <div className="flex items-center gap-3 px-2">
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-muted-foreground tracking-wider text-[10px]">SENT</span>
-                <span className="font-bold text-green-600" data-testid="text-sync-sent">{syncStats?.totalSent || 0}</span>
+                <span className="font-bold text-green-600" data-testid="text-sync-sent">{syncStats?.total_sent || 0}</span>
               </div>
               <div className="h-3 w-px bg-border/60"></div>
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-muted-foreground tracking-wider text-[10px]">PENDING</span>
-                <span className="font-bold text-amber-600" data-testid="text-sync-pending">{syncStats?.totalPending || 0}</span>
+                <span className="font-bold text-amber-600" data-testid="text-sync-pending">{syncStats?.total_pending || 0}</span>
               </div>
               <div className="h-3 w-px bg-border/60"></div>
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-muted-foreground tracking-wider text-[10px]">FAILED</span>
-                <span className="font-bold text-red-600" data-testid="text-sync-failed">{syncStats?.totalFailed || 0}</span>
+                <span className="font-bold text-red-600" data-testid="text-sync-failed">{syncStats?.total_failed || 0}</span>
               </div>
             </div>
           </div>

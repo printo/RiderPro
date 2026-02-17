@@ -45,44 +45,18 @@ def format_address(address_data):
 
 
 class ShipmentSerializer(serializers.ModelSerializer):
-    """
-    Shipment serializer
-    
-    Exposes both the original snake_case fields used by the Django model
-    and the camelCase aliases expected by the existing frontend.
-    
-    This keeps backwards compatibility with the Node.js/SQLite prototype
-    which used camelCase (e.g. shipment_id, customerName, deliveryTime).
-    """
+    """Serializer for shipments"""
 
-    # Frontend expects a string `shipment_id`; map it to the primary key
-    shipment_id = serializers.CharField(source='id', read_only=True)
-
-    # CamelCase aliases for core fields used in the React UI
-    customerName = serializers.CharField(source='customer_name', read_only=True)
-    recipientName = serializers.CharField(source='customer_name', read_only=True)
-    recipientPhone = serializers.CharField(source='customer_mobile', read_only=True)
-    customerMobile = serializers.CharField(source='customer_mobile', read_only=True)  # Alias for compatibility
-    deliveryAddress = serializers.JSONField(source='address', read_only=True)
     # Formatted address string for display (handles both object and string addresses)
-    addressDisplay = serializers.SerializerMethodField()
-    routeName = serializers.CharField(source='route_name', read_only=True)
-    deliveryTime = serializers.DateTimeField(source='delivery_time', read_only=True)
-    estimatedDeliveryTime = serializers.DateTimeField(source='delivery_time', read_only=True)
-    employeeId = serializers.CharField(source='employee_id', read_only=True)
-    orderId = serializers.IntegerField(source='pops_order_id', read_only=True, allow_null=True)
-    signatureUrl = serializers.CharField(source='signature_url', read_only=True, allow_null=True)
-    photoUrl = serializers.CharField(source='photo_url', read_only=True, allow_null=True)
-    signedPdfUrl = serializers.CharField(source='signed_pdf_url', read_only=True, allow_null=True)
+    address_display = serializers.SerializerMethodField()
     
-    def get_addressDisplay(self, obj):
+    def get_address_display(self, obj):
         """Format address for display"""
         return format_address(obj.address)
 
     class Meta:
         model = Shipment
         fields = [
-            # Original fields
             'id', 'type', 'customer_name', 'customer_mobile', 'address',
             'latitude', 'longitude', 'cost', 'delivery_time', 'route_name',
             'employee_id', 'status', 'pickup_address', 'weight', 'package_boxes',
@@ -92,11 +66,7 @@ class ShipmentSerializer(serializers.ModelSerializer):
             'signature_url', 'photo_url', 'pdf_url', 'signed_pdf_url',
             'acknowledgment_captured_at', 'acknowledgment_captured_by',
             'pops_order_id', 'pops_shipment_uuid', 'api_source', 'region',
-            'created_at', 'updated_at',
-            # CamelCase aliases for frontend compatibility
-            'shipment_id', 'customerName', 'recipientName', 'recipientPhone', 'customerMobile',
-            'deliveryAddress', 'addressDisplay', 'routeName', 'deliveryTime', 'estimatedDeliveryTime',
-            'employeeId', 'orderId', 'signatureUrl', 'photoUrl', 'signedPdfUrl',
+            'created_at', 'updated_at', 'address_display',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -152,7 +122,6 @@ class DashboardMetricsSerializer(serializers.Serializer):
     average_delivery_time = serializers.FloatField()
 
 
-# Route tracking serializers
 class RouteSessionSerializer(serializers.ModelSerializer):
     """Route session serializer"""
     tracking_points = serializers.SerializerMethodField()
@@ -165,7 +134,7 @@ class RouteSessionSerializer(serializers.ModelSerializer):
             'current_latitude', 'current_longitude', 'last_updated',
             'total_distance', 'total_time', 'fuel_consumed', 'fuel_cost',
             'average_speed', 'shipments_completed', 'shipment_id',
-            'created_at', 'updated_at', 'tracking_points'
+            'created_at', 'updated_at', 'tracking_points',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
@@ -176,14 +145,13 @@ class RouteSessionSerializer(serializers.ModelSerializer):
 
 
 class RouteTrackingSerializer(serializers.ModelSerializer):
-    """Route tracking (GPS coordinates) serializer"""
-    
+    """Route tracking serializer"""
     class Meta:
         model = RouteTracking
         fields = [
             'id', 'session', 'employee_id', 'latitude', 'longitude',
             'timestamp', 'date', 'accuracy', 'speed', 'event_type',
-            'shipment_id', 'fuel_efficiency', 'fuel_price'
+            'shipment_id', 'fuel_efficiency', 'fuel_price',
         ]
         read_only_fields = ['id', 'date']
 
@@ -204,8 +172,7 @@ class RouteSessionStopSerializer(serializers.Serializer):
 
 class CoordinateSerializer(serializers.Serializer):
     """Serializer for GPS coordinates"""
-    session_id = serializers.CharField(required=False)
-    sessionId = serializers.CharField(required=False)  # Accept camelCase from frontend
+    session_id = serializers.CharField(required=True)
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
     accuracy = serializers.FloatField(required=False, allow_null=True)
@@ -213,18 +180,7 @@ class CoordinateSerializer(serializers.Serializer):
     timestamp = serializers.DateTimeField(required=False)
     
     def validate(self, data):
-        """Normalize session_id from either sessionId or session_id"""
-        # Get session_id from either field
-        session_id = data.get('session_id') or data.get('sessionId')
-        if not session_id:
-            raise serializers.ValidationError({
-                'session_id': 'This field is required.'
-            })
-        # Normalize to session_id
-        data['session_id'] = session_id
-        # Remove sessionId if it exists
-        if 'sessionId' in data:
-            del data['sessionId']
+        """Normalize session_id"""
         return data
 
 
@@ -234,11 +190,8 @@ class RouteLocationSerializer(serializers.Serializer):
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
     shipment_id = serializers.CharField(required=False)
-    shipmentId = serializers.CharField(required=False)
 
     def validate(self, data):
-        if 'shipmentId' in data:
-            data['shipment_id'] = data.pop('shipmentId')
         return data
 
 
@@ -246,21 +199,12 @@ class RouteOptimizeRequestSerializer(serializers.Serializer):
     """Serializer for route optimization request"""
     current_latitude = serializers.FloatField(required=False)
     current_longitude = serializers.FloatField(required=False)
-    currentLatitude = serializers.FloatField(required=False)
-    currentLongitude = serializers.FloatField(required=False)
     locations = RouteLocationSerializer(many=True)
 
     def validate(self, data):
-        data['current_latitude'] = data.get('current_latitude') or data.get('currentLatitude')
-        data['current_longitude'] = data.get('current_longitude') or data.get('currentLongitude')
-
         if data.get('current_latitude') is None or data.get('current_longitude') is None:
             raise serializers.ValidationError('Current location is required.')
 
-        if 'currentLatitude' in data:
-            del data['currentLatitude']
-        if 'currentLongitude' in data:
-            del data['currentLongitude']
         return data
 
 
@@ -306,32 +250,11 @@ class ShipmentEventSerializer(serializers.Serializer):
 
 class BulkShipmentEventSerializer(serializers.Serializer):
     """Serializer for bulk shipment events at one location"""
-    session_id = serializers.CharField(required=False)
-    sessionId = serializers.CharField(required=False)
-    shipment_ids = serializers.ListField(child=serializers.CharField(), required=False)
-    shipmentIds = serializers.ListField(child=serializers.CharField(), required=False)
-    event_type = serializers.ChoiceField(choices=['pickup', 'delivery'], required=False)
-    eventType = serializers.ChoiceField(choices=['pickup', 'delivery'], required=False)
+    session_id = serializers.CharField(required=True)
+    shipment_ids = serializers.ListField(child=serializers.CharField(), required=True)
+    event_type = serializers.ChoiceField(choices=['pickup', 'delivery'], required=True)
     latitude = serializers.FloatField()
     longitude = serializers.FloatField()
 
     def validate(self, data):
-        data['session_id'] = data.get('session_id') or data.get('sessionId')
-        data['shipment_ids'] = data.get('shipment_ids') or data.get('shipmentIds')
-        data['event_type'] = data.get('event_type') or data.get('eventType')
-
-        required = ['session_id', 'shipment_ids', 'event_type']
-        for field in required:
-            if not data.get(field):
-                raise serializers.ValidationError({field: 'This field is required.'})
-
-        for key in ['sessionId', 'shipmentIds', 'eventType']:
-            if key in data:
-                del data[key]
         return data
-
-
-
-
-
-

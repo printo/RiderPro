@@ -1,5 +1,5 @@
-import { 
-  RouteAnalytics, 
+import {
+  RouteAnalytics,
   RouteTracking,
   ExportOptions,
   ExportResult
@@ -7,13 +7,13 @@ import {
 import { format } from 'date-fns';
 
 interface EmployeePerformanceAggregate {
-  employeeId: string;
-  totalDistance: number;
-  totalTime: number;
-  totalFuelConsumed: number;
-  totalFuelCost: number;
-  totalShipments: number;
-  workingDays: Set<string>;
+  employee_id: string;
+  total_distance: number;
+  total_time: number;
+  total_fuel_consumed: number;
+  total_fuel_cost: number;
+  total_shipments: number;
+  working_days: Set<string>;
 }
 
 export class DataExporter {
@@ -27,27 +27,27 @@ export class DataExporter {
     try {
       const {
         filename = `route-analytics-${format(new Date(), 'yyyy-MM-dd-HHmm')}.csv`,
-        includeHeaders = true
+        include_headers = true
       } = options;
 
       // Filter data based on options
       let filteredData = data;
 
-      if (options.dateRange) {
-        const { from, to } = options.dateRange;
+      if (options.date_range) {
+        const { from, to } = options.date_range;
         filteredData = filteredData.filter(item => {
           const itemDate = new Date(item.date);
           return itemDate >= from && itemDate <= to;
         });
       }
 
-      if (options.employeeIds && options.employeeIds.length > 0) {
+      if (options.employee_ids && options.employee_ids.length > 0) {
         filteredData = filteredData.filter(item => {
-          const employeeId = item.employeeId;
-          if (!employeeId) {
+          const employee_id = item.employee_id;
+          if (!employee_id) {
             return false;
           }
-          return options.employeeIds!.includes(employeeId);
+          return options.employee_ids!.includes(employee_id);
         });
       }
 
@@ -66,20 +66,20 @@ export class DataExporter {
 
       // Convert data to CSV rows
       const rows = filteredData.map(item => [
-        item.employeeId,
+        item.employee_id,
         item.date,
-        item.totalDistance?.toFixed(2) || '0',
-        item.totalTime ? (item.totalTime / 3600).toFixed(2) : '0',
-        item.averageSpeed?.toFixed(2) || '0',
-        item.fuelConsumed?.toFixed(2) || '0',
-        item.fuelCost?.toFixed(2) || '0',
-        item.shipmentsCompleted?.toString() || '0',
+        item.total_distance?.toFixed(2) || '0',
+        item.total_time ? (item.total_time / 3600).toFixed(2) : '0',
+        item.average_speed?.toFixed(2) || '0',
+        item.fuel_consumed?.toFixed(2) || '0',
+        item.fuel_cost?.toFixed(2) || '0',
+        item.shipments_completed?.toString() || '0',
         item.efficiency?.toFixed(2) || '0'
       ]);
 
       // Create CSV content
       const csvContent = [
-        ...(includeHeaders ? [headers] : []),
+        ...(include_headers ? [headers] : []),
         ...rows
       ].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
 
@@ -89,7 +89,7 @@ export class DataExporter {
       return {
         success: true,
         filename,
-        recordCount: filteredData.length
+        record_count: filteredData.length
       };
 
     } catch (error) {
@@ -97,7 +97,7 @@ export class DataExporter {
       return {
         success: false,
         filename: '',
-        recordCount: 0,
+        record_count: 0,
         error: (error as Error).message
       };
     }
@@ -113,27 +113,27 @@ export class DataExporter {
     try {
       const {
         filename = `route-coordinates-${format(new Date(), 'yyyy-MM-dd-HHmm')}.csv`,
-        includeHeaders = true
+        include_headers = true
       } = options;
 
       // Filter data based on options
       let filteredData = data;
 
-      if (options.dateRange) {
-        const { from, to } = options.dateRange;
+      if (options.date_range) {
+        const { from, to } = options.date_range;
         filteredData = filteredData.filter(item => {
           const itemDate = new Date(item.timestamp);
           return itemDate >= from && itemDate <= to;
         });
       }
 
-      if (options.employeeIds && options.employeeIds.length > 0) {
+      if (options.employee_ids && options.employee_ids.length > 0) {
         filteredData = filteredData.filter(item => {
-          const employeeId = item.employeeId;
-          if (!employeeId) {
+          const employee_id = item.employee_id;
+          if (!employee_id) {
             return false;
           }
-          return options.employeeIds!.includes(employeeId);
+          return options.employee_ids!.includes(employee_id);
         });
       }
 
@@ -155,21 +155,21 @@ export class DataExporter {
       // Convert data to CSV rows
       const rows = filteredData.map(item => [
         item.id,
-        item.sessionId,
-        item.employeeId,
+        item.session, // RouteTracking has 'session' in schema.ts
+        item.employee_id,
         item.latitude.toString(),
         item.longitude.toString(),
         item.timestamp,
         item.accuracy?.toString() || '',
         item.speed?.toString() || '',
-        item.shipmentId || '',
-        item.eventType || '',
+        item.shipment_id || '',
+        item.event_type || '',
         item.date
       ]);
 
       // Create CSV content
       const csvContent = [
-        ...(includeHeaders ? [headers] : []),
+        ...(include_headers ? [headers] : []),
         ...rows
       ].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
 
@@ -179,7 +179,7 @@ export class DataExporter {
       return {
         success: true,
         filename,
-        recordCount: filteredData.length
+        record_count: filteredData.length
       };
 
     } catch (error) {
@@ -187,7 +187,7 @@ export class DataExporter {
       return {
         success: false,
         filename: '',
-        recordCount: 0,
+        record_count: 0,
         error: (error as Error).message
       };
     }
@@ -203,29 +203,29 @@ export class DataExporter {
     try {
       const {
         filename = `employee-performance-${format(new Date(), 'yyyy-MM-dd-HHmm')}.csv`,
-        includeHeaders = true
+        include_headers = true
       } = options;
 
       // Aggregate data by employee
       const employeeData = data.reduce<Record<string, EmployeePerformanceAggregate>>((acc, item) => {
-        if (!acc[item.employeeId]) {
-          acc[item.employeeId] = {
-            employeeId: item.employeeId,
-            totalDistance: 0,
-            totalTime: 0,
-            totalFuelConsumed: 0,
-            totalFuelCost: 0,
-            totalShipments: 0,
-            workingDays: new Set<string>()
+        if (!acc[item.employee_id]) {
+          acc[item.employee_id] = {
+            employee_id: item.employee_id,
+            total_distance: 0,
+            total_time: 0,
+            total_fuel_consumed: 0,
+            total_fuel_cost: 0,
+            total_shipments: 0,
+            working_days: new Set<string>()
           };
         }
 
-        acc[item.employeeId].totalDistance += item.totalDistance || 0;
-        acc[item.employeeId].totalTime += item.totalTime || 0;
-        acc[item.employeeId].totalFuelConsumed += item.fuelConsumed || 0;
-        acc[item.employeeId].totalFuelCost += item.fuelCost || 0;
-        acc[item.employeeId].totalShipments += item.shipmentsCompleted || 0;
-        acc[item.employeeId].workingDays.add(item.date);
+        acc[item.employee_id].total_distance += item.total_distance || 0;
+        acc[item.employee_id].total_time += item.total_time || 0;
+        acc[item.employee_id].total_fuel_consumed += item.fuel_consumed || 0;
+        acc[item.employee_id].total_fuel_cost += item.fuel_cost || 0;
+        acc[item.employee_id].total_shipments += item.shipments_completed || 0;
+        acc[item.employee_id].working_days.add(item.date);
 
         return acc;
       }, {});
@@ -248,30 +248,30 @@ export class DataExporter {
 
       // Convert data to CSV rows
       const rows = Object.values(employeeData).map(employee => {
-        const workingDays = employee.workingDays.size;
-        const avgSpeed = employee.totalTime > 0 ? (employee.totalDistance / (employee.totalTime / 3600)) : 0;
-        const fuelEfficiency = employee.totalFuelConsumed > 0 ? (employee.totalDistance / employee.totalFuelConsumed) : 0;
-        const overallEfficiency = employee.totalShipments > 0 ? (employee.totalDistance / employee.totalShipments) : 0;
+        const working_days = employee.working_days.size;
+        const avg_speed = employee.total_time > 0 ? (employee.total_distance / (employee.total_time / 3600)) : 0;
+        const fuel_efficiency = employee.total_fuel_consumed > 0 ? (employee.total_distance / employee.total_fuel_consumed) : 0;
+        const overall_efficiency = employee.total_shipments > 0 ? (employee.total_distance / employee.total_shipments) : 0;
 
         return [
-          employee.employeeId,
-          employee.totalDistance.toFixed(2),
-          (employee.totalTime / 3600).toFixed(2),
-          avgSpeed.toFixed(2),
-          employee.totalFuelConsumed.toFixed(2),
-          employee.totalFuelCost.toFixed(2),
-          employee.totalShipments.toString(),
-          workingDays.toString(),
-          workingDays > 0 ? (employee.totalDistance / workingDays).toFixed(2) : '0',
-          workingDays > 0 ? (employee.totalShipments / workingDays).toFixed(2) : '0',
-          fuelEfficiency.toFixed(2),
-          overallEfficiency.toFixed(2)
+          employee.employee_id,
+          employee.total_distance.toFixed(2),
+          (employee.total_time / 3600).toFixed(2),
+          avg_speed.toFixed(2),
+          employee.total_fuel_consumed.toFixed(2),
+          employee.total_fuel_cost.toFixed(2),
+          employee.total_shipments.toString(),
+          working_days.toString(),
+          working_days > 0 ? (employee.total_distance / working_days).toFixed(2) : '0',
+          working_days > 0 ? (employee.total_shipments / working_days).toFixed(2) : '0',
+          fuel_efficiency.toFixed(2),
+          overall_efficiency.toFixed(2)
         ];
       });
 
       // Create CSV content
       const csvContent = [
-        ...(includeHeaders ? [headers] : []),
+        ...(include_headers ? [headers] : []),
         ...rows
       ].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
 
@@ -281,7 +281,7 @@ export class DataExporter {
       return {
         success: true,
         filename,
-        recordCount: rows.length
+        record_count: rows.length
       };
 
     } catch (error) {
@@ -289,7 +289,7 @@ export class DataExporter {
       return {
         success: false,
         filename: '',
-        recordCount: 0,
+        record_count: 0,
         error: (error as Error).message
       };
     }
@@ -298,7 +298,7 @@ export class DataExporter {
   /**
    * Export data to JSON format
    */
-  static async exportToJSON<T extends { date?: string; timestamp?: string; employeeId?: string }>(
+  static async exportToJSON<T extends { date?: string; timestamp?: string; employee_id?: string }>(
     data: T[],
     options: ExportOptions = {}
   ): Promise<ExportResult> {
@@ -310,8 +310,8 @@ export class DataExporter {
       // Filter data based on options
       let filteredData = data;
 
-      if (options.dateRange) {
-        const { from, to } = options.dateRange;
+      if (options.date_range) {
+        const { from, to } = options.date_range;
         filteredData = filteredData.filter(item => {
           const dateValue = item.date ?? item.timestamp;
           if (!dateValue) {
@@ -322,23 +322,23 @@ export class DataExporter {
         });
       }
 
-      if (options.employeeIds && options.employeeIds.length > 0) {
+      if (options.employee_ids && options.employee_ids.length > 0) {
         filteredData = filteredData.filter(item => {
-          const employeeId = item.employeeId;
-          if (!employeeId) {
+          const employee_id = item.employee_id;
+          if (!employee_id) {
             return false;
           }
-          return options.employeeIds!.includes(employeeId);
+          return options.employee_ids!.includes(employee_id);
         });
       }
 
       // Create JSON content
       const jsonContent = JSON.stringify({
-        exportDate: new Date().toISOString(),
-        recordCount: filteredData.length,
+        export_date: new Date().toISOString(),
+        record_count: filteredData.length,
         filters: {
-          dateRange: options.dateRange,
-          employeeIds: options.employeeIds
+          date_range: options.date_range,
+          employee_ids: options.employee_ids
         },
         data: filteredData
       }, null, 2);
@@ -349,7 +349,7 @@ export class DataExporter {
       return {
         success: true,
         filename,
-        recordCount: filteredData.length
+        record_count: filteredData.length
       };
 
     } catch (error) {
@@ -357,7 +357,7 @@ export class DataExporter {
       return {
         success: false,
         filename: '',
-        recordCount: 0,
+        record_count: 0,
         error: (error as Error).message
       };
     }
@@ -387,36 +387,36 @@ export class DataExporter {
    * Get export statistics
    */
   static getExportStats(data: RouteAnalytics[]): {
-    totalRecords: number;
-    dateRange: { from: string; to: string } | null;
-    employeeCount: number;
-    totalDistance: number;
-    totalFuelCost: number;
+    total_records: number;
+    date_range: { from: string; to: string } | null;
+    employee_count: number;
+    total_distance: number;
+    total_fuel_cost: number;
   } {
     if (data.length === 0) {
       return {
-        totalRecords: 0,
-        dateRange: null,
-        employeeCount: 0,
-        totalDistance: 0,
-        totalFuelCost: 0
+        total_records: 0,
+        date_range: null,
+        employee_count: 0,
+        total_distance: 0,
+        total_fuel_cost: 0
       };
     }
 
     const dates = data.map(item => item.date).sort();
-    const employees = Array.from(new Set(data.map(item => item.employeeId)));
-    const totalDistance = data.reduce((sum, item) => sum + (item.totalDistance || 0), 0);
-    const totalFuelCost = data.reduce((sum, item) => sum + (item.fuelCost || 0), 0);
+    const employees = Array.from(new Set(data.map(item => item.employee_id)));
+    const total_distance = data.reduce((sum, item) => sum + (item.total_distance || 0), 0);
+    const total_fuel_cost = data.reduce((sum, item) => sum + (item.fuel_cost || 0), 0);
 
     return {
-      totalRecords: data.length,
-      dateRange: {
+      total_records: data.length,
+      date_range: {
         from: dates[0],
         to: dates[dates.length - 1]
       },
-      employeeCount: employees.length,
-      totalDistance: Math.round(totalDistance * 100) / 100,
-      totalFuelCost: Math.round(totalFuelCost * 100) / 100
+      employee_count: employees.length,
+      total_distance: Math.round(total_distance * 100) / 100,
+      total_fuel_cost: Math.round(total_fuel_cost * 100) / 100
     };
   }
 }

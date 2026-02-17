@@ -36,15 +36,15 @@ export const shipmentsApi = {
     if (filters.status) params.append('status', filters.status);
     if (filters.priority) params.append('priority', filters.priority);
     if (filters.type) params.append('type', filters.type);
-    if (filters.routeName) params.append('routeName', filters.routeName);
+    if (filters.route_name) params.append('route_name', filters.route_name);
     if (filters.date) params.append('date', filters.date);
     if (filters.search) params.append('search', filters.search);
-    if (filters.employeeId) params.append('employeeId', filters.employeeId);
-    if (filters.orderId) params.append('orderId', String(filters.orderId));
+    if (filters.employee_id) params.append('employee_id', filters.employee_id);
+    if (filters.pops_order_id) params.append('pops_order_id', String(filters.pops_order_id));
 
     // Add date range if provided
-    if (filters.dateRange) {
-      params.append('dateRange', JSON.stringify(filters.dateRange));
+    if (filters.date_range) {
+      params.append('date_range', JSON.stringify(filters.date_range));
     }
 
     // Add pagination parameters
@@ -52,8 +52,8 @@ export const shipmentsApi = {
     if (filters.limit) params.append('limit', String(filters.limit));
 
     // Add sorting parameters
-    if (filters.sortField) params.append('sortField', filters.sortField);
-    if (filters.sortOrder) params.append('sortOrder', filters.sortOrder);
+    if (filters.sort_field) params.append('sort_field', filters.sort_field);
+    if (filters.sort_order) params.append('sort_order', filters.sort_order);
 
     const url = `${API_ENDPOINTS.shipments.fetch}${params.toString() ? `?${params.toString()}` : ''}`;
     log.dev('📡 Making API request to:', url);
@@ -129,45 +129,8 @@ export const shipmentsApi = {
 
   getDashboardMetrics: async (): Promise<DashboardMetrics> => {
     const response = await apiRequest("GET", API_ENDPOINTS.dashboard.metrics);
-    const raw = await response.json();
-
-    // Backend returns snake_case fields; map them into the DashboardMetrics
-    // shape expected by the frontend (camelCase plus aggregate fields).
-    const totalShipments = raw.total_shipments ?? 0;
-    const pendingShipments = raw.pending_shipments ?? 0;
-    const inTransitShipments = raw.in_transit_shipments ?? 0;
-    const deliveredShipments = raw.delivered_shipments ?? 0;
-    const pickedUpShipments = raw.picked_up_shipments ?? 0;
-    const inProgressShipments = raw.in_progress_shipments ?? 0;
-
-    const completed = deliveredShipments; // Standardizing: Delivered = Completed
-    const inProgress = inProgressShipments; // Picked Up + In Transit (calculated on backend)
-    const pending = pendingShipments;
-
-    const metrics: DashboardMetrics = {
-      totalShipments,
-      pendingShipments,
-      deliveredShipments,
-      inTransitShipments,
-      completed,
-      inProgress,
-      pending,
-      averageDeliveryTime: raw.average_delivery_time ?? 0,
-      // Build a simple status breakdown so charts have data.
-      statusBreakdown: {
-        Pending: pendingShipments,
-        "In Transit": inTransitShipments,
-        Delivered: deliveredShipments,
-        "Picked Up": pickedUpShipments,
-        Returned: raw.returned_shipments ?? 0,
-        Cancelled: raw.cancelled_shipments ?? 0,
-      },
-      // Route/type breakdowns can be filled in later from richer analytics.
-      typeBreakdown: {},
-      routeBreakdown: {},
-    };
-
-    return metrics;
+    const result = await response.json();
+    return result;
   },
 
   // External integration endpoints

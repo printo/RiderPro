@@ -9,73 +9,73 @@ import { cn } from '@/lib/utils';
 interface EditableFieldProps {
   label: string;
   value: string;
-  onSave: (newValue: string) => Promise<void> | void;
+  on_save: (new_value: string) => Promise<void> | void;
   multiline?: boolean;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
   icon?: React.ReactNode;
   options?: Array<{ label: string; value: string }>; // For dropdown mode
-  fetchOptions?: () => Promise<Array<{ label: string; value: string }>>; // For async options
+  fetch_options?: () => Promise<Array<{ label: string; value: string }>>; // For async options
 }
 
 export default function EditableField({
   label,
   value,
-  onSave,
+  on_save,
   multiline = false,
   placeholder,
   className,
   disabled = false,
   icon,
   options,
-  fetchOptions
+  fetch_options
 }: EditableFieldProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
-  const [isSaving, setIsSaving] = useState(false);
-  const [availableOptions, setAvailableOptions] = useState<Array<{ label: string; value: string }>>(options || []);
-  const [isLoadingOptions, setIsLoadingOptions] = useState(false);
+  const [is_editing, set_is_editing] = useState(false);
+  const [edit_value, set_edit_value] = useState(value);
+  const [is_saving, set_is_saving] = useState(false);
+  const [available_options, set_available_options] = useState<Array<{ label: string; value: string }>>(options || []);
+  const [is_loading_options, set_is_loading_options] = useState(false);
 
-  const isDropdown = !!(options || fetchOptions);
+  const is_dropdown = !!(options || fetch_options);
 
-  const handleStartEdit = async () => {
-    setEditValue(value);
-    setIsEditing(true);
-    
+  const handle_start_edit = async () => {
+    set_edit_value(value);
+    set_is_editing(true);
+
     // Fetch options if needed
-    if (fetchOptions && availableOptions.length === 0) {
-      setIsLoadingOptions(true);
+    if (fetch_options && available_options.length === 0) {
+      set_is_loading_options(true);
       try {
-        const fetchedOptions = await fetchOptions();
-        setAvailableOptions(fetchedOptions);
+        const fetched_options = await fetch_options();
+        set_available_options(fetched_options);
       } catch (error) {
         console.error('Error fetching options:', error);
       } finally {
-        setIsLoadingOptions(false);
+        set_is_loading_options(false);
       }
     }
   };
 
-  const handleCancel = () => {
-    setEditValue(value);
-    setIsEditing(false);
+  const handle_cancel = () => {
+    set_edit_value(value);
+    set_is_editing(false);
   };
 
-  const handleSave = async () => {
-    if (editValue === value) {
-      setIsEditing(false);
+  const handle_save = async () => {
+    if (edit_value === value) {
+      set_is_editing(false);
       return;
     }
 
-    setIsSaving(true);
+    set_is_saving(true);
     try {
-      await onSave(editValue);
-      setIsEditing(false);
+      await on_save(edit_value);
+      set_is_editing(false);
     } catch (error) {
       console.error('Error saving:', error);
     } finally {
-      setIsSaving(false);
+      set_is_saving(false);
     }
   };
 
@@ -86,11 +86,11 @@ export default function EditableField({
           {icon}
           <h4 className="font-semibold">{label}</h4>
         </div>
-        {!isEditing && !disabled && (
+        {!is_editing && !disabled && (
           <Button
             variant="outline"
             size="sm"
-            onClick={handleStartEdit}
+            onClick={handle_start_edit}
             className="border-blue-300 text-blue-700 hover:bg-blue-50"
           >
             <Edit className="h-4 w-4 mr-1" />
@@ -99,27 +99,27 @@ export default function EditableField({
         )}
       </div>
 
-      {isEditing ? (
+      {is_editing ? (
         <div className="space-y-3 bg-blue-50/30 dark:bg-blue-950/20 rounded-lg p-4 border">
-          {isDropdown ? (
+          {is_dropdown ? (
             <div className="space-y-2">
-              {isLoadingOptions ? (
+              {is_loading_options ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading options...
                 </div>
               ) : (
                 <Select
-                  value={editValue || undefined}
-                  onValueChange={setEditValue}
-                  disabled={isSaving || isLoadingOptions}
+                  value={edit_value || undefined}
+                  onValueChange={set_edit_value}
+                  disabled={is_saving || is_loading_options}
                 >
                   <SelectTrigger className="w-full h-11 bg-background">
                     <SelectValue placeholder={placeholder || `Select ${label.toLowerCase()}`} />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableOptions.length > 0 ? (
-                      availableOptions.map((option) => (
+                    {available_options.length > 0 ? (
+                      available_options.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>
@@ -133,30 +133,30 @@ export default function EditableField({
             </div>
           ) : multiline ? (
             <Textarea
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
+              value={edit_value}
+              onChange={(e) => set_edit_value(e.target.value)}
               placeholder={placeholder}
               rows={4}
-              disabled={isSaving}
+              disabled={is_saving}
               className="bg-background"
             />
           ) : (
             <Input
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
+              value={edit_value}
+              onChange={(e) => set_edit_value(e.target.value)}
               placeholder={placeholder}
-              disabled={isSaving}
+              disabled={is_saving}
               className="bg-background"
             />
           )}
           <div className="flex gap-2 pt-2">
             <Button
-              onClick={handleSave}
-              disabled={isSaving || (isDropdown && !editValue)}
+              onClick={handle_save}
+              disabled={is_saving || (is_dropdown && !edit_value)}
               size="sm"
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {isSaving ? (
+              {is_saving ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Save className="h-4 w-4 mr-2" />
@@ -165,8 +165,8 @@ export default function EditableField({
             </Button>
             <Button
               variant="outline"
-              onClick={handleCancel}
-              disabled={isSaving}
+              onClick={handle_cancel}
+              disabled={is_saving}
               size="sm"
               className="flex-1"
             >
@@ -185,4 +185,3 @@ export default function EditableField({
     </div>
   );
 }
-

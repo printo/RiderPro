@@ -2,11 +2,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { withChartErrorBoundary } from "@/components/ErrorBoundary";
 
 interface StatusDistributionChartProps {
-  statusBreakdown: Record<string, number>;
+  status_breakdown: Record<string, number>;
 }
 
-function StatusDistributionChart({ statusBreakdown }: StatusDistributionChartProps) {
-  const statuses = Object.entries(statusBreakdown);
+function StatusDistributionChart({ status_breakdown }: StatusDistributionChartProps) {
+  const statuses = Object.entries(status_breakdown);
 
   return (
     <Card data-testid="card-status-chart">

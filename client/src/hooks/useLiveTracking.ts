@@ -4,8 +4,8 @@ import { log } from "../utils/logger.js";
 
 interface LocationUpdate {
   type: 'location_update';
-  employeeId: string;
-  sessionId: string;
+  employee_id: string;
+  session_id: string;
   latitude: number;
   longitude: number;
   timestamp: string;
@@ -15,8 +15,8 @@ interface LocationUpdate {
 
 interface SessionStatusChange {
   type: 'session_status_change';
-  employeeId: string;
-  sessionId: string;
+  employee_id: string;
+  session_id: string;
   status: string;
   timestamp: string;
 }
@@ -24,9 +24,9 @@ interface SessionStatusChange {
 interface ActiveSessionsMessage {
   type: 'active_sessions';
   sessions: Array<{
-    employeeId: string;
-    sessionId: string;
-    startTime: string;
+    employee_id: string;
+    session_id: string;
+    start_time: string;
     latitude: number;
     longitude: number;
     timestamp: string;
@@ -105,15 +105,15 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
             const existingRider = prev.get(loc.employee_id);
 
             const rider: RiderLocation = {
-              employeeId: loc.employee_id,
-              sessionId: loc.session_id,
+              employee_id: loc.employee_id,
+              session_id: loc.session_id,
               latitude: loc.latitude,
               longitude: loc.longitude,
               timestamp: loc.timestamp,
               accuracy: loc.accuracy,
               speed: loc.speed,
               status: getRiderStatus(loc.timestamp),
-              employeeName: existingRider?.employeeName,
+              employee_name: existingRider?.employee_name,
               route: existingRider?.route || [{ lat: loc.latitude, lng: loc.longitude }]
             };
 
@@ -174,13 +174,13 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
   }, []);
 
   // Subscribe to specific employee (no-op for polling, kept for API compatibility)
-  const subscribeToEmployee = useCallback((employeeId: string) => {
-    log.dev(`Subscribe to employee ${employeeId} (polling mode - no action needed)`);
+  const subscribeToEmployee = useCallback((employee_id: string) => {
+    log.dev(`Subscribe to employee ${employee_id} (polling mode - no action needed)`);
   }, []);
 
   // Unsubscribe from specific employee (no-op for polling, kept for API compatibility)
-  const unsubscribeFromEmployee = useCallback((employeeId: string) => {
-    log.dev(`Unsubscribe from employee ${employeeId} (polling mode - no action needed)`);
+  const unsubscribeFromEmployee = useCallback((employee_id: string) => {
+    log.dev(`Unsubscribe from employee ${employee_id} (polling mode - no action needed)`);
   }, []);
 
   // Auto-connect and start polling on mount
@@ -210,13 +210,13 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
         const newRiders = new Map();
         let hasChanges = false;
 
-        prev.forEach((rider, employeeId) => {
+        prev.forEach((rider, employee_id) => {
           const newStatus = getRiderStatus(rider.timestamp);
           if (newStatus !== rider.status) {
             hasChanges = true;
           }
 
-          newRiders.set(employeeId, {
+          newRiders.set(employee_id, {
             ...rider,
             status: newStatus
           });

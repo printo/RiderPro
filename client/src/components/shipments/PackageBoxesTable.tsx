@@ -21,14 +21,14 @@ interface PackageBox {
 }
 
 interface PackageBoxesTableProps {
-  packageBoxes: PackageBox[] | null | undefined;
+  package_boxes: PackageBox[] | null | undefined;
   className?: string;
 }
 
-export default function PackageBoxesTable({ packageBoxes, className }: PackageBoxesTableProps) {
+export default function PackageBoxesTable({ package_boxes, className }: PackageBoxesTableProps) {
   // Calculate totals
   const totals = useMemo(() => {
-    if (!packageBoxes || !Array.isArray(packageBoxes) || packageBoxes.length === 0) {
+    if (!package_boxes || !Array.isArray(package_boxes) || package_boxes.length === 0) {
       return null;
     }
 
@@ -41,16 +41,16 @@ export default function PackageBoxesTable({ packageBoxes, className }: PackageBo
 
     const initial: Totals = { quantity: 0, weight: 0, volume: 0, price: 0 };
 
-    return packageBoxes.reduce<Totals>((acc, box) => {
+    return package_boxes.reduce<Totals>((acc, box) => {
       acc.quantity = acc.quantity + (box.quantity ?? 0);
       acc.weight = acc.weight + (box.weight ?? 0);
       acc.volume = acc.volume + (box.volume ?? 0);
       acc.price = acc.price + (box.price ?? 0);
       return acc;
     }, initial);
-  }, [packageBoxes]);
+  }, [package_boxes]);
 
-  if (!packageBoxes || !Array.isArray(packageBoxes) || packageBoxes.length === 0) {
+  if (!package_boxes || !Array.isArray(package_boxes) || package_boxes.length === 0) {
     return (
       <div className={`flex flex-col items-center justify-center py-12 px-4 ${className || ''}`}>
         <div className="rounded-full bg-gray-100 dark:bg-gray-800 p-4 mb-4">
@@ -105,7 +105,7 @@ export default function PackageBoxesTable({ packageBoxes, className }: PackageBo
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {packageBoxes.map((box: PackageBox, index: number) => (
+                {package_boxes.map((box, index) => (
                   <tr
                     key={index}
                     className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -172,4 +172,3 @@ export default function PackageBoxesTable({ packageBoxes, className }: PackageBo
     </div>
   );
 }
-

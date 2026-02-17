@@ -32,9 +32,10 @@ import ExportDialog from '@/components/ui/forms/ExportDialog';
 
 import { AnalyticsFilters as BaseAnalyticsFilters, RouteAnalytics } from '@shared/types';
 
-interface AnalyticsFilters extends Omit<BaseAnalyticsFilters, 'dateRange'> {
-  dateRange: DateRange | undefined;
-  viewType: 'daily' | 'weekly' | 'monthly';
+interface AnalyticsFilters {
+  date_range: DateRange | undefined;
+  employee_id?: string;
+  view_type: 'daily' | 'weekly' | 'monthly';
 }
 
 interface Employee {
@@ -44,11 +45,11 @@ interface Employee {
 
 function RouteAnalyticsPage() {
   const [filters, setFilters] = useState<AnalyticsFilters>({
-    dateRange: {
+    date_range: {
       from: subDays(new Date(), 30),
       to: new Date()
     },
-    viewType: 'daily'
+    view_type: 'daily'
   });
 
   const isMobile = useIsMobile();
@@ -60,26 +61,26 @@ function RouteAnalyticsPage() {
   const { data: analyticsData, isLoading, error, refetch } = useQuery({
     queryKey: ['route-analytics', filters],
     queryFn: async (): Promise<RouteAnalytics[]> => {
-      const params = {
-        startDate: filters.dateRange?.from ? format(filters.dateRange.from, 'yyyy-MM-dd') : undefined,
-        endDate: filters.dateRange?.to ? format(filters.dateRange.to, 'yyyy-MM-dd') : undefined,
-        employeeId: filters.employeeId
-      };
+      const params = new URLSearchParams();
+      if (filters.date_range?.from) params.append('start_date', format(filters.date_range.from, 'yyyy-MM-dd'));
+      if (filters.date_range?.to) params.append('end_date', format(filters.date_range.to, 'yyyy-MM-dd'));
+      if (filters.employee_id) params.append('employee_id', filters.employee_id);
 
-      const response = await fetch(`/api/routes/analytics${params.startDate || params.endDate || params.employeeId ? '?' + new URLSearchParams(Object.entries(params).filter(([_, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')) : ''}`, {
+      const url = `/api/routes/analytics${params.toString() ? '?' + params.toString() : ''}`;
+      const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
         }
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch analytics data');
       }
-      
+
       const result = await response.json();
       return result.analytics || [];
     },
-    enabled: !!filters.dateRange?.from && !!filters.dateRange?.to
+    enabled: !!filters.date_range?.from && !!filters.date_range?.to
   });
 
   // Fetch employee list for filter dropdown
@@ -89,8 +90,8 @@ function RouteAnalyticsPage() {
       // This would typically come from an employees API
       // For now, we'll extract unique employee IDs from analytics data
       if (analyticsData) {
-        const uniqueEmployees = Array.from(new Set(analyticsData.map((item: RouteAnalytics) => item.employeeId)));
-        return uniqueEmployees.map(id => ({ id, name: `Employee ${id}` }));
+        const uniqueEmployees = Array.from(new Set(analyticsData.map((item: RouteAnalytics) => item.employee_id)));
+        return uniqueEmployees.map(id => ({ id, name: id ? `Employee ${id}` : 'Unknown Employee' }));
       }
       return [];
     },
@@ -101,56 +102,56 @@ function RouteAnalyticsPage() {
   const summaryMetrics = useMemo(() => {
     if (!analyticsData || analyticsData.length === 0) {
       return {
-        totalDistance: 0,
-        totalTime: 0,
-        totalFuelCost: 0,
-        totalShipments: 0,
-        averageSpeed: 0,
-        averageEfficiency: 0
+        total_distance: 0,
+        total_time: 0,
+        total_fuel_cost: 0,
+        total_shipments: 0,
+        average_speed: 0,
+        average_efficiency: 0
       };
     }
 
     const totals = analyticsData.reduce((acc, item: RouteAnalytics) => ({
-      totalDistance: acc.totalDistance + (item.totalDistance || 0),
-      totalTime: acc.totalTime + (item.totalTime || 0),
-      totalFuelCost: acc.totalFuelCost + (item.fuelCost || 0),
-      totalShipments: acc.totalShipments + (item.shipmentsCompleted || 0),
-      totalFuelConsumed: acc.totalFuelConsumed + (item.fuelConsumed || 0)
+      total_distance: acc.total_distance + (item.total_distance || 0),
+      total_time: acc.total_time + (item.total_time || 0),
+      total_fuel_cost: acc.total_fuel_cost + (item.fuel_cost || 0),
+      total_shipments: acc.total_shipments + (item.shipments_completed || 0),
+      total_fuel_consumed: acc.total_fuel_consumed + (item.fuel_consumed || 0)
     }), {
-      totalDistance: 0,
-      totalTime: 0,
-      totalFuelCost: 0,
-      totalShipments: 0,
-      totalFuelConsumed: 0
+      total_distance: 0,
+      total_time: 0,
+      total_fuel_cost: 0,
+      total_shipments: 0,
+      total_fuel_consumed: 0
     });
 
     return {
       ...totals,
-      averageSpeed: totals.totalTime > 0 ? (totals.totalDistance / (totals.totalTime / 3600)) : 0,
-      averageEfficiency: totals.totalShipments > 0 ? (totals.totalDistance / totals.totalShipments) : 0
+      average_speed: totals.total_time > 0 ? (totals.total_distance / (totals.total_time / 3600)) : 0,
+      average_efficiency: totals.total_shipments > 0 ? (totals.total_distance / totals.total_shipments) : 0
     };
   }, [analyticsData]);
 
-  const handleDateRangeChange = (dateRange: DateRange | undefined) => {
-    setFilters(prev => ({ ...prev, dateRange }));
+  const handleDateRangeChange = (date_range: DateRange | undefined) => {
+    setFilters(prev => ({ ...prev, date_range }));
   };
 
-  const handleEmployeeChange = (employeeId: string) => {
+  const handleEmployeeChange = (employee_id: string) => {
     setFilters(prev => ({
       ...prev,
-      employeeId: employeeId === 'all' ? undefined : employeeId
+      employee_id: employee_id === 'all' ? undefined : employee_id
     }));
   };
 
-  const handleViewTypeChange = (viewType: 'daily' | 'weekly' | 'monthly') => {
-    setFilters(prev => ({ ...prev, viewType }));
+  const handleViewTypeChange = (view_type: 'daily' | 'weekly' | 'monthly') => {
+    setFilters(prev => ({ ...prev, view_type }));
   };
 
   const handleExport = async () => {
     setShowExportDialog(true);
   };
 
-  if (isLoading) {
+  if (isLoading && !analyticsData) {
     return (
       <div className="flex items-center justify-center h-full">
         <p>Loading analytics data...</p>
@@ -204,7 +205,7 @@ function RouteAnalyticsPage() {
               <div className="space-y-2">
                 <Label>Date Range</Label>
                 <DatePickerWithRange
-                  date={filters.dateRange}
+                  date={filters.date_range}
                   onDateChange={handleDateRangeChange}
                 />
               </div>
@@ -212,7 +213,7 @@ function RouteAnalyticsPage() {
               <div className="space-y-2">
                 <Label>Employee</Label>
                 <Select
-                  value={filters.employeeId || 'all'}
+                  value={filters.employee_id || 'all'}
                   onValueChange={handleEmployeeChange}
                 >
                   <SelectTrigger>
@@ -232,7 +233,7 @@ function RouteAnalyticsPage() {
               <div className="space-y-2">
                 <Label>View Type</Label>
                 <Select
-                  value={filters.viewType}
+                  value={filters.view_type}
                   onValueChange={handleViewTypeChange}
                 >
                   <SelectTrigger>
@@ -262,7 +263,7 @@ function RouteAnalyticsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <MetricCard
             title="Total Distance"
-            value={summaryMetrics.totalDistance.toFixed(1)}
+            value={summaryMetrics.total_distance.toFixed(1)}
             suffix=" km"
             icon={MapPin}
             iconBgColor="bg-blue-100 dark:bg-blue-900/30"
@@ -272,7 +273,7 @@ function RouteAnalyticsPage() {
 
           <MetricCard
             title="Total Time"
-            value={Math.round(summaryMetrics.totalTime / 3600)}
+            value={Math.round(summaryMetrics.total_time / 3600)}
             suffix=" hrs"
             icon={Clock}
             iconBgColor="bg-green-100 dark:bg-green-900/30"
@@ -282,7 +283,7 @@ function RouteAnalyticsPage() {
 
           <MetricCard
             title="Fuel Cost"
-            value={`$${summaryMetrics.totalFuelCost.toFixed(2)}`}
+            value={`$${summaryMetrics.total_fuel_cost.toFixed(2)}`}
             icon={Fuel}
             iconBgColor="bg-orange-100 dark:bg-orange-900/30"
             iconColor="text-orange-600"
@@ -291,7 +292,7 @@ function RouteAnalyticsPage() {
 
           <MetricCard
             title="Shipments"
-            value={summaryMetrics.totalShipments}
+            value={summaryMetrics.total_shipments}
             icon={Users}
             iconBgColor="bg-purple-100 dark:bg-purple-900/30"
             iconColor="text-purple-600"
@@ -337,23 +338,23 @@ function RouteAnalyticsPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <PerformanceMetricsChart
                       data={analyticsData || []}
-                      viewType={filters.viewType}
+                      viewType={filters.view_type}
                     />
                     <FuelAnalyticsChart
                       data={analyticsData || []}
-                      viewType={filters.viewType}
+                      viewType={filters.view_type}
                     />
                   </div>
                   <RouteComparisonChart
                     data={analyticsData || []}
-                    viewType={filters.viewType}
+                    viewType={filters.view_type}
                   />
                 </TabsContent>
 
                 <TabsContent value="performance" className="space-y-6 mt-0">
                   <PerformanceMetricsChart
                     data={analyticsData || []}
-                    viewType={filters.viewType}
+                    viewType={filters.view_type}
                     detailed={true}
                   />
                 </TabsContent>
@@ -361,7 +362,7 @@ function RouteAnalyticsPage() {
                 <TabsContent value="fuel" className="space-y-6 mt-0">
                   <FuelAnalyticsChart
                     data={analyticsData || []}
-                    viewType={filters.viewType}
+                    viewType={filters.view_type}
                     detailed={true}
                   />
                 </TabsContent>
@@ -369,7 +370,7 @@ function RouteAnalyticsPage() {
                 <TabsContent value="employees" className="space-y-6 mt-0">
                   <EmployeePerformanceTable
                     data={analyticsData || []}
-                    dateRange={filters.dateRange}
+                    dateRange={filters.date_range}
                   />
                 </TabsContent>
               </div>

@@ -36,7 +36,7 @@ function LiveTrackingDashboard() {
   }, []);
 
   const handleCenterOnRider = useCallback((riderId: string) => {
-    const rider = riders.find(r => r.employeeId === riderId);
+    const rider = riders.find(r => r.employee_id === riderId);
     if (rider) {
       setMapCenter([rider.latitude, rider.longitude]);
       setSelectedRider(riderId);
@@ -52,7 +52,7 @@ function LiveTrackingDashboard() {
     const isConnected = connectionStatus === 'connected';
     const isPending = connectionStatus === 'connecting';
     const hasError = connectionStatus === 'error';
-    
+
     return (
       <ConnectionStatus
         type="live-tracking"

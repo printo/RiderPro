@@ -1,11 +1,10 @@
 import { cn } from "@/lib/utils";
 import { ShipmentStatus } from "@shared/types";
-import { 
-  CheckCircle2, 
-  Clock, 
-  Loader2, 
-  Package, 
-  Truck, 
+import {
+  CheckCircle2,
+  Clock,
+  Package,
+  Truck,
   XCircle,
   ArrowRightLeft,
   PackageCheck,
@@ -17,7 +16,7 @@ interface ShipmentStatusBadgeProps {
   type?: 'delivery' | 'pickup';
   className?: string;
   size?: 'sm' | 'md' | 'lg';
-  showIcon?: boolean;
+  show_icon?: boolean;
 }
 
 export function ShipmentStatusBadge({
@@ -25,9 +24,9 @@ export function ShipmentStatusBadge({
   type = 'delivery',
   className = '',
   size = 'md',
-  showIcon = true
+  show_icon = true
 }: ShipmentStatusBadgeProps) {
-  const statusConfig = {
+  const status_config = {
     'Initiated': {
       icon: Clock,
       color: 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -70,29 +69,29 @@ export function ShipmentStatusBadge({
     }
   };
 
-  const config = statusConfig[status] || {
+  const config = status_config[status] || {
     icon: Clock,
     color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
     label: status
   };
 
   const Icon = config.icon;
-  const sizeClasses = {
+  const size_classes = {
     sm: 'text-xs px-2 py-0.5',
     md: 'text-sm px-2.5 py-1',
     lg: 'text-base px-3 py-1.5'
   };
 
   return (
-    <div 
+    <div
       className={cn(
         'inline-flex items-center rounded-full font-medium whitespace-nowrap',
-        sizeClasses[size],
+        size_classes[size],
         config.color,
         className
       )}
     >
-      {showIcon && <Icon className={`${size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5'} mr-1.5`} />}
+      {show_icon && <Icon className={`${size === 'sm' ? 'h-3 w-3' : 'h-3.5 w-3.5'} mr-1.5`} />}
       <span>{config.label}</span>
     </div>
   );

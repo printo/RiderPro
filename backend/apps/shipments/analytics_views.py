@@ -23,9 +23,9 @@ def route_analytics(request):
     Returns analytics grouped by employee and date
     """
     user = request.user
-    employee_id = request.query_params.get('employeeId')
-    start_date = request.query_params.get('startDate')
-    end_date = request.query_params.get('endDate')
+    employee_id = request.query_params.get('employee_id')
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
     date = request.query_params.get('date')
     
     # Build query
@@ -47,30 +47,30 @@ def route_analytics(request):
     
     # Group by employee_id and date, calculate metrics
     analytics = queryset.values('employee_id', date=TruncDate('start_time')).annotate(
-        totalDistance=Sum('total_distance'),
-        totalTime=Sum('total_time'),
-        averageSpeed=Avg('average_speed'),
-        fuelConsumed=Sum('fuel_consumed'),
-        fuelCost=Sum('fuel_cost'),
-        shipmentsCompleted=Sum('shipments_completed')
+        total_distance=Sum('total_distance'),
+        total_time=Sum('total_time'),
+        average_speed=Avg('average_speed'),
+        fuel_consumed=Sum('fuel_consumed'),
+        fuel_cost=Sum('fuel_cost'),
+        shipments_completed=Sum('shipments_completed')
     ).order_by('-date')
     
     # Calculate efficiency (distance per shipment)
     result = []
     for item in analytics:
         efficiency = 0
-        if item['shipmentsCompleted'] and item['shipmentsCompleted'] > 0:
-            efficiency = (item['totalDistance'] or 0) / item['shipmentsCompleted']
+        if item['shipments_completed'] and item['shipments_completed'] > 0:
+            efficiency = (item['total_distance'] or 0) / item['shipments_completed']
         
         result.append({
-            'employeeId': item['employee_id'],
+            'employee_id': item['employee_id'],
             'date': item['date'].isoformat() if item['date'] else None,
-            'totalDistance': float(item['totalDistance'] or 0),
-            'totalTime': int(item['totalTime'] or 0),
-            'averageSpeed': float(item['averageSpeed'] or 0),
-            'fuelConsumed': float(item['fuelConsumed'] or 0),
-            'fuelCost': float(item['fuelCost'] or 0),
-            'shipmentsCompleted': int(item['shipmentsCompleted'] or 0),
+            'total_distance': float(item['total_distance'] or 0),
+            'total_time': int(item['total_time'] or 0),
+            'average_speed': float(item['average_speed'] or 0),
+            'fuel_consumed': float(item['fuel_consumed'] or 0),
+            'fuel_cost': float(item['fuel_cost'] or 0),
+            'shipments_completed': int(item['shipments_completed'] or 0),
             'efficiency': efficiency
         })
     
@@ -87,9 +87,9 @@ def employee_analytics(request):
     Get employee performance metrics - matches /api/analytics/employees
     """
     user = request.user
-    employee_id = request.query_params.get('employeeId')
-    start_date = request.query_params.get('startDate')
-    end_date = request.query_params.get('endDate')
+    employee_id = request.query_params.get('employee_id')
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
     
     queryset = RouteSession.objects.all()
     
@@ -103,26 +103,26 @@ def employee_analytics(request):
         queryset = queryset.filter(start_time__date__gte=start_date, start_time__date__lte=end_date)
     
     metrics = queryset.values('employee_id').annotate(
-        totalSessions=Count('id'),
-        totalDistance=Sum('total_distance'),
-        totalTime=Sum('total_time'),
-        averageSpeed=Avg('average_speed'),
-        fuelConsumed=Sum('fuel_consumed'),
-        fuelCost=Sum('fuel_cost'),
-        shipmentsCompleted=Sum('shipments_completed')
-    ).order_by('-shipmentsCompleted')
+        total_sessions=Count('id'),
+        total_distance=Sum('total_distance'),
+        total_time=Sum('total_time'),
+        average_speed=Avg('average_speed'),
+        fuel_consumed=Sum('fuel_consumed'),
+        fuel_cost=Sum('fuel_cost'),
+        shipments_completed=Sum('shipments_completed')
+    ).order_by('-shipments_completed')
     
     result = []
     for item in metrics:
         result.append({
-            'employeeId': item['employee_id'],
-            'totalSessions': item['totalSessions'],
-            'totalDistance': float(item['totalDistance'] or 0),
-            'totalTime': int(item['totalTime'] or 0),
-            'averageSpeed': float(item['averageSpeed'] or 0),
-            'fuelConsumed': float(item['fuelConsumed'] or 0),
-            'fuelCost': float(item['fuelCost'] or 0),
-            'shipmentsCompleted': int(item['shipmentsCompleted'] or 0)
+            'employee_id': item['employee_id'],
+            'total_sessions': item['total_sessions'],
+            'total_distance': float(item['total_distance'] or 0),
+            'total_time': int(item['total_time'] or 0),
+            'average_speed': float(item['average_speed'] or 0),
+            'fuel_consumed': float(item['fuel_consumed'] or 0),
+            'fuel_cost': float(item['fuel_cost'] or 0),
+            'shipments_completed': int(item['shipments_completed'] or 0)
         })
     
     return Response({
@@ -138,9 +138,9 @@ def route_metrics(request):
     Get route performance metrics - matches /api/analytics/routes
     """
     user = request.user
-    employee_id = request.query_params.get('employeeId')
-    start_date = request.query_params.get('startDate')
-    end_date = request.query_params.get('endDate')
+    employee_id = request.query_params.get('employee_id')
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
     
     queryset = RouteSession.objects.all()
     
@@ -154,25 +154,25 @@ def route_metrics(request):
         queryset = queryset.filter(start_time__date__gte=start_date, start_time__date__lte=end_date)
     
     metrics = queryset.aggregate(
-        totalSessions=Count('id'),
-        totalDistance=Sum('total_distance'),
-        totalTime=Sum('total_time'),
-        averageSpeed=Avg('average_speed'),
-        fuelConsumed=Sum('fuel_consumed'),
-        fuelCost=Sum('fuel_cost'),
-        shipmentsCompleted=Sum('shipments_completed')
+        total_sessions=Count('id'),
+        total_distance=Sum('total_distance'),
+        total_time=Sum('total_time'),
+        average_speed=Avg('average_speed'),
+        fuel_consumed=Sum('fuel_consumed'),
+        fuel_cost=Sum('fuel_cost'),
+        shipments_completed=Sum('shipments_completed')
     )
     
     return Response({
         'success': True,
         'metrics': [{
-            'totalSessions': metrics['totalSessions'] or 0,
-            'totalDistance': float(metrics['totalDistance'] or 0),
-            'totalTime': int(metrics['totalTime'] or 0),
-            'averageSpeed': float(metrics['averageSpeed'] or 0),
-            'fuelConsumed': float(metrics['fuelConsumed'] or 0),
-            'fuelCost': float(metrics['fuelCost'] or 0),
-            'shipmentsCompleted': int(metrics['shipmentsCompleted'] or 0)
+            'total_sessions': metrics['total_sessions'] or 0,
+            'total_distance': float(metrics['total_distance'] or 0),
+            'total_time': int(metrics['total_time'] or 0),
+            'average_speed': float(metrics['average_speed'] or 0),
+            'fuel_consumed': float(metrics['fuel_consumed'] or 0),
+            'fuel_cost': float(metrics['fuel_cost'] or 0),
+            'shipments_completed': int(metrics['shipments_completed'] or 0)
         }]
     })
 
@@ -185,9 +185,9 @@ def time_based_analytics(request, group_by):
     groupBy can be: day, week, month
     """
     user = request.user
-    employee_id = request.query_params.get('employeeId')
-    start_date = request.query_params.get('startDate')
-    end_date = request.query_params.get('endDate')
+    employee_id = request.query_params.get('employee_id')
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
     
     queryset = RouteSession.objects.all()
     
@@ -211,26 +211,26 @@ def time_based_analytics(request, group_by):
         trunc = TruncDay('start_time')
     
     metrics = queryset.annotate(period=trunc).values('period').annotate(
-        totalSessions=Count('id'),
-        totalDistance=Sum('total_distance'),
-        totalTime=Sum('total_time'),
-        averageSpeed=Avg('average_speed'),
-        fuelConsumed=Sum('fuel_consumed'),
-        fuelCost=Sum('fuel_cost'),
-        shipmentsCompleted=Sum('shipments_completed')
+        total_sessions=Count('id'),
+        total_distance=Sum('total_distance'),
+        total_time=Sum('total_time'),
+        average_speed=Avg('average_speed'),
+        fuel_consumed=Sum('fuel_consumed'),
+        fuel_cost=Sum('fuel_cost'),
+        shipments_completed=Sum('shipments_completed')
     ).order_by('period')
     
     result = []
     for item in metrics:
         result.append({
             'period': item['period'].isoformat() if item['period'] else None,
-            'totalSessions': item['totalSessions'],
-            'totalDistance': float(item['totalDistance'] or 0),
-            'totalTime': int(item['totalTime'] or 0),
-            'averageSpeed': float(item['averageSpeed'] or 0),
-            'fuelConsumed': float(item['fuelConsumed'] or 0),
-            'fuelCost': float(item['fuelCost'] or 0),
-            'shipmentsCompleted': int(item['shipmentsCompleted'] or 0)
+            'total_sessions': item['total_sessions'],
+            'total_distance': float(item['total_distance'] or 0),
+            'total_time': int(item['total_time'] or 0),
+            'average_speed': float(item['average_speed'] or 0),
+            'fuel_consumed': float(item['fuel_consumed'] or 0),
+            'fuel_cost': float(item['fuel_cost'] or 0),
+            'shipments_completed': int(item['shipments_completed'] or 0)
         })
     
     return Response({
@@ -246,9 +246,9 @@ def fuel_analytics(request):
     Get fuel analytics - matches /api/analytics/fuel
     """
     user = request.user
-    employee_id = request.query_params.get('employeeId')
-    start_date = request.query_params.get('startDate')
-    end_date = request.query_params.get('endDate')
+    employee_id = request.query_params.get('employee_id')
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
     
     queryset = RouteSession.objects.all()
     
@@ -262,14 +262,14 @@ def fuel_analytics(request):
         queryset = queryset.filter(start_time__date__gte=start_date, start_time__date__lte=end_date)
     
     metrics = queryset.aggregate(
-        totalFuelConsumed=Sum('fuel_consumed'),
-        totalFuelCost=Sum('fuel_cost'),
-        totalDistance=Sum('total_distance'),
-        averageEfficiency=Avg('average_speed')  # Simplified - would need proper fuel efficiency calculation
+        total_fuel_consumed=Sum('fuel_consumed'),
+        total_fuel_cost=Sum('fuel_cost'),
+        total_distance=Sum('total_distance'),
+        average_efficiency=Avg('average_speed')
     )
     
-    total_fuel = float(metrics['totalFuelConsumed'] or 0)
-    total_distance = float(metrics['totalDistance'] or 0)
+    total_fuel = float(metrics['total_fuel_consumed'] or 0)
+    total_distance = float(metrics['total_distance'] or 0)
     fuel_per_km = 0
     if total_distance > 0:
         fuel_per_km = total_fuel / total_distance
@@ -277,11 +277,11 @@ def fuel_analytics(request):
     return Response({
         'success': True,
         'analytics': {
-            'totalFuelConsumed': total_fuel,
-            'totalFuelCost': float(metrics['totalFuelCost'] or 0),
-            'totalDistance': total_distance,
-            'averageEfficiency': float(metrics['averageEfficiency'] or 0),
-            'fuelPerKm': fuel_per_km
+            'total_fuel_consumed': total_fuel,
+            'total_fuel_cost': float(metrics['total_fuel_cost'] or 0),
+            'total_distance': total_distance,
+            'average_efficiency': float(metrics['average_efficiency'] or 0),
+            'fuel_per_km': fuel_per_km
         }
     })
 
@@ -295,8 +295,8 @@ def top_performers(request, metric):
     """
     user = request.user
     limit = int(request.query_params.get('limit', 10))
-    start_date = request.query_params.get('startDate')
-    end_date = request.query_params.get('endDate')
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
     
     queryset = RouteSession.objects.all()
     
@@ -309,25 +309,25 @@ def top_performers(request, metric):
     
     # Group by employee and calculate metrics
     employees = queryset.values('employee_id').annotate(
-        totalDistance=Sum('total_distance'),
-        totalTime=Sum('total_time'),
-        shipmentsCompleted=Sum('shipments_completed'),
-        fuelConsumed=Sum('fuel_consumed')
+        total_distance=Sum('total_distance'),
+        total_time=Sum('total_time'),
+        shipments_completed=Sum('shipments_completed'),
+        fuel_consumed=Sum('fuel_consumed')
     )
     
     # Calculate efficiency
     result = []
     for emp in employees:
         efficiency = 0
-        if emp['shipmentsCompleted'] and emp['shipmentsCompleted'] > 0:
-            efficiency = (emp['totalDistance'] or 0) / emp['shipmentsCompleted']
+        if emp['shipments_completed'] and emp['shipments_completed'] > 0:
+            efficiency = (emp['total_distance'] or 0) / emp['shipments_completed']
         
         result.append({
-            'employeeId': emp['employee_id'],
-            'distance': float(emp['totalDistance'] or 0),
+            'employee_id': emp['employee_id'],
+            'distance': float(emp['total_distance'] or 0),
             'efficiency': efficiency,
-            'fuel': float(emp['fuelConsumed'] or 0),
-            'shipments': int(emp['shipmentsCompleted'] or 0)
+            'fuel': float(emp['fuel_consumed'] or 0),
+            'shipments': int(emp['shipments_completed'] or 0)
         })
     
     # Sort by metric
@@ -355,9 +355,9 @@ def hourly_activity(request):
     Get hourly activity - matches /api/analytics/activity/hourly
     """
     user = request.user
-    employee_id = request.query_params.get('employeeId')
-    start_date = request.query_params.get('startDate')
-    end_date = request.query_params.get('endDate')
+    employee_id = request.query_params.get('employee_id')
+    start_date = request.query_params.get('start_date')
+    end_date = request.query_params.get('end_date')
     
     queryset = RouteSession.objects.all()
     
@@ -373,8 +373,8 @@ def hourly_activity(request):
     # Group by hour
     hourly = queryset.annotate(hour=TruncHour('start_time')).values('hour').annotate(
         count=Count('id'),
-        totalDistance=Sum('total_distance'),
-        shipmentsCompleted=Sum('shipments_completed')
+        total_distance=Sum('total_distance'),
+        shipments_completed=Sum('shipments_completed')
     ).order_by('hour')
     
     result = []
@@ -382,12 +382,11 @@ def hourly_activity(request):
         result.append({
             'hour': item['hour'].isoformat() if item['hour'] else None,
             'count': item['count'],
-            'totalDistance': float(item['totalDistance'] or 0),
-            'shipmentsCompleted': int(item['shipmentsCompleted'] or 0)
+            'total_distance': float(item['total_distance'] or 0),
+            'shipments_completed': int(item['shipments_completed'] or 0)
         })
     
     return Response({
         'success': True,
         'activity': result
     })
-

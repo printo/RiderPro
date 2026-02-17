@@ -103,7 +103,7 @@ class LoginSerializer(serializers.Serializer):
 
 
 class LoginResponseSerializer(serializers.Serializer):
-    """Login response serializer - matches current Node.js backend format"""
+    """Login response serializer"""
     success = serializers.BooleanField()
     message = serializers.CharField()
     access = serializers.CharField(required=False)
@@ -113,9 +113,3 @@ class LoginResponseSerializer(serializers.Serializer):
     is_super_user = serializers.BooleanField(required=False)
     is_ops_team = serializers.BooleanField(required=False)
     username = serializers.CharField(required=False)
-
-
-
-
-
-

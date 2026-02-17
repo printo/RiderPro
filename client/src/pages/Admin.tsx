@@ -1,10 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { apiClient } from "@/services/ApiClient";
 import { apiRequest } from "@/lib/queryClient";
-import { Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Database, Plus, X, MapPin, Layers } from "lucide-react";
+import { Fuel, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Plus, X } from "lucide-react";
 import { useState, useEffect } from "react";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -13,9 +11,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import FuelSettingsModal from "@/components/ui/forms/FuelSettingsModal";
 import CurrentFuelSettings from "@/components/ui/forms/CurrentFuelSettings";
-import { VehicleType, PendingUser, AllUser, Homebase } from '@shared/types';
+import { VehicleType, PendingUser, AllUser } from '@shared/types';
 import { DispatchBadge } from '@/components/ui/DispatchBadge';
-import { HomebaseBadge, HomebaseIdBadge } from '@/components/ui/HomebaseBadge';
+import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
 import AuthService from '@/services/AuthService';
 
 interface EditingUser {
@@ -152,10 +150,6 @@ function VehicleTypeForm({ vehicle, onSave, onCancel }: VehicleTypeFormProps) {
 
 function AdminPage() {
   const { user } = useAuth();
-  const [payloadInput, setPayloadInput] = useState<string>('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Array<{ index: number, success: boolean, trackingNumber?: string, error?: string }>>([]);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [allUsers, setAllUsers] = useState<AllUser[]>([]);
@@ -178,8 +172,8 @@ function AdminPage() {
   const { toast } = useToast();
 
   // Allow both super users and managers (ops_team/staff) to access admin
-  const canAccessAdmin = !!(user?.isSuperUser || user?.isOpsTeam || user?.isStaff);
-  const _canEdit = !!(user?.isSuperUser || user?.isOpsTeam || user?.isStaff);
+  const canAccessAdmin = !!(user?.is_super_user || user?.is_ops_team || user?.is_staff);
+  const _canEdit = !!(user?.is_super_user || user?.is_ops_team || user?.is_staff);
 
   // Load pending users and access tokens
   useEffect(() => {
@@ -248,7 +242,7 @@ function AdminPage() {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to sync homebases",
@@ -455,207 +449,7 @@ function AdminPage() {
     }
   };
 
-  const handleTestShipments = async () => {
-    if (!payloadInput.trim()) {
-      setValidationError('Please enter shipment data');
-      return;
-    }
 
-    setValidationError(null);
-    setIsSubmitting(true);
-    setTestResults([]);
-
-    try {
-      const lines = payloadInput.trim().split('\n').filter(line => line.trim());
-      const results = [];
-
-      for (let i = 0; i < lines.length; i++) {
-        try {
-          await apiClient.post('/shipments/test', {
-            trackingNumber: lines[i].trim()
-          });
-
-          results.push({
-            index: i + 1,
-            success: true,
-            trackingNumber: lines[i].trim()
-          });
-        } catch (error) {
-          results.push({
-            index: i + 1,
-            success: false,
-            trackingNumber: lines[i].trim(),
-            error: error instanceof Error ? error.message : 'Unknown error'
-          });
-        }
-      }
-
-      setTestResults(results);
-    } catch (error) {
-      console.error('Test failed:', error);
-      toast({
-        title: "Error",
-        description: "Failed to test shipments",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const clearResults = () => {
-    setTestResults([]);
-    setPayloadInput('');
-  };
-
-  const generateSampleData = async () => {
-    setIsSubmitting(true);
-    setValidationError(null);
-
-    try {
-      // Generate sample shipment data with all database fields
-      const sampleShipments = [
-        {
-          shipment_id: 'SHP001',
-          type: 'delivery',
-          customerName: 'John Smith',
-          customerMobile: '+1234567890',
-          address: '123 Main Street, Downtown',
-          latitude: 40.7128,
-          longitude: -74.0060,
-          cost: 25.00,
-          deliveryTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-          routeName: 'Route-001',
-          employeeId: 'EMP001',
-          status: 'Assigned',
-          priority: 'medium',
-          pickupAddress: 'Warehouse A, Industrial Area',
-          weight: 2.5,
-          package_boxes: [
-            { id: 1, name: 'Box 1', quantity: 1, dimensions: { length: 30, breadth: 20, height: 15, unit: 'cm' }, weight: 2.5 }
-          ],
-          specialInstructions: 'Handle with care - fragile items',
-          actualDeliveryTime: null,
-          start_latitude: null,
-          start_longitude: null,
-          stop_latitude: null,
-          stop_longitude: null,
-          km_travelled: 0,
-          synced_to_external: false,
-          last_sync_attempt: null,
-          sync_error: null,
-          sync_status: 'pending',
-          sync_attempts: 0,
-          signature_url: null,
-          photo_url: null,
-          acknowledgment_captured_at: null,
-          acknowledgment_captured_by: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          shipment_id: 'SHP002',
-          type: 'pickup',
-          customerName: 'Sarah Johnson',
-          customerMobile: '+1234567891',
-          address: 'Warehouse B, Industrial Area',
-          latitude: 40.7589,
-          longitude: -73.9851,
-          cost: 18.50,
-          deliveryTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
-          routeName: 'Route-002',
-          employeeId: 'EMP002',
-          status: 'Assigned',
-          priority: 'high',
-          pickupAddress: '456 Oak Avenue, Midtown',
-          weight: 1.8,
-          package_boxes: [
-            { id: 1, name: 'Box 1', quantity: 1, dimensions: { length: 25, breadth: 18, height: 12, unit: 'cm' }, weight: 1.8 }
-          ],
-          specialInstructions: 'Urgent pickup required',
-          actualDeliveryTime: null,
-          start_latitude: null,
-          start_longitude: null,
-          stop_latitude: null,
-          stop_longitude: null,
-          km_travelled: 0,
-          synced_to_external: false,
-          last_sync_attempt: null,
-          sync_error: null,
-          sync_status: 'pending',
-          sync_attempts: 0,
-          signature_url: null,
-          photo_url: null,
-          acknowledgment_captured_at: null,
-          acknowledgment_captured_by: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          shipment_id: 'SHP003',
-          type: 'delivery',
-          customerName: 'Mike Davis',
-          customerMobile: '+1234567892',
-          address: '789 Pine Street, Residential',
-          latitude: 40.7505,
-          longitude: -73.9934,
-          cost: 32.00,
-          deliveryTime: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-          routeName: 'Route-003',
-          employeeId: 'EMP003',
-          status: 'Assigned',
-          priority: 'low',
-          pickupAddress: 'Warehouse C, Suburbs',
-          weight: 3.2,
-          package_boxes: [
-            { id: 1, name: 'Box 1', quantity: 1, dimensions: { length: 35, breadth: 25, height: 20, unit: 'cm' }, weight: 3.2 }
-          ],
-          specialInstructions: 'Delivery after 5 PM',
-          actualDeliveryTime: null,
-          start_latitude: null,
-          start_longitude: null,
-          stop_latitude: null,
-          stop_longitude: null,
-          km_travelled: 0,
-          synced_to_external: false,
-          last_sync_attempt: null,
-          sync_error: null,
-          sync_status: 'pending',
-          sync_attempts: 0,
-          signature_url: null,
-          photo_url: null,
-          acknowledgment_captured_at: null,
-          acknowledgment_captured_by: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-
-      setPayloadInput(JSON.stringify(sampleShipments, null, 2));
-
-      toast({
-        title: "Sample Data Generated",
-        description: "Complete sample shipment data with all database fields has been added",
-      });
-    } catch (error) {
-      console.error('Failed to generate sample data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate sample data",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copied",
-      description: "Text copied to clipboard",
-    });
-  };
 
   const filteredUsers = allUsers.filter(user =>
     user.full_name.toLowerCase().includes(userFilter.toLowerCase()) ||
@@ -702,100 +496,6 @@ function AdminPage() {
           </button>
         </p>
       </div>
-
-      {/* Shipment Testing Section */}
-      <Card className="mb-6">
-        <CardHeader>
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Send className="h-5 w-5" />
-            Shipment Testing
-          </h2>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Enter shipment data (JSON format):
-              </label>
-              <Textarea
-                value={payloadInput}
-                onChange={(e) => setPayloadInput(e.target.value)}
-                placeholder="Enter shipment data in JSON format or use 'Generate Sample Data' button..."
-                className="min-h-[200px] font-mono text-sm"
-              />
-              {validationError && (
-                <p className="text-sm text-red-600">{validationError}</p>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2 flex-wrap">
-              <Button
-                onClick={handleTestShipments}
-                disabled={isSubmitting}
-                className="flex items-center gap-2"
-              >
-                <Send className="h-4 w-4" />
-                {isSubmitting ? 'Testing...' : 'Test Shipments'}
-              </Button>
-              <Button
-                onClick={generateSampleData}
-                disabled={isSubmitting}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Database className="h-4 w-4" />
-                Generate Sample Data
-              </Button>
-              <Button
-                onClick={clearResults}
-                variant="outline"
-                className="flex items-center gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                Clear
-              </Button>
-            </div>
-
-            {/* Test Results */}
-            {testResults.length > 0 && (
-              <div className="mt-6 space-y-2">
-                <h4 className="text-sm font-medium">Test Results:</h4>
-                <div className="bg-gray-50 p-4 rounded-lg space-y-2 max-h-60 overflow-y-auto">
-                  {testResults.map((result, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-center justify-between p-2 rounded ${result.success ? 'bg-green-50' : 'bg-red-50'
-                        }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono">
-                          {result.index}. {result.trackingNumber}
-                        </span>
-                        {result.success ? (
-                          <span className="text-green-600 text-xs">✓ Success</span>
-                        ) : (
-                          <span className="text-red-600 text-xs">✗ Failed</span>
-                        )}
-                      </div>
-                      {result.error && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => copyToClipboard(result.error!)}
-                          className="h-6 px-2"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Fuel Settings Section */}
       <Card className="mb-6">
@@ -897,7 +597,7 @@ function AdminPage() {
                   </div>
                 ) : (
                   <div className="text-center py-4 text-muted-foreground">
-                    <Database className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <Fuel className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">No vehicle types found</p>
                   </div>
                 )}
@@ -953,15 +653,20 @@ function AdminPage() {
                             <div className="w-10 h-10 bg-orange-100 dark:bg-orange-800 rounded-full flex items-center justify-center flex-shrink-0">
                               <Users className="h-5 w-5 text-orange-600" />
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 mb-1">
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <h3 className="font-medium truncate">{user.full_name}</h3>
                                 {user.dispatch_option && <DispatchBadge dispatchOption={user.dispatch_option} />}
                                 {user.primary_homebase_details && <HomebaseBadge homebase={user.primary_homebase_details} className="text-xs" />}
                               </div>
-                              <p className="text-sm text-muted-foreground truncate">
-                                ID: {user.rider_id} • {user.email}
-                              </p>
+                              <div className="space-y-0.5 text-sm text-muted-foreground">
+                                <p className="truncate">
+                                  ID: {user.rider_id}
+                                </p>
+                                <p className="truncate">
+                                  {user.email}
+                                </p>
+                              </div>
                               <p className="text-xs text-muted-foreground">
                                 Registered: {new Date(user.created_at).toLocaleDateString()}
                               </p>
@@ -1004,49 +709,51 @@ function AdminPage() {
 
             {/* All Users Management Section */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-lg font-medium">All Users Management</h3>
-                <Button
-                  onClick={() => {
-                    loadPendingUsers();
-                    loadAllUsers();
-                  }}
-                  disabled={loadingUsers || loadingAllUsers}
-                  variant="outline"
-                  size="sm"
-                >
-                  {(loadingUsers || loadingAllUsers) ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-1" />
-                      Refresh
-                    </>
-                  )}
-                </Button>
-                <Button
-                  onClick={syncHomebases}
-                  disabled={isSyncingHomebases}
-                  variant="outline"
-                  size="sm"
-                  className="ml-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                  title="Sync homebases from POPS"
-                >
-                  {isSyncingHomebases ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                      Syncing...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-1" />
-                      Sync POPS Homebases
-                    </>
-                  )}
-                </Button>
+                <div className="flex flex-wrap gap-2 sm:justify-end">
+                  <Button
+                    onClick={() => {
+                      loadPendingUsers();
+                      loadAllUsers();
+                    }}
+                    disabled={loadingUsers || loadingAllUsers}
+                    variant="outline"
+                    size="sm"
+                  >
+                    {(loadingUsers || loadingAllUsers) ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Refresh
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={syncHomebases}
+                    disabled={isSyncingHomebases}
+                    variant="outline"
+                    size="sm"
+                    className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                    title="Sync homebases from POPS"
+                  >
+                    {isSyncingHomebases ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                        Syncing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Sync POPS Homebases
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
 
               {/* Search */}
@@ -1073,15 +780,15 @@ function AdminPage() {
               ) : (
                 <div className="space-y-3">
                   {filteredUsers.map((user) => (
-                    <div key={user.id} className="border rounded-lg p-4">
+                    <div key={user.id} className="border rounded-lg p-4 bg-muted">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
                               <Users className="h-5 w-5 text-primary" />
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2 mb-1">
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <h3 className="font-medium truncate">{user.full_name}</h3>
                                 {user.dispatch_option && <DispatchBadge dispatchOption={user.dispatch_option} className="text-xs" />}
                                 <Badge variant={user.is_active ? "default" : "secondary"}>
@@ -1097,9 +804,14 @@ function AdminPage() {
                                   <HomebaseBadge homebase={user.primary_homebase_details} className="text-xs" />
                                 )}
                               </div>
-                              <p className="text-sm text-muted-foreground truncate">
-                                ID: {user.rider_id} • {user.email}
-                              </p>
+                              <div className="space-y-0.5 text-sm text-muted-foreground">
+                                <p className="truncate">
+                                  ID: {user.rider_id}
+                                </p>
+                                <p className="truncate">
+                                  {user.email}
+                                </p>
+                              </div>
                               <p className="text-xs text-muted-foreground">
                                 Last Login: {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
                               </p>

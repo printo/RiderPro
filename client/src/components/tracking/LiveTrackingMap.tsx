@@ -49,15 +49,15 @@ const createRiderIcon = (status: 'active' | 'idle' | 'offline') => {
 };
 
 export interface RiderLocation {
-  employeeId: string;
-  sessionId: string;
+  employee_id: string;
+  session_id: string;
   latitude: number;
   longitude: number;
   timestamp: string;
   accuracy?: number;
   speed?: number;
   status: 'active' | 'idle' | 'offline';
-  employeeName?: string;
+  employee_name?: string;
   route?: Array<{ lat: number; lng: number }>;
 }
 
@@ -83,7 +83,7 @@ function MapUpdater({ riders, selectedRider }: { riders: RiderLocation[], select
       map.fitBounds(bounds, { padding: [20, 20] });
     } else if (selectedRider) {
       // Center on selected rider
-      const rider = riders.find(r => r.employeeId === selectedRider);
+      const rider = riders.find(r => r.employee_id === selectedRider);
       if (rider) {
         map.setView([rider.latitude, rider.longitude], 15);
       }
@@ -143,17 +143,17 @@ function LiveTrackingMap({
         {/* Render rider markers */}
         {riders.map((rider) => (
           <Marker
-            key={rider.employeeId}
+            key={rider.employee_id}
             position={[rider.latitude, rider.longitude]}
             icon={createRiderIcon(rider.status)}
             eventHandlers={{
-              click: () => onRiderSelect?.(rider.employeeId)
+              click: () => onRiderSelect?.(rider.employee_id)
             }}
           >
             <Popup>
               <div className="p-2 min-w-[200px]">
                 <div className="font-semibold text-lg mb-2">
-                  {rider.employeeName || `Employee ${rider.employeeId}`}
+                  {rider.employee_name || `Employee ${rider.employee_id}`}
                 </div>
 
                 <div className="space-y-1 text-sm">
@@ -192,7 +192,7 @@ function LiveTrackingMap({
                 </div>
 
                 <button
-                  onClick={() => onRiderSelect?.(rider.employeeId)}
+                  onClick={() => onRiderSelect?.(rider.employee_id)}
                   className="mt-3 w-full bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600 transition-colors"
                 >
                   View Details
@@ -208,7 +208,7 @@ function LiveTrackingMap({
 
           return (
             <Polyline
-              key={`route-${rider.employeeId}`}
+              key={`route-${rider.employee_id}`}
               positions={rider.route.map(point => [point.lat, point.lng])}
               color={rider.status === 'active' ? '#22c55e' : '#6b7280'}
               weight={3}

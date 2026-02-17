@@ -98,21 +98,21 @@ export default function RiderStatusPanel({
             ) : (
               sortedRiders.map((rider) => (
                 <Card
-                  key={rider.employeeId}
-                  className={`cursor-pointer transition-all hover:shadow-md ${selectedRider === rider.employeeId
+                  key={rider.employee_id}
+                  className={`cursor-pointer transition-all hover:shadow-md ${selectedRider === rider.employee_id
                     ? 'ring-2 ring-blue-500 bg-blue-50'
                     : 'hover:bg-gray-50'
                     }`}
-                  onClick={() => onRiderSelect(rider.employeeId)}
+                  onClick={() => onRiderSelect(rider.employee_id)}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <h3 className="font-semibold text-sm">
-                          {rider.employeeName || `Employee ${rider.employeeId}`}
+                          {rider.employee_name || `Employee ${rider.employee_id}`}
                         </h3>
                         <p className="text-xs text-gray-500">
-                          ID: {rider.employeeId}
+                          ID: {rider.employee_id}
                         </p>
                       </div>
 
@@ -165,7 +165,7 @@ export default function RiderStatusPanel({
                         className="flex-1 text-xs"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onCenterOnRider(rider.employeeId);
+                          onCenterOnRider(rider.employee_id);
                         }}
                       >
                         <MapPin className="h-3 w-3 mr-1" />
@@ -174,14 +174,14 @@ export default function RiderStatusPanel({
 
                       <Button
                         size="sm"
-                        variant={selectedRider === rider.employeeId ? "default" : "outline"}
+                        variant={selectedRider === rider.employee_id ? "default" : "outline"}
                         className="flex-1 text-xs"
                         onClick={(e) => {
                           e.stopPropagation();
-                          onRiderSelect(rider.employeeId);
+                          onRiderSelect(rider.employee_id);
                         }}
                       >
-                        {selectedRider === rider.employeeId ? 'Selected' : 'Select'}
+                        {selectedRider === rider.employee_id ? 'Selected' : 'Select'}
                       </Button>
                     </div>
                   </CardContent>

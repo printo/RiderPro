@@ -17,69 +17,69 @@ import { RouteAnalytics } from '@shared/types';
 
 interface PerformanceMetricsChartProps {
   data: RouteAnalytics[];
-  viewType: 'daily' | 'weekly' | 'monthly';
+  view_type: 'daily' | 'weekly' | 'monthly';
   detailed?: boolean;
 }
 
 interface GroupedMetrics {
   date: string;
-  totalDistance: number;
-  totalTime: number;
-  averageSpeed: number;
-  shipmentsCompleted: number;
+  total_distance: number;
+  total_time: number;
+  average_speed: number;
+  shipments_completed: number;
   efficiency: number;
   count: number;
 }
 
 export default function PerformanceMetricsChart({
   data,
-  viewType,
+  view_type,
   detailed = false
 }: PerformanceMetricsChartProps) {
   // Group and aggregate data by date
-  const chartData = React.useMemo(() => {
+  const chart_data = React.useMemo(() => {
     const grouped = data.reduce<Record<string, GroupedMetrics>>((acc, item) => {
       const key = item.date;
       if (!acc[key]) {
         acc[key] = {
           date: key,
-          totalDistance: 0,
-          totalTime: 0,
-          averageSpeed: 0,
-          shipmentsCompleted: 0,
+          total_distance: 0,
+          total_time: 0,
+          average_speed: 0,
+          shipments_completed: 0,
           efficiency: 0,
           count: 0
         };
       }
 
-      acc[key].totalDistance += item.totalDistance || 0;
-      acc[key].totalTime += item.totalTime || 0;
-      acc[key].shipmentsCompleted += item.shipmentsCompleted || 0;
+      acc[key].total_distance += item.total_distance || 0;
+      acc[key].total_time += item.total_time || 0;
+      acc[key].shipments_completed += item.shipments_completed || 0;
       acc[key].count += 1;
       return acc;
     }, {});
 
     return Object.values(grouped).map((item) => ({
       ...item,
-      averageSpeed: item.totalTime > 0 ? (item.totalDistance / (item.totalTime / 3600)) : 0,
-      efficiency: item.shipmentsCompleted > 0 ? (item.totalDistance / item.shipmentsCompleted) : 0,
+      average_speed: item.total_time > 0 ? (item.total_distance / (item.total_time / 3600)) : 0,
+      efficiency: item.shipments_completed > 0 ? (item.total_distance / item.shipments_completed) : 0,
       date: new Date(item.date).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
-        ...(viewType === 'monthly' && { year: 'numeric' })
+        ...(view_type === 'monthly' && { year: 'numeric' })
       })
     })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [data, viewType]);
+  }, [data, view_type]);
 
-  const formatTooltipValue = (value: number, name: string) => {
+  const format_tooltip_value = (value: number, name: string) => {
     switch (name) {
-      case 'totalDistance':
+      case 'total_distance':
         return [`${value.toFixed(1)} km`, 'Distance'];
-      case 'totalTime':
+      case 'total_time':
         return [`${(value / 3600).toFixed(1)} hrs`, 'Time'];
-      case 'averageSpeed':
+      case 'average_speed':
         return [`${value.toFixed(1)} km/h`, 'Avg Speed'];
-      case 'shipmentsCompleted':
+      case 'shipments_completed':
         return [`${value}`, 'Shipments'];
       case 'efficiency':
         return [`${value.toFixed(2)} km/shipment`, 'Efficiency'];
@@ -99,22 +99,22 @@ export default function PerformanceMetricsChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
+            <LineChart data={chart_data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip formatter={formatTooltipValue} />
+              <Tooltip formatter={format_tooltip_value} />
               <Legend />
               <Line
                 type="monotone"
-                dataKey="totalDistance"
+                dataKey="total_distance"
                 stroke="#3b82f6"
                 strokeWidth={2}
                 name="Distance (km)"
               />
               <Line
                 type="monotone"
-                dataKey="shipmentsCompleted"
+                dataKey="shipments_completed"
                 stroke="#10b981"
                 strokeWidth={2}
                 name="Shipments"
@@ -138,17 +138,17 @@ export default function PerformanceMetricsChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData}>
+            <LineChart data={chart_data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis yAxisId="left" />
               <YAxis yAxisId="right" orientation="right" />
-              <Tooltip formatter={formatTooltipValue} />
+              <Tooltip formatter={format_tooltip_value} />
               <Legend />
               <Line
                 yAxisId="left"
                 type="monotone"
-                dataKey="totalDistance"
+                dataKey="total_distance"
                 stroke="#3b82f6"
                 strokeWidth={2}
                 name="Distance (km)"
@@ -156,7 +156,7 @@ export default function PerformanceMetricsChart({
               <Line
                 yAxisId="right"
                 type="monotone"
-                dataKey="totalTime"
+                dataKey="total_time"
                 stroke="#f59e0b"
                 strokeWidth={2}
                 name="Time (seconds)"
@@ -176,16 +176,16 @@ export default function PerformanceMetricsChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={chartData}>
+            <BarChart data={chart_data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis yAxisId="left" />
               <YAxis yAxisId="right" orientation="right" />
-              <Tooltip formatter={formatTooltipValue} />
+              <Tooltip formatter={format_tooltip_value} />
               <Legend />
               <Bar
                 yAxisId="left"
-                dataKey="averageSpeed"
+                dataKey="average_speed"
                 fill="#8b5cf6"
                 name="Avg Speed (km/h)"
               />
@@ -210,14 +210,14 @@ export default function PerformanceMetricsChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
+            <BarChart data={chart_data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip formatter={formatTooltipValue} />
+              <Tooltip formatter={format_tooltip_value} />
               <Legend />
               <Bar
-                dataKey="shipmentsCompleted"
+                dataKey="shipments_completed"
                 fill="#10b981"
                 name="Shipments Completed"
               />

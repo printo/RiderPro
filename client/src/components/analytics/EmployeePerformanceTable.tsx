@@ -31,17 +31,17 @@ interface EmployeePerformanceTableProps {
 }
 
 interface EmployeeAggregateData {
-  employeeId: string;
-  totalDistance: number;
-  totalTime: number;
-  fuelConsumed: number;
-  fuelCost: number;
-  shipmentsCompleted: number;
-  workingDays: Set<string>;
+  employee_id: string;
+  total_distance: number;
+  total_time: number;
+  fuel_consumption: number;
+  fuel_cost: number;
+  shipments_completed: number;
+  working_days: Set<string>;
   records: RouteAnalytics[];
 }
 
-type SortField = 'employeeId' | 'totalDistance' | 'totalTime' | 'averageSpeed' | 'fuelConsumed' | 'fuelCost' | 'shipmentsCompleted' | 'efficiency' | 'fuelEfficiency';
+type SortField = 'employee_id' | 'total_distance' | 'total_time' | 'average_speed' | 'fuel_consumption' | 'fuel_cost' | 'shipments_completed' | 'efficiency' | 'fuel_efficiency';
 type SortDirection = 'asc' | 'desc';
 
 export default function EmployeePerformanceTable({
@@ -49,51 +49,52 @@ export default function EmployeePerformanceTable({
   dateRange
 }: EmployeePerformanceTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortField, setSortField] = useState<SortField>('totalDistance');
+  const [sortField, setSortField] = useState<SortField>('total_distance');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   // Aggregate employee performance data
   const employeeMetrics = useMemo(() => {
     const employeeData = data.reduce((acc, item) => {
-      if (!acc[item.employeeId]) {
-        acc[item.employeeId] = {
-          employeeId: item.employeeId,
-          totalDistance: 0,
-          totalTime: 0,
-          fuelConsumed: 0,
-          fuelCost: 0,
-          shipmentsCompleted: 0,
-          workingDays: new Set<string>(),
+      const id = item.employee_id || 'unknown';
+      if (!acc[id]) {
+        acc[id] = {
+          employee_id: id,
+          total_distance: 0,
+          total_time: 0,
+          fuel_consumption: 0,
+          fuel_cost: 0,
+          shipments_completed: 0,
+          working_days: new Set<string>(),
           records: []
         };
       }
 
-      acc[item.employeeId].totalDistance += item.totalDistance || 0;
-      acc[item.employeeId].totalTime += item.totalTime || 0;
-      acc[item.employeeId].fuelConsumed += item.fuelConsumed || 0;
-      acc[item.employeeId].fuelCost += item.fuelCost || 0;
-      acc[item.employeeId].shipmentsCompleted += item.shipmentsCompleted || 0;
-      acc[item.employeeId].workingDays.add(item.date);
-      acc[item.employeeId].records.push(item);
+      acc[id].total_distance += item.total_distance || 0;
+      acc[id].total_time += item.total_time || 0;
+      acc[id].fuel_consumption += (item.fuel_consumption || 0);
+      acc[id].fuel_cost += item.fuel_cost || 0;
+      acc[id].shipments_completed += item.shipments_completed || 0;
+      acc[id].working_days.add(item.date);
+      acc[id].records.push(item);
 
       return acc;
     }, {} as Record<string, EmployeeAggregateData>);
 
     return Object.values(employeeData).map((employee): EmployeeMetrics => {
-      const workingDays = employee.workingDays.size;
+      const working_days = employee.working_days.size;
       return {
-        employeeId: employee.employeeId,
-        totalDistance: employee.totalDistance,
-        totalTime: employee.totalTime,
-        averageSpeed: employee.totalTime > 0 ? (employee.totalDistance / (employee.totalTime / 3600)) : 0,
-        fuelConsumed: employee.fuelConsumed,
-        fuelCost: employee.fuelCost,
-        shipmentsCompleted: employee.shipmentsCompleted,
-        efficiency: employee.shipmentsCompleted > 0 ? (employee.totalDistance / employee.shipmentsCompleted) : 0,
-        workingDays,
-        avgDistancePerDay: workingDays > 0 ? (employee.totalDistance / workingDays) : 0,
-        avgShipmentsPerDay: workingDays > 0 ? (employee.shipmentsCompleted / workingDays) : 0,
-        fuelEfficiency: employee.fuelConsumed > 0 ? (employee.totalDistance / employee.fuelConsumed) : 0
+        employee_id: employee.employee_id,
+        total_distance: employee.total_distance,
+        total_time: employee.total_time,
+        average_speed: employee.total_time > 0 ? (employee.total_distance / (employee.total_time / 3600)) : 0,
+        fuel_consumption: employee.fuel_consumption,
+        fuel_cost: employee.fuel_cost,
+        shipments_completed: employee.shipments_completed,
+        efficiency: employee.shipments_completed > 0 ? (employee.total_distance / employee.shipments_completed) : 0,
+        working_days,
+        average_distance_per_day: working_days > 0 ? (employee.total_distance / working_days) : 0,
+        average_shipments_per_day: working_days > 0 ? (employee.shipments_completed / working_days) : 0,
+        fuel_efficiency: employee.fuel_consumption > 0 ? (employee.total_distance / employee.fuel_consumption) : 0
       };
     });
   }, [data]);
@@ -105,14 +106,14 @@ export default function EmployeePerformanceTable({
     // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(employee =>
-        employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase())
+        employee.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Apply sorting
     filtered.sort((a, b) => {
-      const aValue = a[sortField] ?? 0;
-      const bValue = b[sortField] ?? 0;
+      const aValue = (a as any)[sortField] ?? 0;
+      const bValue = (b as any)[sortField] ?? 0;
 
       if (sortDirection === 'asc') {
         return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
@@ -145,12 +146,12 @@ export default function EmployeePerformanceTable({
     let variant: "default" | "secondary" | "destructive" | "outline" = "default";
 
     switch (field) {
-      case 'averageSpeed':
+      case 'average_speed':
         if (value > 40) variant = "default";
         else if (value > 25) variant = "secondary";
         else variant = "destructive";
         break;
-      case 'fuelEfficiency':
+      case 'fuel_efficiency':
         if (value > 12) variant = "default";
         else if (value > 8) variant = "secondary";
         else variant = "destructive";
@@ -202,65 +203,65 @@ export default function EmployeePerformanceTable({
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort('employeeId')}
+                    onClick={() => handleSort('employee_id')}
                     className="h-auto p-0 font-semibold"
                   >
                     Employee ID
-                    {getSortIcon('employeeId')}
+                    {getSortIcon('employee_id')}
                   </Button>
                 </TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort('totalDistance')}
+                    onClick={() => handleSort('total_distance')}
                     className="h-auto p-0 font-semibold"
                   >
                     <MapPin className="h-4 w-4 mr-1" />
                     Distance
-                    {getSortIcon('totalDistance')}
+                    {getSortIcon('total_distance')}
                   </Button>
                 </TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort('totalTime')}
+                    onClick={() => handleSort('total_time')}
                     className="h-auto p-0 font-semibold"
                   >
                     <Clock className="h-4 w-4 mr-1" />
                     Time
-                    {getSortIcon('totalTime')}
+                    {getSortIcon('total_time')}
                   </Button>
                 </TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort('averageSpeed')}
+                    onClick={() => handleSort('average_speed')}
                     className="h-auto p-0 font-semibold"
                   >
                     <TrendingUp className="h-4 w-4 mr-1" />
                     Avg Speed
-                    {getSortIcon('averageSpeed')}
+                    {getSortIcon('average_speed')}
                   </Button>
                 </TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort('shipmentsCompleted')}
+                    onClick={() => handleSort('shipments_completed')}
                     className="h-auto p-0 font-semibold"
                   >
                     Shipments
-                    {getSortIcon('shipmentsCompleted')}
+                    {getSortIcon('shipments_completed')}
                   </Button>
                 </TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
-                    onClick={() => handleSort('fuelCost')}
+                    onClick={() => handleSort('fuel_cost')}
                     className="h-auto p-0 font-semibold"
                   >
                     <Fuel className="h-4 w-4 mr-1" />
                     Fuel Cost
-                    {getSortIcon('fuelCost')}
+                    {getSortIcon('fuel_cost')}
                   </Button>
                 </TableHead>
                 <TableHead>
@@ -286,44 +287,44 @@ export default function EmployeePerformanceTable({
                 </TableRow>
               ) : (
                 filteredAndSortedData.map((employee) => (
-                  <TableRow key={employee.employeeId}>
+                  <TableRow key={employee.employee_id}>
                     <TableCell className="font-medium">
-                      Employee {employee.employeeId}
+                      Employee {employee.employee_id}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">{employee.totalDistance.toFixed(1)} km</span>
+                        <span className="font-medium">{employee.total_distance.toFixed(1)} km</span>
                         <span className="text-xs text-muted-foreground">
-                          {(employee.avgDistancePerDay ?? 0).toFixed(1)} km/day
+                          {(employee.average_distance_per_day ?? 0).toFixed(1)} km/day
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">{Math.round((employee.totalTime ?? 0) / 3600)} hrs</span>
+                        <span className="font-medium">{Math.round((employee.total_time ?? 0) / 3600)} hrs</span>
                         <span className="text-xs text-muted-foreground">
-                          {Math.round((employee.totalTime ?? 0) / 3600 / (employee.workingDays ?? 1))} hrs/day
+                          {Math.round((employee.total_time ?? 0) / 3600 / (employee.working_days ?? 1))} hrs/day
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={getPerformanceBadge(employee.averageSpeed ?? 0, 'averageSpeed')}>
-                        {(employee.averageSpeed ?? 0).toFixed(1)} km/h
+                      <Badge variant={getPerformanceBadge(employee.average_speed ?? 0, 'average_speed')}>
+                        {(employee.average_speed ?? 0).toFixed(1)} km/h
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">{employee.shipmentsCompleted ?? 0}</span>
+                        <span className="font-medium">{employee.shipments_completed ?? 0}</span>
                         <span className="text-xs text-muted-foreground">
-                          {(employee.avgShipmentsPerDay ?? 0).toFixed(1)}/day
+                          {(employee.average_shipments_per_day ?? 0).toFixed(1)}/day
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col">
-                        <span className="font-medium">${(employee.fuelCost ?? 0).toFixed(2)}</span>
+                        <span className="font-medium">${(employee.fuel_cost ?? 0).toFixed(2)}</span>
                         <span className="text-xs text-muted-foreground">
-                          {(employee.fuelConsumed ?? 0).toFixed(1)}L
+                          {(employee.fuel_consumption ?? 0).toFixed(1)}L
                         </span>
                       </div>
                     </TableCell>
@@ -334,16 +335,16 @@ export default function EmployeePerformanceTable({
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {employee.workingDays ?? 0} days
+                        {employee.working_days ?? 0} days
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         <Badge
-                          variant={getPerformanceBadge(employee.fuelEfficiency ?? 0, 'fuelEfficiency')}
+                          variant={getPerformanceBadge(employee.fuel_efficiency ?? 0, 'fuel_efficiency')}
                           className="text-xs"
                         >
-                          {(employee.fuelEfficiency ?? 0).toFixed(1)} km/L
+                          {(employee.fuel_efficiency ?? 0).toFixed(1)} km/L
                         </Badge>
                       </div>
                     </TableCell>
@@ -362,12 +363,12 @@ export default function EmployeePerformanceTable({
             </div>
           ) : (
             filteredAndSortedData.map((employee) => (
-              <Card key={employee.employeeId} className="p-4">
+              <Card key={employee.employee_id} className="p-4">
                 <div className="space-y-3">
                   {/* Header */}
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-lg">Employee {employee.employeeId}</h3>
-                    <Badge variant="outline">{employee.workingDays ?? 0} days</Badge>
+                    <h3 className="font-semibold text-lg">Employee {employee.employee_id}</h3>
+                    <Badge variant="outline">{employee.working_days ?? 0} days</Badge>
                   </div>
 
                   {/* Key Metrics Grid */}
@@ -375,24 +376,24 @@ export default function EmployeePerformanceTable({
                     <div className="flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-blue-600" />
                       <div>
-                        <p className="text-sm font-medium">{employee.totalDistance.toFixed(1)} km</p>
-                        <p className="text-xs text-muted-foreground">{(employee.avgDistancePerDay ?? 0).toFixed(1)} km/day</p>
+                        <p className="text-sm font-medium">{employee.total_distance.toFixed(1)} km</p>
+                        <p className="text-xs text-muted-foreground">{(employee.average_distance_per_day ?? 0).toFixed(1)} km/day</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-green-600" />
                       <div>
-                        <p className="text-sm font-medium">{Math.round((employee.totalTime ?? 0) / 3600)} hrs</p>
-                        <p className="text-xs text-muted-foreground">{Math.round((employee.totalTime ?? 0) / 3600 / (employee.workingDays ?? 1))} hrs/day</p>
+                        <p className="text-sm font-medium">{Math.round((employee.total_time ?? 0) / 3600)} hrs</p>
+                        <p className="text-xs text-muted-foreground">{Math.round((employee.total_time ?? 0) / 3600 / (employee.working_days ?? 1))} hrs/day</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <TrendingUp className="h-4 w-4 text-purple-600" />
                       <div>
-                        <Badge variant={getPerformanceBadge(employee.averageSpeed ?? 0, 'averageSpeed')} className="text-xs">
-                          {(employee.averageSpeed ?? 0).toFixed(1)} km/h
+                        <Badge variant={getPerformanceBadge(employee.average_speed ?? 0, 'average_speed')} className="text-xs">
+                          {(employee.average_speed ?? 0).toFixed(1)} km/h
                         </Badge>
                         <p className="text-xs text-muted-foreground mt-1">Avg Speed</p>
                       </div>
@@ -401,8 +402,8 @@ export default function EmployeePerformanceTable({
                     <div className="flex items-center gap-2">
                       <Fuel className="h-4 w-4 text-orange-600" />
                       <div>
-                        <p className="text-sm font-medium">${(employee.fuelCost ?? 0).toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground">{(employee.fuelConsumed ?? 0).toFixed(1)}L</p>
+                        <p className="text-sm font-medium">${(employee.fuel_cost ?? 0).toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">{(employee.fuel_consumption ?? 0).toFixed(1)}L</p>
                       </div>
                     </div>
                   </div>
@@ -411,8 +412,8 @@ export default function EmployeePerformanceTable({
                   <div className="flex flex-wrap gap-2">
                     <div className="flex items-center gap-1">
                       <span className="text-xs text-muted-foreground">Shipments:</span>
-                      <span className="text-sm font-medium">{employee.shipmentsCompleted ?? 0}</span>
-                      <span className="text-xs text-muted-foreground">({(employee.avgShipmentsPerDay ?? 0).toFixed(1)}/day)</span>
+                      <span className="text-sm font-medium">{employee.shipments_completed ?? 0}</span>
+                      <span className="text-xs text-muted-foreground">({(employee.average_shipments_per_day ?? 0).toFixed(1)}/day)</span>
                     </div>
                   </div>
 
@@ -420,8 +421,8 @@ export default function EmployeePerformanceTable({
                     <Badge variant={getPerformanceBadge(employee.efficiency ?? 0, 'efficiency')} className="text-xs">
                       {(employee.efficiency ?? 0).toFixed(1)} km/shipment
                     </Badge>
-                    <Badge variant={getPerformanceBadge(employee.fuelEfficiency ?? 0, 'fuelEfficiency')} className="text-xs">
-                      {(employee.fuelEfficiency ?? 0).toFixed(1)} km/L
+                    <Badge variant={getPerformanceBadge(employee.fuel_efficiency ?? 0, 'fuel_efficiency')} className="text-xs">
+                      {(employee.fuel_efficiency ?? 0).toFixed(1)} km/L
                     </Badge>
                   </div>
                 </div>
@@ -436,8 +437,8 @@ export default function EmployeePerformanceTable({
               Showing {filteredAndSortedData.length} of {employeeMetrics.length} employees
             </span>
             <span>
-              Total: {employeeMetrics.reduce((sum, emp) => sum + emp.totalDistance, 0).toFixed(1)} km,
-              ${employeeMetrics.reduce((sum, emp) => sum + (emp.fuelCost ?? 0), 0).toFixed(2)} fuel cost
+              Total: {employeeMetrics.reduce((sum, emp) => sum + emp.total_distance, 0).toFixed(1)} km,
+              ${employeeMetrics.reduce((sum, emp) => sum + (emp.fuel_cost ?? 0), 0).toFixed(2)} fuel cost
             </span>
           </div>
         )}

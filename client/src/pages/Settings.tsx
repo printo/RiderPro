@@ -24,16 +24,16 @@ function Settings() {
     // Load user profile from AuthService
     if (user) {
       setUserProfile({
-        fullName: user.fullName,
-        employeeId: user.employeeId,
+        full_name: user.full_name,
+        employee_id: user.employee_id,
         email: user.email || '',
         role: user.role || 'rider',
-        isStaff: user.isStaff || false,
-        isSuperUser: user.isSuperUser || false,
-        isOpsTeam: user.isOpsTeam || false,
-        isActive: !!user.isActive,
-        accessToken: '', // Not exposed for security
-        refreshToken: '' // Not exposed for security
+        is_staff: user.is_staff || false,
+        is_super_user: user.is_super_user || false,
+        is_ops_team: user.is_ops_team || false,
+        is_active: !!user.is_active,
+        access_token: '', // Not exposed for security
+        refresh_token: '' // Not exposed for security
       });
     }
   }, [user]);
@@ -68,14 +68,14 @@ function Settings() {
                   <label className="text-sm font-medium text-muted-foreground">Full Name</label>
                   <p className="text-base font-medium flex items-center gap-2">
                     <User className="h-4 w-4" />
-                    {userProfile?.fullName || user?.fullName || 'Not available'}
+                    {userProfile?.full_name || user?.full_name || 'Not available'}
                   </p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Employee ID</label>
                   <p className="text-base font-mono flex items-center gap-2">
                     <IdCard className="h-4 w-4" />
-                    {userProfile?.employeeId || user?.employeeId || 'Not available'}
+                    {userProfile?.employee_id || user?.employee_id || 'Not available'}
                   </p>
                 </div>
                 <div>
@@ -90,16 +90,16 @@ function Settings() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Permissions</label>
                   <div className="flex flex-wrap gap-1">
-                    {userProfile?.isSuperUser && (
+                    {userProfile?.is_super_user && (
                       <Badge variant="destructive" className="text-xs">Super User</Badge>
                     )}
-                    {userProfile?.isOpsTeam && (
+                    {userProfile?.is_ops_team && (
                       <Badge variant="default" className="text-xs">Ops Team</Badge>
                     )}
-                    {userProfile?.isStaff && (
+                    {userProfile?.is_staff && (
                       <Badge variant="secondary" className="text-xs">Staff</Badge>
                     )}
-                    {!userProfile?.isSuperUser && !userProfile?.isOpsTeam && !userProfile?.isStaff && (
+                    {!userProfile?.is_super_user && !userProfile?.is_ops_team && !userProfile?.is_staff && (
                       <Badge variant="outline" className="text-xs">Rider</Badge>
                     )}
                   </div>
@@ -109,7 +109,7 @@ function Settings() {
                   <div className="flex items-center gap-2">
                     <Key className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">
-                      {userProfile?.accessToken ? 'Token Active' : 'No Token'}
+                      {userProfile?.access_token ? 'Token Active' : 'No Token'}
                     </span>
                   </div>
                 </div>
@@ -133,10 +133,10 @@ function Settings() {
                   <Badge variant="outline" className="text-xs">
                     {user.role === 'admin' ? 'Administrator' : user.role}
                   </Badge>
-                  {user.isSuperUser && (
+                  {user.is_super_user && (
                     <Badge variant="destructive" className="text-xs">Super User</Badge>
                   )}
-                  {user.isOpsTeam && (
+                  {user.is_ops_team && (
                     <Badge variant="default" className="text-xs">Ops Team</Badge>
                   )}
                 </div>
@@ -144,7 +144,7 @@ function Settings() {
             )}
 
             <div className="text-sm text-muted-foreground">
-              <p>Logged in as {user?.fullName || user?.username || 'Unknown User'}</p>
+              <p>Logged in as {user?.full_name || user?.username || 'Unknown User'}</p>
               <p className="text-xs">Session will expire automatically for security</p>
             </div>
           </CardContent>

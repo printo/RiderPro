@@ -18,47 +18,47 @@ import { RouteAnalytics } from '@shared/types';
 
 interface RouteComparisonChartProps {
   data: RouteAnalytics[];
-  viewType: 'daily' | 'weekly' | 'monthly';
+  view_type: 'daily' | 'weekly' | 'monthly';
 }
 
 interface GroupedRouteMetrics {
   date: string;
-  totalDistance: number;
-  totalTime: number;
-  shipmentsCompleted: number;
-  fuelConsumed: number;
-  fuelCost: number;
-  employeeCount: Set<string>;
+  total_distance: number;
+  total_time: number;
+  shipments_completed: number;
+  fuel_consumption: number;
+  fuel_cost: number;
+  employee_count: Set<string>;
   records: RouteAnalytics[];
 }
 
 export default function RouteComparisonChart({
   data,
-  viewType
+  view_type
 }: RouteComparisonChartProps) {
   // Group data by date for comparison
-  const chartData = React.useMemo(() => {
+  const chart_data = React.useMemo(() => {
     const grouped = data.reduce<Record<string, GroupedRouteMetrics>>((acc, item) => {
       const key = item.date;
       if (!acc[key]) {
         acc[key] = {
           date: key,
-          totalDistance: 0,
-          totalTime: 0,
-          shipmentsCompleted: 0,
-          fuelConsumed: 0,
-          fuelCost: 0,
-          employeeCount: new Set<string>(),
+          total_distance: 0,
+          total_time: 0,
+          shipments_completed: 0,
+          fuel_consumption: 0,
+          fuel_cost: 0,
+          employee_count: new Set<string>(),
           records: []
         };
       }
 
-      acc[key].totalDistance += item.totalDistance || 0;
-      acc[key].totalTime += item.totalTime || 0;
-      acc[key].shipmentsCompleted += item.shipmentsCompleted || 0;
-      acc[key].fuelConsumed += item.fuelConsumed || 0;
-      acc[key].fuelCost += item.fuelCost || 0;
-      acc[key].employeeCount.add(item.employeeId);
+      acc[key].total_distance += item.total_distance || 0;
+      acc[key].total_time += item.total_time || 0;
+      acc[key].shipments_completed += item.shipments_completed || 0;
+      acc[key].fuel_consumption += item.fuel_consumption || 0;
+      acc[key].fuel_cost += item.fuel_cost || 0;
+      acc[key].employee_count.add(item.employee_id);
       acc[key].records.push(item);
       return acc;
     }, {});
@@ -67,52 +67,52 @@ export default function RouteComparisonChart({
       date: new Date(item.date).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
-        ...(viewType === 'monthly' && { year: 'numeric' })
+        ...(view_type === 'monthly' && { year: 'numeric' })
       }),
-      totalDistance: item.totalDistance,
-      totalTime: item.totalTime / 3600, // Convert to hours
-      shipmentsCompleted: item.shipmentsCompleted,
-      fuelConsumed: item.fuelConsumed,
-      fuelCost: item.fuelCost,
-      employeeCount: item.employeeCount.size,
-      averageSpeed: item.totalTime > 0 ? (item.totalDistance / (item.totalTime / 3600)) : 0,
-      efficiency: item.shipmentsCompleted > 0 ? (item.totalDistance / item.shipmentsCompleted) : 0,
-      fuelEfficiency: item.fuelConsumed > 0 ? (item.totalDistance / item.fuelConsumed) : 0,
-      costPerKm: item.totalDistance > 0 ? (item.fuelCost / item.totalDistance) : 0
+      total_distance: item.total_distance,
+      total_time: item.total_time / 3600, // Convert to hours
+      shipments_completed: item.shipments_completed,
+      fuel_consumption: item.fuel_consumption,
+      fuel_cost: item.fuel_cost,
+      employee_count: item.employee_count.size,
+      average_speed: item.total_time > 0 ? (item.total_distance / (item.total_time / 3600)) : 0,
+      efficiency: item.shipments_completed > 0 ? (item.total_distance / item.shipments_completed) : 0,
+      fuel_efficiency: item.fuel_consumption > 0 ? (item.total_distance / item.fuel_consumption) : 0,
+      cost_per_km: item.total_distance > 0 ? (item.fuel_cost / item.total_distance) : 0
     })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [data, viewType]);
+  }, [data, view_type]);
 
   // Scatter plot data for efficiency analysis
-  const scatterData = React.useMemo(() => {
+  const scatter_data = React.useMemo(() => {
     return data.map(item => ({
-      x: item.totalDistance || 0,
-      y: item.averageSpeed || 0,
-      z: item.fuelConsumed || 0,
-      employeeId: item.employeeId,
-      shipmentsCompleted: item.shipmentsCompleted || 0,
+      x: item.total_distance || 0,
+      y: item.average_speed || 0,
+      z: item.fuel_consumption || 0,
+      employee_id: item.employee_id,
+      shipments_completed: item.shipments_completed || 0,
       efficiency: item.efficiency || 0
     }));
   }, [data]);
 
-  const formatTooltipValue = (value: number, name: string) => {
+  const format_tooltip_value = (value: number, name: string) => {
     switch (name) {
-      case 'totalDistance':
+      case 'total_distance':
         return [`${value.toFixed(1)} km`, 'Distance'];
-      case 'totalTime':
+      case 'total_time':
         return [`${value.toFixed(1)} hrs`, 'Time'];
-      case 'shipmentsCompleted':
+      case 'shipments_completed':
         return [`${value}`, 'Shipments'];
-      case 'fuelConsumed':
+      case 'fuel_consumption':
         return [`${value.toFixed(2)} L`, 'Fuel'];
-      case 'fuelCost':
+      case 'fuel_cost':
         return [`$${value.toFixed(2)}`, 'Cost'];
-      case 'averageSpeed':
+      case 'average_speed':
         return [`${value.toFixed(1)} km/h`, 'Speed'];
       case 'efficiency':
         return [`${value.toFixed(2)} km/shipment`, 'Efficiency'];
-      case 'fuelEfficiency':
+      case 'fuel_efficiency':
         return [`${value.toFixed(2)} km/L`, 'Fuel Efficiency'];
-      case 'costPerKm':
+      case 'cost_per_km':
         return [`$${value.toFixed(3)}/km`, 'Cost per KM'];
       default:
         return [value, name];
@@ -131,16 +131,16 @@ export default function RouteComparisonChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <ComposedChart data={chartData}>
+            <ComposedChart data={chart_data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis yAxisId="left" />
               <YAxis yAxisId="right" orientation="right" />
-              <Tooltip formatter={formatTooltipValue} />
+              <Tooltip formatter={format_tooltip_value} />
               <Legend />
               <Bar
                 yAxisId="left"
-                dataKey="shipmentsCompleted"
+                dataKey="shipments_completed"
                 fill="#10b981"
                 name="Shipments Completed"
                 opacity={0.8}
@@ -148,7 +148,7 @@ export default function RouteComparisonChart({
               <Line
                 yAxisId="right"
                 type="monotone"
-                dataKey="totalDistance"
+                dataKey="total_distance"
                 stroke="#3b82f6"
                 strokeWidth={2}
                 name="Total Distance (km)"
@@ -156,7 +156,7 @@ export default function RouteComparisonChart({
               <Line
                 yAxisId="right"
                 type="monotone"
-                dataKey="averageSpeed"
+                dataKey="average_speed"
                 stroke="#f59e0b"
                 strokeWidth={2}
                 name="Average Speed (km/h)"
@@ -166,7 +166,7 @@ export default function RouteComparisonChart({
         </CardContent>
       </Card>
 
-      {/* Efficiency vs Distance Scatter Plot */}
+      {/* Distance vs Speed Analysis */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -176,7 +176,7 @@ export default function RouteComparisonChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <ScatterChart data={scatterData}>
+            <ScatterChart data={scatter_data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 type="number"
@@ -193,13 +193,13 @@ export default function RouteComparisonChart({
               <Tooltip
                 cursor={{ strokeDasharray: '3 3' }}
                 formatter={(value, name) => {
-                  if (name === 'z') return [`${Number(value).toFixed(2)} L`, 'Fuel Consumed'];
+                  if (name === 'z') return [`${Number(value).toFixed(2)} L`, 'Fuel Consumption'];
                   return [value, name];
                 }}
                 labelFormatter={(label, payload) => {
                   if (payload && payload[0]) {
                     const data = payload[0].payload;
-                    return `Employee ${data.employeeId} - ${data.shipmentsCompleted} shipments`;
+                    return `Employee ${data.employee_id} - ${data.shipments_completed} shipments`;
                   }
                   return label;
                 }}
@@ -225,16 +225,16 @@ export default function RouteComparisonChart({
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={400}>
-            <ComposedChart data={chartData}>
+            <ComposedChart data={chart_data}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis yAxisId="left" />
               <YAxis yAxisId="right" orientation="right" />
-              <Tooltip formatter={formatTooltipValue} />
+              <Tooltip formatter={format_tooltip_value} />
               <Legend />
               <Bar
                 yAxisId="left"
-                dataKey="fuelEfficiency"
+                dataKey="fuel_efficiency"
                 fill="#10b981"
                 name="Fuel Efficiency (km/L)"
                 opacity={0.8}
@@ -242,7 +242,7 @@ export default function RouteComparisonChart({
               <Line
                 yAxisId="right"
                 type="monotone"
-                dataKey="costPerKm"
+                dataKey="cost_per_km"
                 stroke="#ef4444"
                 strokeWidth={2}
                 name="Cost per KM ($)"

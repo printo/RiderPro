@@ -3,11 +3,11 @@ import { withChartErrorBoundary } from "@/components/ErrorBoundary";
 import { RouteStatusBreakdown } from "@shared/types";
 
 interface RoutePerformanceChartProps {
-  routeBreakdown: Record<string, RouteStatusBreakdown>;
+  route_breakdown: Record<string, RouteStatusBreakdown>;
 }
 
-function RoutePerformanceChart({ routeBreakdown }: RoutePerformanceChartProps) {
-  const routes = Object.entries(routeBreakdown);
+function RoutePerformanceChart({ route_breakdown }: RoutePerformanceChartProps) {
+  const routes = Object.entries(route_breakdown);
 
   return (
     <Card data-testid="card-route-chart">
@@ -29,12 +29,12 @@ function RoutePerformanceChart({ routeBreakdown }: RoutePerformanceChartProps) {
                   <div
                     className="bg-gradient-to-r from-green-400 to-green-600 h-2 rounded-full transition-all duration-300"
                     style={{
-                      width: `${data.total > 0 ? ((data.delivered + data.pickedUp) / data.total) * 100 : 0}%`,
+                      width: `${data.total > 0 ? ((data.delivered + data.pickedup) / data.total) * 100 : 0}%`,
                     }}
                   />
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{data.delivered + data.pickedUp} completed</span>
+                  <span>{data.delivered + data.pickedup} completed</span>
                   <span>{data.pending || 0} pending</span>
                 </div>
               </div>

@@ -2,7 +2,11 @@
 
 ## Overview
 
-RiderPro is a modern, offline-first shipment management and GPS tracking system built with React, TypeScript, and Node.js. The system uses a consolidated database architecture with three distinct SQLite databases and provides comprehensive route tracking, analytics, and real-time monitoring capabilities with local authentication support.
+RiderPro is a modern, offline-first shipment management and GPS tracking system
+built with React, TypeScript, and Node.js. The system uses a consolidated
+database architecture with three distinct SQLite databases and provides
+comprehensive route tracking, analytics, and real-time monitoring capabilities
+with local authentication support.
 
 ## High-Level Architecture
 
@@ -16,9 +20,9 @@ graph TB
     end
     
     subgraph "API Layer"
-        E[Node.js Server]
-        F[Express Router]
-        G[Auth Middleware]
+        E[Django Backend]
+        F[Django REST Framework]
+        G[Auth & Permissions]
         H[Role-Based Access Control]
     end
     
@@ -28,16 +32,17 @@ graph TB
     end
     
     subgraph "Data Layer"
-        K[Main Database<br/>main.db<br/>Shipments & Routes]
-        L[Replica Database<br/>replica.db<br/>Development Data]
-        M[User Data Database<br/>userdata.db<br/>Authentication Only]
+        K[Main Database<br/>PostgreSQL<br/>Shipments & Routes]
+        L[Replica Database<br/>Analytics / Read Replicas]
+        M[User Data<br/>Django Auth]
         N[IndexedDB<br/>Offline Storage]
     end
     
-    A --> E
+    A --> F
     A --> N
     A --> D
     B --> N
+    F --> E
     E --> K
     E --> L
     E --> M
@@ -88,6 +93,7 @@ src/
 ### State Management
 
 #### Authentication State
+
 ```typescript
 interface AuthState {
   isAuthenticated: boolean;
@@ -99,6 +105,7 @@ interface AuthState {
 ```
 
 #### GPS Tracking State
+
 ```typescript
 interface GPSState {
   currentPosition: Position | null;
@@ -112,19 +119,21 @@ interface GPSState {
 ### Offline-First Design
 
 #### Service Worker Strategy
+
 ```typescript
 // Service worker for offline functionality
-self.addEventListener('fetch', (event) => {
-  if (event.request.url.includes('/api/')) {
+self.addEventListener("fetch", (event) => {
+  if (event.request.url.includes("/api/")) {
     event.respondWith(
       fetch(event.request)
-        .catch(() => caches.match(event.request))
+        .catch(() => caches.match(event.request)),
     );
   }
 });
 ```
 
 #### IndexedDB Schema
+
 ```typescript
 interface OfflineStorage {
   gpsPoints: {
@@ -136,17 +145,17 @@ interface OfflineStorage {
     accuracy: number;
     synced: boolean;
   };
-  
+
   shipmentEvents: {
     id: string;
     shipmentId: string;
-    eventType: 'pickup' | 'delivery';
+    eventType: "pickup" | "delivery";
     latitude: number;
     longitude: number;
     timestamp: string;
     synced: boolean;
   };
-  
+
   syncQueue: {
     id: string;
     endpoint: string;
@@ -161,25 +170,38 @@ interface OfflineStorage {
 ### UI/UX Enhancements (Latest)
 
 #### Responsive Design System
+
 - **Mobile-First Approach**: All components optimized for mobile devices
-- **Breakpoint Strategy**: `sm:`, `lg:`, `xl:` responsive breakpoints using Tailwind CSS
+- **Breakpoint Strategy**: `sm:`, `lg:`, `xl:` responsive breakpoints using
+  Tailwind CSS
 - **Touch-Friendly**: Minimum 44px touch targets for mobile interactions
 - **Adaptive Layouts**: Grid systems that stack on mobile, expand on desktop
 
 #### Interactive Analytics
-- **Pie Chart Visualization**: `StatusDistributionPieChart.tsx` with hover effects and percentages
-- **Real-time Updates**: Live data refresh with smooth animations and transitions
-- **Color-Coded Status**: Intuitive color schemes for different shipment statuses
+
+- **Pie Chart Visualization**: `StatusDistributionPieChart.tsx` with hover
+  effects and percentages
+- **Real-time Updates**: Live data refresh with smooth animations and
+  transitions
+- **Color-Coded Status**: Intuitive color schemes for different shipment
+  statuses
 - **Empty States**: Graceful handling of no-data scenarios with helpful messages
 
 #### Advanced Status Management
-- **Footer-Style Actions**: Fixed action buttons at bottom of modals for better UX
-- **Context-Aware Buttons**: Different actions based on shipment type and current status
-- **GPS Integration**: Automatic location recording with visual feedback (blinking icons)
-- **Access Control**: Role-based visibility for sensitive operations (super user only)
+
+- **Footer-Style Actions**: Fixed action buttons at bottom of modals for better
+  UX
+- **Context-Aware Buttons**: Different actions based on shipment type and
+  current status
+- **GPS Integration**: Automatic location recording with visual feedback
+  (blinking icons)
+- **Access Control**: Role-based visibility for sensitive operations (super user
+  only)
 
 #### Mobile Optimization
-- **Tab Navigation**: Mobile-responsive tabs that stack vertically on small screens
+
+- **Tab Navigation**: Mobile-responsive tabs that stack vertically on small
+  screens
 - **Touch Interactions**: Optimized button sizes and spacing for mobile devices
 - **Performance**: Lazy loading and efficient rendering for mobile performance
 
@@ -187,15 +209,19 @@ interface OfflineStorage {
 
 ### Simplified Token-Based Authentication
 
-RiderPro uses a streamlined authentication system that eliminates unnecessary database complexity:
+RiderPro uses a streamlined authentication system that eliminates unnecessary
+database complexity:
 
 #### Token Management
+
 - **Token Format**: `local_<timestamp>_<userId>` (embedded user ID)
 - **Storage**: localStorage only (no database token storage)
-- **Validation**: Extract user ID from token and validate against `rider_accounts` table
+- **Validation**: Extract user ID from token and validate against
+  `rider_accounts` table
 - **Role-Based Permissions**: Derived from `role` column in database
 
 #### Authentication Flow
+
 ```mermaid
 sequenceDiagram
     participant Client
@@ -211,12 +237,14 @@ sequenceDiagram
 ```
 
 #### Role-Based Access Control
+
 - **Super User**: `role = 'super_user'` or `'admin'` → Full system access
 - **Ops Team**: `role = 'ops_team'` → Management-level access
 - **Staff**: `role = 'staff'` → Limited management access
 - **Driver**: `role = 'driver'` or default → Basic driver access
 
 #### Database Efficiency
+
 - **No Token Storage**: Tokens stored only in localStorage
 - **Single Source of Truth**: User data in `userdata.db` only
 - **Role-Based Permissions**: No additional boolean columns needed
@@ -224,29 +252,37 @@ sequenceDiagram
 
 ### Fuel Settings Management
 
-RiderPro includes a comprehensive fuel price management system for accurate route cost calculations:
+RiderPro includes a comprehensive fuel price management system for accurate
+route cost calculations:
 
 #### Fuel Settings Features
+
 - **Multi-Fuel Support**: Petrol, diesel, electric, and hybrid fuel types
-- **Regional Pricing**: Support for different pricing by region (Bangalore, Chennai, Gurgaon, Hyderabad, Pune)
+- **Regional Pricing**: Support for different pricing by region (Bangalore,
+  Chennai, Gurgaon, Hyderabad, Pune)
 - **Currency Support**: INR currency with fixed pricing (USD support available)
 - **Price History**: Effective date tracking for price changes over time
 - **Active Management**: Enable/disable pricing settings without deletion
 
 #### Admin Interface
+
 - **Fuel Settings Modal**: Complete CRUD operations for fuel pricing
-- **Current Settings Display**: Real-time view of active fuel prices with retry functionality
+- **Current Settings Display**: Real-time view of active fuel prices with retry
+  functionality
 - **Regional Management**: Easy switching between different regional pricing
 - **Price Validation**: Input validation for price and date fields
-- **Enhanced User Management**: 
+- **Enhanced User Management**:
   - Conditional display of pending user approvals section
-  - Separate "All Users Management" section with integrated refresh functionality
+  - Separate "All Users Management" section with integrated refresh
+    functionality
   - Improved visual hierarchy with color-coded sections
   - Better loading states and error handling
 
 #### Integration with Route Analytics
+
 - **Cost Calculations**: Automatic fuel cost calculations for route analysis
-- **Vehicle Integration**: Links with vehicle types for accurate fuel efficiency calculations
+- **Vehicle Integration**: Links with vehicle types for accurate fuel efficiency
+  calculations
 - **Analytics Enhancement**: Provides accurate cost data for route optimization
 
 ## Backend Architecture
@@ -254,46 +290,38 @@ RiderPro includes a comprehensive fuel price management system for accurate rout
 ### Server Structure
 
 ```
-server/
-├── index.ts             # Main server entry point
-├── routes.ts            # API route definitions
-├── middleware/          # Express middleware
-│   ├── auth.ts         # Authentication middleware
-│   ├── cors.ts         # CORS configuration
-│   └── rateLimit.ts    # Rate limiting
-└── services/           # Business logic services
-    ├── AuthService.ts
-    ├── ShipmentService.ts
-    └── GPSService.ts
+backend/
+├── manage.py             # Django management entry point
+├── apps/                 # Django apps
+│   ├── shipments/        # Shipments models, views, serializers
+│   ├── routes/           # Route tracking and analytics
+│   └── authentication/   # Auth and user management
+└── settings/             # Django project settings
 ```
 
 ### API Design Patterns
 
-#### RESTful Endpoints
-```typescript
-// Shipments API
-GET    /api/shipments           # List shipments (paginated)
-POST   /api/shipments           # Create shipment
-GET    /api/shipments/:id       # Get single shipment
-PUT    /api/shipments/:id       # Update shipment
-DELETE /api/shipments/:id       # Delete shipment
-PATCH  /api/shipments/batch     # Batch update
+#### RESTful Endpoints (Django)
 
-// Route Sessions API
-POST   /api/routes/sessions     # Start route session
-GET    /api/routes/sessions/:id # Get session details
-PUT    /api/routes/sessions/:id/stop # Stop session
-POST   /api/routes/sessions/:id/points # Record GPS point
+```text
+GET    /api/v1/shipments/fetch          # List shipments (paginated, filtered)
+POST   /api/v1/shipments/create         # Create shipment
+GET    /api/v1/shipments/:id            # Get single shipment
+PATCH  /api/v1/shipments/:id            # Update shipment
+DELETE /api/v1/shipments/:id            # Delete shipment
+PATCH  /api/v1/shipments/batch          # Batch update
+
+POST   /api/v1/routes/start             # Start route session
+POST   /api/v1/routes/stop              # Stop session
+POST   /api/v1/routes/coordinates       # Record GPS point
+POST   /api/v1/routes/coordinates/batch # Batch GPS points
+GET    /api/v1/routes/session/:id       # Session details
 ```
 
 #### Middleware Pipeline
-```typescript
-app.use(cors());
-app.use(rateLimit());
-app.use(express.json());
-app.use('/api', authMiddleware);
-app.use('/api', routeHandler);
-app.use(errorHandler);
+
+```text
+Django → Authentication → Permission classes → ViewSets / API views → Response
 ```
 
 ## GPS Tracking System
@@ -304,7 +332,7 @@ app.use(errorHandler);
 class GPSTrackingService {
   private watchId: number | null = null;
   private sessionId: string | null = null;
-  
+
   startTracking(sessionId: string): void {
     this.sessionId = sessionId;
     this.watchId = navigator.geolocation.watchPosition(
@@ -313,12 +341,14 @@ class GPSTrackingService {
       {
         enableHighAccuracy: true,
         timeout: 30000,
-        maximumAge: 0
-      }
+        maximumAge: 0,
+      },
     );
   }
-  
-  private async handlePositionUpdate(position: GeolocationPosition): Promise<void> {
+
+  private async handlePositionUpdate(
+    position: GeolocationPosition,
+  ): Promise<void> {
     const gpsPoint = {
       sessionId: this.sessionId!,
       latitude: position.coords.latitude,
@@ -326,18 +356,18 @@ class GPSTrackingService {
       accuracy: position.coords.accuracy,
       speed: position.coords.speed,
       heading: position.coords.heading,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
-    
+
     // Store locally first
     await this.offlineStorage.storeGPSPoint(gpsPoint);
-    
+
     // Try to sync immediately
     try {
       await this.syncGPSPoint(gpsPoint);
     } catch (error) {
       // Will be synced later by background process
-      console.log('GPS point queued for later sync');
+      console.log("GPS point queued for later sync");
     }
   }
 }
@@ -349,19 +379,19 @@ class GPSTrackingService {
 class SmartRouteCompletion {
   private config = {
     completionRadius: 100, // meters
-    minDuration: 1800,     // 30 minutes
-    autoConfirmDelay: 30   // seconds
+    minDuration: 1800, // 30 minutes
+    autoConfirmDelay: 30, // seconds
   };
-  
+
   detectCompletion(
     startPosition: Position,
     currentPosition: Position,
-    sessionDuration: number
+    sessionDuration: number,
   ): boolean {
     const distance = this.calculateDistance(startPosition, currentPosition);
-    
+
     return distance <= this.config.completionRadius &&
-           sessionDuration >= this.config.minDuration;
+      sessionDuration >= this.config.minDuration;
   }
 }
 ```
@@ -374,12 +404,12 @@ class SmartRouteCompletion {
 class SyncService {
   private syncQueue: SyncItem[] = [];
   private isOnline = navigator.onLine;
-  
+
   async syncPendingData(): Promise<void> {
     if (!this.isOnline) return;
-    
+
     const pendingItems = await this.offlineStorage.getPendingSyncItems();
-    
+
     for (const item of pendingItems) {
       try {
         await this.syncItem(item);
@@ -389,10 +419,10 @@ class SyncService {
       }
     }
   }
-  
+
   private async handleSyncError(item: SyncItem, error: Error): Promise<void> {
     item.retryCount++;
-    
+
     if (item.retryCount >= 3) {
       await this.offlineStorage.markAsFailed(item.id);
     } else {
@@ -431,52 +461,52 @@ interface ConflictResolution {
 
 ```typescript
 class AuthService {
-  private readonly PRINTO_API_BASE = 'https://pia.printo.in/api/v1';
-  
+  private readonly PRINTO_API_BASE = "https://pia.printo.in/api/v1";
+
   async authenticateWithPrinto(
-    employeeId: string,
-    password: string
+    employee_id: string,
+    password: string,
   ): Promise<AuthResponse> {
     const response = await fetch(`${this.PRINTO_API_BASE}/auth/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        employee_id: employeeId,
-        password: password
-      })
+        employee_id,
+        password,
+      }),
     });
-    
+
     if (!response.ok) {
-      throw new AuthError('Invalid credentials');
+      throw new AuthError("Invalid credentials");
     }
-    
+
     const data = await response.json();
-    return this.createUserFromPrintoResponse(data, employeeId);
+    return this.createUserFromPrintoResponse(data, employee_id);
   }
-  
+
   private createUserFromPrintoResponse(
     data: PrintoAuthResponse,
-    employeeId: string
+    employee_id: string,
   ): AuthResponse {
     const user: User = {
-      id: employeeId,
-      username: employeeId,
-      employeeId: employeeId,
-      email: employeeId,
-      fullName: data.full_name || employeeId,
+      id: employee_id,
+      username: employee_id,
+      employee_id,
+      email: employee_id,
+      fullName: data.full_name || employee_id,
       role: data.is_ops_team ? UserRole.OPS_TEAM : UserRole.DRIVER,
       isActive: true,
       permissions: [],
       isOpsTeam: data.is_ops_team || false,
       isSuperUser: data.is_super_user || false,
-      isStaff: data.is_staff || false
+      isStaff: data.is_staff || false,
     };
-    
+
     return {
       success: true,
       accessToken: data.access,
       refreshToken: data.refresh,
-      user
+      user,
     };
   }
 }
@@ -490,22 +520,22 @@ class AuthService {
 class MobileOptimization {
   private batteryLevel = 1.0;
   private isLowPowerMode = false;
-  
+
   optimizeForBattery(): OptimizationSettings {
     if (this.batteryLevel < 0.2 || this.isLowPowerMode) {
       return {
-        gpsInterval: 60000,      // 1 minute instead of 30 seconds
-        syncInterval: 300000,    // 5 minutes instead of 1 minute
+        gpsInterval: 60000, // 1 minute instead of 30 seconds
+        syncInterval: 300000, // 5 minutes instead of 1 minute
         reduceAnimations: true,
-        disableBackgroundSync: true
+        disableBackgroundSync: true,
       };
     }
-    
+
     return {
       gpsInterval: 30000,
       syncInterval: 60000,
       reduceAnimations: false,
-      disableBackgroundSync: false
+      disableBackgroundSync: false,
     };
   }
 }
@@ -517,20 +547,20 @@ class MobileOptimization {
 class CacheManager {
   private memoryCache = new Map<string, CacheItem>();
   private readonly TTL = 5 * 60 * 1000; // 5 minutes
-  
+
   async get<T>(key: string, fetcher: () => Promise<T>): Promise<T> {
     const cached = this.memoryCache.get(key);
-    
+
     if (cached && Date.now() - cached.timestamp < this.TTL) {
       return cached.data;
     }
-    
+
     const data = await fetcher();
     this.memoryCache.set(key, {
       data,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
-    
+
     return data;
   }
 }
@@ -542,28 +572,32 @@ class CacheManager {
 
 ```typescript
 // JWT token validation middleware
-const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  
+const authMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+
   if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
+    return res.status(401).json({ error: "No token provided" });
   }
-  
+
   try {
     // Verify with Printo API
-    const response = await fetch('https://pia.printo.in/api/v1/auth/me/', {
-      headers: { 'Authorization': `Bearer ${token}` }
+    const response = await fetch("https://pia.printo.in/api/v1/auth/me/", {
+      headers: { "Authorization": `Bearer ${token}` },
     });
-    
+
     if (!response.ok) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return res.status(401).json({ error: "Invalid token" });
     }
-    
+
     const userData = await response.json();
     req.user = userData;
     next();
   } catch (error) {
-    return res.status(401).json({ error: 'Token validation failed' });
+    return res.status(401).json({ error: "Token validation failed" });
   }
 };
 ```
@@ -574,14 +608,19 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction) =
 const requireRole = (requiredRole: UserRole) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user || req.user.role !== requiredRole) {
-      return res.status(403).json({ error: 'Insufficient permissions' });
+      return res.status(403).json({ error: "Insufficient permissions" });
     }
     next();
   };
 };
 
 // Usage
-app.get('/api/analytics', authMiddleware, requireRole(UserRole.OPS_TEAM), analyticsHandler);
+app.get(
+  "/api/analytics",
+  authMiddleware,
+  requireRole(UserRole.OPS_TEAM),
+  analyticsHandler,
+);
 ```
 
 ## Monitoring and Logging
@@ -597,16 +636,16 @@ class ErrorMonitor {
       timestamp: new Date().toISOString(),
       userId: context.userId,
       route: context.route,
-      userAgent: context.userAgent
+      userAgent: context.userAgent,
     };
-    
+
     // Log to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error:', errorData);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error:", errorData);
     }
-    
+
     // Send to monitoring service in production
-    if (process.env.NODE_ENV === 'production') {
+    if (process.env.NODE_ENV === "production") {
       this.sendToMonitoringService(errorData);
     }
   }
@@ -622,12 +661,12 @@ class PerformanceMonitor {
       endpoint,
       duration,
       success,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
-    
+
     // Store metrics for analytics
     this.storeMetric(metric);
-    
+
     // Alert on slow requests
     if (duration > 5000) {
       this.alertSlowRequest(metric);
@@ -639,6 +678,7 @@ class PerformanceMonitor {
 ## Deployment Architecture
 
 ### Development Environment
+
 ```bash
 # Frontend (Vite dev server)
 npm run dev              # http://localhost:5000
@@ -651,6 +691,7 @@ npm run server          # http://localhost:5000/api
 ```
 
 ### Production Environment
+
 ```bash
 # Build process
 npm run build           # Build React app
@@ -682,18 +723,21 @@ RATE_LIMIT_MAX=100
 ## Scalability Considerations
 
 ### Horizontal Scaling
+
 - Stateless server design
 - JWT tokens (no server-side sessions)
 - Database connection pooling
 - Load balancer ready
 
 ### Data Growth
+
 - Pagination for all list endpoints
 - GPS data archiving strategy
 - Efficient indexing for queries
 - Background cleanup jobs
 
 ### Performance Bottlenecks
+
 - GPS point ingestion rate limiting
 - Batch processing for sync operations
 - Caching for frequently accessed data
@@ -702,6 +746,7 @@ RATE_LIMIT_MAX=100
 ## Future Enhancements
 
 ### Planned Features
+
 1. **WebSocket Integration**: Real-time updates
 2. **Push Notifications**: Shipment status alerts
 3. **Advanced Analytics**: Machine learning insights
@@ -709,8 +754,10 @@ RATE_LIMIT_MAX=100
 5. **Mobile App**: Native iOS/Android apps
 
 ### Technical Debt
+
 1. **Database Migration**: Move from mock data to real database
 2. **Microservices**: Split monolith into services
 3. **Event Sourcing**: Audit trail and replay capability
 4. **GraphQL**: More efficient data fetching
 5. **Kubernetes**: Container orchestration
+

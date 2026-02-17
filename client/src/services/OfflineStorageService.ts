@@ -13,10 +13,10 @@ export class OfflineStorageService {
   private initialized = false;
   private readonly dbVersion = 1;
   private syncStatus: SyncStatus = {
-    isOnline: navigator.onLine,
-    pendingRecords: 0,
-    syncInProgress: false,
-    syncErrors: []
+    is_online: navigator.onLine,
+    pending_records: 0,
+    sync_in_progress: false,
+    sync_errors: []
   };
   private syncListeners: ((status: SyncStatus) => void)[] = [];
   private conflictResolver: ConflictResolutionService;
@@ -58,7 +58,7 @@ export class OfflineStorageService {
         // GPS Records store
         if (!db.objectStoreNames.contains('gpsRecords')) {
           const gpsStore = db.createObjectStore('gpsRecords', { keyPath: 'id' });
-          gpsStore.createIndex('sessionId', 'sessionId', { unique: false });
+          gpsStore.createIndex('session_id', 'session_id', { unique: false });
           gpsStore.createIndex('synced', 'synced', { unique: false });
           gpsStore.createIndex('timestamp', 'timestamp', { unique: false });
         }
@@ -66,7 +66,7 @@ export class OfflineStorageService {
         // Route Sessions store
         if (!db.objectStoreNames.contains('routeSessions')) {
           const sessionStore = db.createObjectStore('routeSessions', { keyPath: 'id' });
-          sessionStore.createIndex('employeeId', 'employeeId', { unique: false });
+          sessionStore.createIndex('employee_id', 'employee_id', { unique: false });
           sessionStore.createIndex('synced', 'synced', { unique: false });
           sessionStore.createIndex('status', 'status', { unique: false });
         }
@@ -82,14 +82,14 @@ export class OfflineStorageService {
   private setupNetworkListeners(): void {
     window.addEventListener('online', () => {
       log.dev('Network connection restored');
-      this.syncStatus.isOnline = true;
+      this.syncStatus.is_online = true;
       this.notifySyncListeners();
       this.startBackgroundSync();
     });
 
     window.addEventListener('offline', () => {
       log.dev('Network connection lost');
-      this.syncStatus.isOnline = false;
+      this.syncStatus.is_online = false;
       this.notifySyncListeners();
     });
   }
@@ -104,11 +104,11 @@ export class OfflineStorageService {
 
     const record: OfflineGPSRecord = {
       id: `gps-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      sessionId,
+      session_id: sessionId,
       position,
       timestamp: new Date().toISOString(),
       synced: false,
-      syncAttempts: 0
+      sync_attempts: 0
     };
 
     return new Promise((resolve, reject) => {
@@ -132,7 +132,7 @@ export class OfflineStorageService {
   /**
    * Store route session offline
    */
-  async storeRouteSession(session: Omit<OfflineRouteSession, 'synced' | 'syncAttempts'>): Promise<void> {
+  async storeRouteSession(session: Omit<OfflineRouteSession, 'synced' | 'sync_attempts'>): Promise<void> {
     if (!this.db) {
       throw new Error('IndexedDB not initialized');
     }
@@ -140,7 +140,7 @@ export class OfflineStorageService {
     const offlineSession: OfflineRouteSession = {
       ...session,
       synced: false,
-      syncAttempts: 0
+      sync_attempts: 0
     };
 
     return new Promise((resolve, reject) => {
@@ -258,7 +258,7 @@ export class OfflineStorageService {
         const record = getRequest.result;
         if (record) {
           record.synced = true;
-          record.lastSyncAttempt = new Date().toISOString();
+          record.last_sync_attempt = new Date().toISOString();
 
           const putRequest = store.put(record);
           putRequest.onsuccess = () => {
@@ -292,7 +292,7 @@ export class OfflineStorageService {
         const session = getRequest.result;
         if (session) {
           session.synced = true;
-          session.lastSyncAttempt = new Date().toISOString();
+          session.last_sync_attempt = new Date().toISOString();
 
           const putRequest = store.put(session);
           putRequest.onsuccess = () => {
@@ -327,8 +327,8 @@ export class OfflineStorageService {
       getRequest.onsuccess = () => {
         const record = getRequest.result;
         if (record) {
-          record.syncAttempts = (record.syncAttempts || 0) + 1;
-          record.lastSyncAttempt = new Date().toISOString();
+          record.sync_attempts = (record.sync_attempts || 0) + 1;
+          record.last_sync_attempt = new Date().toISOString();
 
           const putRequest = store.put(record);
           putRequest.onsuccess = () => resolve();
@@ -346,12 +346,12 @@ export class OfflineStorageService {
    * Start background sync process
    */
   async startBackgroundSync(): Promise<void> {
-    if (!this.syncStatus.isOnline || this.syncStatus.syncInProgress) {
+    if (!this.syncStatus.is_online || this.syncStatus.sync_in_progress) {
       return;
     }
 
-    this.syncStatus.syncInProgress = true;
-    this.syncStatus.syncErrors = [];
+    this.syncStatus.sync_in_progress = true;
+    this.syncStatus.sync_errors = [];
     this.notifySyncListeners();
 
     try {
@@ -363,14 +363,14 @@ export class OfflineStorageService {
       // Then sync GPS records
       await this.syncGPSRecords();
 
-      this.syncStatus.lastSyncTime = new Date();
+      this.syncStatus.last_sync_at = new Date();
       log.dev('Background sync completed successfully');
 
     } catch (error) {
       console.error('Background sync failed:', error);
-      this.syncStatus.syncErrors.push(error instanceof Error ? error.message : 'Unknown sync error');
+      this.syncStatus.sync_errors.push(error instanceof Error ? error.message : 'Unknown sync error');
     } finally {
-      this.syncStatus.syncInProgress = false;
+      this.syncStatus.sync_in_progress = false;
       this.notifySyncListeners();
     }
   }
@@ -385,21 +385,21 @@ export class OfflineStorageService {
     for (const session of unsyncedSessions) {
       try {
         // Skip if too many failed attempts
-        if (session.syncAttempts >= 5) {
+        if (session.sync_attempts >= 5) {
           console.warn(`Skipping session ${session.id} - too many failed attempts`);
           continue;
         }
 
         const response = await apiRequest('POST', '/api/v1/routes/sync-session', {
           id: session.id,
-          employeeId: session.employeeId,
-          startTime: session.startTime,
-          endTime: session.endTime,
+          employee_id: session.employee_id,
+          start_time: session.start_time,
+          end_time: session.end_time,
           status: session.status,
-          startLatitude: session.startPosition.latitude,
-          startLongitude: session.startPosition.longitude,
-          endLatitude: session.endPosition?.latitude,
-          endLongitude: session.endPosition?.longitude
+          start_latitude: session.start_position.latitude,
+          start_longitude: session.start_position.longitude,
+          end_latitude: session.end_position?.latitude,
+          end_longitude: session.end_position?.longitude
         });
 
         if (response.ok) {
@@ -412,7 +412,7 @@ export class OfflineStorageService {
       } catch (error) {
         console.error(`Failed to sync route session ${session.id}:`, error);
         await this.incrementSyncAttempt('session', session.id);
-        this.syncStatus.syncErrors.push(`Session ${session.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        this.syncStatus.sync_errors.push(`Session ${session.id}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   }
@@ -428,15 +428,15 @@ export class OfflineStorageService {
     const recordsBySession = new Map<string, OfflineGPSRecord[]>();
 
     for (const record of unsyncedRecords) {
-      if (record.syncAttempts >= 5) {
+      if (record.sync_attempts >= 5) {
         console.warn(`Skipping GPS record ${record.id} - too many failed attempts`);
         continue;
       }
 
-      if (!recordsBySession.has(record.sessionId)) {
-        recordsBySession.set(record.sessionId, []);
+      if (!recordsBySession.has(record.session_id)) {
+        recordsBySession.set(record.session_id, []);
       }
-      recordsBySession.get(record.sessionId)!.push(record);
+      recordsBySession.get(record.session_id)!.push(record);
     }
 
     // Sync records in batches by session
@@ -450,7 +450,7 @@ export class OfflineStorageService {
         }));
 
         const response = await apiRequest('POST', '/api/v1/routes/sync-coordinates', {
-          sessionId,
+          session_id: sessionId,
           coordinates
         });
 
@@ -472,7 +472,7 @@ export class OfflineStorageService {
           await this.incrementSyncAttempt('gps', record.id);
         }
 
-        this.syncStatus.syncErrors.push(`GPS batch ${sessionId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        this.syncStatus.sync_errors.push(`GPS batch ${sessionId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   }
@@ -487,7 +487,7 @@ export class OfflineStorageService {
         this.getUnsyncedRouteSessions()
       ]);
 
-      this.syncStatus.pendingRecords = gpsRecords.length + sessions.length;
+      this.syncStatus.pending_records = gpsRecords.length + sessions.length;
       this.notifySyncListeners();
     } catch (error) {
       console.error('Failed to update pending count:', error);
@@ -591,7 +591,7 @@ export class OfflineStorageService {
    * Force sync now (manual trigger)
    */
   async forceSyncNow(): Promise<void> {
-    if (!this.syncStatus.isOnline) {
+    if (!this.syncStatus.is_online) {
       throw new Error('Cannot sync while offline');
     }
 
@@ -603,10 +603,10 @@ export class OfflineStorageService {
    */
   private async handleSyncConflicts(conflicts: ServerConflict[], localRecords: OfflineGPSRecord[]): Promise<void> {
     for (const serverConflict of conflicts) {
-      const localRecord = localRecords.find((r: OfflineGPSRecord) => r.id === serverConflict.localId);
+      const localRecord = localRecords.find((r: OfflineGPSRecord) => r.id === serverConflict.local_id);
       if (!localRecord) continue;
 
-      const conflict = this.conflictResolver.detectGPSRecordConflict(localRecord, serverConflict.serverData as ServerGPSRecord);
+      const conflict = this.conflictResolver.detectGPSRecordConflict(localRecord, serverConflict.server_data as ServerGPSRecord);
       if (conflict) {
         const resolution = this.conflictResolver.resolveConflict(conflict.id);
         if (resolution) {
@@ -624,9 +624,9 @@ export class OfflineStorageService {
       case 'use_local':
         // Keep local data, mark as synced
         if (conflict.type === 'gps_record') {
-          await this.markGPSRecordSynced(conflict.localData.id);
+          await this.markGPSRecordSynced(conflict.local_data.id);
         } else {
-          await this.markRouteSessionSynced(conflict.localData.id);
+          await this.markRouteSessionSynced(conflict.local_data.id);
         }
         break;
 
@@ -634,9 +634,9 @@ export class OfflineStorageService {
         // Replace local data with server data
         // For now, just mark as synced since server has the authoritative data
         if (conflict.type === 'gps_record') {
-          await this.markGPSRecordSynced(conflict.localData.id);
+          await this.markGPSRecordSynced(conflict.local_data.id);
         } else {
-          await this.markRouteSessionSynced(conflict.localData.id);
+          await this.markRouteSessionSynced(conflict.local_data.id);
         }
         break;
 
@@ -648,9 +648,9 @@ export class OfflineStorageService {
       case 'skip':
         // Skip this record, mark as synced to avoid future conflicts
         if (conflict.type === 'gps_record') {
-          await this.markGPSRecordSynced(conflict.localData.id);
+          await this.markGPSRecordSynced(conflict.local_data.id);
         } else {
-          await this.markRouteSessionSynced(conflict.localData.id);
+          await this.markRouteSessionSynced(conflict.local_data.id);
         }
         break;
     }

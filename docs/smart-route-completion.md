@@ -374,11 +374,11 @@ Future versions may include ML-based pattern recognition:
 
 ```typescript
 interface RoutePattern {
-  employeeId: string;
-  averageDuration: number;
-  typicalShipmentCount: number;
-  commonEndLocations: Position[];
-  timeOfDayPatterns: TimePattern[];
+  employee_id: string;
+  average_duration: number;
+  typical_shipment_count: number;
+  common_end_locations: Position[];
+  time_of_day_patterns: TimePattern[];
 }
 
 class MLRouteCompletion {
@@ -388,8 +388,8 @@ class MLRouteCompletion {
     // Analyze historical route data to identify patterns
     const employeePatterns = this.analyzeEmployeePatterns(historicalData);
     
-    for (const [employeeId, pattern] of employeePatterns) {
-      this.patterns.set(employeeId, pattern);
+    for (const [employee_id, pattern] of employeePatterns) {
+      this.patterns.set(employee_id, pattern);
     }
   }
   
@@ -397,7 +397,7 @@ class MLRouteCompletion {
     session: RouteSession,
     currentPosition: Position
   ): number {
-    const pattern = this.patterns.get(session.employeeId);
+    const pattern = this.patterns.get(session.employee_id);
     if (!pattern) return this.fallbackPrediction(session, currentPosition);
     
     // Use ML model to predict completion probability

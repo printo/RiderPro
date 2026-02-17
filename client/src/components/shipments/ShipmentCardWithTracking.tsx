@@ -12,7 +12,6 @@ import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { useGPSTracking } from "@/hooks/useGPSTracking";
 import { useToast } from "@/hooks/use-toast";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
-import { CollectedStatusToggle } from "./CollectedStatusToggle";
 
 interface ShipmentCardWithTrackingProps {
   shipment: Shipment;
@@ -28,24 +27,24 @@ function ShipmentCardWithTracking({
   selected,
   onSelect,
   onViewDetails,
-  employeeId,
+  employeeId: employee_id,
   showTrackingControls = true
 }: ShipmentCardWithTrackingProps) {
-  const [isRecordingEvent, setIsRecordingEvent] = useState(false);
+  const [is_recording_event, set_is_recording_event] = useState(false);
   const { toast } = useToast();
 
   const {
     hasActiveSession,
     recordShipmentEvent,
     isSubmitting
-  } = useRouteTracking(employeeId);
+  } = useRouteTracking(employee_id);
 
   const {
     getCurrentPosition,
-    isLoading: isGettingLocation
+    isLoading: is_getting_location
   } = useGPSTracking();
 
-  const getTypeIcon = (type: string) => {
+  const get_type_icon = (type: string) => {
     return type === "delivery" ? (
       <Truck className="text-blue-600 h-5 w-5" />
     ) : (
@@ -53,10 +52,10 @@ function ShipmentCardWithTracking({
     );
   };
 
-  const formatTime = (dateString?: string) => {
-    if (!dateString) return 'Not scheduled';
+  const format_time = (date_string?: string) => {
+    if (!date_string) return 'Not scheduled';
     try {
-      const date = new Date(dateString);
+      const date = new Date(date_string);
       if (isNaN(date.getTime())) return 'Invalid date';
       return date.toLocaleString('en-US', {
         month: 'short',
@@ -66,11 +65,11 @@ function ShipmentCardWithTracking({
         hour12: true
       });
     } catch {
-      return dateString || 'Not scheduled';
+      return date_string || 'Not scheduled';
     }
   };
 
-  const formatAddress = (address: any): string => {
+  const format_address = (address: any): string => {
     if (!address) return 'No address';
 
     // If it's already a string, return it
@@ -96,7 +95,7 @@ function ShipmentCardWithTracking({
     return 'No address';
   };
 
-  const handleRecordShipmentEvent = async (eventType: 'pickup' | 'delivery') => {
+  const handle_record_shipment_event = async (event_type: 'pickup' | 'delivery') => {
     if (!hasActiveSession) {
       toast({
         title: "No Active Route",
@@ -106,54 +105,54 @@ function ShipmentCardWithTracking({
       return;
     }
 
-    setIsRecordingEvent(true);
+    set_is_recording_event(true);
 
     try {
       // Get current GPS position
       const position = await getCurrentPosition();
 
       // Record the shipment event with GPS coordinates
-      if (!shipment?.shipment_id) {
+      if (!shipment?.id) {
         throw new Error('Shipment ID is missing');
       }
 
       await recordShipmentEvent(
-        shipment.shipment_id,
-        eventType,
+        shipment.id,
+        event_type,
         position.latitude,
         position.longitude
       );
 
       toast({
         title: "Location Recorded",
-        description: `${eventType === 'pickup' ? 'Pickup' : 'Delivery'} location has been recorded with GPS coordinates.`,
+        description: `${event_type === 'pickup' ? 'Pickup' : 'Delivery'} location has been recorded with GPS coordinates.`,
       });
 
     } catch (error) {
       console.error('Failed to record shipment event:', error);
       toast({
         title: "Recording Failed",
-        description: `Failed to record ${eventType} location. The shipment status will still be updated.`,
+        description: `Failed to record ${event_type} location. The shipment status will still be updated.`,
         variant: "destructive",
       });
     } finally {
-      setIsRecordingEvent(false);
+      set_is_recording_event(false);
     }
   };
 
-  const canRecordPickup = () => {
+  const can_record_pickup = () => {
     return shipment?.type === 'pickup' &&
       shipment?.status === 'Assigned' &&
       hasActiveSession;
   };
 
-  const canRecordDelivery = () => {
+  const can_record_delivery = () => {
     return shipment?.type === 'delivery' &&
       shipment?.status === 'Assigned' &&
       hasActiveSession;
   };
 
-  const getTrackingStatusBadge = () => {
+  const get_tracking_status_badge = () => {
     // Show GPS indicator based on whether there's an active session
     if (hasActiveSession) {
       return (
@@ -173,7 +172,7 @@ function ShipmentCardWithTracking({
   return (
     <Card
       className="hover:shadow-md transition-shadow cursor-pointer"
-      data-testid={`card-shipment-${shipment?.shipment_id}`}
+      data-testid={`card-shipment-${shipment?.id}`}
       onClick={onViewDetails}
     >
       <CardContent className="p-4">
@@ -183,7 +182,7 @@ function ShipmentCardWithTracking({
               checked={selected}
               onCheckedChange={(checked) => onSelect(!!checked)}
               className="mt-1"
-              data-testid={`checkbox-select-${shipment?.shipment_id}`}
+              data-testid={`checkbox-select-${shipment?.id}`}
               onClick={(e) => e.stopPropagation()}
             />
             <div className="flex-1">
@@ -192,12 +191,12 @@ function ShipmentCardWithTracking({
                   "p-2 rounded-lg",
                   shipment?.type === "delivery" ? "bg-blue-100" : "bg-orange-100"
                 )}>
-                  {getTypeIcon(shipment?.type || 'delivery')}
+                  {get_type_icon(shipment?.type || 'delivery')}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-foreground" data-testid={`text-customer-name-${shipment?.shipment_id}`}>
-                      {shipment?.customerName || shipment?.recipientName || 'Unknown Customer'}
+                    <h3 className="font-semibold text-foreground" data-testid={`text-customer-name-${shipment?.id}`}>
+                      {shipment?.customer_name || 'Unknown Customer'}
                     </h3>
                     <div className="flex items-center gap-2">
                       <span
@@ -211,19 +210,19 @@ function ShipmentCardWithTracking({
                                     shipment?.status === 'Returned' ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" :
                                       "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
                         )}
-                        data-testid={`text-status-${shipment?.shipment_id}`}
+                        data-testid={`text-status-${shipment?.id}`}
                       >
                         {shipment?.status || 'Unknown'}
                       </span>
-                      {getTrackingStatusBadge()}
+                      {get_tracking_status_badge()}
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground space-y-0.5">
-                    <p data-testid={`text-shipment-id-${shipment?.shipment_id}`}>
-                      Shipment ID: #{shipment?.shipment_id || 'Unknown ID'}
+                    <p data-testid={`text-shipment-id-${shipment?.id}`}>
+                      Shipment ID: #{shipment?.id || 'Unknown ID'}
                     </p>
-                    <p data-testid={`text-pops-order-id-${shipment?.shipment_id}`}>
-                      Pia Order ID: {shipment?.orderId || (shipment as Shipment & { pops_order_id?: number })?.pops_order_id || 'N/A'}
+                    <p data-testid={`text-pops-order-id-${shipment?.id}`}>
+                      Pia Order ID: {shipment?.pops_order_id || 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -234,39 +233,39 @@ function ShipmentCardWithTracking({
                   <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
                   <span
                     className="truncate"
-                    title={formatAddress(shipment?.addressDisplay || shipment?.address || shipment?.deliveryAddress)}
-                    data-testid={`text-address-${shipment?.shipment_id}`}
+                    title={format_address(shipment?.address_display || shipment?.address)}
+                    data-testid={`text-address-${shipment?.id}`}
                   >
-                    {formatAddress(shipment?.addressDisplay || shipment?.address || shipment?.deliveryAddress)}
+                    {format_address(shipment?.address_display || shipment?.address)}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Phone className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-mobile-${shipment?.shipment_id}`}>
-                    {shipment?.customerMobile || shipment?.recipientPhone || 'No phone'}
+                  <span data-testid={`text-mobile-${shipment?.id}`}>
+                    {shipment?.customer_mobile || 'No phone'}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Route className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-route-${shipment?.shipment_id}`}>
-                    {shipment?.routeName || 'Not assigned'}
+                  <span data-testid={`text-route-${shipment?.id}`}>
+                    {shipment?.route_name || 'Not assigned'}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <User className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-rider-${shipment?.shipment_id}`} className="font-medium">
-                    {shipment?.employeeId || (shipment as Shipment & { employee_id?: string })?.employee_id || 'Unassigned'}
+                  <span data-testid={`text-rider-${shipment?.id}`} className="font-medium">
+                    {shipment?.employee_id || 'Unassigned'}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-delivery-time-${shipment?.shipment_id}`}>
-                    {formatTime(shipment?.deliveryTime || shipment?.estimatedDeliveryTime)}
+                  <span data-testid={`text-delivery-time-${shipment?.id}`}>
+                    {format_time(shipment?.delivery_time)}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Satellite className={`h-4 w-4 mr-2 flex-shrink-0 ${shipment?.latitude && shipment?.longitude ? 'animate-pulse text-green-600' : 'text-gray-500'}`} />
-                  <span data-testid={`text-location-${shipment?.shipment_id}`}>
+                  <span data-testid={`text-location-${shipment?.id}`}>
                     {shipment?.latitude && shipment?.longitude ? (
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center space-x-2">
@@ -296,7 +295,7 @@ function ShipmentCardWithTracking({
               </div>
 
               {/* GPS Tracking Controls */}
-              {showTrackingControls && (canRecordPickup() || canRecordDelivery()) && (
+              {showTrackingControls && (can_record_pickup() || can_record_delivery()) && (
                 <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                   <span className="text-xs text-muted-foreground">GPS Tracking:</span>
 
@@ -309,48 +308,48 @@ function ShipmentCardWithTracking({
                         window.open(`https://www.google.com/maps/dir/?api=1&destination=${shipment.latitude},${shipment.longitude}`, '_blank');
                       }}
                       className="h-7 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
-                      data-testid={`btn-navigate-google-${shipment?.shipment_id}`}
+                      data-testid={`btn-navigate-google-${shipment?.id}`}
                     >
                       <Navigation className="h-3 w-3 mr-1" />
                       Navigate
                     </Button>
                   )}
 
-                  {canRecordPickup() && (
+                  {can_record_pickup() && (
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleRecordShipmentEvent('pickup');
+                        handle_record_shipment_event('pickup');
                       }}
-                      disabled={isRecordingEvent || isGettingLocation || isSubmitting}
+                      disabled={is_recording_event || is_getting_location || isSubmitting}
                       className="h-7 px-2 text-xs"
-                      data-testid={`btn-record-pickup-${shipment?.shipment_id}`}
+                      data-testid={`btn-record-pickup-${shipment?.id}`}
                     >
                       <Truck className="h-3 w-3 mr-1" />
                       Record Pickup
                     </Button>
                   )}
 
-                  {canRecordDelivery() && (
+                  {can_record_delivery() && (
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleRecordShipmentEvent('delivery');
+                        handle_record_shipment_event('delivery');
                       }}
-                      disabled={isRecordingEvent || isGettingLocation || isSubmitting}
+                      disabled={is_recording_event || is_getting_location || isSubmitting}
                       className="h-7 px-2 text-xs"
-                      data-testid={`btn-record-delivery-${shipment?.shipment_id}`}
+                      data-testid={`btn-record-delivery-${shipment?.id}`}
                     >
                       <Navigation className="h-3 w-3 mr-1" />
                       Record Delivery
                     </Button>
                   )}
 
-                  {(isRecordingEvent || isGettingLocation || isSubmitting) && (
+                  {(is_recording_event || is_getting_location || isSubmitting) && (
                     <span className="text-xs text-muted-foreground">
                       Recording location...
                     </span>
@@ -363,8 +362,9 @@ function ShipmentCardWithTracking({
       </CardContent>
     </Card>
   );
-} export
-  default withComponentErrorBoundary(ShipmentCardWithTracking, {
-    componentVariant: 'card',
-    componentName: 'ShipmentCardWithTracking'
-  });
+}
+
+export default withComponentErrorBoundary(ShipmentCardWithTracking, {
+  componentVariant: 'card',
+  componentName: 'ShipmentCardWithTracking'
+});

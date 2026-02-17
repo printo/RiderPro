@@ -4,56 +4,56 @@ import { Camera, X, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PhotoCaptureProps {
-  onPhotoComplete: (photoFile: File) => void;
-  onRemove?: () => void;
+  on_photo_complete: (photo_file: File) => void;
+  on_remove?: () => void;
   className?: string;
 }
 
 export default function PhotoCapture({
-  onPhotoComplete,
-  onRemove,
+  on_photo_complete,
+  on_remove,
   className
 }: PhotoCaptureProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const file_input_ref = useRef<HTMLInputElement>(null);
+  const [photo_preview, set_photo_preview] = useState<string | null>(null);
+  const [_photo_file, set_photo_file] = useState<File | null>(null);
 
-  const handleCapture = () => {
-    fileInputRef.current?.click();
+  const handle_capture = () => {
+    file_input_ref.current?.click();
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handle_photo_change = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setPhotoFile(file);
+      set_photo_file(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPhotoPreview(reader.result as string);
+        set_photo_preview(reader.result as string);
       };
       reader.readAsDataURL(file);
-      onPhotoComplete(file);
+      on_photo_complete(file);
     }
   };
 
-  const handleRemove = () => {
-    setPhotoFile(null);
-    setPhotoPreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  const handle_remove = () => {
+    set_photo_file(null);
+    set_photo_preview(null);
+    if (file_input_ref.current) {
+      file_input_ref.current.value = '';
     }
-    if (onRemove) onRemove();
+    if (on_remove) on_remove();
   };
 
   return (
     <div className={cn("space-y-3", className)}>
-      {!photoPreview ? (
+      {!photo_preview ? (
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
           <Camera className="h-12 w-12 mx-auto text-gray-400 mb-3" />
           <p className="text-sm text-muted-foreground mb-3">
             Take a photo of the delivered package
           </p>
           <Button
-            onClick={handleCapture}
+            onClick={handle_capture}
             variant="outline"
             className="w-full"
           >
@@ -61,18 +61,18 @@ export default function PhotoCapture({
             Capture Photo
           </Button>
           <input
-            ref={fileInputRef}
+            ref={file_input_ref}
             type="file"
             accept="image/*"
             capture="environment"
-            onChange={handlePhotoChange}
+            onChange={handle_photo_change}
             className="hidden"
           />
         </div>
       ) : (
         <div className="border rounded-lg p-2 bg-white">
           <img
-            src={photoPreview}
+            src={photo_preview}
             alt="Proof of delivery"
             className="w-full h-48 object-cover rounded"
           />
@@ -84,7 +84,7 @@ export default function PhotoCapture({
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleRemove}
+              onClick={handle_remove}
               className="text-red-600 hover:text-red-700"
             >
               <X className="h-4 w-4 mr-1" />
@@ -96,4 +96,3 @@ export default function PhotoCapture({
     </div>
   );
 }
-

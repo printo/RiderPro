@@ -9,11 +9,18 @@ class VehicleTypeSerializer(serializers.ModelSerializer):
     """Vehicle type serializer"""
     id = serializers.CharField(required=False, allow_blank=True)  # Allow auto-generation
     
+    fuelEfficiency = serializers.FloatField(source='fuel_efficiency')
+    co2Emissions = serializers.FloatField(source='co2_emissions')
+    createdAt = serializers.DateTimeField(source='created_at', read_only=True)
+    updatedAt = serializers.DateTimeField(source='updated_at', read_only=True)
+    
     class Meta:
         model = VehicleType
         fields = [
             'id', 'name', 'fuel_efficiency', 'description', 'icon',
-            'fuel_type', 'co2_emissions', 'created_at', 'updated_at'
+            'fuel_type', 'co2_emissions', 'created_at', 'updated_at',
+            # Aliases
+            'fuelEfficiency', 'co2Emissions', 'createdAt', 'updatedAt'
         ]
         read_only_fields = ['created_at', 'updated_at']
     
@@ -32,11 +39,21 @@ class FuelSettingSerializer(serializers.ModelSerializer):
     """Fuel setting serializer"""
     id = serializers.CharField(required=False, allow_blank=True)  # Allow auto-generation
     
+    fuelType = serializers.CharField(source='fuel_type')
+    pricePerLiter = serializers.FloatField(source='price_per_liter')
+    effectiveDate = serializers.DateTimeField(source='effective_date')
+    isActive = serializers.BooleanField(source='is_active')
+    createdBy = serializers.CharField(source='created_by')
+    createdAt = serializers.DateTimeField(source='created_at', read_only=True)
+    updatedAt = serializers.DateTimeField(source='updated_at', read_only=True)
+    
     class Meta:
         model = FuelSetting
         fields = [
             'id', 'fuel_type', 'price_per_liter', 'currency', 'region',
-            'effective_date', 'is_active', 'created_by', 'created_at', 'updated_at'
+            'effective_date', 'is_active', 'created_by', 'created_at', 'updated_at',
+            # Aliases
+            'fuelType', 'pricePerLiter', 'effectiveDate', 'isActive', 'createdBy', 'createdAt', 'updatedAt'
         ]
         read_only_fields = ['created_at', 'updated_at']
     

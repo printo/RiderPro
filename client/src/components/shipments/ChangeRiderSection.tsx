@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -9,46 +9,46 @@ import { useQuery } from '@tanstack/react-query';
 import { shipmentsApi } from '@/apiClient/shipments';
 
 interface ChangeRiderSectionProps {
-  currentRiderId: string | null;
-  canChange: boolean;
-  onChangeRider: (newRiderId: string, reason?: string) => Promise<void>;
-  blockedStatusMessage?: string;
+  current_rider_id: string | null;
+  can_change: boolean;
+  on_change_rider: (new_rider_id: string, reason?: string) => Promise<void>;
+  blocked_status_message?: string;
 }
 
 export default function ChangeRiderSection({
-  currentRiderId,
-  canChange,
-  onChangeRider,
-  blockedStatusMessage
+  current_rider_id,
+  can_change,
+  on_change_rider,
+  blocked_status_message
 }: ChangeRiderSectionProps) {
-  const [isChanging, setIsChanging] = useState(false);
-  const [newRiderId, setNewRiderId] = useState('');
-  const [changeReason, setChangeReason] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [is_changing, set_is_changing] = useState(false);
+  const [new_rider_id, set_new_rider_id] = useState('');
+  const [change_reason, set_change_reason] = useState('');
+  const [is_submitting, set_is_submitting] = useState(false);
   const { toast } = useToast();
 
   // Fetch available riders
-  const { data: ridersData, isLoading: isLoadingRiders } = useQuery({
+  const { data: riders_data, isLoading: is_loading_riders } = useQuery({
     queryKey: ['available-riders'],
     queryFn: () => shipmentsApi.getAvailableRiders(),
-    enabled: isChanging, // Only fetch when changing rider
+    enabled: is_changing, // Only fetch when changing rider
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  const availableRiders = ridersData?.riders || [];
+  const available_riders = riders_data?.riders || [];
 
-  const handleStartChange = () => {
-    setIsChanging(true);
+  const handle_start_change = () => {
+    set_is_changing(true);
   };
 
-  const handleCancel = () => {
-    setIsChanging(false);
-    setNewRiderId('');
-    setChangeReason('');
+  const handle_cancel = () => {
+    set_is_changing(false);
+    set_new_rider_id('');
+    set_change_reason('');
   };
 
-  const handleSave = async () => {
-    if (!newRiderId.trim()) {
+  const handle_save = async () => {
+    if (!new_rider_id.trim()) {
       toast({
         title: "Rider ID required",
         description: "Please enter a rider ID",
@@ -57,16 +57,16 @@ export default function ChangeRiderSection({
       return;
     }
 
-    setIsSubmitting(true);
+    set_is_submitting(true);
     try {
-      await onChangeRider(newRiderId.trim(), changeReason);
-      setIsChanging(false);
-      setNewRiderId('');
-      setChangeReason('');
+      await on_change_rider(new_rider_id.trim(), change_reason);
+      set_is_changing(false);
+      set_new_rider_id('');
+      set_change_reason('');
     } catch (error) {
       console.error('Error changing rider:', error);
     } finally {
-      setIsSubmitting(false);
+      set_is_submitting(false);
     }
   };
 
@@ -77,11 +77,11 @@ export default function ChangeRiderSection({
           <User className="h-5 w-5 text-purple-600" />
           <h4 className="font-semibold text-lg">Change Rider</h4>
         </div>
-        {!isChanging && canChange && (
+        {!is_changing && can_change && (
           <Button
             variant="outline"
             size="sm"
-            onClick={handleStartChange}
+            onClick={handle_start_change}
             className="border-purple-300 text-purple-700 hover:bg-purple-50"
           >
             <Edit className="h-4 w-4 mr-1" />
@@ -92,44 +92,44 @@ export default function ChangeRiderSection({
 
       <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-3 border">
         <span className="text-sm text-muted-foreground">Current Rider:</span>
-        <p className="font-semibold text-base mt-1">{currentRiderId || 'Unassigned'}</p>
+        <p className="font-semibold text-base mt-1">{current_rider_id || 'Unassigned'}</p>
       </div>
 
-      {!canChange && (
+      {!can_change && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-sm">
-            {blockedStatusMessage || 'Cannot change rider at this time.'}
+            {blocked_status_message || 'Cannot change rider at this time.'}
           </AlertDescription>
         </Alert>
       )}
 
-      {isChanging && (
+      {is_changing && (
         <div className="space-y-4 pt-3 border-t bg-blue-50/30 dark:bg-blue-950/20 rounded-lg p-4">
           <div>
-            <label htmlFor="newRiderId" className="text-sm font-semibold mb-2 block text-foreground">
+            <label htmlFor="new_rider_id" className="text-sm font-semibold mb-2 block text-foreground">
               New Rider <span className="text-red-500">*</span>
             </label>
-            {isLoadingRiders ? (
+            {is_loading_riders ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Loading riders...
               </div>
             ) : (
               <Select
-                value={newRiderId || undefined}
-                onValueChange={setNewRiderId}
-                disabled={isSubmitting}
+                value={new_rider_id || undefined}
+                onValueChange={set_new_rider_id}
+                disabled={is_submitting}
               >
-                <SelectTrigger id="newRiderId" className="w-full h-11 bg-background">
+                <SelectTrigger id="new_rider_id" className="w-full h-11 bg-background">
                   <SelectValue placeholder="Select a rider" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableRiders.length > 0 ? (
-                    availableRiders.map((rider) => (
+                  {available_riders.length > 0 ? (
+                    available_riders.map((rider) => (
                       <SelectItem key={rider.id} value={rider.id}>
                         <div className="flex flex-col py-1">
-                          <span className="font-medium">{rider.name || rider.id}</span>
+                          <span className="font-medium">{rider.full_name || rider.name || rider.id}</span>
                           {rider.email && (
                             <span className="text-xs text-muted-foreground">{rider.email}</span>
                           )}
@@ -143,34 +143,34 @@ export default function ChangeRiderSection({
                 </SelectContent>
               </Select>
             )}
-            {availableRiders.length === 0 && !isLoadingRiders && (
+            {available_riders.length === 0 && !is_loading_riders && (
               <p className="text-xs text-muted-foreground mt-2">
                 No active riders found. Please ensure riders are approved and active.
               </p>
             )}
           </div>
           <div>
-            <label htmlFor="changeReason" className="text-sm font-semibold mb-2 block text-foreground">
+            <label htmlFor="change_reason" className="text-sm font-semibold mb-2 block text-foreground">
               Reason (Optional)
             </label>
             <Textarea
-              id="changeReason"
-              value={changeReason}
-              onChange={(e) => setChangeReason(e.target.value)}
+              id="change_reason"
+              value={change_reason}
+              onChange={(e) => set_change_reason(e.target.value)}
               placeholder="Reason for rider change"
               className="mt-1 bg-background"
               rows={3}
-              disabled={isSubmitting}
+              disabled={is_submitting}
             />
           </div>
           <div className="flex gap-2 pt-2">
             <Button
-              onClick={handleSave}
-              disabled={isSubmitting || !newRiderId.trim()}
+              onClick={handle_save}
+              disabled={is_submitting || !new_rider_id.trim()}
               size="sm"
               className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
             >
-              {isSubmitting ? (
+              {is_submitting ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <Save className="h-4 w-4 mr-2" />
@@ -179,8 +179,8 @@ export default function ChangeRiderSection({
             </Button>
             <Button
               variant="outline"
-              onClick={handleCancel}
-              disabled={isSubmitting}
+              onClick={handle_cancel}
+              disabled={is_submitting}
               size="sm"
               className="flex-1"
             >
@@ -193,4 +193,3 @@ export default function ChangeRiderSection({
     </div>
   );
 }
-

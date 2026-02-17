@@ -54,16 +54,16 @@ export const routeAPI = {
    * Record shipment event (pickup/delivery)
    */
   recordShipmentEvent: async (
-    sessionId: string,
-    shipmentId: string,
-    eventType: 'pickup' | 'delivery',
+    session_id: string,
+    shipment_id: string,
+    event_type: 'pickup' | 'delivery',
     latitude: number,
     longitude: number
   ): Promise<RouteTracking> => {
     const response = await apiRequest("POST", "/api/v1/routes/shipment-event", {
-      sessionId,
-      shipmentId,
-      eventType,
+      session_id,
+      shipment_id,
+      event_type,
       latitude,
       longitude
     });
@@ -79,9 +79,9 @@ export const routeAPI = {
   /**
    * Get active session for an employee
    */
-  getActiveSession: async (employeeId: string): Promise<RouteSession | null> => {
+  getActiveSession: async (employee_id: string): Promise<RouteSession | null> => {
     try {
-      const response = await apiClient.get(`/api/v1/routes/active/${employeeId}`);
+      const response = await apiClient.get(`/api/v1/routes/active/${employee_id}`);
       const result = await response.json();
 
       if (response.status === 404) {
@@ -104,8 +104,8 @@ export const routeAPI = {
   /**
    * Get session coordinates
    */
-  getSessionCoordinates: async (sessionId: string): Promise<RouteTracking[]> => {
-    const response = await apiClient.get(`/api/v1/routes/session/${sessionId}`);
+  getSessionCoordinates: async (session_id: string): Promise<RouteTracking[]> => {
+    const response = await apiClient.get(`/api/v1/routes/session/${session_id}`);
     const result = await response.json();
 
     if (!response.ok || !result.success) {
@@ -120,11 +120,11 @@ export const routeAPI = {
    */
   getRouteAnalytics: async (filters: RouteFilters = {}): Promise<RouteAnalytics[]> => {
     const params = new URLSearchParams();
-    if (filters.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters.employee_id) params.append('employee_id', filters.employee_id);
     if (filters.date) params.append('date', filters.date);
-    if (filters.startDate) params.append('startDate', filters.startDate);
-    if (filters.endDate) params.append('endDate', filters.endDate);
-    if (filters.sessionStatus) params.append('sessionStatus', filters.sessionStatus);
+    if (filters.start_date) params.append('start_date', filters.start_date);
+    if (filters.end_date) params.append('end_date', filters.end_date);
+    if (filters.session_status) params.append('session_status', filters.session_status);
 
     const url = `/api/v1/routes/analytics${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
@@ -161,8 +161,8 @@ export const routeAPI = {
   /**
    * Get session summary with calculated metrics
    */
-  getSessionSummary: async (sessionId: string): Promise<SessionSummary> => {
-    const response = await apiClient.get(`/api/v1/routes/session/${sessionId}/summary`);
+  getSessionSummary: async (session_id: string): Promise<SessionSummary> => {
+    const response = await apiClient.get(`/api/v1/routes/session/${session_id}/summary`);
     const result = await response.json();
 
     if (!response.ok || !result.success) {
@@ -346,14 +346,14 @@ export function groupCoordinatesByDate(coordinates: RouteTracking[]): Record<str
 /**
  * Filter coordinates by session
  */
-export function filterCoordinatesBySession(coordinates: RouteTracking[], sessionId: string): RouteTracking[] {
-  return coordinates.filter(coord => coord.sessionId === sessionId);
+export function filterCoordinatesBySession(coordinates: RouteTracking[], session_id: string): RouteTracking[] {
+  return coordinates.filter(coord => coord.session === session_id);
 }
 
 /**
  * Get unique session IDs from coordinates
  */
 export function getUniqueSessionIds(coordinates: RouteTracking[]): string[] {
-  const sessionIds = new Set(coordinates.map(coord => coord.sessionId));
-  return Array.from(sessionIds);
+  const session_ids = new Set(coordinates.map(coord => coord.session));
+  return Array.from(session_ids);
 }

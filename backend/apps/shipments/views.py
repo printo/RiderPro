@@ -1870,23 +1870,23 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 efficiency = total_distance / shipments_completed
             
             summary = {
-                'sessionId': session.id,
-                'employeeId': session.employee_id,
-                'startTime': session.start_time.isoformat() if session.start_time else None,
-                'endTime': session.end_time.isoformat() if session.end_time else None,
+                'session_id': session.id,
+                'employee_id': session.employee_id,
+                'start_time': session.start_time.isoformat() if session.start_time else None,
+                'end_time': session.end_time.isoformat() if session.end_time else None,
                 'status': session.status,
-                'totalPoints': total_points,
-                'totalDistance': float(total_distance),
-                'totalTime': int(total_time),
-                'averageSpeed': float(average_speed),
-                'fuelConsumed': float(fuel_consumed),
-                'fuelCost': float(fuel_cost),
-                'shipmentsCompleted': int(shipments_completed),
+                'total_points': total_points,
+                'total_distance': float(total_distance),
+                'total_time': int(total_time),
+                'average_speed': float(average_speed),
+                'fuel_consumed': float(fuel_consumed),
+                'fuel_cost': float(fuel_cost),
+                'shipments_completed': int(shipments_completed),
                 'efficiency': efficiency,
-                'startLatitude': session.start_latitude,
-                'startLongitude': session.start_longitude,
-                'endLatitude': session.end_latitude,
-                'endLongitude': session.end_longitude
+                'start_latitude': session.start_latitude,
+                'start_longitude': session.start_longitude,
+                'end_latitude': session.end_latitude,
+                'end_longitude': session.end_longitude
             }
             
             return Response({

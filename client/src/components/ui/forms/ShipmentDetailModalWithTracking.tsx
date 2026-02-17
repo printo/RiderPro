@@ -11,8 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CheckCircle, Package, Undo, XCircle, Truck, Navigation,
-  MapPin, Clock, AlertCircle, Loader2, Copy, ArrowLeft,
-  RotateCcw
+  MapPin, Clock, AlertCircle, Loader2, RotateCcw,
+  ArrowLeft
 } from "lucide-react";
 import {
   AlertDialog,
@@ -36,18 +36,18 @@ import AcknowledgmentCapture from "@/components/AcknowledgmentCapture";
 import ShipmentDetailTabs from "@/components/shipments/ShipmentDetailTabs";
 
 // Helper function to format address
-const formatAddress = (address: any): string => {
+const format_address = (address: any): string => {
   if (!address) return 'No address';
-  
+
   // If it's already a string, return it
   if (typeof address === 'string') {
     return address;
   }
-  
+
   // If it's an object, format it
   if (typeof address === 'object' && address !== null) {
     const parts: string[] = [];
-    
+
     // Try common address field names
     if (address.address) parts.push(String(address.address));
     if (address.place_name) parts.push(String(address.place_name));
@@ -55,38 +55,38 @@ const formatAddress = (address: any): string => {
     if (address.state) parts.push(String(address.state));
     if (address.pincode) parts.push(String(address.pincode));
     if (address.country) parts.push(String(address.country));
-    
+
     return parts.length > 0 ? parts.join(', ') : 'No address';
   }
-  
+
   return 'No address';
 };
 
 type ShipmentWithAcknowledgment = Shipment & {
   acknowledgment?: {
-    photoUrl?: string;
-    signatureUrl?: string;
+    photo_url?: string;
+    signature_url?: string;
   };
 };
 
 interface ShipmentDetailModalWithTrackingProps {
   shipment: ShipmentWithAcknowledgment;
-  isOpen: boolean;
-  onClose: () => void;
-  employeeId: string;
+  is_open: boolean;
+  on_close: () => void;
+  employee_id: string;
 }
 
 function ShipmentDetailModalWithTracking({
   shipment,
-  isOpen,
-  onClose,
-  employeeId
+  is_open,
+  on_close,
+  employee_id
 }: ShipmentDetailModalWithTrackingProps) {
-  const [showAcknowledgment, setShowAcknowledgment] = useState(false);
-  const [showRemarksModal, setShowRemarksModal] = useState(false);
-  const [remarksStatus, setRemarksStatus] = useState<"Cancelled" | "Returned" | null>(null);
-  const [isRecordingLocation, setIsRecordingLocation] = useState(false);
-  const [showRevertConfirm, setShowRevertConfirm] = useState(false);
+  const [show_acknowledgment, set_show_acknowledgment] = useState(false);
+  const [show_remarks_modal, set_show_remarks_modal] = useState(false);
+  const [remarks_status, set_remarks_status] = useState<"Cancelled" | "Returned" | null>(null);
+  const [is_recording_location, set_is_recording_location] = useState(false);
+  const [show_revert_confirm, set_show_revert_confirm] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -96,17 +96,17 @@ function ShipmentDetailModalWithTracking({
     hasActiveSession,
     activeSession,
     recordShipmentEvent,
-    isSubmitting: isRecordingEvent
-  } = useRouteTracking(employeeId);
+    isSubmitting: is_recording_event
+  } = useRouteTracking(employee_id);
 
   const {
     getCurrentPosition,
-    isLoading: isGettingLocation
+    isLoading: is_getting_location
   } = useGPSTracking();
 
-  const updateStatusMutation = useMutation({
+  const update_status_mutation = useMutation({
     mutationFn: async ({ status }: { status: string }) => {
-      const response = await apiRequest("PATCH", `/api/v1/shipments/${shipment.shipment_id}`, { status });
+      const response = await apiRequest("PATCH", `/api/v1/shipments/${shipment.id}`, { status });
       return response.json();
     },
     onSuccess: () => {
@@ -131,25 +131,25 @@ function ShipmentDetailModalWithTracking({
   });
 
 
-  const handleStatusUpdateWithGPS = async (status: string) => {
+  const handle_status_update_with_gps = async (status: string) => {
     // Proceed with normal status update
     if (status === "Delivered" || status === "Picked Up") {
-      setShowAcknowledgment(true);
+      set_show_acknowledgment(true);
       // Don't update status yet - wait for acknowledgment to be saved
     } else if (status === "Cancelled" || status === "Returned") {
-      setRemarksStatus(status as "Cancelled" | "Returned");
-      setShowRemarksModal(true);
+      set_remarks_status(status as "Cancelled" | "Returned");
+      set_show_remarks_modal(true);
     } else {
-      updateStatusMutation.mutate({ status });
-      onClose();
+      update_status_mutation.mutate({ status });
+      on_close();
     }
   };
 
-  const handleAcknowledgmentSave = async (data: { photo: File | null; signature: string }) => {
-    const hasPhoto = Boolean(data.photo);
-    const hasSignature = Boolean(data.signature.trim());
+  const handle_acknowledgment_save = async (data: { photo: File | null; signature: string }) => {
+    const has_photo = Boolean(data.photo);
+    const has_signature = Boolean(data.signature.trim());
 
-    if (!hasPhoto || !hasSignature) {
+    if (!has_photo || !has_signature) {
       toast({
         title: "Acknowledgment Required",
         description: "Delivery/Pickup photo and recipient signature are required before status update.",
@@ -158,17 +158,17 @@ function ShipmentDetailModalWithTracking({
       return;
     }
 
-    const formData = new FormData();
+    const form_data = new FormData();
     if (data.photo) {
-      formData.append('photo', data.photo);
+      form_data.append('photo', data.photo);
     }
-    if (hasSignature) {
-      formData.append('signature_url', data.signature);
+    if (has_signature) {
+      form_data.append('signature_url', data.signature);
     }
 
     // First save the acknowledgment
     try {
-      const response = await apiClient.upload(`/api/v1/shipments/${shipment.shipment_id}/acknowledgement`, formData);
+      const response = await apiClient.upload(`/api/v1/shipments/${shipment.id}/acknowledgement`, form_data);
       if (!response.ok) {
         const error = await response.text();
         throw new Error(error || "Failed to save acknowledgment");
@@ -176,25 +176,25 @@ function ShipmentDetailModalWithTracking({
 
       // Record GPS coordinates if we have an active session
       if (hasActiveSession) {
-        setIsRecordingLocation(true);
+        set_is_recording_location(true);
         try {
           // Get current GPS position
           const position = await getCurrentPosition();
 
           // Determine event type based on shipment type
-          const eventType = shipment.type === "pickup" ? 'pickup' : 'delivery';
+          const event_type = shipment.type === "pickup" ? 'pickup' : 'delivery';
 
           // Record the shipment event with GPS coordinates
           await recordShipmentEvent(
-            shipment.shipment_id,
-            eventType,
+            shipment.id,
+            event_type,
             position.latitude,
             position.longitude
           );
 
           toast({
             title: "Location Recorded",
-            description: `GPS coordinates have been recorded for this ${eventType}.`,
+            description: `GPS coordinates have been recorded for this ${event_type}.`,
           });
 
         } catch (error) {
@@ -205,17 +205,17 @@ function ShipmentDetailModalWithTracking({
             variant: "destructive",
           });
         } finally {
-          setIsRecordingLocation(false);
+          set_is_recording_location(false);
         }
       }
 
       // Now update the shipment status
-      const targetStatus = shipment.type === "delivery" ? "Delivered" : "Picked Up";
-      await updateStatusMutation.mutateAsync({ status: targetStatus });
+      const target_status = shipment.type === "delivery" ? "Delivered" : "Picked Up";
+      await update_status_mutation.mutateAsync({ status: target_status });
 
       // Close the acknowledgment modal
-      setShowAcknowledgment(false);
-      onClose();
+      set_show_acknowledgment(false);
+      on_close();
 
     } catch (error) {
       toast({
@@ -226,16 +226,16 @@ function ShipmentDetailModalWithTracking({
     }
   };
 
-  const handleRevertStatus = async () => {
+  const handle_revert_status = async () => {
     try {
       // Determine the previous status based on shipment type
-      const previousStatus = shipment.type === "delivery" ? "In Transit" : "Assigned";
+      const previous_status = shipment.type === "delivery" ? "In Transit" : "Assigned";
 
-      await updateStatusMutation.mutateAsync({
-        status: previousStatus
+      await update_status_mutation.mutateAsync({
+        status: previous_status
       });
 
-      setShowRevertConfirm(false);
+      set_show_revert_confirm(false);
       // Removed onClose() to keep the details sheet open so user can see the change
     } catch (error) {
       console.error('Failed to revert status:', error);
@@ -243,11 +243,11 @@ function ShipmentDetailModalWithTracking({
     }
   };
 
-  const getPreviousStatus = () => {
+  const get_previous_status = () => {
     return shipment.type === "delivery" ? "In Transit" : "Assigned";
   };
 
-  const getStatusColor = (status: string) => {
+  const get_status_color = (status: string) => {
     switch (status) {
       case "Delivered":
       case "Picked Up":
@@ -265,22 +265,22 @@ function ShipmentDetailModalWithTracking({
     }
   };
 
-  const canUpdateStatus = (targetStatus: string) => {
+  const can_update_status = (target_status: string) => {
     if (shipment.type === "delivery") {
-      return targetStatus === "Delivered" || targetStatus === "Cancelled" || targetStatus === "Returned";
+      return target_status === "Delivered" || target_status === "Cancelled" || target_status === "Returned";
     } else {
-      return targetStatus === "Picked Up" || targetStatus === "Cancelled" || targetStatus === "Returned";
+      return target_status === "Picked Up" || target_status === "Cancelled" || target_status === "Returned";
     }
   };
 
-  const isProcessing = updateStatusMutation.isPending ||
-    isRecordingLocation ||
-    isGettingLocation ||
-    isRecordingEvent;
+  const is_processing = update_status_mutation.isPending ||
+    is_recording_location ||
+    is_getting_location ||
+    is_recording_event;
 
   return (
     <>
-      <Sheet open={isOpen} onOpenChange={onClose}>
+      <Sheet open={is_open} onOpenChange={on_close}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <div className="flex items-center justify-between">
@@ -295,7 +295,7 @@ function ShipmentDetailModalWithTracking({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onClose}
+                onClick={on_close}
                 className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -346,11 +346,11 @@ function ShipmentDetailModalWithTracking({
             {/* Tabbed Interface */}
             <ShipmentDetailTabs
               shipment={shipment}
-              employeeId={employeeId}
-              isManager={user?.isSuperUser || user?.isOpsTeam || user?.isStaff || user?.role === 'admin' || user?.role === 'manager'}
-              onStatusUpdate={() => {
+              employee_id={employee_id}
+              is_manager={user?.is_super_user || user?.is_ops_team || user?.is_staff || user?.role === 'admin' || user?.role === 'manager'}
+              on_status_update={() => {
                 queryClient.invalidateQueries({ queryKey: ['shipments'] });
-                onClose();
+                on_close();
               }}
             />
           </div>
@@ -362,13 +362,13 @@ function ShipmentDetailModalWithTracking({
               <div className="space-y-3">
                 <h4 className="font-medium text-center">Update Status</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  {shipment.type === "delivery" && canUpdateStatus("Delivered") && (
+                  {shipment.type === "delivery" && can_update_status("Delivered") && (
                     <Button
-                      onClick={() => handleStatusUpdateWithGPS("Delivered")}
-                      disabled={isProcessing}
+                      onClick={() => handle_status_update_with_gps("Delivered")}
+                      disabled={is_processing}
                       className="h-12 bg-green-600 hover:bg-green-700 text-white"
                     >
-                      {isProcessing ? (
+                      {is_processing ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
                         <CheckCircle className="h-4 w-4 mr-2" />
@@ -380,13 +380,13 @@ function ShipmentDetailModalWithTracking({
                     </Button>
                   )}
 
-                  {shipment.type === "pickup" && canUpdateStatus("Picked Up") && (
+                  {shipment.type === "pickup" && can_update_status("Picked Up") && (
                     <Button
-                      onClick={() => handleStatusUpdateWithGPS("Picked Up")}
-                      disabled={isProcessing}
+                      onClick={() => handle_status_update_with_gps("Picked Up")}
+                      disabled={is_processing}
                       className="h-12 bg-green-600 hover:bg-green-700 text-white"
                     >
-                      {isProcessing ? (
+                      {is_processing ? (
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
                         <CheckCircle className="h-4 w-4 mr-2" />
@@ -398,11 +398,11 @@ function ShipmentDetailModalWithTracking({
                     </Button>
                   )}
 
-                  {canUpdateStatus("Cancelled") && (
+                  {can_update_status("Cancelled") && (
                     <Button
                       variant="outline"
-                      onClick={() => handleStatusUpdateWithGPS("Cancelled")}
-                      disabled={isProcessing}
+                      onClick={() => handle_status_update_with_gps("Cancelled")}
+                      disabled={is_processing}
                       className="h-12 border-red-200 text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/20"
                     >
                       <XCircle className="h-4 w-4 mr-2" />
@@ -410,11 +410,11 @@ function ShipmentDetailModalWithTracking({
                     </Button>
                   )}
 
-                  {canUpdateStatus("Returned") && (
+                  {can_update_status("Returned") && (
                     <Button
                       variant="outline"
-                      onClick={() => handleStatusUpdateWithGPS("Returned")}
-                      disabled={isProcessing}
+                      onClick={() => handle_status_update_with_gps("Returned")}
+                      disabled={is_processing}
                       className="h-12 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-900/20"
                     >
                       <Undo className="h-4 w-4 mr-2" />
@@ -423,7 +423,7 @@ function ShipmentDetailModalWithTracking({
                   )}
                 </div>
 
-                {isRecordingLocation && (
+                {is_recording_location && (
                   <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Recording GPS location...
@@ -434,7 +434,7 @@ function ShipmentDetailModalWithTracking({
 
             {/* Status Management: Visible for non-riders when shipment is completed/resolved */}
             {(shipment.status === "Delivered" || shipment.status === "Picked Up" || shipment.status === "Cancelled" || shipment.status === "Returned") &&
-              (user?.isSuperUser || user?.isOpsTeam || user?.isStaff) && (
+              (user?.is_super_user || user?.is_ops_team || user?.is_staff) && (
                 <div className="space-y-4">
                   <h4 className="font-medium text-center text-orange-600 dark:text-orange-400">Status Management</h4>
 
@@ -443,12 +443,12 @@ function ShipmentDetailModalWithTracking({
                     <div className="flex flex-col items-center gap-3">
                       <Button
                         variant="outline"
-                        onClick={() => setShowRevertConfirm(true)}
-                        disabled={isProcessing}
+                        onClick={() => set_show_revert_confirm(true)}
+                        disabled={is_processing}
                         className="h-12 px-8 border-orange-200 text-orange-700 hover:bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:hover:bg-orange-900/20"
                       >
                         <Undo className="h-4 w-4 mr-2" />
-                        Revert to {getPreviousStatus()}
+                        Revert to {get_previous_status()}
                       </Button>
                       <p className="text-xs text-muted-foreground text-center px-4">
                         Use this option if you accidentally marked the shipment as {shipment.status.toLowerCase()}.
@@ -461,8 +461,8 @@ function ShipmentDetailModalWithTracking({
                     {shipment.status !== "Cancelled" && (
                       <Button
                         variant="outline"
-                        onClick={() => handleStatusUpdateWithGPS("Cancelled")}
-                        disabled={isProcessing}
+                        onClick={() => handle_status_update_with_gps("Cancelled")}
+                        disabled={is_processing}
                         className="h-10 border-red-200 text-red-700 hover:bg-red-50 text-xs"
                       >
                         <XCircle className="h-4 w-4 mr-2" />
@@ -472,8 +472,8 @@ function ShipmentDetailModalWithTracking({
                     {shipment.status !== "Returned" && (
                       <Button
                         variant="outline"
-                        onClick={() => handleStatusUpdateWithGPS("Returned")}
-                        disabled={isProcessing}
+                        onClick={() => handle_status_update_with_gps("Returned")}
+                        disabled={is_processing}
                         className="h-10 border-orange-200 text-orange-700 hover:bg-orange-50 text-xs"
                       >
                         <Undo className="h-4 w-4 mr-2" />
@@ -488,48 +488,48 @@ function ShipmentDetailModalWithTracking({
       </Sheet>
 
       {/* Acknowledgment Capture Modal */}
-      {showAcknowledgment && (
+      {show_acknowledgment && (
         <AcknowledgmentCapture
-          onClose={() => setShowAcknowledgment(false)}
-          onSubmit={handleAcknowledgmentSave}
+          onClose={() => set_show_acknowledgment(false)}
+          onSubmit={handle_acknowledgment_save}
           requireFullProof
-          isSubmitting={isProcessing}
+          isSubmitting={is_processing}
         />
       )}
 
       {/* Remarks Modal */}
-      {showRemarksModal && remarksStatus && (
+      {show_remarks_modal && remarks_status && (
         <RemarksModal
-          isOpen={showRemarksModal}
-          onClose={() => setShowRemarksModal(false)}
-          shipmentId={shipment.shipment_id}
-          status={remarksStatus}
-          employeeId={employeeId}
+          isOpen={show_remarks_modal}
+          onClose={() => set_show_remarks_modal(false)}
+          shipmentId={shipment.id}
+          status={remarks_status}
+          employeeId={employee_id}
         />
       )}
 
       {/* Revert Confirmation Dialog */}
-      <AlertDialog open={showRevertConfirm} onOpenChange={setShowRevertConfirm}>
+      <AlertDialog open={show_revert_confirm} onOpenChange={set_show_revert_confirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Status Revert</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to revert this shipment from <strong>{shipment.status}</strong> back to <strong>{getPreviousStatus()}</strong>?
+              Are you sure you want to revert this shipment from <strong>{shipment.status}</strong> back to <strong>{get_previous_status()}</strong>?
               <br /><br />
               This will move the shipment back to its previous active state.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={is_processing}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                handleRevertStatus();
+                handle_revert_status();
               }}
-              disabled={isProcessing}
+              disabled={is_processing}
               className="bg-orange-600 hover:bg-orange-700 text-white"
             >
-              {isProcessing ? (
+              {is_processing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Reverting...

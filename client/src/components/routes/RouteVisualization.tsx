@@ -32,80 +32,80 @@ L.Icon.Default.mergeOptions({
 });
 
 interface RouteVisualizationProps {
-  sessionId?: string;
+  session_id?: string;
   sessions?: RouteSession[];
-  onSessionSelect?: (sessionId: string) => void;
-  showComparison?: boolean;
+  on_session_select?: (sessionId: string) => void;
+  show_comparison?: boolean;
   className?: string;
-  autoPlay?: boolean;
+  auto_play?: boolean;
 }
 
 function RouteVisualization({
-  sessionId,
+  session_id,
   sessions = [],
-  onSessionSelect,
-  showComparison = false,
-  autoPlay = false
+  on_session_select,
+  show_comparison = false,
+  auto_play = false
 }: RouteVisualizationProps) {
-  const [selectedSession, setSelectedSession] = useState<RouteSession | null>(null);
-  const [comparisonSession, setComparisonSession] = useState<RouteSession | null>(null);
-  const [isPlaying, setIsPlaying] = useState(autoPlay);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [currentPointIndex, setCurrentPointIndex] = useState(0);
-  const [showSettings, setShowSettings] = useState(false);
-  const [mapStyle, setMapStyle] = useState('openstreetmap');
-  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [selected_session, set_selected_session] = useState<RouteSession | null>(null);
+  const [comparison_session, set_comparison_session] = useState<RouteSession | null>(null);
+  const [is_playing, set_is_playing] = useState(auto_play);
+  const [playback_speed, set_playback_speed] = useState(1);
+  const [current_point_index, set_current_point_index] = useState(0);
+  const [show_settings, set_show_settings] = useState(false);
+  const [map_style, set_map_style] = useState('openstreetmap');
+  const [show_heatmap, set_show_heatmap] = useState(false);
 
-  const playbackIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const playback_interval_ref = useRef<NodeJS.Timeout | null>(null);
 
   // Load session data
   useEffect(() => {
-    if (sessionId && sessions.length > 0) {
-      const session = sessions.find(s => s.id === sessionId);
+    if (session_id && sessions.length > 0) {
+      const session = sessions.find(s => s.id === session_id);
       if (session) {
-        setSelectedSession(session);
-        setCurrentPointIndex(0);
+        set_selected_session(session);
+        set_current_point_index(0);
       }
     }
-  }, [sessionId, sessions]);
+  }, [session_id, sessions]);
 
   // Auto-play functionality
   useEffect(() => {
-    if (isPlaying && selectedSession && selectedSession.points && selectedSession.points.length > 0) {
-      const interval = 1000 / playbackSpeed; // Adjust speed
+    if (is_playing && selected_session && selected_session.points && selected_session.points.length > 0) {
+      const interval = 1000 / playback_speed; // Adjust speed
 
-      playbackIntervalRef.current = setInterval(() => {
-        setCurrentPointIndex(prev => {
+      playback_interval_ref.current = setInterval(() => {
+        set_current_point_index(prev => {
           const nextIndex = prev + 1;
-          if (nextIndex >= (selectedSession.points?.length || 0)) {
-            setIsPlaying(false);
+          if (nextIndex >= (selected_session.points?.length || 0)) {
+            set_is_playing(false);
             return prev;
           }
           return nextIndex;
         });
       }, interval);
     } else {
-      if (playbackIntervalRef.current) {
-        clearInterval(playbackIntervalRef.current);
-        playbackIntervalRef.current = null;
+      if (playback_interval_ref.current) {
+        clearInterval(playback_interval_ref.current);
+        playback_interval_ref.current = null;
       }
     }
 
     return () => {
-      if (playbackIntervalRef.current) {
-        clearInterval(playbackIntervalRef.current);
+      if (playback_interval_ref.current) {
+        clearInterval(playback_interval_ref.current);
       }
     };
-  }, [isPlaying, playbackSpeed, selectedSession]);
+  }, [is_playing, playback_speed, selected_session]);
 
   // Component to handle map updates during playback
-  function MapUpdater({ session, pointIndex }: { session: RouteSession | null; pointIndex: number }) {
+  function MapUpdater({ session, point_index }: { session: RouteSession | null; point_index: number }) {
     const map = useMap();
 
     useEffect(() => {
       if (!session || !session.points || session.points.length === 0) return;
 
-      const currentPoint = session.points[pointIndex];
+      const currentPoint = session.points[point_index];
       if (currentPoint) {
         map.setView([currentPoint.latitude, currentPoint.longitude], 15);
       } else if (session.points.length > 0) {
@@ -115,45 +115,45 @@ function RouteVisualization({
         );
         map.fitBounds(bounds, { padding: [50, 50] });
       }
-    }, [map, session, pointIndex]);
+    }, [map, session, point_index]);
 
     return null;
   }
 
-  const handleSessionSelect = (session: RouteSession) => {
-    setSelectedSession(session);
-    setCurrentPointIndex(0);
-    setIsPlaying(false);
-    onSessionSelect?.(session.id);
+  const handle_session_select = (session: RouteSession) => {
+    set_selected_session(session);
+    set_current_point_index(0);
+    set_is_playing(false);
+    on_session_select?.(session.id);
   };
 
-  const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
+  const handle_play_pause = () => {
+    set_is_playing(!is_playing);
   };
 
-  const handleStop = () => {
-    setIsPlaying(false);
-    setCurrentPointIndex(0);
+  const handle_stop = () => {
+    set_is_playing(false);
+    set_current_point_index(0);
   };
 
-  const handleSkipToStart = () => {
-    setCurrentPointIndex(0);
-    setIsPlaying(false);
+  const handle_skip_to_start = () => {
+    set_current_point_index(0);
+    set_is_playing(false);
   };
 
-  const handleSkipToEnd = () => {
-    if (selectedSession && selectedSession.points) {
-      setCurrentPointIndex(selectedSession.points.length - 1);
-      setIsPlaying(false);
+  const handle_skip_to_end = () => {
+    if (selected_session && selected_session.points) {
+      set_current_point_index(selected_session.points.length - 1);
+      set_is_playing(false);
     }
   };
 
-  const handleSliderChange = (value: number[]) => {
-    setCurrentPointIndex(value[0]);
-    setIsPlaying(false);
+  const handle_slider_change = (value: number[]) => {
+    set_current_point_index(value[0]);
+    set_is_playing(false);
   };
 
-  const formatDuration = (seconds: number): string => {
+  const format_duration = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
@@ -167,34 +167,34 @@ function RouteVisualization({
     }
   };
 
-  const formatDistance = (km: number): string => {
+  const format_distance = (km: number): string => {
     if (km < 1) {
       return `${Math.round(km * 1000)}m`;
     }
     return `${km.toFixed(1)}km`;
   };
 
-  const getCurrentPoint = (): RoutePoint | null => {
-    if (!selectedSession || !selectedSession.points || currentPointIndex >= selectedSession.points.length) {
+  const get_current_point = (): RoutePoint | null => {
+    if (!selected_session || !selected_session.points || current_point_index >= selected_session.points.length) {
       return null;
     }
-    return selectedSession.points[currentPointIndex];
+    return selected_session.points[current_point_index];
   };
 
-  const getRouteProgress = (): number => {
-    if (!selectedSession || !selectedSession.points || selectedSession.points.length === 0) return 0;
-    return (currentPointIndex / (selectedSession.points.length - 1)) * 100;
+  const get_route_progress = (): number => {
+    if (!selected_session || !selected_session.points || selected_session.points.length === 0) return 0;
+    return (current_point_index / (selected_session.points.length - 1)) * 100;
   };
 
-  const getPlaybackTime = (): string => {
-    const currentPoint = getCurrentPoint();
-    if (!currentPoint || !selectedSession) return '00:00:00';
+  const get_playback_time = (): string => {
+    const currentPoint = get_current_point();
+    if (!currentPoint || !selected_session) return '00:00:00';
 
-    const startTime = new Date(selectedSession.startTime).getTime();
-    const currentTime = new Date(currentPoint.timestamp).getTime();
-    const elapsed = Math.floor((currentTime - startTime) / 1000);
+    const start_time = new Date(selected_session.start_time).getTime();
+    const current_time = new Date(currentPoint.timestamp).getTime();
+    const elapsed = Math.floor((current_time - start_time) / 1000);
 
-    return formatDuration(elapsed);
+    return format_duration(elapsed);
   };
 
   return (
@@ -208,15 +208,15 @@ function RouteVisualization({
               <span>Route Visualization</span>
             </div>
             <div className="flex items-center gap-2">
-              {selectedSession && (
+              {selected_session && (
                 <Badge variant="outline">
-                  {selectedSession.employeeName}
+                  {selected_session.employee_name}
                 </Badge>
               )}
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setShowSettings(!showSettings)}
+                onClick={() => set_show_settings(!show_settings)}
               >
                 <Settings className="h-4 w-4" />
               </Button>
@@ -227,10 +227,10 @@ function RouteVisualization({
           {/* Session Selector */}
           <div className="flex gap-2">
             <Select
-              value={selectedSession?.id || ''}
+              value={selected_session?.id || ''}
               onValueChange={(value) => {
                 const session = sessions.find(s => s.id === value);
-                if (session) handleSessionSelect(session);
+                if (session) handle_session_select(session);
               }}
             >
               <SelectTrigger className="flex-1">
@@ -239,19 +239,19 @@ function RouteVisualization({
               <SelectContent>
                 {sessions.map((session) => (
                   <SelectItem key={session.id} value={session.id}>
-                    {session.employeeName} - {new Date(session.startTime).toLocaleDateString()}
-                    ({formatDistance(session.totalDistance || 0)})
+                    {session.employee_name} - {new Date(session.start_time).toLocaleDateString()}
+                    ({format_distance(session.total_distance || 0)})
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            {showComparison && (
+            {show_comparison && (
               <Select
-                value={comparisonSession?.id || ''}
+                value={comparison_session?.id || ''}
                 onValueChange={(value) => {
                   const session = sessions.find(s => s.id === value);
-                  setComparisonSession(session || null);
+                  set_comparison_session(session || null);
                 }}
               >
                 <SelectTrigger className="flex-1">
@@ -259,10 +259,10 @@ function RouteVisualization({
                 </SelectTrigger>
                 <SelectContent>
                   {sessions
-                    .filter(s => s.id !== selectedSession?.id)
+                    .filter(s => s.id !== selected_session?.id)
                     .map((session) => (
                       <SelectItem key={session.id} value={session.id}>
-                        {session.employeeName} - {new Date(session.startTime).toLocaleDateString()}
+                        {session.employee_name} - {new Date(session.start_time).toLocaleDateString()}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -271,12 +271,12 @@ function RouteVisualization({
           </div>
 
           {/* Settings Panel */}
-          {showSettings && (
+          {show_settings && (
             <div className="p-3 bg-gray-50 rounded-md space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium">Map Style</label>
-                  <Select value={mapStyle} onValueChange={setMapStyle}>
+                  <Select value={map_style} onValueChange={set_map_style}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -291,8 +291,8 @@ function RouteVisualization({
                   <input
                     type="checkbox"
                     id="heatmap"
-                    checked={showHeatmap}
-                    onChange={(e) => setShowHeatmap(e.target.checked)}
+                    checked={show_heatmap}
+                    onChange={(e) => set_show_heatmap(e.target.checked)}
                   />
                   <label htmlFor="heatmap" className="text-sm">Show Heatmap</label>
                 </div>
@@ -305,9 +305,9 @@ function RouteVisualization({
       {/* Map Container */}
       <Card className="h-96">
         <CardContent className="p-0 h-full">
-          {selectedSession && selectedSession.points && selectedSession.points.length > 0 ? (
+          {selected_session && selected_session.points && selected_session.points.length > 0 ? (
             <MapContainer
-              center={[selectedSession.points[0].latitude, selectedSession.points[0].longitude]}
+              center={[selected_session.points[0].latitude, selected_session.points[0].longitude]}
               zoom={13}
               style={{ height: '100%', width: '100%', zIndex: 0 }}
               scrollWheelZoom={true}
@@ -316,34 +316,34 @@ function RouteVisualization({
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
-              <MapUpdater session={selectedSession} pointIndex={currentPointIndex} />
-              
+              <MapUpdater session={selected_session} point_index={current_point_index} />
+
               {/* Route polyline */}
               <Polyline
-                positions={selectedSession.points.map(p => [p.latitude, p.longitude] as [number, number])}
+                positions={selected_session.points.map(p => [p.latitude, p.longitude] as [number, number])}
                 color="#3b82f6"
                 weight={4}
                 opacity={0.7}
               />
-              
+
               {/* Start marker */}
-              {selectedSession.points[0] && (
-                <Marker position={[selectedSession.points[0].latitude, selectedSession.points[0].longitude]}>
+              {selected_session.points[0] && (
+                <Marker position={[selected_session.points[0].latitude, selected_session.points[0].longitude]}>
                   <Popup>
                     <div className="text-sm">
                       <strong>Start</strong><br />
-                      {new Date(selectedSession.points[0].timestamp).toLocaleString()}
+                      {new Date(selected_session.points[0].timestamp).toLocaleString()}
                     </div>
                   </Popup>
                 </Marker>
               )}
-              
+
               {/* Current position marker */}
-              {selectedSession.points[currentPointIndex] && (
+              {selected_session.points[current_point_index] && (
                 <Marker
                   position={[
-                    selectedSession.points[currentPointIndex].latitude,
-                    selectedSession.points[currentPointIndex].longitude
+                    selected_session.points[current_point_index].latitude,
+                    selected_session.points[current_point_index].longitude
                   ]}
                   icon={L.divIcon({
                     className: 'current-position-marker',
@@ -355,19 +355,19 @@ function RouteVisualization({
                   <Popup>
                     <div className="text-sm">
                       <strong>Current Position</strong><br />
-                      {new Date(selectedSession.points[currentPointIndex].timestamp).toLocaleString()}<br />
-                      Speed: {selectedSession.points[currentPointIndex].speed?.toFixed(1) || 'N/A'} km/h
+                      {new Date(selected_session.points[current_point_index].timestamp).toLocaleString()}<br />
+                      Speed: {selected_session.points[current_point_index].speed?.toFixed(1) || 'N/A'} km/h
                     </div>
                   </Popup>
                 </Marker>
               )}
-              
+
               {/* End marker */}
-              {selectedSession.points.length > 1 && selectedSession.points[selectedSession.points.length - 1] && (
+              {selected_session.points.length > 1 && selected_session.points[selected_session.points.length - 1] && (
                 <Marker
                   position={[
-                    selectedSession.points[selectedSession.points.length - 1].latitude,
-                    selectedSession.points[selectedSession.points.length - 1].longitude
+                    selected_session.points[selected_session.points.length - 1].latitude,
+                    selected_session.points[selected_session.points.length - 1].longitude
                   ]}
                   icon={L.divIcon({
                     className: 'end-marker',
@@ -379,36 +379,36 @@ function RouteVisualization({
                   <Popup>
                     <div className="text-sm">
                       <strong>End</strong><br />
-                      {new Date(selectedSession.points[selectedSession.points.length - 1].timestamp).toLocaleString()}
+                      {new Date(selected_session.points[selected_session.points.length - 1].timestamp).toLocaleString()}
                     </div>
                   </Popup>
                 </Marker>
               )}
-              
+
               {/* Event markers (pickup/delivery) */}
-              {selectedSession.points
-                .filter(p => p.eventType === 'pickup' || p.eventType === 'delivery')
+              {selected_session.points
+                .filter(p => p.event_type === 'pickup' || p.event_type === 'delivery')
                 .map((point, idx) => (
                   <Marker
                     key={`event-${idx}`}
                     position={[point.latitude, point.longitude]}
                     icon={L.divIcon({
                       className: 'event-marker',
-                      html: `<div style="background-color: ${point.eventType === 'pickup' ? '#10b981' : '#3b82f6'}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                      html: `<div style="background-color: ${point.event_type === 'pickup' ? '#10b981' : '#3b82f6'}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
                       iconSize: [16, 16],
                       iconAnchor: [8, 8]
                     })}
                   >
                     <Popup>
                       <div className="text-sm">
-                        <strong>{point.eventType === 'pickup' ? 'Pickup' : 'Delivery'}</strong><br />
+                        <strong>{point.event_type === 'pickup' ? 'Pickup' : 'Delivery'}</strong><br />
                         {new Date(point.timestamp).toLocaleString()}
                       </div>
                     </Popup>
                   </Marker>
                 ))}
             </MapContainer>
-          ) : selectedSession ? (
+          ) : selected_session ? (
             <div className="w-full h-full bg-gray-100 rounded-md flex items-center justify-center">
               <div className="text-center space-y-2">
                 <MapPin className="h-12 w-12 mx-auto text-gray-400" />
@@ -427,28 +427,28 @@ function RouteVisualization({
       </Card>
 
       {/* Playback Controls */}
-      {selectedSession && (
+      {selected_session && (
         <Card>
           <CardContent className="pt-6 space-y-4">
             {/* Timeline Slider */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Route Progress</span>
-                <span>{getRouteProgress().toFixed(1)}%</span>
+                <span>{get_route_progress().toFixed(1)}%</span>
               </div>
               <Slider
-                value={[currentPointIndex]}
-                onValueChange={handleSliderChange}
-                max={Math.max(0, (selectedSession.points?.length || 1) - 1)}
+                value={[current_point_index]}
+                onValueChange={handle_slider_change}
+                max={Math.max(0, (selected_session.points?.length || 1) - 1)}
                 step={1}
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-gray-500">
-                <span>{new Date(selectedSession.startTime).toLocaleTimeString()}</span>
-                <span>Current: {getPlaybackTime()}</span>
+                <span>{new Date(selected_session.start_time).toLocaleTimeString()}</span>
+                <span>Current: {get_playback_time()}</span>
                 <span>
-                  {selectedSession.endTime
-                    ? new Date(selectedSession.endTime).toLocaleTimeString()
+                  {selected_session.end_time
+                    ? new Date(selected_session.end_time).toLocaleTimeString()
                     : 'In Progress'
                   }
                 </span>
@@ -460,26 +460,26 @@ function RouteVisualization({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleSkipToStart}
-                disabled={currentPointIndex === 0}
+                onClick={handle_skip_to_start}
+                disabled={current_point_index === 0}
               >
                 <SkipBack className="h-4 w-4" />
               </Button>
 
               <Button
-                variant={isPlaying ? "default" : "outline"}
+                variant={is_playing ? "default" : "outline"}
                 size="sm"
-                onClick={handlePlayPause}
-                disabled={(selectedSession.points?.length || 0) === 0}
+                onClick={handle_play_pause}
+                disabled={(selected_session.points?.length || 0) === 0}
               >
-                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                {is_playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </Button>
 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleStop}
-                disabled={!isPlaying && currentPointIndex === 0}
+                onClick={handle_stop}
+                disabled={!is_playing && current_point_index === 0}
               >
                 <Square className="h-4 w-4" />
               </Button>
@@ -487,8 +487,8 @@ function RouteVisualization({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleSkipToEnd}
-                disabled={currentPointIndex >= (selectedSession.points?.length || 1) - 1}
+                onClick={handle_skip_to_end}
+                disabled={current_point_index >= (selected_session.points?.length || 1) - 1}
               >
                 <SkipForward className="h-4 w-4" />
               </Button>
@@ -501,9 +501,9 @@ function RouteVisualization({
                 {[0.5, 1, 2, 4, 8].map((speed) => (
                   <Button
                     key={speed}
-                    variant={playbackSpeed === speed ? "default" : "outline"}
+                    variant={playback_speed === speed ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setPlaybackSpeed(speed)}
+                    onClick={() => set_playback_speed(speed)}
                   >
                     {speed}x
                   </Button>
@@ -512,37 +512,37 @@ function RouteVisualization({
             </div>
 
             {/* Current Point Info */}
-            {getCurrentPoint() && (
+            {get_current_point() && (
               <div className="p-3 bg-blue-50 rounded-md">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Position:</span>
                     <div className="font-mono text-xs">
-                      {getCurrentPoint()!.latitude.toFixed(6)}, {getCurrentPoint()!.longitude.toFixed(6)}
+                      {get_current_point()!.latitude.toFixed(6)}, {get_current_point()!.longitude.toFixed(6)}
                     </div>
                   </div>
                   <div>
                     <span className="text-gray-600">Time:</span>
-                    <div>{new Date(getCurrentPoint()!.timestamp).toLocaleTimeString()}</div>
+                    <div>{new Date(get_current_point()!.timestamp).toLocaleTimeString()}</div>
                   </div>
                   <div>
                     <span className="text-gray-600">Accuracy:</span>
-                    <div>±{getCurrentPoint()!.accuracy || 0}m</div>
+                    <div>±{get_current_point()!.accuracy || 0}m</div>
                   </div>
                   <div>
                     <span className="text-gray-600">Speed:</span>
-                    <div>{getCurrentPoint()!.speed ? `${getCurrentPoint()!.speed!.toFixed(1)} km/h` : 'N/A'}</div>
+                    <div>{get_current_point()!.speed ? `${get_current_point()!.speed!.toFixed(1)} km/h` : 'N/A'}</div>
                   </div>
                 </div>
-                {getCurrentPoint()!.eventType && (
+                {get_current_point()!.event_type && (
                   <div className="mt-2">
                     <Badge className={
-                      getCurrentPoint()!.eventType === 'pickup' ? 'bg-green-100 text-green-800' :
-                        getCurrentPoint()!.eventType === 'delivery' ? 'bg-blue-100 text-blue-800' :
+                      get_current_point()!.event_type === 'pickup' ? 'bg-green-100 text-green-800' :
+                        get_current_point()!.event_type === 'delivery' ? 'bg-blue-100 text-blue-800' :
                           'bg-gray-100 text-gray-800'
                     }>
-                      {getCurrentPoint()!.eventType === 'pickup' ? 'Pickup Event' :
-                        getCurrentPoint()!.eventType === 'delivery' ? 'Delivery Event' :
+                      {get_current_point()!.event_type === 'pickup' ? 'Pickup Event' :
+                        get_current_point()!.event_type === 'delivery' ? 'Delivery Event' :
                           'GPS Tracking'}
                     </Badge>
                   </div>
@@ -554,7 +554,7 @@ function RouteVisualization({
       )}
 
       {/* Route Statistics */}
-      {selectedSession && (
+      {selected_session && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Route Statistics</CardTitle>
@@ -565,7 +565,7 @@ function RouteVisualization({
                 <Route className="h-4 w-4 text-blue-600" />
                 <div>
                   <p className="text-xs text-gray-500">Distance</p>
-                  <p className="font-medium">{formatDistance(selectedSession.totalDistance || 0)}</p>
+                  <p className="font-medium">{format_distance(selected_session.total_distance || 0)}</p>
                 </div>
               </div>
 
@@ -573,7 +573,7 @@ function RouteVisualization({
                 <Clock className="h-4 w-4 text-green-600" />
                 <div>
                   <p className="text-xs text-gray-500">Duration</p>
-                  <p className="font-medium">{formatDuration(selectedSession.totalTime || 0)}</p>
+                  <p className="font-medium">{format_duration(selected_session.total_time || 0)}</p>
                 </div>
               </div>
 
@@ -581,7 +581,7 @@ function RouteVisualization({
                 <Gauge className="h-4 w-4 text-orange-600" />
                 <div>
                   <p className="text-xs text-gray-500">Avg Speed</p>
-                  <p className="font-medium">{(selectedSession.averageSpeed || 0).toFixed(1)} km/h</p>
+                  <p className="font-medium">{(selected_session.average_speed || 0).toFixed(1)} km/h</p>
                 </div>
               </div>
 
@@ -589,54 +589,54 @@ function RouteVisualization({
                 <MapPin className="h-4 w-4 text-purple-600" />
                 <div>
                   <p className="text-xs text-gray-500">Shipments</p>
-                  <p className="font-medium">{selectedSession.shipmentsCompleted || 0}</p>
+                  <p className="font-medium">{selected_session.shipments_completed || 0}</p>
                 </div>
               </div>
             </div>
 
             {/* Comparison Stats */}
-            {comparisonSession && (
+            {comparison_session && (
               <div className="mt-4 pt-4 border-t">
-                <h4 className="text-sm font-medium mb-2">Comparison with {comparisonSession.employeeName}</h4>
+                <h4 className="text-sm font-medium mb-2">Comparison with {comparison_session.employee_name}</h4>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>
                     <p className="text-xs text-gray-500">Distance Diff</p>
-                    <p className={`font-medium ${(selectedSession.totalDistance || 0) > (comparisonSession.totalDistance || 0)
+                    <p className={`font-medium ${(selected_session.total_distance || 0) > (comparison_session.total_distance || 0)
                       ? 'text-red-600' : 'text-green-600'
                       }`}>
-                      {(selectedSession.totalDistance || 0) > (comparisonSession.totalDistance || 0) ? '+' : ''}
-                      {formatDistance((selectedSession.totalDistance || 0) - (comparisonSession.totalDistance || 0))}
+                      {(selected_session.total_distance || 0) > (comparison_session.total_distance || 0) ? '+' : ''}
+                      {format_distance((selected_session.total_distance || 0) - (comparison_session.total_distance || 0))}
                     </p>
                   </div>
 
                   <div>
                     <p className="text-xs text-gray-500">Time Diff</p>
-                    <p className={`font-medium ${(selectedSession.totalTime || 0) > (comparisonSession.totalTime || 0)
+                    <p className={`font-medium ${(selected_session.total_time || 0) > (comparison_session.total_time || 0)
                       ? 'text-red-600' : 'text-green-600'
                       }`}>
-                      {(selectedSession.totalTime || 0) > (comparisonSession.totalTime || 0) ? '+' : ''}
-                      {formatDuration(Math.abs((selectedSession.totalTime || 0) - (comparisonSession.totalTime || 0)))}
+                      {(selected_session.total_time || 0) > (comparison_session.total_time || 0) ? '+' : ''}
+                      {format_duration(Math.abs((selected_session.total_time || 0) - (comparison_session.total_time || 0)))}
                     </p>
                   </div>
 
                   <div>
                     <p className="text-xs text-gray-500">Speed Diff</p>
-                    <p className={`font-medium ${(selectedSession.averageSpeed || 0) < (comparisonSession.averageSpeed || 0)
+                    <p className={`font-medium ${(selected_session.average_speed || 0) < (comparison_session.average_speed || 0)
                       ? 'text-red-600' : 'text-green-600'
                       }`}>
-                      {(selectedSession.averageSpeed || 0) > (comparisonSession.averageSpeed || 0) ? '+' : ''}
-                      {((selectedSession.averageSpeed || 0) - (comparisonSession.averageSpeed || 0)).toFixed(1)} km/h
+                      {(selected_session.average_speed || 0) > (comparison_session.average_speed || 0) ? '+' : ''}
+                      {((selected_session.average_speed || 0) - (comparison_session.average_speed || 0)).toFixed(1)} km/h
                     </p>
                   </div>
 
                   <div>
                     <p className="text-xs text-gray-500">Efficiency</p>
-                    <p className={`font-medium ${((selectedSession.totalDistance || 0) / (selectedSession.shipmentsCompleted || 1)) <
-                      ((comparisonSession.totalDistance || 0) / (comparisonSession.shipmentsCompleted || 1))
+                    <p className={`font-medium ${((selected_session.total_distance || 0) / (selected_session.shipments_completed || 1)) <
+                      ((comparison_session.total_distance || 0) / (comparison_session.shipments_completed || 1))
                       ? 'text-green-600' : 'text-red-600'
                       }`}>
-                      {(((selectedSession.totalDistance || 0) / (selectedSession.shipmentsCompleted || 1)) -
-                        ((comparisonSession.totalDistance || 0) / (comparisonSession.shipmentsCompleted || 1))).toFixed(1)} km/shipment
+                      {(((selected_session.total_distance || 0) / (selected_session.shipments_completed || 1)) -
+                        ((comparison_session.total_distance || 0) / (comparison_session.shipments_completed || 1))).toFixed(1)} km/shipment
                     </p>
                   </div>
                 </div>

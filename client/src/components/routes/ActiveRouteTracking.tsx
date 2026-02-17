@@ -12,30 +12,30 @@ import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 
 /** Build Google Maps URL for full route: origin → waypoints → destination (opens in nav mode). */
 function buildGoogleMapsRouteUrl(
-  currentLocation: { latitude: number; longitude: number } | undefined,
-  optimizedPath: RouteLocation[]
+  current_location: { latitude: number; longitude: number } | undefined,
+  optimized_path: RouteLocation[]
 ): string | null {
-  const hasPath = optimizedPath && optimizedPath.length > 0;
-  const hasCurrent = currentLocation?.latitude != null && currentLocation?.longitude != null;
-  if (!hasPath && !hasCurrent) return null;
+  const has_path = optimized_path && optimized_path.length > 0;
+  const has_current = current_location?.latitude != null && current_location?.longitude != null;
+  if (!has_path && !has_current) return null;
 
   let origin: string;
   let destination: string;
   let waypoints: string[] = [];
 
-  if (hasPath && hasCurrent) {
-    origin = `${currentLocation!.latitude},${currentLocation!.longitude}`;
-    if (optimizedPath.length === 1) {
-      destination = `${optimizedPath[0].latitude},${optimizedPath[0].longitude}`;
+  if (has_path && has_current) {
+    origin = `${current_location!.latitude},${current_location!.longitude}`;
+    if (optimized_path.length === 1) {
+      destination = `${optimized_path[0].latitude},${optimized_path[0].longitude}`;
     } else {
-      destination = `${optimizedPath[optimizedPath.length - 1].latitude},${optimizedPath[optimizedPath.length - 1].longitude}`;
-      waypoints = optimizedPath.slice(0, -1).map(l => `${l.latitude},${l.longitude}`);
+      destination = `${optimized_path[optimized_path.length - 1].latitude},${optimized_path[optimized_path.length - 1].longitude}`;
+      waypoints = optimized_path.slice(0, -1).map(l => `${l.latitude},${l.longitude}`);
     }
-  } else if (hasPath) {
-    origin = `${optimizedPath[0].latitude},${optimizedPath[0].longitude}`;
-    if (optimizedPath.length === 1) return null;
-    destination = `${optimizedPath[optimizedPath.length - 1].latitude},${optimizedPath[optimizedPath.length - 1].longitude}`;
-    waypoints = optimizedPath.slice(1, -1).map(l => `${l.latitude},${l.longitude}`);
+  } else if (has_path) {
+    origin = `${optimized_path[0].latitude},${optimized_path[0].longitude}`;
+    if (optimized_path.length === 1) return null;
+    destination = `${optimized_path[optimized_path.length - 1].latitude},${optimized_path[optimized_path.length - 1].longitude}`;
+    waypoints = optimized_path.slice(1, -1).map(l => `${l.latitude},${l.longitude}`);
   } else {
     return null;
   }
@@ -55,54 +55,53 @@ interface ActiveRouteTrackingProps {
   currentLocation?: { latitude: number; longitude: number };
 }
 
-function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTrackingProps) {
+function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_location }: ActiveRouteTrackingProps) {
   const {
     shipments,
-    optimizedPath,
-    isOptimizing,
-    isLoadingShipments,
-    nearestPoint,
+    optimizedPath: optimized_path,
+    isLoadingShipments: is_loading_shipments,
+    nearestPoint: nearest_point,
     bulkUpdateStatus,
     skipShipment
-  } = useRouteOptimization({ sessionId, currentLocation });
+  } = useRouteOptimization({ session_id, current_location });
 
-  const [selectedPointShipments, setSelectedPointShipments] = useState<Shipment[] | null>(null);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [selected_point_shipments, set_selected_point_shipments] = useState<Shipment[] | null>(null);
+  const [is_updating, set_is_updating] = useState(false);
 
-  const activeShipments = shipments.filter(s => s.status !== 'Delivered' && s.status !== 'Cancelled');
+  const active_shipments = shipments.filter(s => s.status !== 'Delivered' && s.status !== 'Cancelled');
 
-  const googleMapsRouteUrl = useMemo(
-    () => buildGoogleMapsRouteUrl(currentLocation, optimizedPath),
-    [currentLocation, optimizedPath]
+  const google_maps_route_url = useMemo(
+    () => buildGoogleMapsRouteUrl(current_location, optimized_path),
+    [current_location, optimized_path]
   );
 
-  const handleArrived = async (targetShipments: Shipment[]) => {
-    if (isUpdating) return;
-    setIsUpdating(true);
+  const handle_arrived = async (target_shipments: Shipment[]) => {
+    if (is_updating) return;
+    set_is_updating(true);
     try {
-      await bulkUpdateStatus(targetShipments, 'delivery');
-      setSelectedPointShipments(null);
+      await bulkUpdateStatus(target_shipments, 'delivery');
+      set_selected_point_shipments(null);
     } catch (error) {
       console.error('Failed to update status:', error);
     } finally {
-      setIsUpdating(false);
+      set_is_updating(false);
     }
   };
 
   // Auto-delivery effect
   useEffect(() => {
-    if (!nearestPoint || isUpdating) return;
+    if (!nearest_point || is_updating) return;
 
-    const savedConfig = localStorage.getItem('riderpro_smart_completion_config');
-    const config = savedConfig ? JSON.parse(savedConfig) : { autoDeliver: false };
+    const saved_config = localStorage.getItem('riderpro_smart_completion_config');
+    const config = saved_config ? JSON.parse(saved_config) : { auto_deliver: false };
 
-    if (config.autoDeliver) {
-      console.log('Auto-delivery triggered for:', nearestPoint.map(s => s.shipment_id));
-      handleArrived(nearestPoint);
+    if (config.auto_deliver) {
+      console.log('Auto-delivery triggered for:', nearest_point.map(s => s.id));
+      handle_arrived(nearest_point);
     }
-  }, [nearestPoint]);
+  }, [nearest_point]);
 
-  if (isLoadingShipments) {
+  if (is_loading_shipments) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-[400px] w-full rounded-xl" />
@@ -122,29 +121,29 @@ function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTracking
               Live Route Tracking
             </CardTitle>
             <div className="flex items-center gap-2">
-              {googleMapsRouteUrl && (
+              {google_maps_route_url && (
                 <Button
                   variant="default"
                   size="sm"
                   className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => window.open(googleMapsRouteUrl, '_blank')}
+                  onClick={() => window.open(google_maps_route_url, '_blank')}
                 >
                   <ExternalLink className="w-4 h-4" />
                   Open in Google Maps
                 </Button>
               )}
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                {activeShipments.length} Pending
+                {active_shipments.length} Pending
               </Badge>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0 h-[500px]">
           <DropPointMap
-            shipments={activeShipments}
-            currentLocation={currentLocation}
-            optimizedPath={optimizedPath}
-            onDropPointSelect={setSelectedPointShipments}
+            shipments={active_shipments}
+            currentLocation={current_location}
+            optimizedPath={optimized_path}
+            onDropPointSelect={set_selected_point_shipments}
           />
         </CardContent>
       </Card>
@@ -152,7 +151,7 @@ function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTracking
       {/* Control & List Section */}
       <div className="space-y-6">
         {/* Proximity Alert / Action Card */}
-        {nearestPoint && (
+        {nearest_point && (
           <Card className="border-primary/50 bg-primary/5 shadow-lg animate-pulse">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 mb-4">
@@ -162,28 +161,28 @@ function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTracking
                 <div>
                   <h3 className="font-bold text-primary flex items-center gap-2">
                     Arrived!
-                    {localStorage.getItem('riderpro_smart_completion_config')?.includes('"autoDeliver":true') && (
+                    {localStorage.getItem('riderpro_smart_completion_config')?.includes('"auto_deliver":true') && (
                       <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
                     )}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    At {nearestPoint[0].addressDisplay || nearestPoint[0].deliveryAddress}
+                    At {nearest_point[0].address_display || (typeof nearest_point[0].address === 'string' ? nearest_point[0].address : '')}
                   </p>
                 </div>
               </div>
               <Button
                 className="w-full bg-primary hover:bg-primary/90 text-white font-bold"
-                onClick={() => handleArrived(nearestPoint)}
-                disabled={isUpdating}
+                onClick={() => handle_arrived(nearest_point)}
+                disabled={is_updating}
               >
-                {isUpdating ? 'Updating...' : `Mark ${nearestPoint.length} as Delivered`}
+                {is_updating ? 'Updating...' : `Mark ${nearest_point.length} as Delivered`}
               </Button>
             </CardContent>
           </Card>
         )}
 
         {/* Selected Point Details */}
-        {selectedPointShipments && !nearestPoint && (
+        {selected_point_shipments && !nearest_point && (
           <Card className="border-blue-500/30 bg-blue-500/5 shadow-md">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -193,14 +192,14 @@ function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTracking
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground mb-4">
-                {selectedPointShipments[0].addressDisplay || selectedPointShipments[0].deliveryAddress}
+                {selected_point_shipments[0].address_display || (typeof selected_point_shipments[0].address === 'string' ? selected_point_shipments[0].address : '')}
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 className="w-full text-xs"
-                onClick={() => handleArrived(selectedPointShipments)}
-                disabled={isUpdating}
+                onClick={() => handle_arrived(selected_point_shipments)}
+                disabled={is_updating}
               >
                 Manual Mark as Delivered
               </Button>
@@ -219,20 +218,20 @@ function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTracking
           <CardContent className="p-0">
             <ScrollArea className="h-[400px]">
               <div className="p-4 space-y-3">
-                {activeShipments.length === 0 ? (
+                {active_shipments.length === 0 ? (
                   <div className="text-center py-10 text-muted-foreground">
                     <CheckCircle2 className="w-10 h-10 mx-auto mb-2 opacity-20" />
                     <p>All deliveries completed!</p>
                   </div>
                 ) : (
-                  activeShipments.map((s) => (
+                  active_shipments.map((s) => (
                     <div
-                      key={s.shipment_id}
+                      key={s.id}
                       className="p-3 rounded-lg border border-border/50 bg-background/50 hover:bg-background/80 transition-colors group"
                     >
                       <div className="flex justify-between items-start mb-2">
                         <div className="font-semibold text-sm truncate max-w-[120px]">
-                          {s.customerName}
+                          {s.customer_name}
                         </div>
                         <div className="flex gap-1">
                           <Badge variant="secondary" className="text-[9px] uppercase font-bold py-0 h-4">
@@ -242,7 +241,7 @@ function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTracking
                             variant="ghost"
                             size="icon"
                             className="h-4 w-4 text-muted-foreground hover:text-destructive p-0"
-                            onClick={() => skipShipment(s.shipment_id)}
+                            onClick={() => skipShipment(s.id)}
                             title="Skip for now"
                           >
                             <XCircle className="h-3 w-3" />
@@ -253,16 +252,16 @@ function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTracking
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <User className="w-3 h-3" />
-                          <span>ID: {s.shipment_id.slice(-8)}</span>
+                          <span>ID: {s.id.slice(-8)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <MapPin className="w-3 h-3" />
-                          <span className="truncate">{s.addressDisplay || s.deliveryAddress}</span>
+                          <span className="truncate">{s.address_display || (typeof s.address === 'string' ? s.address : '')}</span>
                         </div>
-                        {s.recipientPhone && (
+                        {s.customer_mobile && (
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
                             <Phone className="w-3 h-3" />
-                            <span>{s.recipientPhone}</span>
+                            <span>{s.customer_mobile}</span>
                           </div>
                         )}
                       </div>
@@ -283,7 +282,7 @@ function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTracking
                           variant="link"
                           size="sm"
                           className="h-auto p-0 text-[10px] text-primary ml-auto"
-                          onClick={() => handleArrived([s])}
+                          onClick={() => handle_arrived([s])}
                         >
                           Mark Delivered
                         </Button>

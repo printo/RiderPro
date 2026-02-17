@@ -14,8 +14,8 @@ export const useAuth = () => {
 
   return {
     user: authState.user,
-    isAuthenticated: authState.isAuthenticated,
-    isLoading: authState.isLoading,
+    isAuthenticated: authState.is_authenticated,
+    isLoading: authState.is_loading,
     loginWithExternalAPI: authService.loginWithExternalAPI.bind(authService),
     loginWithLocalDB: authService.loginWithLocalDB.bind(authService),
     registerUser: authService.registerUser.bind(authService),

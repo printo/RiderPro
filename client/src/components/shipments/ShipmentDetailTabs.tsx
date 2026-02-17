@@ -23,9 +23,8 @@ import ChangeRiderSection from './ChangeRiderSection';
 import type { Shipment } from '@shared/types';
 
 function formatAddressForDisplay(shipment: Shipment): string | undefined {
-  if (typeof shipment.addressDisplay === 'string' && shipment.addressDisplay) return shipment.addressDisplay;
-  if (typeof shipment.deliveryAddress === 'string' && shipment.deliveryAddress) return shipment.deliveryAddress;
-  const addr = shipment.deliveryAddress ?? shipment.address;
+  if (typeof shipment.address_display === 'string' && shipment.address_display) return shipment.address_display;
+  const addr = shipment.address;
   if (addr && typeof addr === 'object' && !Array.isArray(addr)) {
     const parts = [
       (addr as { address?: string }).address,
@@ -42,88 +41,87 @@ function formatAddressForDisplay(shipment: Shipment): string | undefined {
 
 interface ShipmentDetailTabsProps {
   shipment: Shipment;
-  employeeId: string;
-  isManager: boolean;
-  onStatusUpdate?: () => void;
+  employee_id: string;
+  is_manager: boolean;
+  on_status_update?: () => void;
 }
 
 export default function ShipmentDetailTabs({
   shipment,
-  employeeId,
-  isManager,
-  onStatusUpdate
+  employee_id: _employee_id,
+  is_manager,
+  on_status_update: _on_status_update
 }: ShipmentDetailTabsProps) {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [acknowledgmentSettings, setAcknowledgmentSettings] = useState<any>(null);
-  const [localRiderId, setLocalRiderId] = useState<string>(
-    shipment.employeeId || (shipment as Shipment & { employee_id?: string }).employee_id || ''
+  const [active_tab, set_active_tab] = useState('overview');
+  const [pdf_url, set_pdf_url] = useState<string | null>(null);
+  const [acknowledgment_settings, set_acknowledgment_settings] = useState<any>(null);
+  const [local_rider_id, set_local_rider_id] = useState<string>(
+    shipment.employee_id || ''
   );
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   // Fetch PDF document
-  const { data: pdfData, isLoading: isLoadingPdf, isError: isPdfError } = useQuery({
-    queryKey: ['shipment-pdf', shipment.shipment_id],
-    queryFn: () => shipmentsApi.getPdfDocument(shipment.shipment_id),
-    enabled: activeTab === 'acknowledgment',
+  const { data: pdf_data, isLoading: is_loading_pdf, isError: is_pdf_error } = useQuery({
+    queryKey: ['shipment-pdf', shipment.id],
+    queryFn: () => shipmentsApi.getPdfDocument(shipment.id),
+    enabled: active_tab === 'acknowledgment',
     retry: 2,
   });
 
   // Fetch acknowledgment settings
-  const { data: ackSettingsData, isLoading: isLoadingSettings } = useQuery({
-    queryKey: ['acknowledgment-settings', shipment.shipment_id],
-    queryFn: () => shipmentsApi.getAcknowledgmentSettings(shipment.shipment_id),
-    enabled: activeTab === 'acknowledgment',
+  const { data: ack_settings_data, isLoading: is_loading_settings } = useQuery({
+    queryKey: ['acknowledgment-settings', shipment.id],
+    queryFn: () => shipmentsApi.getAcknowledgmentSettings(shipment.id),
+    enabled: active_tab === 'acknowledgment',
     retry: 2,
   });
 
   useEffect(() => {
-    if (pdfData?.success && pdfData.pdf_url) {
-      setPdfUrl(pdfData.pdf_url);
+    if (pdf_data?.success && pdf_data.pdf_url) {
+      set_pdf_url(pdf_data.pdf_url);
     }
-  }, [pdfData]);
+  }, [pdf_data]);
 
   useEffect(() => {
-    if (ackSettingsData?.success && ackSettingsData.settings) {
-      setAcknowledgmentSettings(ackSettingsData.settings);
+    if (ack_settings_data?.success && ack_settings_data.settings) {
+      set_acknowledgment_settings(ack_settings_data.settings);
     }
-  }, [ackSettingsData]);
+  }, [ack_settings_data]);
 
   useEffect(() => {
-    setLocalRiderId(
-      shipment.employeeId || (shipment as Shipment & { employee_id?: string }).employee_id || ''
+    set_local_rider_id(
+      shipment.employee_id || ''
     );
   }, [shipment]);
 
   // Change rider handler
-  const handleChangeRider = async (newRiderId: string, reason?: string) => {
-    const response = await shipmentsApi.changeRider(shipment.shipment_id, newRiderId, reason);
-    const updatedRider =
-      response?.shipment?.employeeId ||
-      (response?.shipment as Shipment & { employee_id?: string })?.employee_id ||
-      newRiderId;
-    setLocalRiderId(updatedRider);
+  const handle_change_rider = async (new_rider_id: string, reason?: string) => {
+    const response = await shipmentsApi.changeRider(shipment.id, new_rider_id, reason);
+    const updated_rider =
+      response?.shipment?.employee_id ||
+      new_rider_id;
+    set_local_rider_id(updated_rider);
     queryClient.invalidateQueries({ queryKey: ['shipments'] });
     toast({
       title: 'Rider updated',
-      description: `Shipment assigned to ${updatedRider}.`,
+      description: `Shipment assigned to ${updated_rider}.`,
     });
   };
 
   // Update shipment handler
-  const handleUpdateShipment = async (updates: any) => {
-    await apiRequest("PATCH", `/api/v1/shipments/${shipment.shipment_id}`, updates);
+  const handle_update_shipment = async (updates: any) => {
+    await apiRequest("PATCH", `/api/v1/shipments/${shipment.id}`, updates);
     queryClient.invalidateQueries({ queryKey: ['shipments'] });
   };
 
-  const canChangeRider = () => {
-    const blockedStatuses = ['In Transit', 'Picked Up', 'Delivered', 'Returned', 'Cancelled'];
-    return !blockedStatuses.includes(shipment.status || '');
+  const can_change_rider = () => {
+    const blocked_statuses = ['In Transit', 'Picked Up', 'Delivered', 'Returned', 'Cancelled'];
+    return !blocked_statuses.includes(shipment.status || '');
   };
 
-  const formatAddress = (address: any): string => {
+  const format_address = (address: any): string => {
     if (!address) return 'No address';
     if (typeof address === 'string') return address;
     if (typeof address === 'object' && address !== null) {
@@ -138,11 +136,11 @@ export default function ShipmentDetailTabs({
     return 'No address';
   };
 
-  const handleSignatureComplete = async (signatureData: string) => {
+  const handle_signature_complete = async (signature_data: string) => {
     try {
       const response = await apiClient.post(
-        `/api/v1/shipments/${shipment.shipment_id}/acknowledgement`,
-        { signature_url: signatureData }
+        `/api/v1/shipments/${shipment.id}/acknowledgement`,
+        { signature_url: signature_data }
       );
       if (!response.ok) {
         throw new Error('Failed to save signature');
@@ -162,13 +160,13 @@ export default function ShipmentDetailTabs({
     }
   };
 
-  const handlePhotoComplete = async (photoFile: File) => {
+  const handle_photo_complete = async (photo_file: File) => {
     try {
-      const formData = new FormData();
-      formData.append('photo', photoFile);
+      const form_data = new FormData();
+      form_data.append('photo', photo_file);
       const response = await apiClient.upload(
-        `/api/v1/shipments/${shipment.shipment_id}/acknowledgement`,
-        formData
+        `/api/v1/shipments/${shipment.id}/acknowledgement`,
+        form_data
       );
       if (!response.ok) {
         throw new Error('Failed to save proof photo');
@@ -188,9 +186,9 @@ export default function ShipmentDetailTabs({
     }
   };
 
-  const handleSignedPdfUpload = async (signedPdfUrl: string) => {
+  const handle_signed_pdf_upload = async (signed_pdf_url: string) => {
     try {
-      await shipmentsApi.uploadSignedPdf(shipment.shipment_id, signedPdfUrl);
+      await shipmentsApi.uploadSignedPdf(shipment.id, signed_pdf_url);
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       toast({
         title: 'Signed PDF uploaded',
@@ -204,9 +202,9 @@ export default function ShipmentDetailTabs({
       });
     }
   };
-  
+
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+    <Tabs value={active_tab} onValueChange={set_active_tab} className="w-full">
 
       {/* ================= TAB HEADER ================= */}
       <ScrollArea className="w-full mb-6">
@@ -214,12 +212,12 @@ export default function ShipmentDetailTabs({
           <TabsTrigger className="px-4 py-2 text-sm font-medium min-w-[112px] justify-center" value="overview">
             Overview
           </TabsTrigger>
-          {isManager && (
+          {is_manager && (
             <TabsTrigger className="px-4 py-2 text-sm font-medium min-w-[112px] justify-center" value="manager">
               Manager
             </TabsTrigger>
           )}
-          {isManager && (
+          {is_manager && (
             <TabsTrigger className="px-4 py-2 text-sm font-medium min-w-[112px] justify-center" value="tracking">
               Tracking
             </TabsTrigger>
@@ -238,7 +236,7 @@ export default function ShipmentDetailTabs({
           <div className="space-y-4">
             <div className="flex justify-between">
               <h3 className="text-lg font-semibold">
-                {shipment.customerName || shipment.recipientName}
+                {shipment.customer_name}
               </h3>
               <Badge>{shipment.status}</Badge>
             </div>
@@ -247,12 +245,12 @@ export default function ShipmentDetailTabs({
               <div>
                 <span className="text-muted-foreground">Pia Order ID</span>
                 <p className="font-semibold">
-                  {shipment.orderId || (shipment as Shipment & { pops_order_id?: number }).pops_order_id || 'Not available'}
+                  {shipment.pops_order_id || 'Not available'}
                 </p>
               </div>
               <div>
                 <span className="text-muted-foreground">Shipment ID (Internal)</span>
-                <p className="font-medium">#{shipment.shipment_id?.slice(-8)}</p>
+                <p className="font-medium">#{shipment.id?.slice(-8)}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Type</span>
@@ -260,7 +258,7 @@ export default function ShipmentDetailTabs({
               </div>
               <div>
                 <span className="text-muted-foreground">Route</span>
-                <p className="font-medium">{shipment.routeName || 'Not assigned'}</p>
+                <p className="font-medium">{shipment.route_name || 'Not assigned'}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Cost</span>
@@ -268,7 +266,7 @@ export default function ShipmentDetailTabs({
               </div>
               <div>
                 <span className="text-muted-foreground">Rider</span>
-                <p className="font-medium">{localRiderId || 'Unassigned'}</p>
+                <p className="font-medium">{local_rider_id || 'Unassigned'}</p>
               </div>
             </div>
 
@@ -276,22 +274,21 @@ export default function ShipmentDetailTabs({
               <div className="flex gap-2">
                 <MapPin className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  {formatAddress(
-                    (shipment as Shipment & { addressDisplay?: string }).addressDisplay ||
-                    shipment.address ||
-                    shipment.deliveryAddress
+                  {format_address(
+                    shipment.address_display ||
+                    shipment.address
                   )}
                 </span>
               </div>
               <div className="flex gap-2">
                 <Phone className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{shipment.customerMobile || shipment.recipientPhone || 'No phone'}</span>
+                <span className="text-sm">{shipment.customer_mobile || 'No phone'}</span>
               </div>
               <div className="flex gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">
-                  {shipment.deliveryTime
-                    ? new Date(shipment.deliveryTime).toLocaleString()
+                  {shipment.delivery_time
+                    ? new Date(shipment.delivery_time).toLocaleString()
                     : 'Not scheduled'}
                 </span>
               </div>
@@ -301,17 +298,17 @@ export default function ShipmentDetailTabs({
       </TabsContent>
 
       {/* Manager Tab - Only visible to managers */}
-      {isManager && (
+      {is_manager && (
         <TabsContent value="manager" className="space-y-4 mt-6">
           <CardSection
             title="Change Rider"
             icon={<span className="h-5 w-5">👤</span>}
           >
             <ChangeRiderSection
-              currentRiderId={localRiderId || null}
-              canChange={canChangeRider()}
-              onChangeRider={handleChangeRider}
-              blockedStatusMessage={`Cannot change rider. Shipment is already ${shipment.status}. Rider can only be changed when status is Initiated or Assigned.`}
+              current_rider_id={local_rider_id || null}
+              can_change={can_change_rider()}
+              on_change_rider={handle_change_rider}
+              blocked_status_message={`Cannot change rider. Shipment is already ${shipment.status}. Rider can only be changed when status is Initiated or Assigned.`}
             />
           </CardSection>
 
@@ -321,11 +318,11 @@ export default function ShipmentDetailTabs({
           >
             <EditableField
               label="Route"
-              value={shipment.routeName || ''}
-              onSave={(value) => handleUpdateShipment({ route_name: value })}
+              value={shipment.route_name || ''}
+              on_save={(value) => handle_update_shipment({ route_name: value })}
               placeholder="Select route"
               icon={<Route className="h-4 w-4" />}
-              fetchOptions={async () => {
+              fetch_options={async () => {
                 const response = await shipmentsApi.getAvailableRoutes();
                 return response.routes.map(route => ({
                   label: route.name,
@@ -339,7 +336,7 @@ export default function ShipmentDetailTabs({
             <EditableField
               label="Remarks"
               value={shipment.remarks || ''}
-              onSave={(value) => handleUpdateShipment({ remarks: value })}
+              on_save={(value) => handle_update_shipment({ remarks: value })}
               multiline
               placeholder="Enter remarks"
             />
@@ -348,8 +345,8 @@ export default function ShipmentDetailTabs({
           <CardSection title="Special Instructions">
             <EditableField
               label="Special Instructions"
-              value={shipment.specialInstructions || ''}
-              onSave={(value) => handleUpdateShipment({ special_instructions: value })}
+              value={shipment.special_instructions || ''}
+              on_save={(value) => handle_update_shipment({ special_instructions: value })}
               multiline
               placeholder="Enter special instructions"
             />
@@ -358,7 +355,7 @@ export default function ShipmentDetailTabs({
       )}
 
       {/* Tracking Tab - Only visible to managers */}
-      {isManager && (
+      {is_manager && (
         <TabsContent value="tracking" className="space-y-4 mt-6">
           <CardSection
             title="GPS Tracking"
@@ -367,18 +364,18 @@ export default function ShipmentDetailTabs({
             <div className="space-y-3">
               <div>
                 <span className="text-sm text-muted-foreground">Current Rider:</span>
-                <p className="font-medium">{localRiderId || 'Unassigned'}</p>
+                <p className="font-medium">{local_rider_id || 'Unassigned'}</p>
               </div>
               <GPSLocationDisplay
                 latitude={shipment.latitude}
                 longitude={shipment.longitude}
-                startLatitude={shipment.start_latitude}
-                startLongitude={shipment.start_longitude}
-                stopLatitude={shipment.stop_latitude}
-                stopLongitude={shipment.stop_longitude}
-                kmTravelled={shipment.km_travelled}
-                addressDisplay={formatAddressForDisplay(shipment)}
-                showDirections
+                start_latitude={shipment.start_latitude}
+                start_longitude={shipment.start_longitude}
+                stop_latitude={shipment.stop_latitude}
+                stop_longitude={shipment.stop_longitude}
+                km_travelled={shipment.km_travelled}
+                address_display={formatAddressForDisplay(shipment)}
+                show_directions
               />
             </div>
           </CardSection>
@@ -391,20 +388,20 @@ export default function ShipmentDetailTabs({
           title="Package Boxes"
           icon={<Package className="h-5 w-5" />}
         >
-          <PackageBoxesTable packageBoxes={shipment.package_boxes} />
+          <PackageBoxesTable package_boxes={shipment.package_boxes} />
         </CardSection>
       </TabsContent>
 
       {/* Acknowledgment Tab */}
       <TabsContent value="acknowledgment" className="space-y-6 mt-6">
         {/* Loading States */}
-        {(isLoadingPdf || isLoadingSettings) && (
+        {(is_loading_pdf || is_loading_settings) && (
           <CardSection title="Loading Acknowledgment Data">
             <div className="flex items-center justify-center py-8">
               <div className="flex flex-col items-center gap-3">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 <p className="text-sm text-muted-foreground">
-                  {isLoadingPdf ? 'Loading PDF document...' : 'Loading acknowledgment settings...'}
+                  {is_loading_pdf ? 'Loading PDF document...' : 'Loading acknowledgment settings...'}
                 </p>
               </div>
             </div>
@@ -412,7 +409,7 @@ export default function ShipmentDetailTabs({
         )}
 
         {/* PDF Error State */}
-        {isPdfError && !isLoadingPdf && (
+        {is_pdf_error && !is_loading_pdf && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -422,7 +419,7 @@ export default function ShipmentDetailTabs({
         )}
 
         {/* Empty State - Show when no data available */}
-        {!isLoadingPdf && !isLoadingSettings && !pdfUrl && !shipment.signatureUrl && !shipment.photoUrl && !shipment.signedPdfUrl && (
+        {!is_loading_pdf && !is_loading_settings && !pdf_url && !shipment.signature_url && !shipment.photo_url && !shipment.signed_pdf_url && (
           <CardSection>
             <div className="flex flex-col items-center justify-center py-12 px-4">
               <div className="rounded-full bg-gray-100 dark:bg-gray-800 p-4 mb-4">
@@ -437,27 +434,27 @@ export default function ShipmentDetailTabs({
         )}
 
         {/* PDF Signer Component - Only show when PDF is available */}
-        {pdfUrl && !isLoadingPdf && (
+        {pdf_url && !is_loading_pdf && (
           <PDFSigner
-            pdfUrl={pdfUrl}
-            onSignatureComplete={handleSignatureComplete}
-            onPhotoComplete={handlePhotoComplete}
-            onSignedPdfUpload={handleSignedPdfUpload}
-            signatureRequired={acknowledgmentSettings?.signature_required || 'optional'}
-            photoRequired={acknowledgmentSettings?.photo_required || 'optional'}
-            requirePdf={acknowledgmentSettings?.require_pdf || false}
+            pdf_url={pdf_url}
+            on_signature_complete={handle_signature_complete}
+            on_photo_complete={handle_photo_complete}
+            on_signed_pdf_upload={handle_signed_pdf_upload}
+            signature_required={acknowledgment_settings?.signature_required || 'optional'}
+            photo_required={acknowledgment_settings?.photo_required || 'optional'}
+            require_pdf={acknowledgment_settings?.require_pdf || false}
           />
         )}
 
         {/* Captured Signature */}
-        {shipment.signatureUrl && (
+        {shipment.signature_url && (
           <CardSection
             title="Captured Signature"
             icon={<span className="h-5 w-5 text-purple-600">✍</span>}
           >
             <div className="border-2 border-purple-200 dark:border-purple-800 rounded-lg overflow-hidden bg-white dark:bg-gray-900 p-4">
               <img
-                src={shipment.signatureUrl}
+                src={shipment.signature_url}
                 alt="Signature"
                 className="w-full max-w-md mx-auto border rounded shadow-sm"
               />
@@ -466,14 +463,14 @@ export default function ShipmentDetailTabs({
         )}
 
         {/* Proof of Delivery Photo */}
-        {shipment.photoUrl && (
+        {shipment.photo_url && (
           <CardSection
             title="Proof of Delivery Photo"
             icon={<span className="h-5 w-5 text-green-600">📷</span>}
           >
             <div className="border-2 border-green-200 dark:border-green-800 rounded-lg overflow-hidden bg-white dark:bg-gray-900 p-4">
               <img
-                src={shipment.photoUrl}
+                src={shipment.photo_url}
                 alt="Proof of delivery"
                 className="w-full max-w-2xl mx-auto border rounded shadow-sm"
               />
@@ -482,7 +479,7 @@ export default function ShipmentDetailTabs({
         )}
 
         {/* Signed PDF */}
-        {shipment.signedPdfUrl && (
+        {shipment.signed_pdf_url && (
           <CardSection
             title={
               <div className="flex items-center justify-between w-full">
@@ -493,7 +490,7 @@ export default function ShipmentDetailTabs({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open(shipment.signedPdfUrl, '_blank')}
+                  onClick={() => window.open(shipment.signed_pdf_url, '_blank')}
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   Open in New Tab
@@ -503,7 +500,7 @@ export default function ShipmentDetailTabs({
           >
             <div className="border-2 border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden bg-gray-50 dark:bg-gray-900">
               <iframe
-                src={shipment.signedPdfUrl}
+                src={shipment.signed_pdf_url}
                 className="w-full h-96"
                 title="Signed PDF"
                 onError={() => {
@@ -521,4 +518,3 @@ export default function ShipmentDetailTabs({
     </Tabs>
   );
 }
-
