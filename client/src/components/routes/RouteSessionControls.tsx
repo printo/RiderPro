@@ -336,9 +336,9 @@ function RouteSessionControls({
           {session && (
             <div className="flex flex-wrap gap-4 text-xs text-gray-500 dark:text-gray-400 pt-2 border-t mt-2">
               <p>Session ID: <span className="font-medium text-foreground">
-                {session.id.startsWith('sess-')
-                  ? session.id.split('-')[1]
-                  : session.id.slice(-8)}
+                {String(session.id).startsWith('sess-')
+                  ? String(session.id).split('-')[1]
+                  : String(session.id).slice(-8)}
               </span></p>
               <p>Employee: <span className="font-medium text-foreground">{session.employee_id}</span></p>
               {session.start_time && (

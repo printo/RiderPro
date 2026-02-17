@@ -252,7 +252,7 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <User className="w-3 h-3" />
-                          <span>ID: {s.id.slice(-8)}</span>
+                          <span>ID: {String(s.id).slice(-8)}</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <MapPin className="w-3 h-3" />

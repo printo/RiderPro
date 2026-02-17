@@ -261,7 +261,7 @@ export default function ShipmentDetailTabs({
               </div>
               <div>
                 <span className="text-muted-foreground">Shipment ID (Internal)</span>
-                <p className="font-medium">#{shipment.id?.slice(-8)}</p>
+                <p className="font-medium">#{String(shipment.id).slice(-8)}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Type</span>

@@ -250,7 +250,7 @@ function DropPointMap({
                     <div key={s.shipment_id ?? `${s.customer_name}-${idx}`} className="text-[10px] py-0.5 border-b last:border-0">
                       {s.customer_name}
                       {s.shipment_id && (
-                        <> - {s.shipment_id.slice(-6)}</>
+                        <> - {String(s.shipment_id).slice(-6)}</>
                       )}
                     </div>
                   ))}

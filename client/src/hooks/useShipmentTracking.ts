@@ -82,7 +82,7 @@ export function useShipmentTracking(options: ShipmentTrackingOptions) {
       if (show_notifications) {
         toast({
           title: "Location Recorded",
-          description: `GPS coordinates recorded for ${event_type} of shipment #${shipment.id.slice(-8)}.`,
+          description: `GPS coordinates recorded for ${event_type} of shipment #${String(shipment.id).slice(-8)}.`,
         });
       }
 
