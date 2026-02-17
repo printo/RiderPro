@@ -24,6 +24,11 @@ fi
 
 echo "🚀 Starting RiderPro deployment (mode: $MODE)..."
 
+# Pre-deployment cleanup: remove any existing containers that might conflict
+echo "🧹 Pre-deployment cleanup..."
+docker rm -f riderpro-frontend riderpro-django riderpro-db 2>/dev/null || true
+docker network rm riderpro_default 2>/dev/null || true
+
 # Create backup directory if it doesn't exist
 mkdir -p "$BACKUP_DIR"
 
@@ -72,14 +77,19 @@ git pull origin main
 # Only stop the target service(s) – never bring down all containers for single-service deploy
 if [[ "$MODE" == "both" ]]; then
   echo "🛑 Stopping all containers..."
-  docker compose -f docker-compose.prod.yml down || true
-  docker compose down || true
+  docker compose -f docker-compose.prod.yml down --remove-orphans || true
+  docker compose down --remove-orphans || true
+  # Force remove any remaining containers with our names
+  docker rm -f riderpro-frontend riderpro-django riderpro-db 2>/dev/null || true
+  docker network rm riderpro_default 2>/dev/null || true
 elif [[ "$MODE" == "backend" ]]; then
   echo "🛑 Stopping django only..."
   docker compose -f docker-compose.prod.yml stop django || true
+  docker rm -f riderpro-django 2>/dev/null || true
 elif [[ "$MODE" == "frontend" ]]; then
   echo "🛑 Stopping frontend only..."
   docker compose -f docker-compose.prod.yml stop frontend || true
+  docker rm -f riderpro-frontend 2>/dev/null || true
 fi
 
 # Build and start containers (according to mode)
