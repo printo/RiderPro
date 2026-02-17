@@ -85,14 +85,17 @@ function RouteVisualizationPage() {
   const routeData = React.useMemo(() => {
     return analyticsData.map((analytics) => ({
       id: `route_${analytics.employee_id}_${analytics.date}`,
+      route_id: `route_${analytics.employee_id}_${analytics.date}`,
       employee_id: analytics.employee_id,
       employee_name: employeeLookup.get(analytics.employee_id) || `Employee ${analytics.employee_id}`,
       date: analytics.date,
-      distance: analytics.total_distance,
-      duration: analytics.total_time,
+      total_distance: analytics.total_distance,
+      total_time: analytics.total_time,
       shipments_completed: analytics.shipments_completed,
-      fuel_consumption: analytics.total_fuel_consumed,
-      average_speed: analytics.average_speed,
+      fuel_consumption: analytics.total_fuel_consumed || 0,
+      fuel_cost: analytics.total_fuel_consumed ? analytics.total_fuel_consumed * 1.5 : 0, // Assuming $1.5 per liter
+      stops: Math.floor(analytics.total_distance / 10), // Estimate stops based on distance
+      average_speed: analytics.average_speed || 0,
       efficiency: analytics.efficiency,
       points: [] // Would be populated from coordinate data
     }));
@@ -104,8 +107,8 @@ function RouteVisualizationPage() {
   const aggregatedMetrics = React.useMemo(() => {
     return {
       totalSessions: routeSessions.length,
-      totalDistance: routeData.reduce((sum, route) => sum + (route.distance || 0), 0),
-      totalTime: routeData.reduce((sum, route) => sum + (route.duration || 0), 0),
+      totalDistance: routeData.reduce((sum, route) => sum + (route.total_distance || 0), 0),
+      totalTime: routeData.reduce((sum, route) => sum + (route.total_time || 0), 0),
       totalShipmentsCompleted: routeData.reduce((sum, route) => sum + (route.shipments_completed || 0), 0),
     };
   }, [routeData, routeSessions.length]);
@@ -160,7 +163,6 @@ function RouteVisualizationPage() {
 
   const isMobile = _mobileOptimization.deviceCapabilities.screenSize === 'small';
   const _batteryOptimizations = _mobileOptimization.optimizeForBattery();
-  const _networkOptimizations = _mobileOptimization.optimizeForNetwork();
 
   return (
     <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 ${isMobile ? 'mobile-layout' : ''}`}>
@@ -218,7 +220,7 @@ function RouteVisualizationPage() {
 
         <MetricCard
           title="Total Distance"
-          value={aggregatedMetrics.totalDistance?.toFixed(0) || routeData.reduce((sum, route) => sum + route.distance, 0).toFixed(0)}
+          value={aggregatedMetrics.totalDistance?.toFixed(0) || routeData.reduce((sum, route) => sum + route.total_distance, 0).toFixed(0)}
           suffix="km"
           icon={MapPin}
           iconBgColor="bg-green-100 dark:bg-green-900/30"
@@ -229,7 +231,7 @@ function RouteVisualizationPage() {
 
         <MetricCard
           title="Total Time"
-          value={Math.round((aggregatedMetrics.totalTime || routeData.reduce((sum, route) => sum + route.duration, 0)) / 3600)}
+          value={Math.round((aggregatedMetrics.totalTime || routeData.reduce((sum, route) => sum + route.total_time, 0)) / 3600)}
           suffix="h"
           icon={Clock}
           iconBgColor="bg-orange-100 dark:bg-orange-900/30"
@@ -298,25 +300,25 @@ function RouteVisualizationPage() {
             data={routeData}
             data_type="routeData"
             title="Route Analytics Data"
-            onRowClick={handleViewRouteDetails}
-            showSearch={true}
-            showSorting={true}
-            pageSize={isMobile ? 5 : 10}
+            on_row_click={handleViewRouteDetails}
+            show_search={true}
+            show_sorting={true}
+            page_size={isMobile ? 5 : 10}
           />
         </TabsContent>
 
         <TabsContent value="comparison" className="mt-6">
           <RouteComparison
             sessions={routeSessions}
-            onSessionSelect={handleViewRouteDetails}
+            on_session_select={handleViewRouteDetails}
           />
         </TabsContent>
 
         <TabsContent value="optimization" className="mt-6">
           <RouteOptimizationSuggestions
             route_data={routeData}
-            onImplementSuggestion={handleImplementSuggestion}
-            onViewRouteDetails={handleViewRouteDetails}
+            on_implement_suggestion={handleImplementSuggestion}
+            on_view_route_details={handleViewRouteDetails}
           />
         </TabsContent>
       </Tabs>

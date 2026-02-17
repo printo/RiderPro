@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
-import { Fuel, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Plus, X } from "lucide-react";
+import { Fuel, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Plus, X, Target } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -183,8 +183,7 @@ function AdminPage() {
 
   // Allow both super users and managers (ops_team/staff) to access admin
   const canAccessAdmin = !!(user?.is_super_user || user?.is_ops_team || user?.is_staff);
-  const _canEdit = !!(user?.is_super_user || user?.is_ops_team || user?.is_staff);
-
+  
   // Load pending users and access tokens
   useEffect(() => {
     if (canAccessAdmin) {

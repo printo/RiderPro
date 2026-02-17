@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Rider, Homebase } from '@shared/types';
+import { Rider } from '@shared/types';
 import { apiClient } from '@/services/ApiClient';
 import { API_ENDPOINTS } from '@/config/api';
-import { useAuth } from '@/hooks/useAuth';
 import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
 import { HomebaseSelector } from '@/components/ui/HomebaseSelector';
 

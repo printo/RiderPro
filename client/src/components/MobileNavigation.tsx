@@ -106,7 +106,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     mobileOptimization.vibrate(50);
   };
 
-  const handleNavItemClick = (_path: string) => {
+  const handleNavItemClick = () => {
     setIsMenuOpen(false);
 
     // Provide haptic feedback
@@ -231,7 +231,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
               key={item.path}
               href={item.path}
               className={`menu-item ${isActive(item.path) ? 'active' : ''}`}
-              onClick={() => handleNavItemClick(item.path)}
+              onClick={handleNavItemClick}
             >
               <span className="menu-icon">{item.icon}</span>
               <span className="menu-label">{item.label}</span>
@@ -278,7 +278,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
               key={item.path}
               href={item.path}
               className={`bottom-nav-item ${isActive(item.path) ? 'active' : ''}`}
-              onClick={() => handleNavItemClick(item.path)}
+              onClick={handleNavItemClick}
             >
               <span className="bottom-nav-icon">{item.icon}</span>
               <span className="bottom-nav-label">{item.label}</span>

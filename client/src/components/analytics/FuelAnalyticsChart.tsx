@@ -264,7 +264,7 @@ export default function FuelAnalyticsChart({
                   fill="#8884d8"
                   dataKey="fuel_consumption"
                 >
-                  {employee_fuel_data.map((_entry, index) => (
+                  {employee_fuel_data.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

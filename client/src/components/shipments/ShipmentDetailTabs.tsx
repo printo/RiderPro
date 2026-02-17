@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { useLiveTracking } from '@/hooks/useLiveTracking';
 import { shipmentsApi } from '@/apiClient/shipments';
 import { apiRequest } from '@/lib/queryClient';
 import { apiClient } from '@/services/ApiClient';
@@ -59,6 +60,15 @@ export default function ShipmentDetailTabs({
     shipment.employee_id || ''
   );
 
+  // Live tracking hook for rider location
+  const { riders } = useLiveTracking();
+  const active_rider_location = riders.find(rider => rider.employee_id === local_rider_id);
+  const shipment_map_location = shipment.latitude && shipment.longitude ? [{
+    latitude: shipment.latitude,
+    longitude: shipment.longitude,
+    timestamp: new Date().toISOString()
+  }] : [];
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -78,17 +88,7 @@ export default function ShipmentDetailTabs({
     retry: 2,
   });
 
-  const { data: activeRidersData } = useQuery({
-    queryKey: ['active-riders-locations'],
-    queryFn: async (): Promise<ActiveRiderLocation[]> => {
-      const response = await apiRequest('GET', '/api/v1/routes/active-riders');
-      const result = await response.json();
-      return Array.isArray(result?.riders) ? result.riders : [];
-    },
-    enabled: isManager && activeTab === 'tracking',
-    refetchInterval: 30000,
-  });
-
+  
   useEffect(() => {
     if (pdf_data?.success && pdf_data.pdf_url) {
       set_pdf_url(pdf_data.pdf_url);
@@ -368,7 +368,7 @@ export default function ShipmentDetailTabs({
       {/* Tracking Tab - Only visible to managers */}
       {is_manager && (
         <TabsContent value="tracking" className="space-y-4 mt-6">
-          {shipmentMapLocation.length > 0 ? (
+          {shipment_map_location.length > 0 ? (
             <CardSection
               title="Live Rider to Shipment Map"
               icon={<MapPin className="h-5 w-5" />}
@@ -377,16 +377,16 @@ export default function ShipmentDetailTabs({
                 <DropPointMap
                   shipments={[shipment]}
                   currentLocation={
-                    activeRiderLocation
-                      ? { latitude: activeRiderLocation.latitude, longitude: activeRiderLocation.longitude }
+                    active_rider_location
+                      ? { latitude: active_rider_location.latitude, longitude: active_rider_location.longitude }
                       : undefined
                   }
-                  optimizedPath={shipmentMapLocation}
+                  optimizedPath={shipment_map_location}
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                {activeRiderLocation
-                  ? `Showing active rider location for ${localRiderId} and route to this shipment.`
+                {active_rider_location
+                  ? `Showing active rider location for ${local_rider_id} and route to this shipment.`
                   : 'No active rider location currently available; showing shipment destination only.'}
               </p>
             </CardSection>
