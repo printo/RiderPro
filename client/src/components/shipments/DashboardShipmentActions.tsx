@@ -12,7 +12,7 @@ interface DashboardShipmentActionsProps {
   employeeId: string;
 }
 
-const ACTIONABLE_STATUSES = new Set(['Assigned', 'Initiated']);
+const ACTIONABLE_STATUSES = new Set(['Assigned', 'Initiated', 'Collected']);
 
 function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps) {
   const { toast } = useToast();
@@ -32,10 +32,12 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
 
   const handleSingleStatusUpdate = async (
     shipment: Shipment,
-    status: 'Collected' | 'In Transit' | 'Picked Up'
+    status: 'Collected' | 'In Transit' | 'Picked Up' | 'Unmark as Collected'
   ) => {
     try {
-      await apiRequest('PATCH', `/api/v1/shipments/${shipment.shipment_id}`, { status });
+      // Map "Unmark as Collected" to actual API status
+      const apiStatus = status === 'Unmark as Collected' ? 'In Transit' : status;
+      await apiRequest('PATCH', `/api/v1/shipments/${shipment.shipment_id}`, { status: apiStatus });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-shipment-actions', employeeId] });
@@ -74,6 +76,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                 {actionableShipments.map((shipment) => {
                   const canCollect = shipment.type === 'delivery' && shipment.status === 'Assigned';
                   const canStartTransit = shipment.type === 'delivery' && (shipment.status === 'Collected' || shipment.status === 'Initiated');
+                  const canUnmarkCollected = shipment.type === 'delivery' && shipment.status === 'Collected';
                   const canPickup = shipment.type === 'pickup' && shipment.status === 'Assigned';
                   
                   return (
@@ -110,6 +113,16 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                             onClick={() => handleSingleStatusUpdate(shipment, 'In Transit')}
                           >
                             Start Transit
+                          </Button>
+                        )}
+                        {canUnmarkCollected && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8"
+                            onClick={() => handleSingleStatusUpdate(shipment, 'Unmark as Collected')}
+                          >
+                            Unmark as Collected
                           </Button>
                         )}
                         {canPickup && (

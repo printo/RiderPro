@@ -229,7 +229,7 @@ function ShipmentDetailModalWithTracking({
     }
     
     if (shipment.type === "delivery") {
-      return target_status === "Delivered" || target_status === "Collected" || target_status === "Cancelled" || target_status === "Returned";
+      return target_status === "Delivered" || target_status === "Collected" || target_status === "Cancelled" || target_status === "Returned" || target_status === "In Transit";
     } else {
       return target_status === "Picked Up" || target_status === "Cancelled" || target_status === "Returned";
     }
@@ -381,6 +381,22 @@ function ShipmentDetailModalWithTracking({
                       {hasActiveSession && (
                         <Navigation className="h-3 w-3 ml-1 text-blue-200" />
                       )}
+                    </Button>
+                  )}
+
+                  {shipment.type === "delivery" && shipment.status === "Collected" && (
+                    <Button
+                      onClick={() => handle_status_update_with_gps("In Transit")}
+                      disabled={is_processing}
+                      variant="outline"
+                      className="h-12 border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800/20"
+                    >
+                      {is_processing ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Undo className="h-4 w-4 mr-2" />
+                      )}
+                      Unmark as Collected
                     </Button>
                   )}
 
