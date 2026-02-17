@@ -8,19 +8,14 @@ import {
   FuelOptimizationSuggestion,
   FleetReport,
   MonthlyFleetReport
-} from '@shared/types';
+} from '@shared/schema';
 
-export {
-  VehicleType, 
-  FuelAnalytics,
-  FuelType,
-  City,
+// Re-export types needed by other components
+export type { 
   FuelPrice,
-  FuelConsumptionResult,
-  FuelOptimizationSuggestion,
-  FleetReport,
-  MonthlyFleetReport
-};
+  City,
+  FuelType
+} from '@shared/schema';
 
 /* ============================================================
    Analytics helpers (runtime-safe, TS-friendly)
