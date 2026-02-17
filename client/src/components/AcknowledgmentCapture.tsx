@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Save } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import SignatureCanvas from "./SignatureCanvas";
 import PhotoCapture from "@/components/shipments/PhotoCapture";
 import { withModalErrorBoundary } from "@/components/ErrorBoundary";
@@ -36,17 +37,13 @@ function AcknowledgmentCapture({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-border">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-semibold">Capture Acknowledgment</h2>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-2xl mx-auto p-6 space-y-8">
+    <Dialog open={true} onOpenChange={(open) => !open && _on_close()}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Capture Acknowledgment</DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-6">
           <div className="space-y-4">
             <label className="text-lg font-medium text-foreground">Shipment Photo</label>
             <PhotoCapture
@@ -60,11 +57,8 @@ function AcknowledgmentCapture({
             <SignatureCanvas onSignatureChange={set_signature_data} />
           </div>
         </div>
-      </div>
 
-      {/* Fixed Footer */}
-      <div className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="max-w-2xl mx-auto p-4">
+        <div className="flex justify-end">
           <Button
             onClick={handle_submit}
             disabled={is_submitting || !can_submit}
@@ -75,8 +69,8 @@ function AcknowledgmentCapture({
             {is_submitting ? "Saving..." : "Save Acknowledgment"}
           </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 export default withModalErrorBoundary(AcknowledgmentCapture, {
