@@ -19,9 +19,9 @@ import { DeviceSyncStatus as SyncStatus } from '@shared/types';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 
 interface DetailedSyncStatus extends SyncStatus {
-  unsyncedGPSRecords: number;
-  unsyncedSessions: number;
-  totalPending: number;
+  unsynced_gps_records: number;
+  unsynced_sessions: number;
+  total_pending: number;
 }
 
 interface SyncHealth {
@@ -47,10 +47,10 @@ function SyncStatusIndicator({
 
   const {
     syncStatus,
-    isOnline,
-    pendingRecords,
-    syncInProgress,
-    syncErrors,
+    is_online,
+    pending_records,
+    sync_in_progress,
+    sync_errors,
     forceSyncNow,
     clearSyncedData,
     getDetailedSyncStatus,
@@ -76,19 +76,19 @@ function SyncStatusIndicator({
   };
 
   const getStatusIcon = () => {
-    if (syncInProgress) {
+    if (sync_in_progress) {
       return <RefreshCw className="h-4 w-4 animate-spin" />;
     }
 
-    if (!isOnline) {
+    if (!is_online) {
       return <XCircle className="h-4 w-4" />;
     }
 
-    if (syncErrors.length > 0) {
+    if (sync_errors.length > 0) {
       return <XCircle className="h-4 w-4" />;
     }
 
-    if (pendingRecords > 0) {
+    if (pending_records > 0) {
       return <AlertTriangle className="h-4 w-4" />;
     }
 
@@ -96,19 +96,19 @@ function SyncStatusIndicator({
   };
 
   const getStatusColor = () => {
-    if (syncInProgress) {
+    if (sync_in_progress) {
       return 'bg-blue-100 text-blue-800';
     }
 
-    if (!isOnline) {
+    if (!is_online) {
       return 'bg-orange-100 text-orange-800';
     }
 
-    if (syncErrors.length > 0) {
+    if (sync_errors.length > 0) {
       return 'bg-red-100 text-red-800';
     }
 
-    if (pendingRecords > 0) {
+    if (pending_records > 0) {
       return 'bg-yellow-100 text-yellow-800';
     }
 
@@ -116,20 +116,20 @@ function SyncStatusIndicator({
   };
 
   const getStatusText = () => {
-    if (syncInProgress) {
+    if (sync_in_progress) {
       return 'Syncing...';
     }
 
-    if (!isOnline) {
+    if (!is_online) {
       return 'Offline';
     }
 
-    if (syncErrors.length > 0) {
-      return `${syncErrors.length} Error${syncErrors.length > 1 ? 's' : ''}`;
+    if (sync_errors.length > 0) {
+      return `${sync_errors.length} Error${sync_errors.length > 1 ? 's' : ''}`;
     }
 
-    if (pendingRecords > 0) {
-      return `${pendingRecords} Pending`;
+    if (pending_records > 0) {
+      return `${pending_records} Pending`;
     }
 
     return 'Synced';
@@ -174,12 +174,12 @@ function SyncStatusIndicator({
                 <Database className="h-4 w-4" />
                 Sync Status Details
               </CardTitle>
-              {isOnline && (
+              {is_online && (
                 <Button
                   variant="default"
                   size="sm"
                   onClick={handleForceSync}
-                  disabled={syncInProgress}
+                  disabled={sync_in_progress}
                   className="h-7"
                 >
                   <RotateCcw className="h-3 w-3 mr-1" />
@@ -231,20 +231,20 @@ function SyncStatusDetails({
       <div className="flex items-center justify-between">
         <ConnectionStatus
           type="local"
-          isConnected={syncStatus.isOnline}
-          isPending={syncStatus.syncInProgress}
-          hasError={syncStatus.syncErrors.length > 0}
+          isConnected={syncStatus.is_online}
+          isPending={syncStatus.sync_in_progress}
+          hasError={syncStatus.sync_errors.length > 0}
           className="text-sm"
           showLabel={true}
           variant="compact"
         />
         <Badge variant="outline" className="text-xs">
-          {syncStatus.isOnline ? 'Connected' : 'Disconnected'}
+          {syncStatus.is_online ? 'Connected' : 'Disconnected'}
         </Badge>
       </div>
 
       {/* Sync Progress */}
-      {syncStatus.syncInProgress && (
+      {syncStatus.sync_in_progress && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
             <span>Syncing data...</span>
@@ -261,16 +261,16 @@ function SyncStatusDetails({
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div className="flex justify-between">
               <span>GPS Records:</span>
-              <span>{detailedStatus.unsyncedGPSRecords || 0}</span>
+              <span>{detailedStatus.unsynced_gps_records || 0}</span>
             </div>
             <div className="flex justify-between">
               <span>Sessions:</span>
-              <span>{detailedStatus.unsyncedSessions || 0}</span>
+              <span>{detailedStatus.unsynced_sessions || 0}</span>
             </div>
           </div>
-          {detailedStatus.totalPending > 0 && (
+          {detailedStatus.total_pending > 0 && (
             <div className="text-xs text-gray-500">
-              Total: {detailedStatus.totalPending} records pending
+              Total: {detailedStatus.total_pending} records pending
             </div>
           )}
         </div>
@@ -283,7 +283,7 @@ function SyncStatusDetails({
           <span>Last Sync:</span>
         </div>
         <span className="text-gray-600">
-          {formatLastSyncTime(syncStatus.lastSyncTime)}
+          {formatLastSyncTime(syncStatus.last_sync_at)}
         </span>
       </div>
 
@@ -300,18 +300,18 @@ function SyncStatusDetails({
       </Alert>
 
       {/* Sync Errors */}
-      {syncStatus.syncErrors.length > 0 && (
+      {syncStatus.sync_errors.length > 0 && (
         <div className="space-y-2">
           <div className="text-sm font-medium text-red-600">Recent Errors</div>
           <div className="space-y-1">
-            {syncStatus.syncErrors.slice(0, 3).map((error: string, index: number) => (
+            {syncStatus.sync_errors.slice(0, 3).map((error: string, index: number) => (
               <div key={index} className="text-xs text-red-600 bg-red-50 p-2 rounded">
                 {error}
               </div>
             ))}
-            {syncStatus.syncErrors.length > 3 && (
+            {syncStatus.sync_errors.length > 3 && (
               <div className="text-xs text-gray-500">
-                +{syncStatus.syncErrors.length - 3} more errors
+                +{syncStatus.sync_errors.length - 3} more errors
               </div>
             )}
           </div>
@@ -323,7 +323,7 @@ function SyncStatusDetails({
         <Button
           size="sm"
           onClick={onForceSync}
-          disabled={!syncStatus.isOnline || syncStatus.syncInProgress}
+          disabled={!syncStatus.is_online || syncStatus.sync_in_progress}
           className="flex-1"
         >
           <RotateCcw className="h-3 w-3 mr-1" />

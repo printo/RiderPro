@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRouteSessionContext } from '@/contexts/RouteSessionContext';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 import RouteCompletionDialog from '@/components/routes/RouteCompletionDialog';
+import SmartCompletionSettings from '@/components/SmartCompletionSettings';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import {
   AlertDialog,
@@ -16,7 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target, Settings } from 'lucide-react';
 import { scrollToElementId } from '@/lib/utils';
 
 interface RouteSessionControlsProps {
@@ -42,7 +44,7 @@ function RouteSessionControls({
     session,
     status,
     metrics,
-    isLoading,
+    is_loading,
     error,
     startSession,
     stopSession,
@@ -56,24 +58,24 @@ function RouteSessionControls({
     getFormattedDuration,
     getFormattedDistance,
     getFormattedSpeed,
-    showGeofenceDialog,
+    show_geofence_dialog,
     confirmGeofenceStop,
     cancelGeofenceStop
   } = useRouteSessionContext();
 
   // Smart route completion integration
   const smart_completion = useSmartRouteCompletion({
-    session_id: session?.id || null,
-    start_position: session ? {
+    sessionId: session?.id || null,
+    startPosition: session ? {
       latitude: session.start_latitude || 0,
       longitude: session.start_longitude || 0,
       timestamp: session.start_time,
       accuracy: 10
     } : null,
-    current_position: null, // Would need to get this from GPS tracker
-    session_start_time: session ? new Date(session.start_time) : null,
-    total_distance: metrics?.total_distance || 0,
-    shipments_completed: 0, // This would come from shipment tracking
+    currentPosition: null, // Would need to get this from GPS tracker
+    sessionStartTime: session ? new Date(session.start_time) : null,
+    totalDistance: metrics?.total_distance || 0,
+    shipmentsCompleted: 0, // This would come from shipment tracking
     onRouteCompletionDetected: (data) => {
       console.log('Smart route completion detected:', data);
     },
@@ -217,7 +219,7 @@ function RouteSessionControls({
                 <MapPin className="h-3 w-3" />
                 <span className="text-[10px] uppercase tracking-wider font-semibold">Points</span>
               </div>
-              <p className="text-sm font-semibold pl-[18px]">{metrics?.coordinate_count || metrics?.coordinateCount || 0}</p>
+              <p className="text-sm font-semibold pl-[18px]">{metrics?.coordinate_count || metrics?.coordinate_count || 0}</p>
             </div>
           </div>
 
@@ -282,7 +284,7 @@ function RouteSessionControls({
             {canStartSession() && (
               <Button
                 onClick={handleStartSession}
-                disabled={isLoading}
+                disabled={is_loading}
                 className="flex-1"
                 data-testid="start-session-btn"
               >
@@ -294,7 +296,7 @@ function RouteSessionControls({
             {canResumeSession() && (
               <Button
                 onClick={handleResumeSession}
-                disabled={isLoading}
+                disabled={is_loading}
                 className="flex-1"
                 data-testid="resume-session-btn"
               >
@@ -306,7 +308,7 @@ function RouteSessionControls({
             {canPauseSession() && (
               <Button
                 onClick={handlePauseSession}
-                disabled={isLoading}
+                disabled={is_loading}
                 variant="outline"
                 className="flex-1"
                 data-testid="pause-session-btn"
@@ -319,7 +321,7 @@ function RouteSessionControls({
             {canStopSession() && (
               <Button
                 onClick={handleStopSession}
-                disabled={isLoading}
+                disabled={is_loading}
                 variant="destructive"
                 className="flex-1"
                 data-testid="stop-session-btn"
@@ -347,7 +349,7 @@ function RouteSessionControls({
 
 
           {/* Loading State */}
-          {isLoading && (
+          {is_loading && (
             <div className="flex items-center justify-center py-2">
               <RotateCcw className="h-4 w-4 animate-spin mr-2" />
               <span className="text-sm text-gray-500">Processing...</span>
@@ -380,17 +382,17 @@ function RouteSessionControls({
       {/* Route Completion Dialog */}
       {smart_completion.showCompletionDialog && smart_completion.completionData && (
         <RouteCompletionDialog
-          isOpen={smart_completion.showCompletionDialog}
-          onClose={smart_completion.handleCompletionCancel}
-          onConfirm={smart_completion.handleRouteCompletion}
-          onCancel={smart_completion.handleCompletionCancel}
+          is_open={smart_completion.showCompletionDialog}
+          on_close={smart_completion.handleCompletionCancel}
+          on_confirm={smart_completion.handleRouteCompletion}
+          on_cancel={smart_completion.handleCompletionCancel}
           data={smart_completion.completionData}
-          autoConfirmSeconds={smart_completion.config.auto_confirm_delay || smart_completion.config.autoConfirmDelay}
+          auto_confirm_seconds={smart_completion.config.autoConfirmDelay || smart_completion.config.autoConfirmDelay}
         />
       )}
 
       {/* Geofence Alert Dialog */}
-      <AlertDialog open={showGeofenceDialog} onOpenChange={cancelGeofenceStop}>
+      <AlertDialog open={show_geofence_dialog} onOpenChange={cancelGeofenceStop}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>End Route Session?</AlertDialogTitle>

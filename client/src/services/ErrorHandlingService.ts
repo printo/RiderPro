@@ -5,13 +5,13 @@ import { ErrorLog, ErrorRecoveryAction, ErrorHandlingConfig, ErrorStats } from '
 export class ErrorHandlingService {
   private logs: ErrorLog[] = [];
   private config: ErrorHandlingConfig = {
-    enableLogging: true,
-    enableRemoteLogging: false,
-    maxLocalLogs: 1000,
-    logRetentionDays: 7,
-    enableAutoRecovery: true,
-    enableUserNotifications: true,
-    criticalErrorThreshold: 5
+    enable_logging: true,
+    enable_remote_logging: false,
+    max_local_logs: 1000,
+    log_retention_days: 7,
+    enable_auto_recovery: true,
+    enable_user_notifications: true,
+    critical_error_threshold: 5
   };
   private errorListeners: ((error: ErrorLog) => void)[] = [];
   private recoveryActions: Map<string, ErrorRecoveryAction[]> = new Map();
@@ -204,9 +204,9 @@ export class ErrorHandlingService {
     message: string,
     details?: unknown,
     stack?: string,
-    sessionId?: string
+    session_id?: string
   ): string {
-    if (!this.config.enableLogging) return '';
+    if (!this.config.enable_logging) return '';
 
     const errorLog: ErrorLog = {
       id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -216,24 +216,24 @@ export class ErrorHandlingService {
       message,
       details,
       stack,
-      userAgent: navigator.userAgent,
+      user_agent: navigator.userAgent,
       url: window.location.href,
-      sessionId,
+      session_id,
       resolved: false
     };
 
     this.logs.push(errorLog);
 
     // Limit log storage
-    if (this.logs.length > this.config.maxLocalLogs) {
-      this.logs = this.logs.slice(-this.config.maxLocalLogs);
+    if (this.logs.length > this.config.max_local_logs) {
+      this.logs = this.logs.slice(-this.config.max_local_logs);
     }
 
     // Store logs locally
     this.storeLogs();
 
     // Send to remote logging service if enabled
-    if (this.config.enableRemoteLogging) {
+    if (this.config.enable_remote_logging) {
       this.sendToRemoteLogging(errorLog);
     }
 
@@ -253,7 +253,7 @@ export class ErrorHandlingService {
     this.errorCounts.set(errorKey, (this.errorCounts.get(errorKey) || 0) + 1);
 
     // Auto-recovery for known errors
-    if (this.config.enableAutoRecovery) {
+    if (this.config.enable_auto_recovery) {
       this.attemptAutoRecovery(category, message, details);
     }
 
@@ -270,7 +270,7 @@ export class ErrorHandlingService {
     const errorKey = `${category}_${message}`;
     const count = this.errorCounts.get(errorKey) || 0;
 
-    if (count >= this.config.criticalErrorThreshold) {
+    if (count >= this.config.critical_error_threshold) {
       console.error('Critical error threshold reached - system may be unstable');
 
       // In a real application, this might trigger:
@@ -375,35 +375,35 @@ export class ErrorHandlingService {
   getErrorStats(): ErrorStats {
     const stats: ErrorStats = {
       total: this.logs.length,
-      byLevel: {} as Record<string, number>,
-      byCategory: {} as Record<string, number>,
-      recentErrors: 0,
-      resolvedErrors: 0,
-      criticalErrors: 0
+      by_level: {} as Record<string, number>,
+      by_category: {} as Record<string, number>,
+      recent_errors: 0,
+      resolved_errors: 0,
+      critical_errors: 0
     };
 
     const oneHourAgo = new Date(Date.now() - 3600000);
 
     this.logs.forEach(log => {
       // Count by level
-      stats.byLevel[log.level] = (stats.byLevel[log.level] || 0) + 1;
+      stats.by_level[log.level] = (stats.by_level[log.level] || 0) + 1;
 
       // Count by category
-      stats.byCategory[log.category] = (stats.byCategory[log.category] || 0) + 1;
+      stats.by_category[log.category] = (stats.by_category[log.category] || 0) + 1;
 
       // Count recent errors
       if (log.timestamp >= oneHourAgo) {
-        stats.recentErrors++;
+        stats.recent_errors++;
       }
 
       // Count resolved errors
       if (log.resolved) {
-        stats.resolvedErrors++;
+        stats.resolved_errors++;
       }
 
       // Count critical errors
       if (log.level === 'critical') {
-        stats.criticalErrors++;
+        stats.critical_errors++;
       }
     });
 
@@ -428,7 +428,7 @@ export class ErrorHandlingService {
    */
   clearOldLogs(): number {
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - this.config.logRetentionDays);
+    cutoff.setDate(cutoff.getDate() - this.config.log_retention_days);
 
     const initialCount = this.logs.length;
     this.logs = this.logs.filter(log => log.timestamp >= cutoff);
@@ -545,29 +545,29 @@ export class ErrorHandlingService {
     let status: 'healthy' | 'warning' | 'critical' = 'healthy';
     let message = 'System is operating normally';
 
-    if (stats.criticalErrors > 0) {
+    if (stats.critical_errors > 0) {
       status = 'critical';
-      message = `${stats.criticalErrors} critical errors detected`;
+      message = `${stats.critical_errors} critical errors detected`;
       recommendations.push('Review critical errors immediately');
-    } else if (stats.recentErrors > 10) {
+    } else if (stats.recent_errors > 10) {
       status = 'warning';
-      message = `${stats.recentErrors} errors in the last hour`;
+      message = `${stats.recent_errors} errors in the last hour`;
       recommendations.push('Monitor error patterns');
     }
 
-    if (stats.byCategory.gps > stats.total * 0.3) {
+    if (stats.by_category.gps > stats.total * 0.3) {
       recommendations.push('GPS errors are frequent - check device permissions and signal');
     }
 
-    if (stats.byCategory.network > stats.total * 0.2) {
+    if (stats.by_category.network > stats.total * 0.2) {
       recommendations.push('Network errors detected - check connectivity');
     }
 
     return {
       status,
       message,
-      recentErrors: stats.recentErrors,
-      criticalErrors: stats.criticalErrors,
+      recentErrors: stats.recent_errors,
+      criticalErrors: stats.critical_errors,
       recommendations
     };
   }

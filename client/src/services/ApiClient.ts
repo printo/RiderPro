@@ -61,7 +61,7 @@ export class ApiClient {
    * Main request method with automatic token refresh and retry logic
    */
   public async request(config: ApiRequestConfig): Promise<Response> {
-    const { url, method, data, skipAuth = false, retryCount = 0, headers = {} } = config;
+    const { url, method, data, skip_auth = false, retry_count = 0, headers = {} } = config;
 
     // Construct full URL
     const fullUrl = url.startsWith('http') ? url : `${this.BASE_URL}${url}`;
@@ -75,13 +75,13 @@ export class ApiClient {
 
     try {
       // Build request options
-      const requestOptions = this.buildRequestOptions(method, data, skipAuth, headers);
+      const requestOptions = this.buildRequestOptions(method, data, skip_auth, headers);
 
       // Make the request
       const response = await fetch(fullUrl, requestOptions);
 
       // Handle 401 errors with automatic token refresh
-      if (response.status === 401 && !isAuthRequest && !skipAuth) {
+      if (response.status === 401 && !isAuthRequest && !skip_auth) {
         return await this.handleUnauthorized(config);
       }
 
@@ -126,9 +126,9 @@ export class ApiClient {
       }
 
       // Use enhanced retry logic with exponential backoff
-      if (apiError.isRetryable && retryCount < this.MAX_RETRY_COUNT) {
+      if (apiError.is_retryable && retry_count < this.MAX_RETRY_COUNT) {
         log.dev(`[ApiClient] Retryable error detected, using enhanced retry logic`);
-        return this.retryWithExponentialBackoff(config, apiError, retryCount);
+        return this.retryWithExponentialBackoff(config, apiError, retry_count);
       }
 
       throw apiError;
@@ -252,12 +252,12 @@ export class ApiClient {
     // Prevent infinite retry loops by marking this as a retry
     const retryConfig = {
       ...config,
-      skipAuth: false, // Ensure we use the new token
-      retryCount: (config.retryCount || 0) + 1
+      skip_auth: false, // Ensure we use the new token
+      retry_count: (config.retry_count || 0) + 1
     };
 
     // Enhanced infinite loop prevention - check for auth retry specifically
-    if (retryConfig.retryCount > this.MAX_RETRY_COUNT) {
+    if (retryConfig.retry_count > this.MAX_RETRY_COUNT) {
       const error = this.createApiError(new Error('Maximum authentication retry attempts exceeded'), {
         status: 401,
         isAuthError: true,
@@ -268,7 +268,7 @@ export class ApiClient {
       console.error('[ApiClient] Infinite loop prevention triggered:', {
         url: config.url,
         method: config.method,
-        retryCount: retryConfig.retryCount,
+        retry_count: retryConfig.retry_count,
         maxRetries: this.MAX_RETRY_COUNT,
         refreshInProgress: this.refreshInProgress
       });
@@ -316,7 +316,7 @@ export class ApiClient {
   private buildRequestOptions(
     method: string,
     data?: unknown,
-    skipAuth = false,
+    skip_auth = false,
     additionalHeaders: Record<string, string> = {}
   ): RequestInit {
     const headers: Record<string, string> = {
@@ -340,7 +340,7 @@ export class ApiClient {
     }
 
     // Add authentication headers if not skipped
-    if (!skipAuth) {
+    if (!skip_auth) {
       const authHeaders = AuthService.getInstance().getAuthHeaders();
       Object.assign(headers, authHeaders);
     }
@@ -400,9 +400,9 @@ export class ApiClient {
     const errorContext: ErrorContext = {
       url,
       method,
-      retryCount: 0, // This will be updated by the caller if needed
+      retry_count: 0, // This will be updated by the caller if needed
       timestamp: Date.now(),
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown'
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown'
     };
 
     // Create and throw enhanced error
@@ -452,15 +452,15 @@ export class ApiClient {
     // Add comprehensive metadata
     error.status = metadata.status;
     error.data = metadata.data;
-    error.isNetworkError = metadata.isNetworkError || errorType === ErrorType.NETWORK_ERROR;
-    error.isAuthError = metadata.isAuthError || errorType === ErrorType.AUTH_ERROR;
-    error.isRetryable = this.isRetryableError(errorType, metadata.status, metadata.context?.retryCount);
-    error.originalError = originalError;
-    error.errorType = errorType;
+    error.is_network_error = metadata.isNetworkError || errorType === ErrorType.NETWORK_ERROR;
+    error.is_auth_error = metadata.isAuthError || errorType === ErrorType.AUTH_ERROR;
+    error.is_retryable = this.isRetryableError(errorType, metadata.status, metadata.context?.retry_count);
+    error.original_error = originalError;
+    error.error_type = errorType;
     error.context = metadata.context as ErrorContext;
     error.timestamp = Date.now();
-    error.userFriendlyMessage = userFriendlyMessage;
-    error.recoverySuggestions = this.getRecoverySuggestions(errorType, metadata.status, metadata.context);
+    error.user_friendly_message = userFriendlyMessage;
+    error.recovery_suggestions = this.getRecoverySuggestions(errorType, metadata.status, metadata.context);
 
     // Log error for debugging
     if (metadata.context) {
@@ -800,9 +800,9 @@ export class ApiClient {
     return {
       url: config.url,
       method: config.method,
-      retryCount: config.retryCount || 0,
+      retry_count: config.retry_count || 0,
       timestamp: Date.now(),
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown'
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown'
     };
   }
 
@@ -820,11 +820,11 @@ export class ApiClient {
       status: error.status,
       url: context.url,
       method: context.method,
-      retryCount: context.retryCount,
+      retry_count: context.retry_count,
       timestamp: new Date(context.timestamp).toISOString(),
-      isNetworkError: error.isNetworkError,
-      isAuthError: error.isAuthError,
-      isRetryable: error.isRetryable,
+      is_network_error: error.is_network_error,
+      is_auth_error: error.is_auth_error,
+      is_retryable: error.is_retryable,
       stack: error.stack
     };
 
@@ -1095,7 +1095,7 @@ export class ApiClient {
 
       return new Promise((resolve, reject) => {
         this.queueForOfflineRetry(
-          { ...config, retryCount: attempt + 1 },
+          { ...config, retry_count: attempt + 1 },
           resolve,
           reject
         );
@@ -1106,7 +1106,7 @@ export class ApiClient {
 
     return this.request({
       ...config,
-      retryCount: attempt + 1
+      retry_count: attempt + 1
     });
   }
 

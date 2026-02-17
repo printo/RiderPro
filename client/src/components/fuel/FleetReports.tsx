@@ -38,8 +38,8 @@ export const FleetReports: React.FC<FleetReportsProps> = ({
         ...(city ? { city } : {}),
         ...(dateRange && dateRange[0] && dateRange[1]
           ? {
-            startDate: dateRange[0].toISOString().split('T')[0],
-            endDate: dateRange[1].toISOString().split('T')[0],
+            start_date: dateRange[0].toISOString().split('T')[0],
+            end_date: dateRange[1].toISOString().split('T')[0],
           }
           : {}),
       };
@@ -51,12 +51,12 @@ export const FleetReports: React.FC<FleetReportsProps> = ({
       const mapped: ReportData[] = metrics.map((m, index) => ({
         key: index,
         month: new Date(m.period).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
-        totalDistance: m.totalDistance,
-        totalFuelConsumed: m.totalFuelConsumed ?? 0,
-        totalFuelCost: m.totalFuelCost ?? 0,
-        averageEfficiency: m.averageSpeed ?? 0,
-        costPerKm: m.totalDistance > 0 && m.totalFuelCost != null
-          ? (m.totalFuelCost / m.totalDistance)
+        total_distance: m.total_distance,
+        total_fuel_consumed: m.total_fuel_consumed ?? 0,
+        total_fuel_cost: m.total_fuel_cost ?? 0,
+        average_efficiency: m.efficiency ?? 0,
+        cost_per_km: m.total_distance > 0 && m.total_fuel_cost != null
+          ? (m.total_fuel_cost / m.total_distance)
           : 0,
       }));
 
@@ -75,7 +75,7 @@ export const FleetReports: React.FC<FleetReportsProps> = ({
       headers.join(','),
       ...reportData.map(row =>
         getColumns().map(col => {
-          const value = row[col.dataIndex as string];
+          const value = row[col.data_index as string];
           return typeof value === 'number' ? value : `"${value}"`;
         }).join(',')
       )
@@ -99,37 +99,37 @@ export const FleetReports: React.FC<FleetReportsProps> = ({
     return [
       {
         title: reportType === 'monthly' ? 'Month' : reportType === 'vehicle' ? 'Vehicle Type' : 'City',
-        dataIndex: reportType === 'monthly' ? 'month' : reportType === 'vehicle' ? 'vehicleType' : 'city',
+        data_index: reportType === 'monthly' ? 'month' : reportType === 'vehicle' ? 'vehicleType' : 'city',
         key: 'name',
         render: (value) => <span className="font-medium">{value}</span>,
       },
       {
         title: 'Total Distance (km)',
-        dataIndex: 'totalDistance',
+        data_index: 'total_distance',
         key: 'distance',
         render: (value) => (value as number).toLocaleString(),
       },
       {
         title: 'Fuel Consumed (L)',
-        dataIndex: 'totalFuelConsumed',
+        data_index: 'total_fuel_consumed',
         key: 'fuel',
         render: (value) => (value as number).toLocaleString(undefined, { maximumFractionDigits: 2 }),
       },
       {
         title: 'Fuel Cost (₹)',
-        dataIndex: 'totalFuelCost',
+        data_index: 'total_fuel_cost',
         key: 'cost',
         render: (value) => `₹${(value as number).toLocaleString()}`,
       },
       {
         title: 'Avg. Efficiency (km/L)',
-        dataIndex: 'averageEfficiency',
+        data_index: 'average_efficiency',
         key: 'efficiency',
         render: (value) => (value as number).toFixed(2),
       },
       {
         title: 'Cost per km (₹/km)',
-        dataIndex: 'costPerKm',
+        data_index: 'cost_per_km',
         key: 'costPerKm',
         render: (value) => `₹${(value as number).toFixed(2)}`,
       },
@@ -231,8 +231,8 @@ export const FleetReports: React.FC<FleetReportsProps> = ({
                       {getColumns().map((column) => (
                         <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {column.render
-                            ? column.render(row[column.dataIndex as string] as string | number)
-                            : row[column.dataIndex as string]}
+                            ? column.render(row[column.data_index as string] as string | number)
+                            : row[column.data_index as string]}
                         </td>
                       ))}
                     </tr>

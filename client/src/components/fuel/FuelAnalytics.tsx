@@ -121,19 +121,19 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
   }
 
   // Prepare chart data
-  const chartData = analytics.dailyBreakdown?.map(d => ({
+  const chartData = analytics.daily_breakdown?.map(d => ({
     date: new Date(d.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-    fuelConsumed: Number(d.fuelConsumed.toFixed(1)),
-    fuelCost: Number(d.fuelCost.toFixed(0)),
+    fuel_consumed: Number(d.fuel_consumed.toFixed(1)),
+    fuel_cost: Number(d.fuel_cost.toFixed(0)),
     distance: Number(d.distance.toFixed(1)),
-    efficiency: d.fuelConsumed > 0 ? Number((d.distance / d.fuelConsumed).toFixed(1)) : 0
+    efficiency: d.fuel_consumed > 0 ? Number((d.distance / d.fuel_consumed).toFixed(1)) : 0
   })) || [];
 
-  const vehicleTypeData = analytics.breakdown?.byVehicleType 
-    ? Object.entries(analytics.breakdown.byVehicleType).map(([key, value]) => ({
+  const vehicleTypeData = analytics.breakdown?.by_vehicle_type 
+    ? Object.entries(analytics.breakdown.by_vehicle_type).map(([key, value]) => ({
         type: key.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        consumption: Number(value.fuelConsumed.toFixed(1)),
-        cost: value.fuelCost,
+        consumption: Number(value.fuel_consumed.toFixed(1)),
+        cost: value.fuel_cost,
         efficiency: value.efficiency
       }))
     : [];
@@ -172,7 +172,7 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <CompactMetricCard
           title="Fuel Consumed"
-          value={analytics.totalFuelConsumed?.toFixed(1) || '0'}
+          value={analytics.total_fuel_consumed?.toFixed(1) || '0'}
           suffix="L"
           icon={Fuel}
           iconColor="text-blue-500"
@@ -181,7 +181,7 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
 
         <CompactMetricCard
           title="Fuel Cost"
-          value={formatINR(analytics.totalFuelCost || 0)}
+          value={formatINR(analytics.total_fuel_cost || 0)}
           icon={DollarSign}
           iconColor="text-green-500"
           testId="card-fuel-cost"
@@ -189,7 +189,7 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
 
         <CompactMetricCard
           title="CO₂ Emissions"
-          value={analytics.totalCO2Emissions?.toFixed(1) || '0'}
+          value={analytics.total_co2_emissions?.toFixed(1) || '0'}
           suffix="kg"
           icon={Zap}
           iconColor="text-orange-500"
@@ -198,7 +198,7 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
 
         <CompactMetricCard
           title="Avg. Efficiency"
-          value={analytics.averageEfficiency?.toFixed(1) || '0'}
+          value={analytics.average_efficiency?.toFixed(1) || '0'}
           suffix="km/L"
           icon={TrendingUp}
           iconColor="text-purple-500"
@@ -364,20 +364,20 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
             <div className="grid grid-cols-1 gap-4">
               <SimpleStatCard
                 title="Cost per Kilometer"
-                value={`₹${analytics.costPerKm?.toFixed(2) || '0'}`}
+                value={`₹${analytics.cost_per_km?.toFixed(2) || '0'}`}
                 suffix="/ km"
                 testId="stat-cost-per-km"
               />
               <SimpleStatCard
                 title="Fuel per 100km"
-                value={((analytics.fuelPerKm || 0) * 100).toFixed(1)}
+                value={((analytics.fuel_per_km || 0) * 100).toFixed(1)}
                 suffix="L / 100km"
                 testId="stat-fuel-per-100km"
               />
               <SimpleStatCard
                 title="CO₂ Intensity"
-                value={(analytics.totalCO2Emissions && analytics.totalDistance 
-                  ? (analytics.totalCO2Emissions / analytics.totalDistance).toFixed(1) 
+                value={(analytics.total_co2_emissions && analytics.total_distance 
+                  ? (analytics.total_co2_emissions / analytics.total_distance).toFixed(1) 
                   : '0')}
                 suffix="g / km"
                 testId="stat-co2-intensity"

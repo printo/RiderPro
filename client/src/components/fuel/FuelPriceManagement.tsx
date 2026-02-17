@@ -40,13 +40,13 @@ export const FuelPriceManagement: React.FC<FuelPriceManagementProps> = ({
 
   const loadFuelPrices = () => {
     const cities: City[] = ['Delhi', 'Bangalore', 'Chennai'];
-    const fuelTypes: FuelType[] = ['gasoline', 'diesel', 'electric'];
+    const fuel_types: FuelType[] = ['gasoline', 'diesel', 'electric'];
     
     const allPrices: FuelPrice[] = [];
     
     cities.forEach(city => {
-      fuelTypes.forEach(fuelType => {
-        const price = fuelCalculator.getFuelPrice(fuelType, city);
+      fuel_types.forEach(fuel_type => {
+        const price = fuelCalculator.getFuelPrice(fuel_type, city);
         if (price) {
           allPrices.push(price);
         }
@@ -57,23 +57,23 @@ export const FuelPriceManagement: React.FC<FuelPriceManagementProps> = ({
   };
 
   const handleEdit = (record: FuelPrice) => {
-    setEditingKey(`${record.fuelType}-${record.city}`);
+    setEditingKey(`${record.fuel_type}-${record.city}`);
     setEditingPrice({ ...record });
   };
 
-  const handleSave = async (fuelType: FuelType, city: City) => {
-    if (!editingPrice.pricePerUnit) {
+  const handleSave = async (fuel_type: FuelType, city: City) => {
+    if (!editingPrice.price_per_unit) {
       console.error('Price is required');
       return;
     }
 
     const updatedPrice: FuelPrice = {
-      fuelType,
+      fuel_type: fuel_type,
       city,
-      pricePerUnit: Number(editingPrice.pricePerUnit),
-      gstPercent: editingPrice.gstPercent || 0,
+      price_per_unit: Number(editingPrice.price_per_unit),
+      gst_percent: editingPrice.gst_percent || 0,
       currency: 'INR',
-      lastUpdated: new Date().toISOString()
+      last_updated: new Date().toISOString()
     };
 
     try {
@@ -98,10 +98,10 @@ export const FuelPriceManagement: React.FC<FuelPriceManagementProps> = ({
       className: 'w-1/6'
     },
     {
-      key: 'fuelType',
+      key: 'fuel_type',
       header: 'Fuel Type',
       render: (item) => (
-        <span className="capitalize">{item.fuelType}</span>
+        <span className="capitalize">{item.fuel_type}</span>
       ),
       className: 'w-1/6'
     },
@@ -109,21 +109,21 @@ export const FuelPriceManagement: React.FC<FuelPriceManagementProps> = ({
       key: 'price',
       header: 'Price (INR)',
       render: (item) => {
-        const key = `${item.fuelType}-${item.city}`;
+        const key = `${item.fuel_type}-${item.city}`;
         if (editingKey === key) {
           return (
             <input
               type="number"
               className="w-24 px-2 py-1 border rounded"
-              value={editingPrice.pricePerUnit || ''}
+              value={editingPrice.price_per_unit || ''}
               onChange={(e) => setEditingPrice({ 
                 ...editingPrice, 
-                pricePerUnit: parseFloat(e.target.value) || 0
+                price_per_unit: parseFloat(e.target.value) || 0
               })}
             />
           );
         }
-        return formatCurrency(item.pricePerUnit);
+        return formatCurrency(item.price_per_unit);
       },
       className: 'w-1/4'
     },
@@ -131,40 +131,40 @@ export const FuelPriceManagement: React.FC<FuelPriceManagementProps> = ({
       key: 'gst',
       header: 'GST %',
       render: (item) => {
-        const key = `${item.fuelType}-${item.city}`;
+        const key = `${item.fuel_type}-${item.city}`;
         if (editingKey === key) {
           return (
             <input
               type="number"
               className="w-20 px-2 py-1 border rounded"
-              value={editingPrice.gstPercent || 0}
+              value={editingPrice.gst_percent || 0}
               onChange={(e) => setEditingPrice({ 
                 ...editingPrice, 
-                gstPercent: parseFloat(e.target.value) || 0
+                gst_percent: parseFloat(e.target.value) || 0
               })}
             />
           );
         }
-        return `${item.gstPercent}%`;
+        return `${item.gst_percent}%`;
       },
       className: 'w-1/6'
     },
     {
       key: 'updated',
       header: 'Last Updated',
-      render: (item) => new Date(item.lastUpdated).toLocaleString(),
+      render: (item) => new Date(item.last_updated).toLocaleString(),
       className: 'w-1/4'
     },
     {
       key: 'actions',
       header: 'Actions',
       render: (item) => {
-        const key = `${item.fuelType}-${item.city}`;
+        const key = `${item.fuel_type}-${item.city}`;
         if (editingKey === key) {
           return (
             <div className="flex space-x-2">
               <button
-                onClick={() => handleSave(item.fuelType, item.city)}
+                onClick={() => handleSave(item.fuel_type, item.city)}
                 className="flex items-center px-2 py-1 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
               >
                 <Save size={14} className="mr-1" />
@@ -216,7 +216,7 @@ export const FuelPriceManagement: React.FC<FuelPriceManagementProps> = ({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {prices.map((item) => (
-              <tr key={`${item.fuelType}-${item.city}`} className="hover:bg-gray-50">
+              <tr key={`${item.fuel_type}-${item.city}`} className="hover:bg-gray-50">
                 {columns.map((column) => (
                   <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm">
                     {column.render(item)}

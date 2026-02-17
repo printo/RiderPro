@@ -473,9 +473,9 @@ function ShipmentsWithTracking() {
       {selectedShipment && (
         <ShipmentDetailModalWithTracking
           shipment={selectedShipment}
-          isOpen={true}
-          onClose={() => setSelectedShipment(null)}
-          employeeId={employee_id}
+          is_open={true}
+          on_close={() => setSelectedShipment(null)}
+          employee_id={employee_id}
         />
       )}
 
