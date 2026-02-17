@@ -237,14 +237,16 @@ function Dashboard() {
           {/* RIGHT COLUMN: Stacked Operations (Tracking & Sync) */}
           <div className="flex flex-col gap-6 h-full">
             {/* Hide RouteSessionControls for managers/admins - they don't start routes */}
+            {/* Temporarily commented out to show controls for all users
             {!(user?.role === "admin" || user?.role === "manager" || user?.is_super_user || user?.is_ops_team || user?.is_staff) && (
-              <RouteSessionControls
-                employeeId={employee_id}
-                onSessionStart={() => console.log("Route session started")}
-                onSessionStop={() => console.log("Route session stopped")}
-                onOpenRouteMap={() => set_show_route_map_dialog(true)}
-              />
-            )}
+            */}
+            <RouteSessionControls
+              employeeId={employee_id}
+              onSessionStart={() => console.log("Route session started")}
+              onSessionStop={() => console.log("Route session stopped")}
+              onOpenRouteMap={() => set_show_route_map_dialog(true)}
+            />
+            {/* )} */}
 
             <SyncStatusPanel className="flex-1" />
           </div>

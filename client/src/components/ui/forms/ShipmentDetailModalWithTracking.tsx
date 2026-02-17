@@ -274,7 +274,7 @@ function ShipmentDetailModalWithTracking({
                   </p>
                   {activeSession && (
                     <p className="text-xs text-green-500 dark:text-green-500 mt-1">
-                      Session: {activeSession.id.slice(-8)}
+                      Session: {String(activeSession.id).slice(-8)}
                     </p>
                   )}
                 </CardContent>
