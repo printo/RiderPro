@@ -129,7 +129,7 @@ export default function ChangeRiderSection({
                     available_riders.map((rider) => (
                       <SelectItem key={rider.id} value={rider.id}>
                         <div className="flex flex-col py-1">
-                          <span className="font-medium">{rider.full_name || rider.name || rider.id}</span>
+                          <span className="font-medium">{rider.name || rider.id}</span>
                           {rider.email && (
                             <span className="text-xs text-muted-foreground">{rider.email}</span>
                           )}

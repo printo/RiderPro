@@ -63,7 +63,7 @@ function FloatingActionMenu() {
   ];
 
   // Admin menu items - show for super admin users and managers
-  const adminMenuItems = (user?.isSuperUser || user?.isOpsTeam || user?.isStaff) ? [
+  const adminMenuItems = (user?.is_super_user || user?.is_ops_team || user?.is_staff) ? [
     {
       href: "/admin-dashboard",
       icon: Settings,
@@ -128,7 +128,7 @@ function FloatingActionMenu() {
             <div className="flex items-center space-x-4 pb-4">
               <div className="relative">
                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground text-xl font-bold shadow-md">
-                  {user?.fullName?.charAt(0) || 'U'}
+                  {user?.full_name?.charAt(0) || 'U'}
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-background flex items-center justify-center shadow-sm">
                   <div className="w-2 h-2 bg-white rounded-full" />
@@ -136,7 +136,7 @@ function FloatingActionMenu() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-semibold text-lg text-foreground truncate mb-1">
-                  {user?.fullName || 'User'}
+                  {user?.full_name || 'User'}
                 </h3>
                 <p className="text-sm text-primary font-medium capitalize">
                   {user?.role?.replace('_', ' ') || 'User'}

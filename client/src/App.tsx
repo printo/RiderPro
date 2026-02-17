@@ -45,12 +45,12 @@ function Router() {
   }
 
   // Check if user needs approval (for local users only)
-  if (user && !user.isApproved && !user.isSuperUser && !user.isOpsTeam && !user.isStaff) {
+  if (user && !user.is_approved && !user.is_super_user && !user.is_ops_team && !user.is_staff) {
     return <ApprovalPending />;
   }
 
   // Show main app if authenticated
-  const empId = user?.employeeId || user?.username || "default-user";
+  const empId = user?.employee_id || user?.username || "default-user";
   const hasManagerAccess = isManagerUser(user);
 
   return (

@@ -71,7 +71,7 @@ function RouteComparison({
       name: 'Average Speed',
       icon: <Gauge className="h-4 w-4" />,
       unit: 'km/h',
-      get_value: (session) => session.average_speed || session.avg_speed || 0,
+      get_value: (session) => session.average_speed || 0,
       format: (value) => `${value.toFixed(1)} km/h`,
       higher_is_better: true
     },
@@ -144,7 +144,7 @@ function RouteComparison({
         case 'duration':
           return (a.total_time || 0) - (b.total_time || 0);
         case 'speed':
-          return ((b.average_speed || b.avg_speed) || 0) - ((a.average_speed || a.avg_speed) || 0);
+          return (b.average_speed || 0) - (a.average_speed || 0);
         default:
           return 0;
       }
@@ -224,8 +224,8 @@ function RouteComparison({
         suggestions.push(`${worstSession.employee_name || 'Employee'} could improve efficiency by ${efficiencyDiff.toFixed(1)}% by following ${bestSession.employee_name || 'best performer'}'s route patterns`);
       }
 
-      const bestSpeed = bestSession.average_speed || bestSession.avg_speed || 0;
-      const worstSpeed = worstSession.average_speed || worstSession.avg_speed || 0;
+      const bestSpeed = bestSession.average_speed || 0;
+      const worstSpeed = worstSession.average_speed || 0;
 
       if (bestSpeed > worstSpeed * 1.15) {
         suggestions.push(`Consider route optimization for ${worstSession.employee_name || 'employee'} - average speed is ${((bestSpeed / (worstSpeed || 1) - 1) * 100).toFixed(1)}% higher in best performing routes`);

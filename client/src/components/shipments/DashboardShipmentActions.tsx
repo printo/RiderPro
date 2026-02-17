@@ -26,7 +26,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['dashboard-shipment-actions', employeeId],
-    queryFn: () => shipmentsApi.getShipments({ employeeId, limit: 30 }),
+    queryFn: () => shipmentsApi.getShipments({ employee_id: employeeId, limit: 30 }),
     enabled: !!employeeId,
     refetchInterval: 120000,
   });
@@ -41,7 +41,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
   };
 
   const selectAll = (checked: boolean) => {
-    setSelectedIds(checked ? actionableShipments.map((s) => s.shipment_id) : []);
+    setSelectedIds(checked ? actionableShipments.map((s) => s.id || s.shipment_id || '').filter(Boolean) : []);
   };
 
   const handleSingleStatusUpdate = async (

@@ -262,10 +262,10 @@ export const routeAPI = {
     routeData: RouteData[];
   }> => {
     const params = new URLSearchParams();
-    if (filters.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters.employee_id) params.append('employee_id', filters.employee_id);
     if (filters.date) params.append('date', filters.date);
-    if (filters.startDate) params.append('startDate', filters.startDate);
-    if (filters.endDate) params.append('endDate', filters.endDate);
+    if (filters.start_date) params.append('start_date', filters.start_date);
+    if (filters.end_date) params.append('end_date', filters.end_date);
 
     const url = `/api/v1/routes/visualization${params.toString() ? `?${params.toString()}` : ''}`;
     const response = await apiClient.get(url);
@@ -372,13 +372,13 @@ export function groupCoordinatesByDate(coordinates: RouteTracking[]): Record<str
  * Filter coordinates by session
  */
 export function filterCoordinatesBySession(coordinates: RouteTracking[], session_id: string): RouteTracking[] {
-  return coordinates.filter(coord => coord.session === session_id);
+  return coordinates.filter(coord => coord.session_id === session_id);
 }
 
 /**
  * Get unique session IDs from coordinates
  */
 export function getUniqueSessionIds(coordinates: RouteTracking[]): string[] {
-  const session_ids = new Set(coordinates.map(coord => coord.session));
+  const session_ids = new Set(coordinates.map(coord => coord.session_id));
   return Array.from(session_ids);
 }

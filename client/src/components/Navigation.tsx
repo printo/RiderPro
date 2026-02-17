@@ -19,10 +19,10 @@ function Navigation() {
               {user && (
                 <>
                   <span className="text-sm text-foreground hidden sm:inline">
-                    {user.fullName}
+                    {user.full_name}
                   </span>
                   <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium capitalize">
-                    {user.isSuperUser ? 'Admin' : user.role}
+                    {user.is_super_user ? 'Admin' : user.role}
                   </span>
                 </>
               )}

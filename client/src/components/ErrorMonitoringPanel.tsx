@@ -212,9 +212,9 @@ function ErrorMonitoringPanel({
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {errorStats && errorStats.recentErrors > 0 && (
+                {errorStats && errorStats.recent_errors > 0 && (
                   <Badge variant="outline" className="text-xs">
-                    {errorStats.recentErrors} recent
+                    {errorStats.recent_errors} recent
                   </Badge>
                 )}
                 {isExpanded ? (
@@ -323,15 +323,15 @@ function ErrorMonitoringPanel({
                   </div>
                   <div className="flex justify-between">
                     <span>Recent (1h):</span>
-                    <span>{errorStats.recentErrors}</span>
+                    <span>{errorStats.recent_errors}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Critical:</span>
-                    <span className="text-red-600">{errorStats.criticalErrors}</span>
+                    <span className="text-red-600">{errorStats.critical_errors}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Resolved:</span>
-                    <span className="text-green-600">{errorStats.resolvedErrors}</span>
+                    <span className="text-green-600">{errorStats.resolved_errors}</span>
                   </div>
                 </div>
 
@@ -339,7 +339,7 @@ function ErrorMonitoringPanel({
                 <div className="space-y-1">
                   <div className="text-xs font-medium">By Category:</div>
                   <div className="grid grid-cols-2 gap-1 text-xs">
-                    {Object.entries(errorStats.byCategory).map(([category, count]) => (
+                    {Object.entries(errorStats.by_category).map(([category, count]) => (
                       <div key={category} className="flex justify-between">
                         <span className="capitalize">{category}:</span>
                         <span>{count as number}</span>
