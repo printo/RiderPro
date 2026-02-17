@@ -149,46 +149,46 @@ export const shipmentsApi = {
     return response.json();
   },
 
-  changeRider: async (shipmentId: string, employeeId: string, reason?: string): Promise<{ success: boolean; message: string; shipment: Shipment }> => {
-    const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.get(shipmentId)}/change-rider/`, {
-      employee_id: employeeId,
+  change_rider: async (shipment_id: string, employee_id: string, reason?: string): Promise<{ success: boolean; message: string; shipment: Shipment }> => {
+    const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.get(shipment_id)}/change-rider/`, {
+      employee_id: employee_id,
       reason: reason || ''
     });
     return response.json();
   },
 
-  batchChangeRider: async (shipmentIds: string[], employeeId: string, reason?: string): Promise<{ success: boolean; message: string; updated_count: number; failed_count: number; results: Array<{ shipment_id: number; success: boolean; old_rider?: string; new_rider?: string; error?: string }> }> => {
+  batch_change_rider: async (shipment_ids: string[], employee_id: string, reason?: string): Promise<{ success: boolean; message: string; updated_count: number; failed_count: number; results: Array<{ shipment_id: number; success: boolean; old_rider?: string; new_rider?: string; error?: string }> }> => {
     const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.base}/batch-change-rider/`, {
-      shipment_ids: shipmentIds.map(id => parseInt(id)),
-      employee_id: employeeId,
+      shipment_ids: shipment_ids.map(id => parseInt(id)),
+      employee_id: employee_id,
       reason: reason || ''
     });
     return response.json();
   },
 
-  getPdfDocument: async (shipmentId: string): Promise<{ success: boolean; pdf_url?: string; is_signed?: boolean; is_template?: boolean; message?: string }> => {
-    const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(shipmentId)}/pdf-document/`);
+  get_pdf_document: async (shipment_id: string): Promise<{ success: boolean; pdf_url?: string; is_signed?: boolean; is_template?: boolean; message?: string }> => {
+    const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(shipment_id)}/pdf-document/`);
     return response.json();
   },
 
-  uploadSignedPdf: async (shipmentId: string, signedPdfUrl: string): Promise<{ success: boolean; message: string; signed_pdf_url: string }> => {
-    const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.get(shipmentId)}/upload-signed-pdf/`, {
-      signed_pdf_url: signedPdfUrl
+  upload_signed_pdf: async (shipment_id: string, signed_pdf_url: string): Promise<{ success: boolean; message: string; signed_pdf_url: string }> => {
+    const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.get(shipment_id)}/upload-signed-pdf/`, {
+      signed_pdf_url: signed_pdf_url
     });
     return response.json();
   },
 
-  getAcknowledgmentSettings: async (shipmentId: string): Promise<{ success: boolean; settings?: any }> => {
-    const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(shipmentId)}/acknowledgment-settings/`);
+  get_acknowledgment_settings: async (shipment_id: string): Promise<{ success: boolean; settings?: any }> => {
+    const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(shipment_id)}/acknowledgment-settings/`);
     return response.json();
   },
 
-  getAvailableRiders: async (): Promise<{ success: boolean; riders: Array<{ id: string; name: string; email?: string }>; count: number }> => {
+  get_available_riders: async (): Promise<{ success: boolean; riders: Array<{ id: string; name: string; email?: string }>; count: number }> => {
     const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.base}/available-riders/`);
     return response.json();
   },
 
-  getAvailableRoutes: async (): Promise<{ success: boolean; routes: Array<{ name: string; value: string }>; count: number }> => {
+  get_available_routes: async (): Promise<{ success: boolean; routes: Array<{ name: string; value: string }>; count: number }> => {
     const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.base}/available-routes/`);
     return response.json();
   },

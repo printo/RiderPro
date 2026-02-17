@@ -295,57 +295,57 @@ function convertToCSV(data: unknown[], headers: string[]): string {
       // Map headers to data properties (simplified mapping)
       switch (key) {
         case 'employeeid':
-          value = (getProp(row, 'employeeId') as string) || '';
+          value = (getProp(row, 'employee_id') as string) || '';
           break;
         case 'totaldistancekm':
-          value = (getProp(row, 'totalDistance') as number) || 0;
+          value = (getProp(row, 'total_distance') as number) || 0;
           break;
         case 'totaltimehours': {
-          const totalTime = getProp(row, 'totalTime') as number;
-          value = totalTime ? (totalTime / 3600).toFixed(2) : '0';
+          const total_time = getProp(row, 'total_time') as number;
+          value = total_time ? (total_time / 3600).toFixed(2) : '0';
           break;
         }
         case 'fuelconsumedl': {
-          const totalFuel = getProp(row, 'totalFuelConsumed') as number;
-          const fuel = getProp(row, 'fuelConsumed') as number;
-          value = totalFuel || fuel || 0;
+          const total_fuel = getProp(row, 'total_fuel_consumed') as number;
+          const fuel = getProp(row, 'fuel_consumption') as number;
+          value = total_fuel || fuel || 0;
           break;
         }
         case 'fuelcost': {
-          const totalCost = getProp(row, 'totalFuelCost') as number;
-          const cost = getProp(row, 'fuelCost') as number;
-          value = totalCost || cost || 0;
+          const total_cost = getProp(row, 'total_fuel_cost') as number;
+          const cost = getProp(row, 'fuel_cost') as number;
+          value = total_cost || cost || 0;
           break;
         }
         case 'shipmentscompleted': {
-          const totalShipments = getProp(row, 'totalShipmentsCompleted') as number;
-          const shipments = getProp(row, 'totalShipments') as number;
-          value = totalShipments || shipments || 0;
+          const total_shipments = getProp(row, 'total_shipments_completed') as number;
+          const shipments = getProp(row, 'shipments_completed') as number;
+          value = total_shipments || shipments || 0;
           break;
         }
         case 'averagespeedkmh':
-          value = (getProp(row, 'averageSpeed') as number) || 0;
+          value = (getProp(row, 'average_speed') as number) || 0;
           break;
         case 'efficiencykmshipment':
           value = (getProp(row, 'efficiency') as number) || 0;
           break;
         case 'workingdays':
-          value = (getProp(row, 'workingDays') as number) || 0;
+          value = (getProp(row, 'working_days') as number) || 0;
           break;
         case 'avgdistanceday':
-          value = (getProp(row, 'averageDistancePerDay') as number) || 0;
+          value = (getProp(row, 'average_distance_per_day') as number) || 0;
           break;
         case 'avgshipmentsday':
-          value = (getProp(row, 'averageShipmentsPerDay') as number) || 0;
+          value = (getProp(row, 'average_shipments_per_day') as number) || 0;
           break;
         case 'performancescore':
-          value = (getProp(row, 'performanceScore') as number) || 0;
+          value = (getProp(row, 'performance_score') as number) || 0;
           break;
         case 'period':
           value = (getProp(row, 'period') as string) || '';
           break;
         case 'activeemployees':
-          value = (getProp(row, 'activeEmployees') as number) || 0;
+          value = (getProp(row, 'active_employees') as number) || 0;
           break;
         default:
           value = (getProp(row, key) as string) || '';

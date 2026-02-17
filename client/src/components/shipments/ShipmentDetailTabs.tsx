@@ -75,15 +75,15 @@ export default function ShipmentDetailTabs({
   // Fetch PDF document
   const { data: pdf_data, isLoading: is_loading_pdf, isError: is_pdf_error } = useQuery({
     queryKey: ['shipment-pdf', shipment.id],
-    queryFn: () => shipmentsApi.getPdfDocument(shipment.id),
+    queryFn: () => shipmentsApi.get_pdf_document(shipment.id),
     enabled: active_tab === 'acknowledgment',
     retry: 2,
   });
 
   // Fetch acknowledgment settings
   const { data: ack_settings_data, isLoading: is_loading_settings } = useQuery({
-    queryKey: ['acknowledgment-settings', shipment.id],
-    queryFn: () => shipmentsApi.getAcknowledgmentSettings(shipment.id),
+    queryKey: ['shipment-ack-settings', shipment.id],
+    queryFn: () => shipmentsApi.get_acknowledgment_settings(shipment.id),
     enabled: active_tab === 'acknowledgment',
     retry: 2,
   });
@@ -109,7 +109,7 @@ export default function ShipmentDetailTabs({
 
   // Change rider handler
   const handle_change_rider = async (new_rider_id: string, reason?: string) => {
-    const response = await shipmentsApi.changeRider(shipment.id, new_rider_id, reason);
+    const response = await shipmentsApi.change_rider(shipment.id, new_rider_id, reason);
     const updated_rider =
       response?.shipment?.employee_id ||
       new_rider_id;
@@ -197,9 +197,9 @@ export default function ShipmentDetailTabs({
     }
   };
 
-  const handle_signed_pdf_upload = async (signed_pdf_url: string) => {
+  const handle_upload_signed_pdf = async (signed_pdf_url: string) => {
     try {
-      await shipmentsApi.uploadSignedPdf(shipment.id, signed_pdf_url);
+      const _response = await shipmentsApi.upload_signed_pdf(shipment.id, signed_pdf_url);
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       toast({
         title: 'Signed PDF uploaded',
@@ -334,7 +334,7 @@ export default function ShipmentDetailTabs({
               placeholder="Select route"
               icon={<Route className="h-4 w-4" />}
               fetch_options={async () => {
-                const response = await shipmentsApi.getAvailableRoutes();
+                const response = await shipmentsApi.get_available_routes();
                 return response.routes.map(route => ({
                   label: route.name,
                   value: route.value
@@ -481,7 +481,7 @@ export default function ShipmentDetailTabs({
             pdf_url={pdf_url}
             on_signature_complete={handle_signature_complete}
             on_photo_complete={handle_photo_complete}
-            on_signed_pdf_upload={handle_signed_pdf_upload}
+            on_signed_pdf_upload={handle_upload_signed_pdf}
             signature_required={acknowledgment_settings?.signature_required || 'optional'}
             photo_required={acknowledgment_settings?.photo_required || 'optional'}
             require_pdf={acknowledgment_settings?.require_pdf || false}

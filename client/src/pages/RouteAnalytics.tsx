@@ -395,10 +395,10 @@ function RouteAnalyticsPage() {
 
         {/* Export Dialog */}
         <ExportDialog
-          isOpen={showExportDialog}
-          onClose={() => setShowExportDialog(false)}
+          is_open={showExportDialog}
+          on_close={() => setShowExportDialog(false)}
           data={analyticsData || []}
-          availableEmployees={employees || []}
+          available_employees={employees || []}
         />
       </div>
     </div>

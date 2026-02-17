@@ -27,16 +27,16 @@ import {
 import { DataExporter } from '@/services/DataExporter';
 
 interface ExportDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
+  is_open: boolean;
+  on_close: () => void;
   data: RouteAnalytics[];
-  availableEmployees: Array<{ id: string; name: string }>;
+  available_employees: Array<{ id: string; name: string }>;
 }
 
 interface ExportState {
   type: ExportType;
   format: ExportFormat;
-  dateRange: DateRange | undefined;
+  date_range: DateRange | undefined;
   selectedEmployees: string[];
   includeHeaders: boolean;
   isExporting: boolean;
@@ -46,15 +46,15 @@ interface ExportState {
 }
 
 function ExportDialog({
-  isOpen,
-  onClose,
+  is_open,
+  on_close,
   data,
-  availableEmployees
+  available_employees
 }: ExportDialogProps) {
   const [exportState, setExportState] = useState<ExportState>({
     type: 'analytics',
     format: 'csv',
-    dateRange: undefined,
+    date_range: undefined,
     selectedEmployees: [],
     includeHeaders: true,
     isExporting: false,
@@ -65,7 +65,7 @@ function ExportDialog({
 
   // Reset state when dialog opens
   useEffect(() => {
-    if (isOpen) {
+    if (is_open) {
       setExportState(prev => ({
         ...prev,
         isExporting: false,
@@ -74,7 +74,7 @@ function ExportDialog({
         error: null
       }));
     }
-  }, [isOpen]);
+  }, [is_open]);
 
   const handleExport = async () => {
     setExportState(prev => ({
@@ -96,10 +96,10 @@ function ExportDialog({
 
       // Convert DateRange to the expected format for ExportOptions
       let processedDateRange: { from: Date; to: Date; } | undefined = undefined;
-      if (exportState.dateRange?.from && exportState.dateRange?.to) {
+      if (exportState.date_range?.from && exportState.date_range?.to) {
         processedDateRange = {
-          from: exportState.dateRange.from,
-          to: exportState.dateRange.to
+          from: exportState.date_range.from,
+          to: exportState.date_range.to
         };
       }
 
@@ -158,7 +158,7 @@ function ExportDialog({
   const selectAllEmployees = () => {
     setExportState(prev => ({
       ...prev,
-      selectedEmployees: availableEmployees.map(emp => emp.id)
+      selectedEmployees: available_employees.map(emp => emp.id)
     }));
   };
 
@@ -187,7 +187,7 @@ function ExportDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={is_open} onOpenChange={on_close}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -300,9 +300,9 @@ function ExportDialog({
               <div className="space-y-2">
                 <Label>Date Range (optional)</Label>
                 <DatePickerWithRange
-                  date={exportState.dateRange}
-                  onDateChange={(dateRange) =>
-                    setExportState(prev => ({ ...prev, dateRange }))
+                  date={exportState.date_range}
+                  onDateChange={(date_range) =>
+                    setExportState(prev => ({ ...prev, date_range }))
                   }
                 />
               </div>
@@ -330,7 +330,7 @@ function ExportDialog({
                   </div>
                 </div>
                 <div className="max-h-32 overflow-y-auto border rounded-md p-2 space-y-2">
-                  {availableEmployees.map((employee) => (
+                  {available_employees.map((employee) => (
                     <div key={employee.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={`employee-${employee.id}`}
@@ -402,7 +402,7 @@ function ExportDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={exportState.isExporting}>
+          <Button variant="outline" onClick={on_close} disabled={exportState.isExporting}>
             {exportState.result ? 'Close' : 'Cancel'}
           </Button>
           <Button

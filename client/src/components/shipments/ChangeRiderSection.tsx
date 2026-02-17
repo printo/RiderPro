@@ -30,7 +30,7 @@ export default function ChangeRiderSection({
   // Fetch available riders
   const { data: riders_data, isLoading: is_loading_riders } = useQuery({
     queryKey: ['available-riders'],
-    queryFn: () => shipmentsApi.getAvailableRiders(),
+    queryFn: () => shipmentsApi.get_available_riders(),
     enabled: is_changing, // Only fetch when changing rider
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });

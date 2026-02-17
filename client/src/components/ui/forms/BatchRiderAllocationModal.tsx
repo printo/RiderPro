@@ -31,18 +31,18 @@ function BatchRiderAllocationModal({
   const queryClient = useQueryClient();
   const { data: ridersData, isLoading: isLoadingRiders } = useQuery({
     queryKey: ["available-riders"],
-    queryFn: () => shipmentsApi.getAvailableRiders(),
+    queryFn: () => shipmentsApi.get_available_riders(),
     enabled: isOpen,
     staleTime: 5 * 60 * 1000,
   });
-  const availableRiders = ridersData?.riders || [];
+  const available_riders = ridersData?.riders || [];
 
   const batchAllocationMutation = useMutation({
     mutationFn: async () => {
       if (!riderId.trim()) {
         throw new Error("Rider ID is required");
       }
-      return shipmentsApi.batchChangeRider(selectedIds, riderId.trim(), reason.trim() || undefined);
+      return shipmentsApi.batch_change_rider(selectedIds, riderId.trim(), reason.trim() || undefined);
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["shipments"] });
@@ -115,8 +115,8 @@ function BatchRiderAllocationModal({
                   <SelectValue placeholder="Select rider" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availableRiders.length > 0 ? (
-                    availableRiders.map((rider) => (
+                  {available_riders.length > 0 ? (
+                    available_riders.map((rider) => (
                       <SelectItem key={rider.id} value={rider.id}>
                         <div className="flex flex-col py-1">
                           <span className="font-medium">{rider.name || rider.id}</span>

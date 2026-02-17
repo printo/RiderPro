@@ -285,10 +285,10 @@ export const routeAPI = {
 /**
  * Calculate total distance from coordinates
  */
-export function calculateTotalDistance(coordinates: RouteTracking[]): number {
+export function calculate_total_distance(coordinates: RouteTracking[]): number {
   if (coordinates.length < 2) return 0;
 
-  let totalDistance = 0;
+  let total_distance = 0;
   for (let i = 1; i < coordinates.length; i++) {
     const distance = calculateDistance(
       coordinates[i - 1].latitude,
@@ -296,10 +296,10 @@ export function calculateTotalDistance(coordinates: RouteTracking[]): number {
       coordinates[i].latitude,
       coordinates[i].longitude
     );
-    totalDistance += distance;
+    total_distance += distance;
   }
 
-  return totalDistance;
+  return total_distance;
 }
 
 /**
