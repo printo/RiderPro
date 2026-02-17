@@ -73,11 +73,11 @@ export default function ShipmentDetailTabs({
   const { toast } = useToast();
 
   // Fetch PDF document
-  const { data: pdf_data, isLoading: is_loading_pdf, isError: is_pdf_error } = useQuery({
+  const { data: pdf_data, isLoading: is_loading_pdf, isError: is_pdf_error, error: pdf_error } = useQuery({
     queryKey: ['shipment-pdf', shipment.id],
     queryFn: () => shipmentsApi.get_pdf_document(shipment.id),
     enabled: active_tab === 'acknowledgment',
-    retry: 2,
+    retry: 1, // Reduce retries since 404 is expected when no PDF exists
   });
 
   // Fetch acknowledgment settings
@@ -455,7 +455,7 @@ export default function ShipmentDetailTabs({
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Failed to load PDF document. Please try refreshing the page or contact support if the issue persists.
+              {pdf_error?.message || 'No PDF document is available for this shipment. This is normal if no PDF template has been configured for this region or shipment type.'}
             </AlertDescription>
           </Alert>
         )}

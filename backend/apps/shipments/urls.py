@@ -37,6 +37,9 @@ urlpatterns = [
     path('shipments/<str:pk>/remarks', ShipmentViewSet.as_view({'post': 'remarks'}), name='shipments-remarks'),
     path('shipments/<str:pk>/acknowledgement', ShipmentViewSet.as_view({'post': 'acknowledgement'}), name='shipments-acknowledgement'),
     path('shipments/<str:pk>/tracking', ShipmentViewSet.as_view({'patch': 'tracking'}), name='shipments-tracking'),
+    path('shipments/<str:pk>/pdf-document', ShipmentViewSet.as_view({'get': 'pdf_document'}), name='shipments-pdf-document'),
+    path('shipments/<str:pk>/upload-signed-pdf', ShipmentViewSet.as_view({'post': 'upload_signed_pdf'}), name='shipments-upload-signed-pdf'),
+    path('shipments/<str:pk>/acknowledgment-settings', ShipmentViewSet.as_view({'get': 'acknowledgment_settings'}), name='shipments-acknowledgment-settings'),
     
     # Route tracking endpoints (consolidated from routes app)
     # Alias route to ensure /api/v1/routes/shipments resolves to rider-route payload.

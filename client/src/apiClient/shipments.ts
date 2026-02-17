@@ -167,8 +167,25 @@ export const shipmentsApi = {
   },
 
   get_pdf_document: async (shipment_id: string): Promise<{ success: boolean; pdf_url?: string; is_signed?: boolean; is_template?: boolean; message?: string }> => {
-    const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(shipment_id)}/pdf-document/`);
-    return response.json();
+    try {
+      const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(shipment_id)}/pdf-document/`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          message: data.message || 'No PDF document available for this shipment'
+        };
+      }
+      
+      return data;
+    } catch (error) {
+      log.error('Error fetching PDF document:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch PDF document'
+      };
+    }
   },
 
   upload_signed_pdf: async (shipment_id: string, signed_pdf_url: string): Promise<{ success: boolean; message: string; signed_pdf_url: string }> => {
