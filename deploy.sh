@@ -29,6 +29,9 @@ echo "🧹 Pre-deployment cleanup..."
 docker rm -f riderpro-frontend riderpro-django riderpro-db 2>/dev/null || true
 docker network rm riderpro_default 2>/dev/null || true
 
+# Clean up any dangling images to prevent conflicts
+docker system prune -f --volumes 2>/dev/null || true
+
 # Create backup directory if it doesn't exist
 mkdir -p "$BACKUP_DIR"
 
