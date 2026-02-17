@@ -16,6 +16,7 @@ import {
   Clock
 } from 'lucide-react';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
+import { useRouteAnalytics } from '../hooks/useRouteAnalytics';
 import { routeAPI } from '@/apiClient/routes';
 
 import RouteVisualization from '@/components/routes/RouteVisualization';
@@ -44,27 +45,29 @@ function RouteVisualizationPage() {
   });
 
   // Get aggregated metrics from comprehensive analytics hook
+  const analytics = useRouteAnalytics(filters);
   const {
-    isLoading: isLoadingAdvancedAnalytics
-  } = useRouteAnalytics(filters);
+    daily_summaries: analyticsData,
+    is_loading: isLoadingAdvancedAnalytics
+  } = analytics;
 
   // Create employee lookup map for proper names
   const employeeLookup = React.useMemo(() => {
     const map = new Map<string, string>();
-    employeeMetrics.forEach((emp: any) => {
-      map.set(emp.employee_id, emp.name || `Employee ${emp.employee_id}`);
+    analyticsData.forEach((summary: any) => {
+      map.set(summary.employee_id, summary.employee_name || `Employee ${summary.employee_id}`);
     });
     return map;
-  }, [employeeMetrics]);
+  }, [analyticsData]);
 
   // Convert analytics data to route sessions for visualization
   const routeSessions = React.useMemo(() => {
     return analyticsData.map((analytics, index) => ({
-      id: analytics.route_id || `session_${analytics.employee_id}_${index}`,
+      id: `session_${analytics.employee_id}_${index}`,
       employee_id: analytics.employee_id,
       employee_name: employeeLookup.get(analytics.employee_id) || `Employee ${analytics.employee_id}`,
-      start_time: new Date().toISOString(), // This would come from session data
-      end_time: new Date().toISOString(),
+      start_time: new Date(analytics.date).toISOString(),
+      end_time: new Date(analytics.date).toISOString(),
       status: 'completed',
       total_distance: analytics.total_distance,
       total_time: analytics.total_time,
@@ -81,21 +84,21 @@ function RouteVisualizationPage() {
   // Convert analytics data to route data format
   const routeData = React.useMemo(() => {
     return analyticsData.map((analytics) => ({
-      id: analytics.route_id,
+      id: `route_${analytics.employee_id}_${analytics.date}`,
       employee_id: analytics.employee_id,
       employee_name: employeeLookup.get(analytics.employee_id) || `Employee ${analytics.employee_id}`,
       date: analytics.date,
       distance: analytics.total_distance,
       duration: analytics.total_time,
       shipments_completed: analytics.shipments_completed,
-      fuel_consumption: analytics.fuel_consumption || analytics.fuel_consumed,
+      fuel_consumption: analytics.total_fuel_consumed,
       average_speed: analytics.average_speed,
       efficiency: analytics.efficiency,
       points: [] // Would be populated from coordinate data
     }));
   }, [analyticsData, employeeLookup]);
 
-  const isLoading = isLoadingAnalytics || isLoadingAdvancedAnalytics || isLoadingEmployeeMetrics;
+  const isLoading = isLoadingAdvancedAnalytics;
   const lastUpdated = new Date();
 
   const aggregatedMetrics = React.useMemo(() => {
@@ -103,7 +106,7 @@ function RouteVisualizationPage() {
       totalSessions: routeSessions.length,
       totalDistance: routeData.reduce((sum, route) => sum + (route.distance || 0), 0),
       totalTime: routeData.reduce((sum, route) => sum + (route.duration || 0), 0),
-      totalShipmentsCompleted: routeData.reduce((sum, route) => sum + (route.shipmentsCompleted || 0), 0),
+      totalShipmentsCompleted: routeData.reduce((sum, route) => sum + (route.shipments_completed || 0), 0),
     };
   }, [routeData, routeSessions.length]);
 
@@ -237,7 +240,7 @@ function RouteVisualizationPage() {
 
         <MetricCard
           title="Shipments Delivered"
-          value={aggregatedMetrics.totalShipmentsCompleted || routeData.reduce((sum, route) => sum + route.shipmentsCompleted, 0)}
+          value={aggregatedMetrics.totalShipmentsCompleted || routeData.reduce((sum, route) => sum + route.shipments_completed, 0)}
           icon={Target}
           iconBgColor="bg-purple-100 dark:bg-purple-900/30"
           iconColor="text-purple-600"
@@ -281,11 +284,11 @@ function RouteVisualizationPage() {
 
         <TabsContent value="visualization" className="mt-6">
           <RouteVisualization
-            sessionId={selectedSessionId || undefined}
+            session_id={selectedSessionId || undefined}
             sessions={routeSessions}
-            onSessionSelect={handleSessionSelect}
-            showComparison={!isMobile} // Hide comparison on mobile for better performance
-            autoPlay={!_batteryOptimizations.reduceAnimations} // Disable autoplay on low battery
+            on_session_select={handleSessionSelect}
+            show_comparison={!isMobile} // Hide comparison on mobile for better performance
+            auto_play={!_batteryOptimizations.reduceAnimations} // Disable autoplay on low battery
             className={isMobile ? 'mobile-optimized' : ''}
           />
         </TabsContent>
@@ -293,7 +296,7 @@ function RouteVisualizationPage() {
         <TabsContent value="data-table" className="mt-6">
           <RouteDataTable
             data={routeData}
-            dataType="routeData"
+            data_type="routeData"
             title="Route Analytics Data"
             onRowClick={handleViewRouteDetails}
             showSearch={true}
@@ -311,7 +314,7 @@ function RouteVisualizationPage() {
 
         <TabsContent value="optimization" className="mt-6">
           <RouteOptimizationSuggestions
-            routeData={routeData}
+            route_data={routeData}
             onImplementSuggestion={handleImplementSuggestion}
             onViewRouteDetails={handleViewRouteDetails}
           />
@@ -323,8 +326,8 @@ function RouteVisualizationPage() {
         <Alert>
           <MapPin className="h-4 w-4" />
           <AlertDescription>
-            {analyticsError
-              ? `Error loading route data: ${(analyticsError as Error).message}`
+            {visualizationError
+              ? `Error loading route data: ${(visualizationError as Error).message}`
               : 'No route data available for visualization. Complete some routes with GPS tracking enabled to see historical data and analysis here.'
             }
           </AlertDescription>

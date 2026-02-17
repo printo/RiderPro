@@ -268,28 +268,28 @@ export class FuelCalculator {
 
       const existing = monthlyMap.get(key);
       if (existing) {
-        existing.totalDistance += result.distance;
-        existing.totalFuelConsumed += result.fuelConsumed;
-        existing.totalFuelCost += result.fuelCost;
-        if (result.co2Emissions !== undefined) {
-          existing.totalCO2Emissions = (existing.totalCO2Emissions || 0) + result.co2Emissions;
+        existing.total_distance += result.distance;
+        existing.total_fuel_consumed += result.fuel_consumed;
+        existing.total_fuel_cost += result.fuel_cost;
+        if (result.co2_emissions !== undefined) {
+          existing.total_co2_emissions = (existing.total_co2_emissions || 0) + result.co2_emissions;
         }
-        existing.averageEfficiency = AnalyticsMath.round(existing.totalDistance / existing.totalFuelConsumed);
-        existing.costPerKm = AnalyticsMath.round(existing.totalFuelCost / existing.totalDistance, 3);
-        existing.fuelPerKm = AnalyticsMath.round(existing.totalFuelConsumed / existing.totalDistance, 3);
-        existing.formattedTotalCost = formatINR(existing.totalFuelCost);
+        existing.average_efficiency = AnalyticsMath.round(existing.total_distance / existing.total_fuel_consumed);
+        existing.cost_per_km = AnalyticsMath.round(existing.total_fuel_cost / existing.total_distance, 3);
+        existing.fuel_per_km = AnalyticsMath.round(existing.total_fuel_consumed / existing.total_distance, 3);
+        existing.formatted_total_cost = formatINR(existing.total_fuel_cost);
       } else {
         monthlyMap.set(key, {
           city: r.city,
-          vehicleId: r.vehicleTypeId,
-          totalDistance: result.distance,
-          totalFuelConsumed: result.fuelConsumed,
-          totalFuelCost: result.fuelCost,
-          totalCO2Emissions: result.co2Emissions,
-          averageEfficiency: result.efficiency,
-          costPerKm: AnalyticsMath.round(result.fuelCost / result.distance, 3),
-          fuelPerKm: AnalyticsMath.round(result.fuelConsumed / result.distance, 3),
-          formattedTotalCost: result.formattedCost,
+          vehicle_id: r.vehicleTypeId,
+          total_distance: result.distance,
+          total_fuel_consumed: result.fuel_consumed,
+          total_fuel_cost: result.fuel_cost,
+          total_co2_emissions: result.co2_emissions,
+          average_efficiency: result.efficiency,
+          cost_per_km: AnalyticsMath.round(result.fuel_cost / result.distance, 3),
+          fuel_per_km: AnalyticsMath.round(result.fuel_consumed / result.distance, 3),
+          formatted_total_cost: result.formatted_cost,
           month,
           year
         });

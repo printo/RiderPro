@@ -68,8 +68,8 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
         // Convert dateRange to ISO strings if provided
         ...(dateRange && dateRange[0] && dateRange[1]
           ? {
-              startDate: dateRange[0].toISOString().split('T')[0],
-              endDate: dateRange[1].toISOString().split('T')[0],
+              start_date: dateRange[0].toISOString().split('T')[0],
+              end_date: dateRange[1].toISOString().split('T')[0],
             }
           : {}),
       };
@@ -78,18 +78,18 @@ export const FuelAnalytics: React.FC<FuelAnalyticsProps> = ({
 
       const analytics: FuelAnalyticsType = {
         date: new Date().toISOString(),
-        totalFuelConsumed: fuelData.totalFuelConsumed ?? 0,
-        totalFuelCost: fuelData.totalFuelCost ?? 0,
-        totalDistance: fuelData.totalDistance ?? 0,
-        averageEfficiency: fuelData.averageEfficiency ?? 0,
-        totalCO2Emissions: fuelData.totalCO2Emissions ?? 0,
-        costPerKm: fuelData.costPerKm ?? 0,
-        fuelPerKm: fuelData.fuelPerKm ?? 0,
+        total_fuel_consumed: fuelData.total_fuel_consumed ?? 0,
+        total_fuel_cost: fuelData.total_fuel_cost ?? 0,
+        total_distance: fuelData.total_distance ?? 0,
+        average_efficiency: fuelData.average_efficiency ?? 0,
+        total_co2_emissions: fuelData.total_co2_emissions ?? 0,
+        cost_per_km: fuelData.cost_per_km ?? 0,
+        fuel_per_km: fuelData.fuel_per_km ?? 0,
         // Leave detailed breakdowns empty until backend supports them
-        dailyBreakdown: [],
+        daily_breakdown: [],
         breakdown: {
-          byVehicleType: {},
-          byTimeRange: [],
+          by_vehicle_type: {},
+          by_time_range: [],
         },
       };
 

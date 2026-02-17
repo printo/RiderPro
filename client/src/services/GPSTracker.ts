@@ -317,12 +317,12 @@ export class GPSTracker {
    */
   getTrackingStatus(): {
     isTracking: boolean;
-    sessionId: string | null;
+    session_id: string | null;
     lastPosition: GPSPosition | null;
   } {
     return {
       isTracking: this.isTracking,
-      sessionId: this.sessionId,
+      session_id: this.sessionId,
       lastPosition: this.lastPosition
     };
   }
@@ -340,7 +340,7 @@ export class GPSTracker {
       } else {
         // Fallback to localStorage
         const coordinate: GPSCoordinate = {
-          sessionId: this.sessionId,
+          session_id: this.sessionId,
           latitude: position.latitude,
           longitude: position.longitude,
           timestamp: position.timestamp,
@@ -363,7 +363,7 @@ export class GPSTracker {
       // Fallback to localStorage if IndexedDB fails
       if (this.useOfflineStorage) {
         const coordinate: GPSCoordinate = {
-          sessionId: this.sessionId,
+          session_id: this.sessionId,
           latitude: position.latitude,
           longitude: position.longitude,
           timestamp: position.timestamp,
@@ -411,8 +411,8 @@ export class GPSTracker {
    */
   async getOfflineStorageStatus(): Promise<{
     enabled: boolean;
-    pendingRecords: number;
-    isOnline: boolean;
+    pending_records: number;
+    is_online: boolean;
   } | null> {
     if (!this.offlineStorage) {
       return null;
@@ -422,8 +422,8 @@ export class GPSTracker {
       const syncStatus = this.offlineStorage.getSyncStatus();
       return {
         enabled: this.useOfflineStorage,
-        pendingRecords: syncStatus.pendingRecords,
-        isOnline: syncStatus.isOnline
+        pending_records: syncStatus.pending_records,
+        is_online: syncStatus.is_online
       };
     } catch (error) {
       console.warn('Failed to get offline storage status:', error);
@@ -680,7 +680,7 @@ export class GPSTracker {
 
     this.errorHandler.logCritical('gps', 'Critical GPS error - tracking may be compromised', {
       error,
-      sessionId: this.sessionId,
+      session_id: this.sessionId,
       trackingStatus: this.isTracking
     });
 
@@ -695,7 +695,7 @@ export class GPSTracker {
     if (!this.errorHandler) return;
 
     this.errorHandler.logInfo('system', 'Ensuring shipment operations continue despite GPS errors', {
-      sessionId: this.sessionId,
+      session_id: this.sessionId,
       hasLastKnownPosition: !!this.lastPosition,
       fallbackMode: this.isInFallbackMode()
     });
