@@ -17,7 +17,6 @@ import ActiveRouteTracking from "@/components/routes/ActiveRouteTracking";
 import DashboardShipmentActions from "@/components/shipments/DashboardShipmentActions";
 import { useRouteSessionContext } from "@/contexts/RouteSessionContext";
 import { scrollToElementId } from '@/lib/utils';
-import { isManagerUser } from '@/lib/roles';
 import {
   Dialog,
   DialogContent,

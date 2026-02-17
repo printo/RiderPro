@@ -5,8 +5,6 @@ import { API_ENDPOINTS } from '@/config/api';
 import { useAuth } from '@/hooks/useAuth';
 import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
 import { HomebaseSelector } from '@/components/ui/HomebaseSelector';
-import AuthService from '@/services/AuthService';
-import { DispatchBadge } from '@/components/ui/DispatchBadge';
 
 interface CreateRiderForm {
   name: string;
@@ -18,12 +16,10 @@ interface CreateRiderForm {
 }
 
 const AdminRiderManagement = () => {
-  const { user } = useAuth();
   const [riders, setRiders] = useState<Rider[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [homebases, setHomebases] = useState<Homebase[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createForm, setCreateForm] = useState<CreateRiderForm>({

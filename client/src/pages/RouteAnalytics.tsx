@@ -22,8 +22,6 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { DateRange } from 'react-day-picker';
 import { format, subDays } from 'date-fns';
-import { routeAPI } from '@/apiClient/routes';
-import { analyticsApi } from '@/apiClient/analytics';
 
 // Import chart components
 import PerformanceMetricsChart from '@/components/analytics/PerformanceMetricsChart';
@@ -32,7 +30,7 @@ import EmployeePerformanceTable from '@/components/analytics/EmployeePerformance
 import RouteComparisonChart from '@/components/analytics/RouteComparisonChart';
 import ExportDialog from '@/components/ui/forms/ExportDialog';
 
-import { AnalyticsFilters as BaseAnalyticsFilters, RouteAnalytics } from '@shared/types';
+import { RouteAnalytics } from '@shared/types';
 
 interface AnalyticsFilters {
   date_range: DateRange | undefined;

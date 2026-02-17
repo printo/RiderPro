@@ -37,8 +37,6 @@ interface ActiveSessionsMessage {
   }>;
 }
 
-type WebSocketMessage = LocationUpdate | SessionStatusChange | ActiveSessionsMessage;
-
 interface UseLiveTrackingOptions {
   autoConnect?: boolean;
   reconnectInterval?: number;
@@ -56,7 +54,6 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
   const [error, setError] = useState<string | null>(null);
 
-  const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const isFetchingRef = useRef(false);

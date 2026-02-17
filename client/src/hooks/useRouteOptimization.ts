@@ -15,12 +15,6 @@ interface RouteOptimizationRuntimeConfig {
   proximityRadiusMeters: number;
 }
 
-const ROUTE_OPTIMIZATION_CONFIG_KEY = 'riderpro_route_optimization_config';
-const DEFAULT_RUNTIME_CONFIG: RouteOptimizationRuntimeConfig = {
-  autoDeliver: false,
-  proximityRadiusMeters: 100,
-};
-
 export function useRouteOptimization({ session_id, current_location, enabled = true }: UseRouteOptimizationProps) {
   const [optimized_path, set_optimized_path] = useState<RouteLocation[]>([]);
   const [is_optimizing, set_is_optimizing] = useState(false);

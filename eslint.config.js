@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
+import reactHooks from 'eslint-plugin-react-hooks';
 import process from 'process';
 
 export default [
@@ -46,16 +47,20 @@ export default [
     },
     plugins: {
       '@typescript-eslint': tsPlugin,
+      'react-hooks': reactHooks,
     },
     rules: {
       ...tsPlugin.configs.recommended.rules,
       // TypeScript specific rules
-      '@typescript-eslint/no-unused-vars': ['error', { 
-        argsIgnorePattern: '^_', 
-        varsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_',
-        destructuredArrayIgnorePattern: '^_'
-      }],
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+        },
+      ],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
@@ -71,6 +76,10 @@ export default [
       'no-unused-vars': 'off', // Use TypeScript version
       'no-unreachable': 'warn',
       'no-useless-escape': 'warn',
+
+      // React Hooks rules
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
   {
@@ -99,15 +108,20 @@ export default [
     rules: {
       'no-console': 'off', // Allow console in scripts
       'no-undef': 'error',
-      'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
       'no-useless-escape': 'warn',
     },
   },
   {
     ignores: [
       'dist/',
+      'dev-dist/',
       'node_modules/',
       'client/src/**/*.js', // Only ignore client-side JS files
+      'client/vite.config.ts', // Ignore Vite config due to type issues
       '*.mjs',
     ],
   },

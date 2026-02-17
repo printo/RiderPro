@@ -9,7 +9,6 @@ import {
   Settings as SettingsIcon,
   LogOut,
   Smartphone,
-  Wifi,
   Battery,
   Key,
   IdCard

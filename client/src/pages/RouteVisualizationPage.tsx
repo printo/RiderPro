@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import MetricCard from '@/components/ui/MetricCard';
-import { RouteSession, RouteData, RouteFilters } from '@shared/types';
+import { RouteSession, RouteFilters } from '@shared/types';
 import {
   Route,
   BarChart3,
@@ -35,8 +35,7 @@ function RouteVisualizationPage() {
 
   // Fetch route sessions + tracking points from backend session tables.
   const {
-    data: visualizationData,
-    isLoading,
+    isLoading: isLoadingVisualization,
     error: visualizationError,
     refetch: refetchVisualization
   } = useQuery({
@@ -47,10 +46,7 @@ function RouteVisualizationPage() {
 
   // Get aggregated metrics from comprehensive analytics hook
   const {
-    dailySummaries,
-    getAggregatedMetrics,
-    isLoading: isLoadingAdvancedAnalytics,
-    refreshAnalytics
+    isLoading: isLoadingAdvancedAnalytics
   } = useRouteAnalytics(filters);
 
   // Create employee lookup map for proper names
