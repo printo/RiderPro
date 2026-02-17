@@ -3,14 +3,15 @@ import { GPSPosition, RouteSession, RouteAnalytics, RouteTracking, GPSCoordinate
 // Re-export everything from schema
 export * from './schema';
 
-export type ShipmentStatus =
-  | 'Initiated'
-  | 'Assigned'
-  | 'Collected'
-  | 'In Transit'
-  | 'Delivered'
-  | 'Picked Up'
-  | 'Returned'
+export type ShipmentStatus = 
+  | 'Initiated' 
+  | 'Assigned' 
+  | 'Collected' 
+  | 'In Transit' 
+  | 'Delivered' 
+  | 'Picked Up' 
+  | 'Skipped'
+  | 'Returned' 
   | 'Cancelled';
 
 // --- User Types (from Admin.tsx) ---

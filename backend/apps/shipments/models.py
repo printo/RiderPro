@@ -49,6 +49,7 @@ class Shipment(models.Model):
             ('In Transit', 'In Transit'),
             ('Delivered', 'Delivered'),
             ('Picked Up', 'Picked Up'),
+            ('Skipped', 'Skipped'),
             ('Returned', 'Returned'),
             ('Cancelled', 'Cancelled'),
         ],

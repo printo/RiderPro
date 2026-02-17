@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import MetricCard from '@/components/ui/MetricCard';
-import { RouteSession, RoutePoint, RouteData, RouteAnalytics, RouteFilters } from '@shared/types';
+import { RouteSession, RouteData, RouteFilters } from '@shared/types';
 import {
   Route,
   BarChart3,
@@ -17,9 +16,7 @@ import {
   Clock
 } from 'lucide-react';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
-import { useRouteAnalytics } from '../hooks/useRouteAnalytics';
-import { useRouteAnalytics as useRouteAnalyticsAPI, useRouteTracking } from '../hooks/useRouteAPI';
-import { analyticsApi } from '../apiClient/analytics';
+import { routeAPI } from '@/apiClient/routes';
 
 import RouteVisualization from '@/components/routes/RouteVisualization';
 import RouteComparison from '@/components/routes/RouteComparison';
@@ -28,7 +25,7 @@ import RouteDataTable from '@/components/analytics/RouteDataTable';
 
 function RouteVisualizationPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<RouteFilters>({});
+  const [filters] = useState<RouteFilters>({});
 
   const _mobileOptimization = useMobileOptimization({
     enableGestures: true,
@@ -36,21 +33,15 @@ function RouteVisualizationPage() {
     enableNetworkMonitoring: true
   });
 
-  // Fetch real route analytics data
+  // Fetch route sessions + tracking points from backend session tables.
   const {
-    data: analyticsData = [],
-    isLoading: isLoadingAnalytics,
-    error: analyticsError,
-    refetch: refetchAnalytics
-  } = useRouteAnalyticsAPI(filters);
-
-  // Fetch employee metrics for proper names and performance data
-  const {
-    data: employeeMetrics = [],
-    isLoading: isLoadingEmployeeMetrics
+    data: visualizationData,
+    isLoading,
+    error: visualizationError,
+    refetch: refetchVisualization
   } = useQuery({
-    queryKey: ['employee-metrics', filters],
-    queryFn: () => analyticsApi.getEmployeeMetrics(filters),
+    queryKey: ['route-visualization', filters],
+    queryFn: () => routeAPI.getVisualizationData(filters),
     enabled: true
   });
 
@@ -112,13 +103,17 @@ function RouteVisualizationPage() {
   const isLoading = isLoadingAnalytics || isLoadingAdvancedAnalytics || isLoadingEmployeeMetrics;
   const lastUpdated = new Date();
 
-  // Get aggregated metrics for summary
-  const aggregatedMetrics = getAggregatedMetrics();
+  const aggregatedMetrics = React.useMemo(() => {
+    return {
+      totalSessions: routeSessions.length,
+      totalDistance: routeData.reduce((sum, route) => sum + (route.distance || 0), 0),
+      totalTime: routeData.reduce((sum, route) => sum + (route.duration || 0), 0),
+      totalShipmentsCompleted: routeData.reduce((sum, route) => sum + (route.shipmentsCompleted || 0), 0),
+    };
+  }, [routeData, routeSessions.length]);
 
   const handleRefreshData = () => {
-    // Refresh data from the backend
-    refetchAnalytics();
-    refreshAnalytics();
+    refetchVisualization();
   };
 
   const handleExportData = () => {
@@ -302,8 +297,8 @@ function RouteVisualizationPage() {
 
         <TabsContent value="data-table" className="mt-6">
           <RouteDataTable
-            data={analyticsData}
-            dataType="analytics"
+            data={routeData}
+            dataType="routeData"
             title="Route Analytics Data"
             onRowClick={handleViewRouteDetails}
             showSearch={true}
@@ -329,7 +324,7 @@ function RouteVisualizationPage() {
       </Tabs>
 
       {/* No Data State */}
-      {(routeSessions.length === 0 && !isLoading) || analyticsError ? (
+      {(routeSessions.length === 0 && !isLoading) || visualizationError ? (
         <Alert>
           <MapPin className="h-4 w-4" />
           <AlertDescription>

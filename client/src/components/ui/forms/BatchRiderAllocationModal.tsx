@@ -156,7 +156,7 @@ function BatchRiderAllocationModal({
           <div className="text-sm text-muted-foreground bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md">
             <p className="font-medium mb-1">Note:</p>
             <ul className="list-disc list-inside space-y-1 text-xs">
-              <li>Shipments that are already "In Transit", "Picked Up", "Delivered", "Returned", or "Cancelled" cannot be reallocated.</li>
+              <li>Shipments that are already "Collected", "In Transit", "Picked Up", "Delivered", "Returned", or "Cancelled" cannot be reallocated.</li>
               <li>Only shipments with status "Initiated" or "Assigned" can be allocated.</li>
             </ul>
           </div>

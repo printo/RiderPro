@@ -22,6 +22,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { DateRange } from 'react-day-picker';
 import { format, subDays } from 'date-fns';
+import { routeAPI } from '@/apiClient/routes';
+import { analyticsApi } from '@/apiClient/analytics';
 
 // Import chart components
 import PerformanceMetricsChart from '@/components/analytics/PerformanceMetricsChart';
@@ -85,7 +87,7 @@ function RouteAnalyticsPage() {
 
   // Fetch employee list for filter dropdown
   const { data: employees } = useQuery({
-    queryKey: ['employees'],
+    queryKey: ['employees', filters.dateRange?.from, filters.dateRange?.to],
     queryFn: async (): Promise<Employee[]> => {
       // This would typically come from an employees API
       // For now, we'll extract unique employee IDs from analytics data
@@ -95,7 +97,7 @@ function RouteAnalyticsPage() {
       }
       return [];
     },
-    enabled: !!analyticsData
+    enabled: !!filters.dateRange?.from && !!filters.dateRange?.to
   });
 
   // Calculate summary metrics

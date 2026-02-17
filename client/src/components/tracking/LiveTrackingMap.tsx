@@ -59,6 +59,15 @@ export interface RiderLocation {
   status: 'active' | 'idle' | 'offline';
   employee_name?: string;
   route?: Array<{ lat: number; lng: number }>;
+  dropPoints?: Array<{
+    id: string;
+    shipmentId: string;
+    status?: string;
+    type?: string;
+    lat: number;
+    lng: number;
+    address?: string;
+  }>;
 }
 
 interface LiveTrackingMapProps {
@@ -69,6 +78,42 @@ interface LiveTrackingMapProps {
   center?: [number, number];
   zoom?: number;
 }
+
+const ROUTE_PALETTE = [
+  '#2563eb', // blue
+  '#dc2626', // red
+  '#16a34a', // green
+  '#9333ea', // purple
+  '#ea580c', // orange
+  '#0891b2', // cyan
+  '#ca8a04', // amber
+  '#be185d', // pink
+];
+
+const getRiderRouteColor = (employeeId: string) => {
+  let hash = 0;
+  for (let i = 0; i < employeeId.length; i++) {
+    hash = (hash * 31 + employeeId.charCodeAt(i)) >>> 0;
+  }
+  return ROUTE_PALETTE[hash % ROUTE_PALETTE.length];
+};
+
+const createDropPointIcon = (color: string) =>
+  L.divIcon({
+    html: `
+      <div style="
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: ${color};
+        border: 2px solid white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.35);
+      "></div>
+    `,
+    className: 'live-drop-point-icon',
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
 
 // Component to handle map updates
 function MapUpdater({ riders, selectedRider }: { riders: RiderLocation[], selectedRider?: string }) {
@@ -205,21 +250,46 @@ function LiveTrackingMap({
         {/* Render routes if enabled */}
         {showRoutes && riders.map((rider) => {
           if (!rider.route || rider.route.length < 2) return null;
+          const routeColor = getRiderRouteColor(rider.employeeId);
 
           return (
             <Polyline
               key={`route-${rider.employee_id}`}
               positions={rider.route.map(point => [point.lat, point.lng])}
-              color={rider.status === 'active' ? '#22c55e' : '#6b7280'}
-              weight={3}
-              opacity={0.7}
+              color={routeColor}
+              weight={selectedRider === rider.employeeId ? 5 : 3}
+              opacity={selectedRider && selectedRider !== rider.employeeId ? 0.45 : 0.8}
+              dashArray={selectedRider === rider.employeeId ? undefined : '8, 6'}
             />
           );
+        })}
+
+        {/* Render drop points for each rider (same color family as route) */}
+        {showRoutes && riders.flatMap((rider) => {
+          if (!rider.dropPoints || rider.dropPoints.length === 0) return [];
+          const routeColor = getRiderRouteColor(rider.employeeId);
+          return rider.dropPoints.map((point) => (
+            <Marker
+              key={`drop-${rider.employeeId}-${point.id}`}
+              position={[point.lat, point.lng]}
+              icon={createDropPointIcon(routeColor)}
+            >
+              <Popup>
+                <div className="text-sm">
+                  <div className="font-semibold mb-1">{rider.employeeName || rider.employeeId}</div>
+                  <div className="text-xs text-gray-600 mb-1">Drop Point</div>
+                  <div>Shipment: {point.shipmentId}</div>
+                  {point.status && <div>Status: {point.status}</div>}
+                  {point.address && <div className="mt-1 text-xs">{point.address}</div>}
+                </div>
+              </Popup>
+            </Marker>
+          ));
         })}
       </MapContainer>
 
       {/* Map legend */}
-      <div className="absolute top-4 right-4 bg-white p-3 rounded-lg shadow-lg z-[1000]">
+      <div className="absolute top-4 right-4 bg-white p-3 rounded-lg shadow-lg z-[1000] max-w-[220px]">
         <h3 className="font-semibold text-sm mb-2">Rider Status</h3>
         <div className="space-y-1 text-xs">
           <div className="flex items-center gap-2">
@@ -233,6 +303,9 @@ function LiveTrackingMap({
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-gray-500"></div>
             <span>Offline</span>
+          </div>
+          <div className="mt-2 pt-2 border-t text-[11px] text-gray-600">
+            Route lines and drop points are color-coded per rider.
           </div>
         </div>
       </div>

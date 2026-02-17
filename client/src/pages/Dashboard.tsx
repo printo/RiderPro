@@ -14,8 +14,10 @@ import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import MetricCard from "@/components/ui/MetricCard";
 import { useAuth } from "@/hooks/useAuth";
 import ActiveRouteTracking from "@/components/routes/ActiveRouteTracking";
+import DashboardShipmentActions from "@/components/shipments/DashboardShipmentActions";
 import { useRouteSessionContext } from "@/contexts/RouteSessionContext";
 import { scrollToElementId } from '@/lib/utils';
+import { isManagerUser } from '@/lib/roles';
 import {
   Dialog,
   DialogContent,
@@ -274,6 +276,11 @@ function Dashboard() {
             currentLocation={current_location}
           />
         </div>
+      )}
+
+      {/* Rider actions from dashboard (single + bulk status updates) */}
+      {!hasManagerAccess && (
+        <DashboardShipmentActions employeeId={employeeId} />
       )}
 
       {/* Charts Section */}

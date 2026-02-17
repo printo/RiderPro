@@ -1,11 +1,9 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useRouteSessionContext } from '@/contexts/RouteSessionContext';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 import RouteCompletionDialog from '@/components/routes/RouteCompletionDialog';
-import SmartCompletionSettings from '@/components/SmartCompletionSettings';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import {
   AlertDialog,
@@ -17,13 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target, Settings } from 'lucide-react';
+import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target } from 'lucide-react';
 import { scrollToElementId } from '@/lib/utils';
 
 interface RouteSessionControlsProps {
@@ -49,6 +41,7 @@ function RouteSessionControls({
     session,
     status,
     metrics,
+    coordinates,
     isLoading,
     error,
     startSession,
@@ -67,6 +60,10 @@ function RouteSessionControls({
     confirmGeofenceStop,
     cancelGeofenceStop
   } = useRouteSessionContext();
+
+  const currentPosition = coordinates.length > 0
+    ? coordinates[coordinates.length - 1]
+    : null;
 
   // Smart route completion integration
   const smart_completion = useSmartRouteCompletion({

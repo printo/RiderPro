@@ -2,7 +2,7 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   RouteSession, StartRouteSession, StopRouteSession,
   GPSCoordinate, RouteAnalytics, RouteFilters, RouteTracking,
-  BatchCoordinatesResponse, SessionSummary, Shipment,
+  BatchCoordinatesResponse, SessionSummary, Shipment, RouteData,
   RouteOptimizeRequest, RouteOptimizeResponse, BulkShipmentEvent
 } from "@shared/types";
 import { apiClient } from "../services/ApiClient";
@@ -251,6 +251,31 @@ export const routeAPI = {
   bulkRecordShipmentEvent: async (data: BulkShipmentEvent): Promise<{ success: boolean; message: string; results: any[] }> => {
     const response = await apiRequest("POST", "/api/v1/routes/bulk_shipment_event", data);
     return await response.json();
+  },
+
+  /**
+   * Get route visualization payload from session/tracking tables
+   */
+  getVisualizationData: async (filters: RouteFilters = {}): Promise<{
+    success: boolean;
+    sessions: RouteSession[];
+    routeData: RouteData[];
+  }> => {
+    const params = new URLSearchParams();
+    if (filters.employeeId) params.append('employeeId', filters.employeeId);
+    if (filters.date) params.append('date', filters.date);
+    if (filters.startDate) params.append('startDate', filters.startDate);
+    if (filters.endDate) params.append('endDate', filters.endDate);
+
+    const url = `/api/v1/routes/visualization${params.toString() ? `?${params.toString()}` : ''}`;
+    const response = await apiClient.get(url);
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Failed to get route visualization data');
+    }
+
+    return result;
   },
 
 };

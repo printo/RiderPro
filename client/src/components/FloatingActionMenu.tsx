@@ -18,12 +18,14 @@ import {
 import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { isManagerUser } from "@/lib/roles";
 
 function FloatingActionMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [location, setLocation] = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
+  const hasManagerAccess = isManagerUser(user);
 
   const menuItems = [
     {
@@ -38,18 +40,26 @@ function FloatingActionMenu() {
       label: "Shipments",
       testId: "menu-shipments"
     },
-    {
-      href: "/route-analytics",
-      icon: BarChart3,
-      label: "Route Analytics",
-      testId: "menu-route-analytics"
-    },
-    {
-      href: "/route-visualization",
-      icon: Map,
-      label: "Route Visualization",
-      testId: "menu-route-visualization"
-    }
+    ...(hasManagerAccess ? [
+      {
+        href: "/route-analytics",
+        icon: BarChart3,
+        label: "Route Analytics",
+        testId: "menu-route-analytics"
+      },
+      {
+        href: "/route-visualization",
+        icon: Map,
+        label: "Route Visualization",
+        testId: "menu-route-visualization"
+      },
+      {
+        href: "/live-tracking",
+        icon: Map,
+        label: "Live Tracking",
+        testId: "menu-live-tracking"
+      }
+    ] : [])
   ];
 
   // Admin menu items - show for super admin users and managers

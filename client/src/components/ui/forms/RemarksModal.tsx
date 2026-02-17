@@ -21,7 +21,7 @@ interface RemarksModalProps {
   isOpen: boolean;
   onClose: () => void;
   shipmentId: string;
-  status: "Cancelled" | "Returned";
+  status: "Cancelled" | "Returned" | "Skipped";
   employeeId?: string;
 }
 
@@ -51,11 +51,6 @@ function RemarksModal({
         throw new Error("Remarks are required");
       }
 
-      // First update the shipment status
-      const statusResponse = await apiRequest("PATCH", `/api/v1/shipments/${shipmentId}`, {
-        status: status
-      });
-
       // Record GPS coordinates if we have an active session
       if (hasActiveSession) {
         try {
@@ -74,13 +69,13 @@ function RemarksModal({
         }
       }
 
-      // Then save the remarks
+      // Save status + reason together so statuses that require reason (e.g. Skipped) pass validation.
       const remarksResponse = await apiRequest("POST", `/api/v1/shipments/${shipmentId}/remarks`, {
         remarks: remarks.trim(),
         status: status
       });
 
-      return { status: statusResponse, remarks: remarksResponse };
+      return { remarks: remarksResponse };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/v1/shipments/fetch"] });

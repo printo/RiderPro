@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { RiderLocation } from '@/components/tracking/LiveTrackingMap';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/config/api';
 import { log } from "../utils/logger.js";
 
 interface LocationUpdate {
@@ -46,7 +48,7 @@ interface UseLiveTrackingOptions {
 export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
   const {
     autoConnect = true,
-    reconnectInterval = 5000,
+    reconnectInterval = 30000,
     maxReconnectAttempts = 10
   } = options;
 
@@ -57,6 +59,22 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const isFetchingRef = useRef(false);
+
+  type ActiveRiderApiPayload = {
+    employee_id: string;
+    session_id: string;
+    latitude: number;
+    longitude: number;
+    timestamp: string;
+    accuracy?: number;
+    speed?: number;
+    start_time?: string;
+    employee_name?: string;
+    status?: 'active' | 'idle' | 'offline';
+    route?: Array<{ lat: number; lng: number; timestamp?: string; event_type?: string; shipment_id?: string }>;
+    drop_points?: Array<{ id: string; shipment_id: string; status?: string; type?: string; lat: number; lng: number; address?: string }>;
+  };
 
   // Determine rider status based on last update time
   const getRiderStatus = useCallback((timestamp: string): 'active' | 'idle' | 'offline' => {
@@ -71,15 +89,14 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
 
   // Fetch active riders from REST API
   const fetchActiveRiders = useCallback(async () => {
+    if (isFetchingRef.current) {
+      return;
+    }
     try {
-      setConnectionStatus('connecting');
+      isFetchingRef.current = true;
+      setConnectionStatus(prev => (prev === 'disconnected' ? 'connecting' : prev));
 
-      const response = await fetch('/api/v1/routes/active-riders', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-      });
+      const response = await apiRequest('GET', API_ENDPOINTS.routes.activeRiders);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch active riders: ${response.statusText}`);
@@ -87,21 +104,16 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
 
       const data = await response.json();
 
+      const activeLocations: ActiveRiderApiPayload[] = Array.isArray(data.riders)
+        ? data.riders
+        : (Array.isArray(data.locations) ? data.locations : []);
+
       setRiders(prev => {
         const newRiders = new Map();
 
         // Transform API response to RiderLocation format
-        if (data.locations && Array.isArray(data.locations)) {
-          data.locations.forEach((loc: {
-            employee_id: string;
-            session_id: string;
-            latitude: number;
-            longitude: number;
-            timestamp: string;
-            accuracy?: number;
-            speed?: number;
-            start_time?: string;
-          }) => {
+        if (activeLocations.length > 0) {
+          activeLocations.forEach((loc) => {
             const existingRider = prev.get(loc.employee_id);
 
             const rider: RiderLocation = {
@@ -150,6 +162,8 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
         reconnectAttemptsRef.current++;
         log.dev(`Retrying fetch (${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`);
       }
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [getRiderStatus, maxReconnectAttempts]);
 
@@ -187,21 +201,22 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
   useEffect(() => {
     if (!autoConnect) return;
 
-    // Start polling
-    const pollInterval = setInterval(() => {
-      if (connectionStatus !== 'disconnected') {
-        fetchActiveRiders();
-      }
-    }, reconnectInterval);
-
     // Initial connection
     connect();
 
+    // Start polling only when interval is enabled
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    if (reconnectInterval > 0) {
+      pollInterval = setInterval(() => {
+        fetchActiveRiders();
+      }, reconnectInterval);
+    }
+
     return () => {
-      clearInterval(pollInterval);
+      if (pollInterval) clearInterval(pollInterval);
       disconnect();
     };
-  }, [autoConnect, connect, disconnect, fetchActiveRiders, reconnectInterval, connectionStatus]);
+  }, [autoConnect, connect, disconnect, fetchActiveRiders, reconnectInterval]);
 
   // Update rider statuses periodically
   useEffect(() => {
