@@ -386,7 +386,7 @@ function ShipmentDetailModalWithTracking({
 
                   {shipment.type === "delivery" && shipment.status === "Collected" && (
                     <Button
-                      onClick={() => handle_status_update_with_gps("In Transit")}
+                      onClick={() => handle_status_update_with_gps("Assigned")}
                       disabled={is_processing}
                       variant="outline"
                       className="h-12 border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800/20"

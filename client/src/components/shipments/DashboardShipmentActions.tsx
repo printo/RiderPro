@@ -36,7 +36,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
   ) => {
     try {
       // Map "Unmark as Collected" to actual API status
-      const apiStatus = status === 'Unmark as Collected' ? 'In Transit' : status;
+      const apiStatus = status === 'Unmark as Collected' ? 'Assigned' : status;
       await apiRequest('PATCH', `/api/v1/shipments/${shipment.shipment_id}`, { status: apiStatus });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
