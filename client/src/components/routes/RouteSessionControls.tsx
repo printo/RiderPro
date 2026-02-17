@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +42,6 @@ function RouteSessionControls({
     session,
     status,
     metrics,
-    coordinates,
     isLoading,
     error,
     startSession,
@@ -60,10 +60,6 @@ function RouteSessionControls({
     confirmGeofenceStop,
     cancelGeofenceStop
   } = useRouteSessionContext();
-
-  const currentPosition = coordinates.length > 0
-    ? coordinates[coordinates.length - 1]
-    : null;
 
   // Smart route completion integration
   const smart_completion = useSmartRouteCompletion({

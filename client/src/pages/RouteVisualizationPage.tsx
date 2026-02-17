@@ -35,7 +35,6 @@ function RouteVisualizationPage() {
 
   // Fetch route sessions + tracking points from backend session tables.
   const {
-    isLoading: isLoadingVisualization,
     error: visualizationError,
     refetch: refetchVisualization
   } = useQuery({

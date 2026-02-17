@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -21,7 +20,7 @@ import GPSLocationDisplay from './GPSLocationDisplay';
 import PackageBoxesTable from './PackageBoxesTable';
 import ChangeRiderSection from './ChangeRiderSection';
 import DropPointMap from '@/components/tracking/DropPointMap';
-import type { Shipment, RouteLocation } from '@shared/types';
+import type { Shipment } from '@shared/types';
 
 function formatAddressForDisplay(shipment: Shipment): string | undefined {
   if (typeof shipment.address_display === 'string' && shipment.address_display) return shipment.address_display;

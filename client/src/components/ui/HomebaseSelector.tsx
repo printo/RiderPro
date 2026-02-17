@@ -28,7 +28,7 @@ export function HomebaseSelector({
 }: HomebaseSelectorProps) {
   const [homebases, setHomebases] = useState<Homebase[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
 
   const loadHomebases = async () => {
     setIsLoading(true);

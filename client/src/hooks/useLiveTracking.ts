@@ -4,25 +4,6 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/config/api';
 import { log } from "../utils/logger.js";
 
-interface LocationUpdate {
-  type: 'location_update';
-  employee_id: string;
-  session_id: string;
-  latitude: number;
-  longitude: number;
-  timestamp: string;
-  accuracy?: number;
-  speed?: number;
-}
-
-interface SessionStatusChange {
-  type: 'session_status_change';
-  employee_id: string;
-  session_id: string;
-  status: string;
-  timestamp: string;
-}
-
 interface ActiveSessionsMessage {
   type: 'active_sessions';
   sessions: Array<{

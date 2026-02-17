@@ -10,11 +10,6 @@ interface UseRouteOptimizationProps {
   enabled?: boolean;
 }
 
-interface RouteOptimizationRuntimeConfig {
-  autoDeliver: boolean;
-  proximityRadiusMeters: number;
-}
-
 export function useRouteOptimization({ session_id, current_location, enabled = true }: UseRouteOptimizationProps) {
   const [optimized_path, set_optimized_path] = useState<RouteLocation[]>([]);
   const [is_optimizing, set_is_optimizing] = useState(false);

@@ -7,11 +7,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   CheckCircle, Package, Undo, XCircle, Truck, Navigation,
-  MapPin, Clock, AlertCircle, Loader2, RotateCcw,
+  AlertCircle, Loader2, RotateCcw,
   ArrowLeft
 } from "lucide-react";
 import {
@@ -34,33 +33,6 @@ import { useAuth } from "@/hooks/useAuth";
 import RemarksModal from "@/components/ui/forms/RemarksModal";
 import AcknowledgmentCapture from "@/components/AcknowledgmentCapture";
 import ShipmentDetailTabs from "@/components/shipments/ShipmentDetailTabs";
-
-// Helper function to format address
-const format_address = (address: any): string => {
-  if (!address) return 'No address';
-
-  // If it's already a string, return it
-  if (typeof address === 'string') {
-    return address;
-  }
-
-  // If it's an object, format it
-  if (typeof address === 'object' && address !== null) {
-    const parts: string[] = [];
-
-    // Try common address field names
-    if (address.address) parts.push(String(address.address));
-    if (address.place_name) parts.push(String(address.place_name));
-    if (address.city) parts.push(String(address.city));
-    if (address.state) parts.push(String(address.state));
-    if (address.pincode) parts.push(String(address.pincode));
-    if (address.country) parts.push(String(address.country));
-
-    return parts.length > 0 ? parts.join(', ') : 'No address';
-  }
-
-  return 'No address';
-};
 
 type ShipmentWithAcknowledgment = Shipment & {
   acknowledgment?: {
@@ -245,26 +217,6 @@ function ShipmentDetailModalWithTracking({
 
   const get_previous_status = () => {
     return shipment.type === "delivery" ? "In Transit" : "Assigned";
-  };
-
-  const get_status_color = (status: string) => {
-    switch (status) {
-      case "Delivered":
-      case "Picked Up":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
-      case "Skipped":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
-      case "In Transit":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
-      case "Assigned":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
-      case "Cancelled":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-      case "Returned":
-        return "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400";
-    }
   };
 
   const can_update_status = (target_status: string) => {
