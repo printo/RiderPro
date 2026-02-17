@@ -10,10 +10,29 @@ interface UseRouteOptimizationProps {
   enabled?: boolean;
 }
 
+interface RouteOptimizationRuntimeConfig {
+  autoDeliver: boolean;
+  proximityRadiusMeters: number;
+}
+
+const ROUTE_OPTIMIZATION_CONFIG_KEY = 'riderpro_route_optimization_config';
+const DEFAULT_RUNTIME_CONFIG: RouteOptimizationRuntimeConfig = {
+  autoDeliver: false,
+  proximityRadiusMeters: 100,
+};
+
 export function useRouteOptimization({ sessionId, currentLocation, enabled = true }: UseRouteOptimizationProps) {
   const [optimizedPath, setOptimizedPath] = useState<RouteLocation[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [nearestPoint, setNearestPoint] = useState<Shipment[] | null>(null);
+  const [runtimeConfig] = useState<RouteOptimizationRuntimeConfig>(() => {
+    try {
+      const saved = localStorage.getItem(ROUTE_OPTIMIZATION_CONFIG_KEY);
+      return saved ? { ...DEFAULT_RUNTIME_CONFIG, ...JSON.parse(saved) } : DEFAULT_RUNTIME_CONFIG;
+    } catch {
+      return DEFAULT_RUNTIME_CONFIG;
+    }
+  });
   const [skippedShipmentIds, setSkippedShipmentIds] = useState<string[]>(() => {
     const saved = localStorage.getItem(`skipped_shipments_${sessionId || 'none'}`);
     return saved ? JSON.parse(saved) : [];
@@ -102,9 +121,8 @@ export function useRouteOptimization({ sessionId, currentLocation, enabled = tru
       return;
     }
 
-    const savedConfig = localStorage.getItem('riderpro_smart_completion_config');
-    const config = savedConfig ? JSON.parse(savedConfig) : { autoDeliverRadius: 100 };
-    const PROXIMITY_THRESHOLD = (config.autoDeliverRadius || 100) / 1000; // Convert meters to km
+    const proximityRadiusMeters = runtimeConfig.proximityRadiusMeters || DEFAULT_RUNTIME_CONFIG.proximityRadiusMeters;
+    const PROXIMITY_THRESHOLD = proximityRadiusMeters / 1000; // Convert meters to km
 
     // Group shipments by location
     const locationsMap: Record<string, Shipment[]> = {};
@@ -135,7 +153,7 @@ export function useRouteOptimization({ sessionId, currentLocation, enabled = tru
     });
 
     setNearestPoint(foundNearest);
-  }, [currentLocation, shipments]);
+  }, [currentLocation, shipments, runtimeConfig.proximityRadiusMeters]);
 
   const bulkUpdateStatus = useCallback(async (targetShipments: Shipment[], eventType: 'pickup' | 'delivery') => {
     if (!sessionId || targetShipments.length === 0 || !currentLocation) return;
@@ -165,6 +183,7 @@ export function useRouteOptimization({ sessionId, currentLocation, enabled = tru
     isOptimizing,
     isLoadingShipments,
     nearestPoint,
+    runtimeConfig,
     bulkUpdateStatus,
     skipShipment,
     resetSkips,

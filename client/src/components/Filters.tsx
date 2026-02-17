@@ -59,6 +59,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="Assigned">Assigned</SelectItem>
+              <SelectItem value="Collected">Collected</SelectItem>
               <SelectItem value="In Transit">In Transit</SelectItem>
               <SelectItem value="Delivered">Delivered</SelectItem>
               <SelectItem value="Picked Up">Picked Up</SelectItem>

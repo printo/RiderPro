@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiClient } from "@/services/ApiClient";
 import { apiRequest } from "@/lib/queryClient";
-import { Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Database, Plus, X, MapPin, Layers } from "lucide-react";
+import { Fuel, Send, Copy, Trash2, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Database, Plus, X, MapPin, Layers, Target } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,8 @@ import { VehicleType, PendingUser, AllUser, Homebase } from '@shared/types';
 import { DispatchBadge } from '@/components/ui/DispatchBadge';
 import { HomebaseBadge, HomebaseIdBadge } from '@/components/ui/HomebaseBadge';
 import AuthService from '@/services/AuthService';
+import SmartCompletionSettings from '@/components/SmartCompletionSettings';
+import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 
 interface EditingUser {
   id: string;
@@ -176,6 +178,14 @@ function AdminPage() {
   const [showFuelSettingsModal, setShowFuelSettingsModal] = useState(false);
   const [isSyncingHomebases, setIsSyncingHomebases] = useState(false);
   const { toast } = useToast();
+  const smartCompletion = useSmartRouteCompletion({
+    sessionId: null,
+    startPosition: null,
+    currentPosition: null,
+    sessionStartTime: null,
+    totalDistance: 0,
+    shipmentsCompleted: 0,
+  });
 
   // Allow both super users and managers (ops_team/staff) to access admin
   const canAccessAdmin = !!(user?.isSuperUser || user?.isOpsTeam || user?.isStaff);
@@ -922,6 +932,26 @@ function AdminPage() {
 
 
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Smart Completion Manager Controls */}
+      <Card className="mb-6">
+        <CardHeader>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Smart Completion Controls
+          </h2>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-4">
+            Configure Smart Completion behavior for manager operations.
+          </p>
+          <SmartCompletionSettings
+            config={smartCompletion.config}
+            onConfigChange={smartCompletion.updateConfig}
+            isActive={false}
+          />
         </CardContent>
       </Card>
 

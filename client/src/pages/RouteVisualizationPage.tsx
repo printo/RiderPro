@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import MetricCard from '@/components/ui/MetricCard';
-import { RouteSession, RoutePoint, RouteData, RouteAnalytics, RouteFilters } from '@shared/types';
+import { RouteSession, RouteData, RouteFilters } from '@shared/types';
 import {
   Route,
   BarChart3,
@@ -17,9 +16,7 @@ import {
   Clock
 } from 'lucide-react';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
-import { useRouteAnalytics } from '../hooks/useRouteAnalytics';
-import { useRouteAnalytics as useRouteAnalyticsAPI, useRouteTracking } from '../hooks/useRouteAPI';
-import { analyticsApi } from '../apiClient/analytics';
+import { routeAPI } from '@/apiClient/routes';
 
 import RouteVisualization from '@/components/routes/RouteVisualization';
 import RouteComparison from '@/components/routes/RouteComparison';
@@ -28,7 +25,7 @@ import RouteDataTable from '@/components/analytics/RouteDataTable';
 
 function RouteVisualizationPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [filters, setFilters] = useState<RouteFilters>({});
+  const [filters] = useState<RouteFilters>({});
 
   const _mobileOptimization = useMobileOptimization({
     enableGestures: true,
@@ -36,89 +33,45 @@ function RouteVisualizationPage() {
     enableNetworkMonitoring: true
   });
 
-  // Fetch real route analytics data
+  // Fetch route sessions + tracking points from backend session tables.
   const {
-    data: analyticsData = [],
-    isLoading: isLoadingAnalytics,
-    error: analyticsError,
-    refetch: refetchAnalytics
-  } = useRouteAnalyticsAPI(filters);
-
-  // Fetch employee metrics for proper names and performance data
-  const {
-    data: employeeMetrics = [],
-    isLoading: isLoadingEmployeeMetrics
+    data: visualizationData,
+    isLoading,
+    error: visualizationError,
+    refetch: refetchVisualization
   } = useQuery({
-    queryKey: ['employee-metrics', filters],
-    queryFn: () => analyticsApi.getEmployeeMetrics(filters),
+    queryKey: ['route-visualization', filters],
+    queryFn: () => routeAPI.getVisualizationData(filters),
     enabled: true
   });
 
-  // Get aggregated metrics from comprehensive analytics hook
-  const {
-    dailySummaries,
-    getAggregatedMetrics,
-    isLoading: isLoadingAdvancedAnalytics,
-    refreshAnalytics
-  } = useRouteAnalytics(filters);
-
-  // Create employee lookup map for proper names
-  const employeeLookup = React.useMemo(() => {
-    const map = new Map<string, string>();
-    employeeMetrics.forEach((emp: any) => {
-      map.set(emp.employeeId, emp.name || `Employee ${emp.employeeId}`);
-    });
-    return map;
-  }, [employeeMetrics]);
-
-  // Convert analytics data to route sessions for visualization
+  // Route sessions are already shaped by backend for playback.
   const routeSessions = React.useMemo(() => {
-    return analyticsData.map((analytics, index) => ({
-      id: analytics.routeId || `session_${analytics.employeeId}_${index}`,
-      employeeId: analytics.employeeId,
-      employeeName: employeeLookup.get(analytics.employeeId) || `Employee ${analytics.employeeId}`,
-      startTime: new Date().toISOString(), // This would come from session data
-      endTime: new Date().toISOString(),
-      status: 'completed',
-      totalDistance: analytics.totalDistance,
-      totalTime: analytics.totalTime,
-      averageSpeed: analytics.averageSpeed,
-      points: [], // Would be populated from session coordinates
-      shipmentsCompleted: analytics.shipmentsCompleted,
-      startLatitude: 0, // Would come from session data
-      startLongitude: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    } as RouteSession));
-  }, [analyticsData, employeeLookup]);
+    return Array.isArray(visualizationData?.sessions)
+      ? visualizationData.sessions
+      : [];
+  }, [visualizationData]);
 
-  // Convert analytics data to route data format
+  // Route data powers table/comparison/optimization tabs.
   const routeData = React.useMemo(() => {
-    return analyticsData.map((analytics) => ({
-      id: analytics.routeId,
-      employeeId: analytics.employeeId,
-      employeeName: employeeLookup.get(analytics.employeeId) || `Employee ${analytics.employeeId}`,
-      date: analytics.date,
-      distance: analytics.totalDistance,
-      duration: analytics.totalTime,
-      shipmentsCompleted: analytics.shipmentsCompleted,
-      fuelConsumption: analytics.fuelConsumption || analytics.fuelConsumed,
-      averageSpeed: analytics.averageSpeed,
-      efficiency: analytics.efficiency,
-      points: [] // Would be populated from coordinate data
-    }));
-  }, [analyticsData, employeeLookup]);
+    return Array.isArray(visualizationData?.routeData)
+      ? (visualizationData.routeData as RouteData[])
+      : [];
+  }, [visualizationData]);
 
-  const isLoading = isLoadingAnalytics || isLoadingAdvancedAnalytics || isLoadingEmployeeMetrics;
   const lastUpdated = new Date();
 
-  // Get aggregated metrics for summary
-  const aggregatedMetrics = getAggregatedMetrics();
+  const aggregatedMetrics = React.useMemo(() => {
+    return {
+      totalSessions: routeSessions.length,
+      totalDistance: routeData.reduce((sum, route) => sum + (route.distance || 0), 0),
+      totalTime: routeData.reduce((sum, route) => sum + (route.duration || 0), 0),
+      totalShipmentsCompleted: routeData.reduce((sum, route) => sum + (route.shipmentsCompleted || 0), 0),
+    };
+  }, [routeData, routeSessions.length]);
 
   const handleRefreshData = () => {
-    // Refresh data from the backend
-    refetchAnalytics();
-    refreshAnalytics();
+    refetchVisualization();
   };
 
   const handleExportData = () => {
@@ -302,8 +255,8 @@ function RouteVisualizationPage() {
 
         <TabsContent value="data-table" className="mt-6">
           <RouteDataTable
-            data={analyticsData}
-            dataType="analytics"
+            data={routeData}
+            dataType="routeData"
             title="Route Analytics Data"
             onRowClick={handleViewRouteDetails}
             showSearch={true}
@@ -329,12 +282,12 @@ function RouteVisualizationPage() {
       </Tabs>
 
       {/* No Data State */}
-      {(routeSessions.length === 0 && !isLoading) || analyticsError ? (
+      {(routeSessions.length === 0 && !isLoading) || visualizationError ? (
         <Alert>
           <MapPin className="h-4 w-4" />
           <AlertDescription>
-            {analyticsError 
-              ? `Error loading route data: ${(analyticsError as Error).message}` 
+            {visualizationError
+              ? `Error loading route data: ${(visualizationError as Error).message}`
               : 'No route data available for visualization. Complete some routes with GPS tracking enabled to see historical data and analysis here.'
             }
           </AlertDescription>

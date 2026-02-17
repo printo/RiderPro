@@ -165,6 +165,7 @@ def update_shipment_status_from_pops(
         status_mapping = {
             'INITIATED': 'Initiated',
             'ASSIGNED': 'Assigned',
+            'COLLECTED': 'Collected',
             'IN_TRANSIT': 'In Transit',
             'DELIVERED': 'Delivered',
             'PICKED_UP': 'Picked Up',

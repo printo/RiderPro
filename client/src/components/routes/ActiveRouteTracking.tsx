@@ -62,6 +62,7 @@ function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTracking
     isOptimizing,
     isLoadingShipments,
     nearestPoint,
+    runtimeConfig,
     bulkUpdateStatus,
     skipShipment
   } = useRouteOptimization({ sessionId, currentLocation });
@@ -93,14 +94,11 @@ function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTracking
   useEffect(() => {
     if (!nearestPoint || isUpdating) return;
 
-    const savedConfig = localStorage.getItem('riderpro_smart_completion_config');
-    const config = savedConfig ? JSON.parse(savedConfig) : { autoDeliver: false };
-
-    if (config.autoDeliver) {
+    if (runtimeConfig.autoDeliver) {
       console.log('Auto-delivery triggered for:', nearestPoint.map(s => s.shipment_id));
       handleArrived(nearestPoint);
     }
-  }, [nearestPoint]);
+  }, [nearestPoint, runtimeConfig.autoDeliver]);
 
   if (isLoadingShipments) {
     return (
@@ -162,7 +160,7 @@ function ActiveRouteTracking({ sessionId, currentLocation }: ActiveRouteTracking
                 <div>
                   <h3 className="font-bold text-primary flex items-center gap-2">
                     Arrived!
-                    {localStorage.getItem('riderpro_smart_completion_config')?.includes('"autoDeliver":true') && (
+                    {runtimeConfig.autoDeliver && (
                       <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
                     )}
                   </h3>

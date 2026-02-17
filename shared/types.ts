@@ -10,6 +10,7 @@ export type ShipmentStatus =
   | 'In Transit' 
   | 'Delivered' 
   | 'Picked Up' 
+  | 'Skipped'
   | 'Returned' 
   | 'Cancelled';
 

@@ -1,11 +1,9 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useRouteSessionContext } from '@/contexts/RouteSessionContext';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 import RouteCompletionDialog from '@/components/routes/RouteCompletionDialog';
-import SmartCompletionSettings from '@/components/SmartCompletionSettings';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import {
   AlertDialog,
@@ -17,13 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target, Settings } from 'lucide-react';
+import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target } from 'lucide-react';
 import { scrollToElementId } from '@/lib/utils';
 
 interface RouteSessionControlsProps {
@@ -44,11 +36,11 @@ function RouteSessionControls({
   onSessionResume,
   onOpenRouteMap
 }: RouteSessionControlsProps) {
-  const [showSmartSettings, setShowSmartSettings] = useState(false);
   const {
     session,
     status,
     metrics,
+    coordinates,
     isLoading,
     error,
     startSession,
@@ -68,6 +60,10 @@ function RouteSessionControls({
     cancelGeofenceStop
   } = useRouteSessionContext();
 
+  const currentPosition = coordinates.length > 0
+    ? coordinates[coordinates.length - 1]
+    : null;
+
   // Smart route completion integration
   const smartCompletion = useSmartRouteCompletion({
     sessionId: session?.id || null,
@@ -77,10 +73,10 @@ function RouteSessionControls({
       timestamp: session.startTime,
       accuracy: 10
     } : null,
-    currentPosition: null, // Would need to get this from GPS tracker
+    currentPosition,
     sessionStartTime: session ? new Date(session.startTime) : null,
     totalDistance: metrics?.totalDistance || 0,
-    shipmentsCompleted: 0, // This would come from shipment tracking
+    shipmentsCompleted: session?.shipmentsCompleted || 0,
     onRouteCompletionDetected: (data) => {
       console.log('Smart route completion detected:', data);
     },
@@ -253,38 +249,6 @@ function RouteSessionControls({
             </Button>
           )}
 
-          {/* Smart Completion Status */}
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md dark:bg-blue-900/20 dark:border-blue-800">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4 text-blue-600" />
-                <div>
-                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    Smart Completion {smartCompletion.isEnabled ? 'Active' : 'Inactive'}
-                  </p>
-                  <p className="text-xs text-blue-600 dark:text-blue-300">
-                    Distance from start: {
-                      !session ? '0m' :
-                        smartCompletion.distanceFromStart === Number.POSITIVE_INFINITY || smartCompletion.distanceFromStart === null
-                          ? 'Unknown'
-                          : smartCompletion.distanceFromStart < 1000
-                            ? `${Math.round(smartCompletion.distanceFromStart)}m`
-                            : `${(smartCompletion.distanceFromStart / 1000).toFixed(1)}km`
-                    }
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowSmartSettings(!showSmartSettings)}
-                className="h-8 w-8 p-0"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
           {/* Control Buttons */}
           <div className="flex gap-2">
             {canStartSession() && (
@@ -363,25 +327,6 @@ function RouteSessionControls({
           )}
         </CardContent>
       </Card>
-
-      {/* Smart Completion Settings Modal */}
-      <Dialog open={showSmartSettings} onOpenChange={setShowSmartSettings}>
-        <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden flex flex-col gap-0">
-          <div className="p-6 pr-12 border-b bg-background sticky top-0 z-10">
-            <DialogHeader>
-              <DialogTitle>Smart Completion Settings</DialogTitle>
-            </DialogHeader>
-          </div>
-          <div className="flex-1 overflow-y-auto p-6 pt-2">
-            <SmartCompletionSettings
-              config={smartCompletion.config}
-              onConfigChange={smartCompletion.updateConfig}
-              isActive={session?.status === 'active'}
-              currentDistance={smartCompletion.distanceFromStart}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
 
 
 

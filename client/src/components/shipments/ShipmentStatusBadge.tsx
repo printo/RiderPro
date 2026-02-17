@@ -9,7 +9,8 @@ import {
   XCircle,
   ArrowRightLeft,
   PackageCheck,
-  PackageX
+  PackageX,
+  MapPin
 } from "lucide-react";
 
 interface ShipmentStatusBadgeProps {
@@ -57,6 +58,11 @@ export function ShipmentStatusBadge({
       icon: PackageCheck,
       color: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
       label: 'Picked Up'
+    },
+    'Skipped': {
+      icon: MapPin,
+      color: 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+      label: 'Skipped'
     },
     'Returned': {
       icon: PackageX,

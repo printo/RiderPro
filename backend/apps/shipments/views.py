@@ -3,6 +3,7 @@ Views for shipments app
 """
 import logging
 import math
+from collections import defaultdict
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -33,6 +34,7 @@ ACK_REQUIRED_EVENT_TYPES = {'delivery', 'pickup'}
 DELIVERY_ACK_REQUIRED_MESSAGE = (
     "Recipient signature and current shipment photo are required before marking as Delivered or Picked Up."
 )
+SKIPPED_REASON_REQUIRED_MESSAGE = "Reason is required when marking a shipment as Skipped."
 
 
 def _is_manager_user(user):
@@ -283,6 +285,17 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                 )
 
         requested_status = request.data.get('status')
+        requested_remarks = request.data.get('remarks')
+        if requested_status == 'Picked Up' and instance.type != 'pickup':
+            return Response(
+                {'success': False, 'message': 'Cannot mark a delivery shipment as Picked Up'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if requested_status == 'Collected' and instance.type == 'pickup':
+            return Response(
+                {'success': False, 'message': 'Use Picked Up for pickup/store-pickup shipments; Collected is for rider collection flow.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         if (
             requested_status in ACK_REQUIRED_STATUS_VALUES
             and not is_manager
@@ -290,6 +303,11 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         ):
             return Response(
                 {'success': False, 'message': DELIVERY_ACK_REQUIRED_MESSAGE},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if requested_status == 'Skipped' and not str(requested_remarks or '').strip():
+            return Response(
+                {'success': False, 'message': SKIPPED_REASON_REQUIRED_MESSAGE},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -345,6 +363,11 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         if status_value == 'Picked Up' and shipment.type != 'pickup':
             return Response(
                 {'message': 'Cannot mark a delivery shipment as Picked Up'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if status_value == 'Collected' and shipment.type == 'pickup':
+            return Response(
+                {'message': 'Use Picked Up for pickup/store-pickup shipments; Collected is for rider collection flow.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -551,7 +574,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         reason = serializer.validated_data.get('reason', '')
         
         # Validation: Cannot change rider if shipment is already in progress
-        blocked_statuses = ['In Transit', 'Picked Up', 'Delivered', 'Returned', 'Cancelled']
+        blocked_statuses = ['Collected', 'In Transit', 'Picked Up', 'Delivered', 'Skipped', 'Returned', 'Cancelled']
         if shipment.status in blocked_statuses:
             return Response(
                 {
@@ -728,7 +751,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             )
         
         # Validation: Cannot change rider if shipment is already in progress
-        blocked_statuses = ['In Transit', 'Picked Up', 'Delivered', 'Returned', 'Cancelled']
+        blocked_statuses = ['Collected', 'In Transit', 'Picked Up', 'Delivered', 'Skipped', 'Returned', 'Cancelled']
         blocked_shipments = shipments.filter(status__in=blocked_statuses)
         
         if blocked_shipments.exists():
@@ -917,7 +940,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
     def batch(self, request):
         """Batch update shipments"""
         updates = request.data.get('updates', [])
-        if not updates:
+        if not isinstance(updates, list) or not updates:
             return Response(
                 {'error': 'Updates array is required'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -925,17 +948,85 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         
         updated_count = 0
         failed_count = 0
+        skipped_count = 0
         results = []
         is_manager = _is_manager_user(request.user)
+        processed_ids = set()
         for update_data in updates:
+            if not isinstance(update_data, dict):
+                failed_count += 1
+                results.append({
+                    'shipment_id': None,
+                    'success': False,
+                    'message': 'Invalid update payload. Each update must be an object.'
+                })
+                continue
+
             shipment_id = update_data.get('id')
             if not shipment_id:
+                failed_count += 1
+                results.append({
+                    'shipment_id': None,
+                    'success': False,
+                    'message': 'Shipment id is required for each update.'
+                })
                 continue
+            shipment_key = str(shipment_id)
+            if shipment_key in processed_ids:
+                skipped_count += 1
+                results.append({
+                    'shipment_id': shipment_id,
+                    'success': True,
+                    'message': 'Duplicate update ignored.'
+                })
+                continue
+            processed_ids.add(shipment_key)
             
             try:
                 shipment = Shipment.objects.get(id=shipment_id)
+                requested_status = update_data.get('status')
+                if not requested_status:
+                    failed_count += 1
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': False,
+                        'message': 'Status is required.'
+                    })
+                    continue
+                if requested_status == 'Delivered' and shipment.type != 'delivery':
+                    failed_count += 1
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': False,
+                        'message': 'Cannot mark a pickup shipment as Delivered'
+                    })
+                    continue
+                if requested_status == 'Picked Up' and shipment.type != 'pickup':
+                    failed_count += 1
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': False,
+                        'message': 'Cannot mark a delivery shipment as Picked Up'
+                    })
+                    continue
+                if requested_status == 'Collected' and shipment.type == 'pickup':
+                    failed_count += 1
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': False,
+                        'message': 'Use Picked Up for pickup/store-pickup shipments; Collected is for rider collection flow.'
+                    })
+                    continue
+                if requested_status == shipment.status:
+                    skipped_count += 1
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': True,
+                        'message': f'No update required. Shipment already {shipment.status}.'
+                    })
+                    continue
                 if (
-                    update_data.get('status') in ACK_REQUIRED_STATUS_VALUES
+                    requested_status in ACK_REQUIRED_STATUS_VALUES
                     and not is_manager
                     and not _has_required_acknowledgment(shipment)
                 ):
@@ -944,6 +1035,17 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                         'shipment_id': shipment_id,
                         'success': False,
                         'message': DELIVERY_ACK_REQUIRED_MESSAGE
+                    })
+                    continue
+                if (
+                    requested_status == 'Skipped'
+                    and not str(update_data.get('remarks', '')).strip()
+                ):
+                    failed_count += 1
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': False,
+                        'message': SKIPPED_REASON_REQUIRED_MESSAGE
                     })
                     continue
 
@@ -955,7 +1057,11 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                     shipment.save()
                     self._sync_shipment_to_pops(shipment, request)
                     updated_count += 1
-                    results.append({'shipment_id': shipment_id, 'success': True})
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': True,
+                        'message': f'Status updated to {shipment.status}'
+                    })
                 else:
                     failed_count += 1
                     results.append({
@@ -963,7 +1069,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                         'success': False,
                         'message': serializer.errors
                     })
-            except Shipment.objects.model.DoesNotExist:
+            except Shipment.DoesNotExist:
                 failed_count += 1
                 results.append({'shipment_id': shipment_id, 'success': False, 'message': 'Shipment not found'})
                 continue
@@ -971,7 +1077,12 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         return Response({
             'success': updated_count > 0,
             'updated': updated_count,
+            'updatedCount': updated_count,
             'failed': failed_count,
+            'failedCount': failed_count,
+            'skipped': skipped_count,
+            'skippedCount': skipped_count,
+            'message': f'Processed {len(results)} updates: {updated_count} updated, {skipped_count} skipped, {failed_count} failed.',
             'results': results
         })
     
@@ -1021,13 +1132,14 @@ class DashboardViewSet(viewsets.ViewSet):
         total = queryset.count()
         pending = queryset.filter(status='Assigned').count()
         in_transit = queryset.filter(status='In Transit').count()
+        collected = queryset.filter(status='Collected').count()
         delivered = queryset.filter(status='Delivered').count()
         picked_up = queryset.filter(status='Picked Up').count()
         returned = queryset.filter(status='Returned').count()
         cancelled = queryset.filter(status='Cancelled').count()
         
-        # New "In Progress" metric: Picked Up + In Transit
-        in_progress = queryset.filter(status__in=['Picked Up', 'In Transit']).count()
+        # In Progress metric: Collected + In Transit
+        in_progress = queryset.filter(status__in=['Collected', 'In Transit']).count()
         
         # Calculate revenue (sum of costs for delivered/picked up)
         completed = queryset.filter(status__in=['Delivered', 'Picked Up'])
@@ -1049,6 +1161,7 @@ class DashboardViewSet(viewsets.ViewSet):
             'total_shipments': total,
             'pending_shipments': pending,
             'in_transit_shipments': in_transit,
+            'collected_shipments': collected,
             'in_progress_shipments': in_progress,
             'delivered_shipments': delivered,
             'picked_up_shipments': picked_up,
@@ -1080,6 +1193,46 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(employee_id=user.employee_id)
         
         return queryset.order_by('-start_time')
+
+    @staticmethod
+    def _resolve_employee_name_map(employee_ids):
+        """
+        Resolve display names for employee IDs from rider/user tables.
+        Falls back to employee ID when no display name is available.
+        """
+        if not employee_ids:
+            return {}
+
+        employee_names = {}
+        try:
+            from apps.authentication.models import RiderAccount, User
+
+            riders = RiderAccount.objects.filter(
+                rider_id__in=employee_ids
+            ).values('rider_id', 'name')
+            for rider in riders:
+                if rider.get('name'):
+                    employee_names[rider['rider_id']] = rider['name']
+
+            users = User.objects.filter(
+                employee_id__in=employee_ids
+            ).values('employee_id', 'full_name', 'first_name', 'last_name', 'username')
+            for user in users:
+                employee_id = user.get('employee_id')
+                if not employee_id or employee_id in employee_names:
+                    continue
+
+                full_name = (
+                    user.get('full_name')
+                    or f"{user.get('first_name', '').strip()} {user.get('last_name', '').strip()}".strip()
+                    or user.get('username')
+                )
+                if full_name:
+                    employee_names[employee_id] = full_name
+        except Exception as exc:
+            logger.warning("Failed resolving employee display names: %s", exc)
+
+        return employee_names
     
     @action(detail=False, methods=['post'])
     def start(self, request):
@@ -1106,14 +1259,14 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             status='active'
         )
 
-        # Automatically transition all 'Picked Up' shipments to 'In Transit'
+        # Automatically transition all 'Collected' shipments to 'In Transit'
         from .services import ShipmentStatusService
-        picked_up_shipments = Shipment.objects.filter(
+        collected_shipments = Shipment.objects.filter(
             employee_id=user.employee_id,
-            status='Picked Up'
+            status='Collected'
         )
         transitioned_count = 0
-        for shipment in picked_up_shipments:
+        for shipment in collected_shipments:
             ShipmentStatusService.update_status(
                 shipment=shipment,
                 new_status='In Transit',
@@ -1122,7 +1275,7 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             transitioned_count += 1
 
         logger.info(
-            "Route session started: %s by %s. %d shipments moved to In Transit.",
+            "Route session started: %s by %s. %d collected shipments moved to In Transit.",
             session_id,
             user.employee_id,
             transitioned_count
@@ -1359,9 +1512,10 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                     sync_to_pops=True
                 )
             elif event_type == 'pickup':
+                new_status = 'Picked Up' if shipment.type == 'pickup' else 'Collected'
                 ShipmentStatusService.update_status(
                     shipment=shipment,
-                    new_status='Picked Up',
+                    new_status=new_status,
                     triggered_by=triggered_by,
                     metadata={'gps_tracking_id': tracking.id},
                     sync_to_pops=True
@@ -1399,6 +1553,107 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 {'success': False, 'message': 'Session not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
+
+    @action(detail=False, methods=['get'])
+    def visualization_data(self, request):
+        """
+        Return visualization payload from route session + tracking tables.
+        """
+        user = request.user
+        employee_id = request.query_params.get('employeeId')
+        start_date = request.query_params.get('startDate')
+        end_date = request.query_params.get('endDate')
+        date = request.query_params.get('date')
+
+        sessions_qs = RouteSession.objects.all().prefetch_related('tracking_points')
+
+        if employee_id:
+            sessions_qs = sessions_qs.filter(employee_id=employee_id)
+        elif not (user.is_superuser or user.is_ops_team or user.is_staff):
+            if user.employee_id:
+                sessions_qs = sessions_qs.filter(employee_id=user.employee_id)
+            else:
+                sessions_qs = sessions_qs.none()
+
+        if date:
+            sessions_qs = sessions_qs.filter(start_time__date=date)
+        elif start_date and end_date:
+            sessions_qs = sessions_qs.filter(start_time__date__gte=start_date, start_time__date__lte=end_date)
+
+        sessions_qs = sessions_qs.order_by('-start_time')
+        sessions = list(sessions_qs)
+
+        employee_ids = list({session.employee_id for session in sessions if session.employee_id})
+        employee_name_map = self._resolve_employee_name_map(employee_ids)
+
+        session_payload = []
+        route_data_payload = []
+        for session in sessions:
+            employee_name = employee_name_map.get(session.employee_id) or f"Employee {session.employee_id}"
+            points = []
+            for point in session.tracking_points.all().order_by('timestamp'):
+                points.append({
+                    'id': str(point.id),
+                    'sessionId': session.id,
+                    'employeeId': point.employee_id,
+                    'latitude': point.latitude,
+                    'longitude': point.longitude,
+                    'timestamp': point.timestamp.isoformat() if point.timestamp else None,
+                    'eventType': point.event_type,
+                    'shipmentId': point.shipment_id,
+                    'accuracy': point.accuracy,
+                    'speed': point.speed,
+                })
+
+            session_payload.append({
+                'id': session.id,
+                'employeeId': session.employee_id,
+                'employeeName': employee_name,
+                'startTime': session.start_time.isoformat() if session.start_time else None,
+                'endTime': session.end_time.isoformat() if session.end_time else None,
+                'status': session.status,
+                'totalDistance': float(session.total_distance or 0),
+                'totalTime': int(session.total_time or 0),
+                'averageSpeed': float(session.average_speed or 0),
+                'fuelConsumed': float(session.fuel_consumed or 0),
+                'fuelCost': float(session.fuel_cost or 0),
+                'shipmentsCompleted': int(session.shipments_completed or 0),
+                'startLatitude': session.start_latitude,
+                'startLongitude': session.start_longitude,
+                'endLatitude': session.end_latitude,
+                'endLongitude': session.end_longitude,
+                'createdAt': session.created_at.isoformat() if session.created_at else None,
+                'updatedAt': session.updated_at.isoformat() if session.updated_at else None,
+                'points': points,
+            })
+
+            shipments_completed = int(session.shipments_completed or 0)
+            total_distance = float(session.total_distance or 0)
+            route_data_payload.append({
+                'id': session.id,
+                'routeId': session.id,
+                'employeeId': session.employee_id,
+                'employeeName': employee_name,
+                'date': session.start_time.date().isoformat() if session.start_time else None,
+                'distance': total_distance,
+                'totalDistance': total_distance,
+                'duration': int(session.total_time or 0),
+                'totalTime': int(session.total_time or 0),
+                'shipmentsCompleted': shipments_completed,
+                'fuelConsumption': float(session.fuel_consumed or 0),
+                'fuelConsumed': float(session.fuel_consumed or 0),
+                'fuelCost': float(session.fuel_cost or 0),
+                'averageSpeed': float(session.average_speed or 0),
+                'efficiency': (total_distance / shipments_completed) if shipments_completed > 0 else 0,
+                'points': points,
+            })
+
+        return Response({
+            'success': True,
+            'sessions': session_payload,
+            'routeData': route_data_payload,
+            'count': len(session_payload),
+        })
     
     @action(detail=False, methods=['post'])
     def sync_session(self, request):
@@ -1562,22 +1817,128 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def active_riders(self, request):
-        """Get locations of all active riders (admin/manager only)"""
-        from .services import location_tracking
-        
+        """Get all active riders with live path + current drop points (admin/manager only)."""
         user = request.user
         if not (user.is_superuser or user.is_ops_team or user.is_staff):
             return Response(
                 {'success': False, 'message': 'Access denied'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
-        locations = location_tracking.get_active_riders_locations()
-        
+
+        active_sessions = list(
+            RouteSession.objects.filter(
+                status='active',
+                current_latitude__isnull=False,
+                current_longitude__isnull=False,
+            ).values(
+                'id',
+                'employee_id',
+                'current_latitude',
+                'current_longitude',
+                'last_updated',
+                'start_time',
+            )
+        )
+
+        if not active_sessions:
+            return Response({
+                'success': True,
+                'riders': [],
+                'locations': [],  # Backward-compatible alias
+                'count': 0,
+            })
+
+        session_ids = [session['id'] for session in active_sessions]
+        employee_ids = [session['employee_id'] for session in active_sessions if session.get('employee_id')]
+        employee_name_map = self._resolve_employee_name_map(employee_ids)
+
+        tracking_points = RouteTracking.objects.filter(
+            session_id__in=session_ids
+        ).values(
+            'session_id',
+            'latitude',
+            'longitude',
+            'timestamp',
+            'event_type',
+            'shipment_id',
+        ).order_by('timestamp')
+
+        route_points_by_session = defaultdict(list)
+        for point in tracking_points:
+            route_points_by_session[point['session_id']].append({
+                'lat': point['latitude'],
+                'lng': point['longitude'],
+                'timestamp': point['timestamp'].isoformat() if point['timestamp'] else None,
+                'event_type': point.get('event_type'),
+                'shipment_id': point.get('shipment_id'),
+            })
+
+        active_drop_statuses = ['Assigned', 'Collected', 'In Transit', 'Initiated', 'Picked Up']
+        active_drop_shipments = Shipment.objects.filter(
+            employee_id__in=employee_ids,
+            status__in=active_drop_statuses,
+            latitude__isnull=False,
+            longitude__isnull=False,
+        ).values(
+            'employee_id',
+            'id',
+            'pops_order_id',
+            'status',
+            'type',
+            'latitude',
+            'longitude',
+            'address',
+        )
+
+        drop_points_by_employee = defaultdict(list)
+        for shipment in active_drop_shipments:
+            address_obj = shipment.get('address')
+            if isinstance(address_obj, dict):
+                address_text = (
+                    address_obj.get('formattedAddress')
+                    or address_obj.get('address')
+                    or address_obj.get('displayAddress')
+                    or ''
+                )
+            else:
+                address_text = str(address_obj or '')
+
+            drop_points_by_employee[shipment['employee_id']].append({
+                'id': str(shipment['id']),
+                'shipment_id': str(shipment.get('pops_order_id') or shipment['id']),
+                'status': shipment.get('status'),
+                'type': shipment.get('type'),
+                'lat': shipment['latitude'],
+                'lng': shipment['longitude'],
+                'address': address_text,
+            })
+
+        riders_payload = []
+        for session in active_sessions:
+            employee_id = session.get('employee_id')
+            route_points = route_points_by_session.get(session['id'], [])
+            # Keep payload bounded for real-time polling.
+            if len(route_points) > 300:
+                route_points = route_points[-300:]
+
+            riders_payload.append({
+                'employee_id': employee_id,
+                'employee_name': employee_name_map.get(employee_id) or f'Employee {employee_id}',
+                'latitude': session['current_latitude'],
+                'longitude': session['current_longitude'],
+                'timestamp': session['last_updated'].isoformat() if session['last_updated'] else None,
+                'session_id': session['id'],
+                'start_time': session['start_time'].isoformat() if session['start_time'] else None,
+                'status': 'active',
+                'route': route_points,
+                'drop_points': drop_points_by_employee.get(employee_id, []),
+            })
+
         return Response({
             'success': True,
-            'riders': locations,
-            'count': len(locations)
+            'riders': riders_payload,
+            'locations': riders_payload,  # Backward-compatible alias
+            'count': len(riders_payload),
         })
 
     @action(detail=False, methods=['post'])
@@ -1641,10 +2002,10 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
         )
             
         # Filter shipments assigned to this employee that are not yet delivered/cancelled.
-        # Include 'Picked Up' so drop points stay visible after rider marks pickups.
+        # Include collected/picked-up states so drop points stay visible after rider actions.
         shipments_qs = Shipment.objects.filter(
             employee_id__iexact=employee_id,
-            status__in=['Assigned', 'In Transit', 'Initiated', 'Picked Up']
+            status__in=['Assigned', 'Collected', 'In Transit', 'Initiated', 'Picked Up']
         ).order_by('created_at')
         
         # Geocode any shipment missing lat/long (e.g. customer delivery address when POPS didn't send coords)
@@ -1700,9 +2061,37 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
 
         results = []
         success_count = 0
+        processed_ids = set()
         for shipment_id in shipment_ids:
+            shipment_key = str(shipment_id)
+            if shipment_key in processed_ids:
+                results.append({
+                    'shipment_id': shipment_id,
+                    'success': True,
+                    'message': 'Duplicate shipment id ignored.'
+                })
+                continue
+            processed_ids.add(shipment_key)
             try:
                 shipment = Shipment.objects.get(id=shipment_id)
+                if (
+                    shipment.employee_id
+                    and user.employee_id
+                    and shipment.employee_id.lower() != user.employee_id.lower()
+                ):
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': False,
+                        'message': 'Shipment is not assigned to this rider.'
+                    })
+                    continue
+                if event_type == 'delivery' and shipment.type == 'pickup':
+                    results.append({
+                        'shipment_id': shipment_id,
+                        'success': False,
+                        'message': 'Cannot record delivery event for pickup shipment.'
+                    })
+                    continue
                 if (
                     event_type in ACK_REQUIRED_EVENT_TYPES
                     and not is_manager
@@ -1736,9 +2125,10 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                         sync_to_pops=True
                     )
                 elif event_type == 'pickup':
+                    new_status = 'Picked Up' if shipment.type == 'pickup' else 'Collected'
                     ShipmentStatusService.update_status(
                         shipment=shipment,
-                        new_status='Picked Up',
+                        new_status=new_status,
                         triggered_by=triggered_by,
                         metadata={'bulk_event': True},
                         sync_to_pops=True

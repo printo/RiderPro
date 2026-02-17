@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import {
   MapPin,
@@ -21,6 +22,7 @@ function LiveTrackingDashboard() {
   const [showRoutes, setShowRoutes] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number] | undefined>();
+  const [refreshIntervalMs, setRefreshIntervalMs] = useState<number>(30000);
 
   const {
     riders,
@@ -29,7 +31,9 @@ function LiveTrackingDashboard() {
     connect,
     disconnect,
     isConnected
-  } = useLiveTracking();
+  } = useLiveTracking({
+    reconnectInterval: refreshIntervalMs
+  });
 
   const handleRiderSelect = useCallback((riderId: string) => {
     setSelectedRider(prev => prev === riderId ? undefined : riderId);
@@ -70,9 +74,9 @@ function LiveTrackingDashboard() {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="bg-white border-b px-6 py-4 relative z-[1200]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-4 min-w-0">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <MapPin className="h-6 w-6 text-blue-600" />
               Live Tracking Dashboard
@@ -88,7 +92,7 @@ function LiveTrackingDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Button
               variant="outline"
               size="sm"
@@ -106,6 +110,24 @@ function LiveTrackingDashboard() {
               <RefreshCw className={`h-4 w-4 mr-1 ${connectionStatus === 'connecting' ? 'animate-spin' : ''}`} />
               Reconnect
             </Button>
+
+            <div className="w-[170px]">
+              <Select
+                value={String(refreshIntervalMs)}
+                onValueChange={(value) => setRefreshIntervalMs(Number(value))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Refresh rate" />
+                </SelectTrigger>
+                <SelectContent className="z-[2200]">
+                  <SelectItem value="0">Manual refresh</SelectItem>
+                  <SelectItem value="10000">Every 10s</SelectItem>
+                  <SelectItem value="30000">Every 30s</SelectItem>
+                  <SelectItem value="60000">Every 60s</SelectItem>
+                  <SelectItem value="120000">Every 2 min</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <Button
               variant="outline"
@@ -209,5 +231,6 @@ function LiveTrackingDashboard() {
       </div>
     </div>
   );
-} export
-  default withPageErrorBoundary(LiveTrackingDashboard, 'Live Tracking Dashboard');
+}
+
+export default withPageErrorBoundary(LiveTrackingDashboard, 'Live Tracking Dashboard');

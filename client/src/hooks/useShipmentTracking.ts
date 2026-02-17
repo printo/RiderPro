@@ -141,6 +141,8 @@ export function useShipmentTracking(options: ShipmentTrackingOptions) {
 
     if (newStatus === 'Picked Up' && oldStatus !== 'Picked Up') {
       eventType = 'pickup';
+    } else if (newStatus === 'Collected' && oldStatus !== 'Collected') {
+      eventType = 'pickup';
     } else if (newStatus === 'Delivered' && oldStatus !== 'Delivered') {
       eventType = 'delivery';
     } else if (newStatus === 'In Transit' && shipment.type === 'pickup' && oldStatus === 'Assigned') {
@@ -267,7 +269,7 @@ export function useMultipleShipmentTracking(
 
     return shipments.filter(shipment => {
       const canPickup = shipment.type === 'pickup' && shipment.status === 'Assigned';
-      const canDeliver = shipment.type === 'delivery' && shipment.status === 'Assigned';
+      const canDeliver = shipment.type === 'delivery' && shipment.status === 'Collected';
       return canPickup || canDeliver;
     });
   }, [shipments, tracking.hasActiveSession]);

@@ -3,6 +3,7 @@ import { Link, useLocation } from 'wouter';
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
 import { useAuth } from '../hooks/useAuth';
 import { UserRole } from '@shared/types';
+import { isManagerUser } from '@/lib/roles';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
 import '../styles/mobile.css';
@@ -26,6 +27,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
   const [activeRiders, setActiveRiders] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const { user } = useAuth();
+  const hasManagerAccess = isManagerUser(user);
 
   const mobileOptimization = useMobileOptimization({
     enableGestures: true
@@ -43,12 +45,6 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
       icon: '📦'
     },
     {
-      path: '/live-tracking',
-      label: 'Live Tracking',
-      icon: '🗺️',
-      badge: activeRiders
-    },
-    {
       path: '/settings',
       label: 'Settings',
       icon: '⚙️'
@@ -58,11 +54,16 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
       label: 'Admin',
       icon: '⚙️'
     }] : []),
-    {
+    ...(hasManagerAccess ? [{
       path: '/route-visualization',
       label: 'Routes',
       icon: '🛣️'
-    }
+    }, {
+      path: '/live-tracking',
+      label: 'Live Tracking',
+      icon: '🗺️',
+      badge: activeRiders
+    }] : [])
   ];
 
   // Register gesture callbacks for navigation

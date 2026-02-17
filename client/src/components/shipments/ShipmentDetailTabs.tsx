@@ -20,7 +20,8 @@ import CardSection from './CardSection';
 import GPSLocationDisplay from './GPSLocationDisplay';
 import PackageBoxesTable from './PackageBoxesTable';
 import ChangeRiderSection from './ChangeRiderSection';
-import type { Shipment } from '@shared/types';
+import DropPointMap from '@/components/tracking/DropPointMap';
+import type { Shipment, RouteLocation } from '@shared/types';
 
 function formatAddressForDisplay(shipment: Shipment): string | undefined {
   if (typeof shipment.addressDisplay === 'string' && shipment.addressDisplay) return shipment.addressDisplay;
@@ -45,6 +46,14 @@ interface ShipmentDetailTabsProps {
   employeeId: string;
   isManager: boolean;
   onStatusUpdate?: () => void;
+}
+
+interface ActiveRiderLocation {
+  employee_id: string;
+  latitude: number;
+  longitude: number;
+  timestamp?: string;
+  session_id?: string;
 }
 
 export default function ShipmentDetailTabs({
@@ -77,6 +86,17 @@ export default function ShipmentDetailTabs({
     queryFn: () => shipmentsApi.getAcknowledgmentSettings(shipment.shipment_id),
     enabled: activeTab === 'acknowledgment',
     retry: 2,
+  });
+
+  const { data: activeRidersData } = useQuery({
+    queryKey: ['active-riders-locations'],
+    queryFn: async (): Promise<ActiveRiderLocation[]> => {
+      const response = await apiRequest('GET', '/api/v1/routes/active-riders');
+      const result = await response.json();
+      return Array.isArray(result?.riders) ? result.riders : [];
+    },
+    enabled: isManager && activeTab === 'tracking',
+    refetchInterval: 30000,
   });
 
   useEffect(() => {
@@ -119,9 +139,24 @@ export default function ShipmentDetailTabs({
   };
 
   const canChangeRider = () => {
-    const blockedStatuses = ['In Transit', 'Picked Up', 'Delivered', 'Returned', 'Cancelled'];
+    const blockedStatuses = ['Collected', 'In Transit', 'Picked Up', 'Delivered', 'Skipped', 'Returned', 'Cancelled'];
     return !blockedStatuses.includes(shipment.status || '');
   };
+
+  const activeRiderLocation = (activeRidersData || []).find(
+    (rider) => rider.employee_id?.toLowerCase() === (localRiderId || '').toLowerCase()
+  );
+  const shipmentMapLocation: RouteLocation[] =
+    shipment.latitude && shipment.longitude
+      ? [{
+        id: shipment.shipment_id,
+        shipment_id: shipment.shipment_id,
+        latitude: shipment.latitude,
+        longitude: shipment.longitude,
+        customerName: shipment.customerName || shipment.recipientName,
+        address: formatAddressForDisplay(shipment) || undefined,
+      }]
+      : [];
 
   const formatAddress = (address: any): string => {
     if (!address) return 'No address';
@@ -360,6 +395,37 @@ export default function ShipmentDetailTabs({
       {/* Tracking Tab - Only visible to managers */}
       {isManager && (
         <TabsContent value="tracking" className="space-y-4 mt-6">
+          {shipmentMapLocation.length > 0 ? (
+            <CardSection
+              title="Live Rider to Shipment Map"
+              icon={<MapPin className="h-5 w-5" />}
+            >
+              <div className="h-[320px] rounded-lg overflow-hidden border">
+                <DropPointMap
+                  shipments={[shipment]}
+                  currentLocation={
+                    activeRiderLocation
+                      ? { latitude: activeRiderLocation.latitude, longitude: activeRiderLocation.longitude }
+                      : undefined
+                  }
+                  optimizedPath={shipmentMapLocation}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {activeRiderLocation
+                  ? `Showing active rider location for ${localRiderId} and route to this shipment.`
+                  : 'No active rider location currently available; showing shipment destination only.'}
+              </p>
+            </CardSection>
+          ) : (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Shipment location is not available yet, so tracking map cannot be displayed.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <CardSection
             title="GPS Tracking"
             icon={<Navigation className="h-5 w-5" />}

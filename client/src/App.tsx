@@ -19,8 +19,10 @@ import RouteVisualizationPage from "@/pages/RouteVisualizationPage";
 import Settings from "@/pages/Settings";
 import RiderSignupForm from "@/pages/RiderSignupForm";
 import AdminRiderManagement from "@/pages/AdminRiderManagement";
+import LiveTrackingDashboard from "@/pages/LiveTrackingDashboard";
 import { PageLoader } from "@/components/ui/Loader";
 import { RouteSessionProvider } from "@/contexts/RouteSessionContext";
+import { isManagerUser } from "@/lib/roles";
 
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -49,6 +51,7 @@ function Router() {
 
   // Show main app if authenticated
   const empId = user?.employeeId || user?.username || "default-user";
+  const hasManagerAccess = isManagerUser(user);
 
   return (
     <div className="min-h-screen bg-background">
@@ -59,8 +62,9 @@ function Router() {
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/shipments" component={ShipmentsWithTracking} />
           <Route path="/admin-dashboard" component={AdminPage} />
-          <Route path="/route-analytics" component={RouteAnalytics} />
-          <Route path="/route-visualization" component={RouteVisualizationPage} />
+          <Route path="/route-analytics" component={hasManagerAccess ? RouteAnalytics : Dashboard} />
+          <Route path="/route-visualization" component={hasManagerAccess ? RouteVisualizationPage : Dashboard} />
+          <Route path="/live-tracking" component={hasManagerAccess ? LiveTrackingDashboard : Dashboard} />
           <Route path="/settings" component={Settings} />
           <Route path="/signup" component={RiderSignupForm} />
           <Route path="/admin-riders" component={AdminRiderManagement} />

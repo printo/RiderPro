@@ -14,8 +14,10 @@ import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import MetricCard from "@/components/ui/MetricCard";
 import { useAuth } from "@/hooks/useAuth";
 import ActiveRouteTracking from "@/components/routes/ActiveRouteTracking";
+import DashboardShipmentActions from "@/components/shipments/DashboardShipmentActions";
 import { useRouteSessionContext } from "@/contexts/RouteSessionContext";
 import { scrollToElementId } from '@/lib/utils';
+import { isManagerUser } from '@/lib/roles';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +28,7 @@ import {
 function Dashboard() {
   const { data: metrics, isLoading, error } = useDashboard();
   const { user, logout } = useAuth();
+  const hasManagerAccess = isManagerUser(user);
   const employeeId = user?.employeeId || user?.username || "default-user";
   const {
     session: activeSession,
@@ -234,7 +237,7 @@ function Dashboard() {
           {/* RIGHT COLUMN: Stacked Operations (Tracking & Sync) */}
           <div className="flex flex-col gap-6 h-full">
             {/* Hide RouteSessionControls for managers/admins - they don't start routes */}
-            {!(user?.role === "admin" || user?.role === "manager" || user?.isSuperUser || user?.isOpsTeam || user?.isStaff) && (
+            {!hasManagerAccess && (
               <RouteSessionControls
                 employeeId={employeeId}
                 onSessionStart={() => console.log("Route session started")}
@@ -274,6 +277,11 @@ function Dashboard() {
             currentLocation={currentLocation}
           />
         </div>
+      )}
+
+      {/* Rider actions from dashboard (single + bulk status updates) */}
+      {!hasManagerAccess && (
+        <DashboardShipmentActions employeeId={employeeId} />
       )}
 
       {/* Charts Section */}

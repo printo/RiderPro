@@ -102,6 +102,7 @@ class ShipmentStatusService:
                 'In Transit': 'IN_TRANSIT',
                 'Delivered': 'DELIVERED',
                 'Picked Up': 'PICKED_UP',
+                'Skipped': 'SKIPPED',
                 'Returned': 'RETURNED',
                 'Cancelled': 'CANCELLED',
             }

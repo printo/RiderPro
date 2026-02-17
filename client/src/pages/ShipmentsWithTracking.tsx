@@ -515,6 +515,7 @@ function ShipmentsWithTracking() {
         <BatchUpdateModal
           selectedCount={selectedShipmentIds.length}
           selectedIds={selectedShipmentIds}
+          selectedShipments={shipments.filter((shipment) => selectedShipmentIds.includes(shipment.shipment_id))}
           isOpen={showBatchModal}
           onClose={() => setShowBatchModal(false)}
           onSuccess={() => {

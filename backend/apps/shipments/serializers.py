@@ -143,6 +143,7 @@ class DashboardMetricsSerializer(serializers.Serializer):
     total_shipments = serializers.IntegerField()
     pending_shipments = serializers.IntegerField()
     in_transit_shipments = serializers.IntegerField()
+    collected_shipments = serializers.IntegerField(required=False)
     in_progress_shipments = serializers.IntegerField()
     delivered_shipments = serializers.IntegerField()
     picked_up_shipments = serializers.IntegerField()

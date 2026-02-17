@@ -22,6 +22,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { DateRange } from 'react-day-picker';
 import { format, subDays } from 'date-fns';
+import { routeAPI } from '@/apiClient/routes';
+import { analyticsApi } from '@/apiClient/analytics';
 
 // Import chart components
 import PerformanceMetricsChart from '@/components/analytics/PerformanceMetricsChart';
@@ -60,41 +62,29 @@ function RouteAnalyticsPage() {
   const { data: analyticsData, isLoading, error, refetch } = useQuery({
     queryKey: ['route-analytics', filters],
     queryFn: async (): Promise<RouteAnalytics[]> => {
-      const params = {
+      return routeAPI.getRouteAnalytics({
         startDate: filters.dateRange?.from ? format(filters.dateRange.from, 'yyyy-MM-dd') : undefined,
         endDate: filters.dateRange?.to ? format(filters.dateRange.to, 'yyyy-MM-dd') : undefined,
         employeeId: filters.employeeId
-      };
-
-      const response = await fetch(`/api/routes/analytics${params.startDate || params.endDate || params.employeeId ? '?' + new URLSearchParams(Object.entries(params).filter(([_, v]) => v !== undefined).map(([k, v]) => `${k}=${v}`).join('&')) : ''}`, {
-        headers: {
-          'Content-Type': 'application/json',
-        }
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch analytics data');
-      }
-      
-      const result = await response.json();
-      return result.analytics || [];
     },
     enabled: !!filters.dateRange?.from && !!filters.dateRange?.to
   });
 
   // Fetch employee list for filter dropdown
   const { data: employees } = useQuery({
-    queryKey: ['employees'],
+    queryKey: ['employees', filters.dateRange?.from, filters.dateRange?.to],
     queryFn: async (): Promise<Employee[]> => {
-      // This would typically come from an employees API
-      // For now, we'll extract unique employee IDs from analytics data
-      if (analyticsData) {
-        const uniqueEmployees = Array.from(new Set(analyticsData.map((item: RouteAnalytics) => item.employeeId)));
-        return uniqueEmployees.map(id => ({ id, name: `Employee ${id}` }));
-      }
-      return [];
+      const metrics = await analyticsApi.getEmployeeMetrics({
+        startDate: filters.dateRange?.from ? format(filters.dateRange.from, 'yyyy-MM-dd') : undefined,
+        endDate: filters.dateRange?.to ? format(filters.dateRange.to, 'yyyy-MM-dd') : undefined,
+      });
+      return metrics.map((item) => ({
+        id: item.employeeId,
+        name: item.employeeId,
+      }));
     },
-    enabled: !!analyticsData
+    enabled: !!filters.dateRange?.from && !!filters.dateRange?.to
   });
 
   // Calculate summary metrics

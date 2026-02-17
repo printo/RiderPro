@@ -84,7 +84,7 @@ function ShipmentDetailModalWithTracking({
 }: ShipmentDetailModalWithTrackingProps) {
   const [showAcknowledgment, setShowAcknowledgment] = useState(false);
   const [showRemarksModal, setShowRemarksModal] = useState(false);
-  const [remarksStatus, setRemarksStatus] = useState<"Cancelled" | "Returned" | null>(null);
+  const [remarksStatus, setRemarksStatus] = useState<"Cancelled" | "Returned" | "Skipped" | null>(null);
   const [isRecordingLocation, setIsRecordingLocation] = useState(false);
   const [showRevertConfirm, setShowRevertConfirm] = useState(false);
 
@@ -136,8 +136,8 @@ function ShipmentDetailModalWithTracking({
     if (status === "Delivered" || status === "Picked Up") {
       setShowAcknowledgment(true);
       // Don't update status yet - wait for acknowledgment to be saved
-    } else if (status === "Cancelled" || status === "Returned") {
-      setRemarksStatus(status as "Cancelled" | "Returned");
+    } else if (status === "Cancelled" || status === "Returned" || status === "Skipped") {
+      setRemarksStatus(status as "Cancelled" | "Returned" | "Skipped");
       setShowRemarksModal(true);
     } else {
       updateStatusMutation.mutate({ status });
@@ -252,6 +252,8 @@ function ShipmentDetailModalWithTracking({
       case "Delivered":
       case "Picked Up":
         return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
+      case "Skipped":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
       case "In Transit":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
       case "Assigned":
@@ -267,9 +269,9 @@ function ShipmentDetailModalWithTracking({
 
   const canUpdateStatus = (targetStatus: string) => {
     if (shipment.type === "delivery") {
-      return targetStatus === "Delivered" || targetStatus === "Cancelled" || targetStatus === "Returned";
+      return targetStatus === "Delivered" || targetStatus === "Skipped" || targetStatus === "Cancelled" || targetStatus === "Returned";
     } else {
-      return targetStatus === "Picked Up" || targetStatus === "Cancelled" || targetStatus === "Returned";
+      return targetStatus === "Picked Up" || targetStatus === "Skipped" || targetStatus === "Cancelled" || targetStatus === "Returned";
     }
   };
 
@@ -410,6 +412,18 @@ function ShipmentDetailModalWithTracking({
                     </Button>
                   )}
 
+                  {canUpdateStatus("Skipped") && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleStatusUpdateWithGPS("Skipped")}
+                      disabled={isProcessing}
+                      className="h-12 border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-300 dark:hover:bg-purple-900/20"
+                    >
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Skip
+                    </Button>
+                  )}
+
                   {canUpdateStatus("Returned") && (
                     <Button
                       variant="outline"
@@ -433,7 +447,7 @@ function ShipmentDetailModalWithTracking({
             )}
 
             {/* Status Management: Visible for non-riders when shipment is completed/resolved */}
-            {(shipment.status === "Delivered" || shipment.status === "Picked Up" || shipment.status === "Cancelled" || shipment.status === "Returned") &&
+            {(shipment.status === "Delivered" || shipment.status === "Picked Up" || shipment.status === "Skipped" || shipment.status === "Cancelled" || shipment.status === "Returned") &&
               (user?.isSuperUser || user?.isOpsTeam || user?.isStaff) && (
                 <div className="space-y-4">
                   <h4 className="font-medium text-center text-orange-600 dark:text-orange-400">Status Management</h4>
