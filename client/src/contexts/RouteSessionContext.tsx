@@ -1,7 +1,6 @@
 import React, { createContext, useContext, ReactNode } from 'react';
 import { useRouteSession, RouteSessionState } from '../hooks/useRouteSession';
 import { RouteSession as RouteSessionType } from '@shared/types';
-import { SessionStatus, SessionMetrics } from '../services/RouteSession';
 
 interface RouteSessionContextType extends RouteSessionState {
   startSession: (empId?: string) => Promise<RouteSessionType>;

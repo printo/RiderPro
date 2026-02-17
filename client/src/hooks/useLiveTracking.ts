@@ -4,20 +4,6 @@ import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/config/api';
 import { log } from "../utils/logger.js";
 
-interface ActiveSessionsMessage {
-  type: 'active_sessions';
-  sessions: Array<{
-    employee_id: string;
-    session_id: string;
-    start_time: string;
-    latitude: number;
-    longitude: number;
-    timestamp: string;
-    accuracy?: number;
-    speed?: number;
-  }>;
-}
-
 interface UseLiveTrackingOptions {
   autoConnect?: boolean;
   reconnectInterval?: number;
