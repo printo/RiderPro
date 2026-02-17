@@ -104,9 +104,9 @@ function ExportDialog({
       }
 
       const exportOptions: ExportOptions = {
-        dateRange: processedDateRange,
-        employeeIds: exportState.selectedEmployees.length > 0 ? exportState.selectedEmployees : undefined,
-        includeHeaders: exportState.includeHeaders,
+        date_range: processedDateRange,
+        employee_ids: exportState.selectedEmployees.length > 0 ? exportState.selectedEmployees : undefined,
+        include_headers: exportState.includeHeaders,
         format: exportState.format
       };
 
@@ -212,25 +212,25 @@ function ExportDialog({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                 <div>
                   <p className="text-gray-600">Total Records</p>
-                  <p className="font-semibold">{stats.totalRecords}</p>
+                  <p className="font-semibold">{stats.total_records}</p>
                 </div>
                 <div>
                   <p className="text-gray-600">Employees</p>
-                  <p className="font-semibold">{stats.employeeCount}</p>
+                  <p className="font-semibold">{stats.employee_count}</p>
                 </div>
                 <div>
                   <p className="text-gray-600">Total Distance</p>
-                  <p className="font-semibold">{stats.totalDistance} km</p>
+                  <p className="font-semibold">{stats.total_distance} km</p>
                 </div>
                 <div>
                   <p className="text-gray-600">Total Fuel Cost</p>
-                  <p className="font-semibold">${stats.totalFuelCost}</p>
+                  <p className="font-semibold">${stats.total_fuel_cost}</p>
                 </div>
               </div>
-              {stats.dateRange && (
+              {stats.date_range && (
                 <div className="mt-4 p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600">
-                    Data Range: {stats.dateRange.from} to {stats.dateRange.to}
+                    Data Range: {stats.date_range.from} to {stats.date_range.to}
                   </p>
                 </div>
               )}
@@ -383,7 +383,7 @@ function ExportDialog({
                     <strong>File:</strong> {exportState.result.filename}
                   </p>
                   <p className="text-sm">
-                    <strong>Records:</strong> {exportState.result.recordCount}
+                    <strong>Records:</strong> {exportState.result.record_count}
                   </p>
                 </div>
               </AlertDescription>

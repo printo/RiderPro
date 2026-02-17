@@ -178,7 +178,7 @@ function AdminPage() {
     currentPosition: null,
     sessionStartTime: null,
     totalDistance: 0,
-    shipmentsCompleted: 0,
+    shipments_completed: 0,
   });
 
   // Allow both super users and managers (ops_team/staff) to access admin

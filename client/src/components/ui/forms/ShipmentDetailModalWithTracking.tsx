@@ -444,10 +444,10 @@ function ShipmentDetailModalWithTracking({
       {/* Acknowledgment Capture Modal */}
       {show_acknowledgment && (
         <AcknowledgmentCapture
-          onClose={() => set_show_acknowledgment(false)}
+          on_close={() => set_show_acknowledgment(false)}
           onSubmit={handle_acknowledgment_save}
-          requireFullProof
-          isSubmitting={is_processing}
+          require_full_proof
+          is_submitting={is_processing}
         />
       )}
 

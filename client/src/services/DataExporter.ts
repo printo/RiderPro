@@ -71,7 +71,7 @@ export class DataExporter {
         item.total_distance?.toFixed(2) || '0',
         item.total_time ? (item.total_time / 3600).toFixed(2) : '0',
         item.average_speed?.toFixed(2) || '0',
-        item.fuel_consumed?.toFixed(2) || '0',
+        item.fuel_consumption?.toFixed(2) || '0',
         item.fuel_cost?.toFixed(2) || '0',
         item.shipments_completed?.toString() || '0',
         item.efficiency?.toFixed(2) || '0'
@@ -155,7 +155,7 @@ export class DataExporter {
       // Convert data to CSV rows
       const rows = filteredData.map(item => [
         item.id,
-        item.session, // RouteTracking has 'session' in schema.ts
+        item.session_id, // RouteTracking has 'session_id' in schema.ts
         item.employee_id,
         item.latitude.toString(),
         item.longitude.toString(),
@@ -222,7 +222,7 @@ export class DataExporter {
 
         acc[item.employee_id].total_distance += item.total_distance || 0;
         acc[item.employee_id].total_time += item.total_time || 0;
-        acc[item.employee_id].total_fuel_consumed += item.fuel_consumed || 0;
+        acc[item.employee_id].total_fuel_consumed += item.fuel_consumption || 0;
         acc[item.employee_id].total_fuel_cost += item.fuel_cost || 0;
         acc[item.employee_id].total_shipments += item.shipments_completed || 0;
         acc[item.employee_id].working_days.add(item.date);

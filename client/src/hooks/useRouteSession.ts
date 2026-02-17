@@ -44,14 +44,14 @@ export function useRouteSession(options: UseRouteSessionOptions = {}) {
   useEffect(() => {
     const config: RouteSessionConfig = {
       ...session_config,
-      onLocationUpdate: (position: GPSPosition) => {
+      on_location_update: (position: GPSPosition) => {
         set_state(prev => ({
           ...prev,
           coordinates: [...prev.coordinates, position]
         }));
-        session_config.onLocationUpdate?.(position);
+        session_config.on_location_update?.(position);
       },
-      onSessionStatusChange: (status: SessionStatus) => {
+      on_session_status_change: (status: SessionStatus) => {
         set_state(prev => ({ ...prev, status }));
 
         if (status === 'completed' && route_session_ref.current) {
@@ -59,16 +59,16 @@ export function useRouteSession(options: UseRouteSessionOptions = {}) {
           on_session_complete?.(session_data);
         }
 
-        session_config.onSessionStatusChange?.(status);
+        session_config.on_session_status_change?.(status);
       },
-      onGeofenceDetected: (start_position: GPSPosition, current_position: GPSPosition) => {
+      on_geofence_detected: (start_position: GPSPosition, current_position: GPSPosition) => {
         // Show confirmation dialog for returning to start
         set_state(prev => ({ ...prev, show_geofence_dialog: true }));
-        session_config.onGeofenceDetected?.(start_position, current_position);
+        session_config.on_geofence_detected?.(start_position, current_position);
       },
-      onError: (error: Error) => {
+      on_error: (error: Error) => {
         set_state(prev => ({ ...prev, error: error.message, is_loading: false }));
-        session_config.onError?.(error);
+        session_config.on_error?.(error);
       }
     };
 

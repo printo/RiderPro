@@ -28,7 +28,7 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
   employee_id
 }) => {
   const {
-    data: shipments_data = { data: [] as Shipment[], total: 0, page: 1, limit: 20, total_pages: 1 },
+    data: shipments_data = { data: [] as Shipment[], total: 0, page: 1, limit: 20, totalPages: 1 },
     isLoading: is_query_loading,
     error,
     refetch
@@ -39,7 +39,7 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  const { data: shipments = [], total = 0, page = 1, total_pages = 0 } = shipments_data || {};
+  const { data: shipments = [], total = 0, page = 1, totalPages = 0 } = shipments_data || {};
   const is_loading = external_loading || is_query_loading;
 
   // Handle refresh by calling both the local refetch and the parent's refresh
@@ -121,10 +121,10 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
       </div>
 
       {/* Pagination would go here */}
-      {total_pages > 1 && (
+      {totalPages > 1 && (
         <div className="flex justify-center mt-6">
           <div className="flex space-x-2">
-            {Array.from({ length: total_pages }, (_, i) => i + 1).map((pageNum) => (
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
               <button
                 key={pageNum}
                 onClick={() => {

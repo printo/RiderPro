@@ -24,11 +24,11 @@ const RouteSessionContext = createContext<RouteSessionContextType | undefined>(u
 
 interface RouteSessionProviderProps {
   children: ReactNode;
-  employeeId?: string;
+  employee_id?: string;
 }
 
-export function RouteSessionProvider({ children, employeeId }: RouteSessionProviderProps) {
-  const session = useRouteSession({ employeeId });
+export function RouteSessionProvider({ children, employee_id }: RouteSessionProviderProps) {
+  const session = useRouteSession({ employee_id });
 
   return (
     <RouteSessionContext.Provider value={session}>

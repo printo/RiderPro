@@ -126,7 +126,7 @@ function GPSTrackingIndicator({
               <div className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 <span>
-                  Started {new Date(activeSession.startTime).toLocaleTimeString()}
+                  Started {new Date(activeSession.start_time).toLocaleTimeString()}
                 </span>
               </div>
             </div>

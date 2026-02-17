@@ -13,6 +13,7 @@ import { Package, CheckCircle, Clock } from "lucide-react";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import MetricCard from "@/components/ui/MetricCard";
 import { useAuth } from "@/hooks/useAuth";
+import { isManagerUser } from "@/lib/roles";
 import ActiveRouteTracking from "@/components/routes/ActiveRouteTracking";
 import DashboardShipmentActions from "@/components/shipments/DashboardShipmentActions";
 import { useRouteSessionContext } from "@/contexts/RouteSessionContext";
@@ -28,6 +29,7 @@ function Dashboard() {
   const { data: metrics, isLoading, error } = useDashboard();
   const { user, logout } = useAuth();
   const employee_id = user?.employee_id || user?.username || "default-user";
+  const has_manager_access = isManagerUser(user);
   const {
     session: activeSession,
     coordinates
@@ -213,7 +215,7 @@ function Dashboard() {
 
             <MetricCard
               title="In Progress"
-              value={metrics.in_progress_shipments ?? 0}
+              value={metrics.in_progress || 0}
               icon={Clock}
               iconBgColor="bg-amber-100 dark:bg-amber-900/30"
               iconColor="text-amber-600 dark:text-amber-500"
@@ -278,18 +280,18 @@ function Dashboard() {
       )}
 
       {/* Rider actions from dashboard (single + bulk status updates) */}
-      {!hasManagerAccess && (
-        <DashboardShipmentActions employeeId={employeeId} />
+      {!has_manager_access && (
+        <DashboardShipmentActions employeeId={employee_id} />
       )}
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-        <StatusDistributionPieChart statusBreakdown={metrics.status_breakdown ?? {}} />
-        <RoutePerformanceChart routeBreakdown={metrics.route_breakdown ?? {}} />
+        <StatusDistributionPieChart status_breakdown={metrics.status_breakdown ?? {}} />
+        <RoutePerformanceChart route_breakdown={metrics.route_breakdown ?? {}} />
       </div>
 
       {/* Route Summary */}
-      <RouteSummary routeBreakdown={metrics.route_breakdown ?? {}} />
+      <RouteSummary route_breakdown={metrics.route_breakdown ?? {}} />
     </div>
   );
 }

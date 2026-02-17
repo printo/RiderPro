@@ -31,7 +31,7 @@ interface UseSmartRouteCompletionProps {
   currentPosition: GPSPosition | null;
   sessionStartTime: Date | null;
   totalDistance: number;
-  shipmentsCompleted: number;
+  shipments_completed: number;
   config?: Partial<SmartCompletionConfig>;
   onRouteCompletionDetected?: (data: RouteCompletionData) => void;
   onRouteCompleted?: () => void;
@@ -56,7 +56,7 @@ export function useSmartRouteCompletion({
   currentPosition,
   sessionStartTime,
   totalDistance,
-  shipmentsCompleted,
+  shipments_completed,
   config = {},
   onRouteCompletionDetected,
   onRouteCompleted
@@ -99,14 +99,14 @@ export function useSmartRouteCompletion({
       if (meetsMinDuration && meetsMinDistance) {
         // Trigger route completion detection
         const completionData: RouteCompletionData = {
-          sessionId: sessionId!,
-          startPosition: startPosition!,
-          currentPosition: event.position,
-          distanceFromStart: event.distance,
-          geofenceRadius: fullConfig.radius,
-          sessionDuration,
-          totalDistance,
-          shipmentsCompleted
+          session_id: sessionId!,
+          start_position: startPosition!,
+          current_position: event.position,
+          distance_from_start: event.distance,
+          geofence_radius: fullConfig.radius,
+          session_duration: sessionDuration,
+          total_distance: totalDistance,
+          shipments_completed
         };
 
         setState(prev => ({
@@ -141,7 +141,7 @@ export function useSmartRouteCompletion({
     startPosition,
     sessionStartTime,
     totalDistance,
-    shipmentsCompleted,
+    shipments_completed,
     fullConfig,
     onRouteCompletionDetected
   ]);

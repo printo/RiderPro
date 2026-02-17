@@ -54,8 +54,8 @@ export function useGPSTracking(options: UseGPSTrackingOptions = {}) {
     gpsTrackerRef.current.setTrackingInterval(trackingInterval);
 
     errorServiceRef.current = new ErrorHandlingService({
-      enableLogging: true,
-      enableRemoteLogging: false
+      enable_logging: true,
+      enable_remote_logging: false
     });
 
     errorHandlerRef.current = new GPSErrorRecoveryService(errorServiceRef.current, {

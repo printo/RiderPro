@@ -90,10 +90,10 @@ const ROUTE_PALETTE = [
   '#be185d', // pink
 ];
 
-const getRiderRouteColor = (employeeId: string) => {
+const getRiderRouteColor = (employee_id: string) => {
   let hash = 0;
-  for (let i = 0; i < employeeId.length; i++) {
-    hash = (hash * 31 + employeeId.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < employee_id.length; i++) {
+    hash = (hash * 31 + employee_id.charCodeAt(i)) >>> 0;
   }
   return ROUTE_PALETTE[hash % ROUTE_PALETTE.length];
 };
@@ -250,16 +250,16 @@ function LiveTrackingMap({
         {/* Render routes if enabled */}
         {showRoutes && riders.map((rider) => {
           if (!rider.route || rider.route.length < 2) return null;
-          const routeColor = getRiderRouteColor(rider.employeeId);
+          const routeColor = getRiderRouteColor(rider.employee_id);
 
           return (
             <Polyline
               key={`route-${rider.employee_id}`}
               positions={rider.route.map(point => [point.lat, point.lng])}
               color={routeColor}
-              weight={selectedRider === rider.employeeId ? 5 : 3}
-              opacity={selectedRider && selectedRider !== rider.employeeId ? 0.45 : 0.8}
-              dashArray={selectedRider === rider.employeeId ? undefined : '8, 6'}
+              weight={selectedRider === rider.employee_id ? 5 : 3}
+              opacity={selectedRider && selectedRider !== rider.employee_id ? 0.45 : 0.8}
+              dashArray={selectedRider === rider.employee_id ? undefined : '8, 6'}
             />
           );
         })}
@@ -267,16 +267,16 @@ function LiveTrackingMap({
         {/* Render drop points for each rider (same color family as route) */}
         {showRoutes && riders.flatMap((rider) => {
           if (!rider.dropPoints || rider.dropPoints.length === 0) return [];
-          const routeColor = getRiderRouteColor(rider.employeeId);
+          const routeColor = getRiderRouteColor(rider.employee_id);
           return rider.dropPoints.map((point) => (
             <Marker
-              key={`drop-${rider.employeeId}-${point.id}`}
+              key={`drop-${rider.employee_id}-${point.id}`}
               position={[point.lat, point.lng]}
               icon={createDropPointIcon(routeColor)}
             >
               <Popup>
                 <div className="text-sm">
-                  <div className="font-semibold mb-1">{rider.employeeName || rider.employeeId}</div>
+                  <div className="font-semibold mb-1">{rider.employee_name || rider.employee_id}</div>
                   <div className="text-xs text-gray-600 mb-1">Drop Point</div>
                   <div>Shipment: {point.shipmentId}</div>
                   {point.status && <div>Status: {point.status}</div>}

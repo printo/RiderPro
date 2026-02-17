@@ -85,7 +85,7 @@ function RouteAnalyticsPage() {
 
   // Fetch employee list for filter dropdown
   const { data: employees } = useQuery({
-    queryKey: ['employees', filters.dateRange?.from, filters.dateRange?.to],
+    queryKey: ['employees', filters.date_range?.from, filters.date_range?.to],
     queryFn: async (): Promise<Employee[]> => {
       // This would typically come from an employees API
       // For now, we'll extract unique employee IDs from analytics data
@@ -95,7 +95,7 @@ function RouteAnalyticsPage() {
       }
       return [];
     },
-    enabled: !!filters.dateRange?.from && !!filters.dateRange?.to
+    enabled: !!filters.date_range?.from && !!filters.date_range?.to
   });
 
   // Calculate summary metrics
@@ -116,7 +116,7 @@ function RouteAnalyticsPage() {
       total_time: acc.total_time + (item.total_time || 0),
       total_fuel_cost: acc.total_fuel_cost + (item.fuel_cost || 0),
       total_shipments: acc.total_shipments + (item.shipments_completed || 0),
-      total_fuel_consumed: acc.total_fuel_consumed + (item.fuel_consumed || 0)
+      total_fuel_consumed: acc.total_fuel_consumed + (item.fuel_consumption || 0)
     }), {
       total_distance: 0,
       total_time: 0,
@@ -338,23 +338,23 @@ function RouteAnalyticsPage() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <PerformanceMetricsChart
                       data={analyticsData || []}
-                      viewType={filters.view_type}
+                      view_type={filters.view_type}
                     />
                     <FuelAnalyticsChart
                       data={analyticsData || []}
-                      viewType={filters.view_type}
+                      view_type={filters.view_type}
                     />
                   </div>
                   <RouteComparisonChart
                     data={analyticsData || []}
-                    viewType={filters.view_type}
+                    view_type={filters.view_type}
                   />
                 </TabsContent>
 
                 <TabsContent value="performance" className="space-y-6 mt-0">
                   <PerformanceMetricsChart
                     data={analyticsData || []}
-                    viewType={filters.view_type}
+                    view_type={filters.view_type}
                     detailed={true}
                   />
                 </TabsContent>
@@ -362,7 +362,7 @@ function RouteAnalyticsPage() {
                 <TabsContent value="fuel" className="space-y-6 mt-0">
                   <FuelAnalyticsChart
                     data={analyticsData || []}
-                    viewType={filters.view_type}
+                    view_type={filters.view_type}
                     detailed={true}
                   />
                 </TabsContent>

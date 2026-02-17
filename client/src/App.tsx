@@ -56,7 +56,7 @@ function Router() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      <RouteSessionProvider employeeId={empId}>
+      <RouteSessionProvider employee_id={empId}>
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/dashboard" component={Dashboard} />

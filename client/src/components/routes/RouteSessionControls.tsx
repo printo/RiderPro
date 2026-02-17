@@ -75,7 +75,7 @@ function RouteSessionControls({
     currentPosition: null, // Would need to get this from GPS tracker
     sessionStartTime: session ? new Date(session.start_time) : null,
     totalDistance: metrics?.total_distance || 0,
-    shipmentsCompleted: 0, // This would come from shipment tracking
+    shipments_completed: 0, // This would come from shipment tracking
     onRouteCompletionDetected: (data) => {
       console.log('Smart route completion detected:', data);
     },

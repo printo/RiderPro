@@ -37,7 +37,7 @@ export const apiRequest = async (
     url,
     method: method.toUpperCase() as ApiRequestConfig['method'],
     data,
-    skipAuth: isPublicEndpoint,
+    skip_auth: isPublicEndpoint,
   };
 
   try {

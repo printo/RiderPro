@@ -55,7 +55,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
       queryClient.invalidateQueries({ queryKey: ['dashboard-shipment-actions', employeeId] });
       toast({
         title: 'Status updated',
-        description: `${shipment.customerName || shipment.recipientName || shipment.shipment_id} marked as ${status}.`,
+        description: `${shipment.customer_name || shipment.customer_name || shipment.id || shipment.shipment_id} marked as ${status}.`,
       });
     } catch (error) {
       toast({
@@ -115,12 +115,12 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-2 min-w-0">
                           <Checkbox
-                            checked={selectedIds.includes(shipment.shipment_id)}
-                            onCheckedChange={(checked) => toggleSelection(shipment.shipment_id, Boolean(checked))}
+                            checked={selectedIds.includes(shipment.id || shipment.shipment_id || '')}
+                            onCheckedChange={(checked) => toggleSelection(shipment.id || shipment.shipment_id || '', Boolean(checked))}
                           />
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">
-                              {shipment.customerName || shipment.recipientName || `Shipment ${shipment.shipment_id}`}
+                              {shipment.customer_name || shipment.customer_name || `Shipment ${shipment.id || shipment.shipment_id}`}
                             </p>
                             <p className="text-xs text-muted-foreground truncate">
                               #{shipment.shipment_id}
@@ -162,7 +162,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                           size="sm"
                           variant="outline"
                           className="h-8 border-purple-300 text-purple-700 hover:bg-purple-50"
-                          onClick={() => setSkipShipmentId(shipment.shipment_id)}
+                          onClick={() => setSkipShipmentId(shipment.id || shipment.shipment_id || '')}
                         >
                           Skip
                         </Button>
@@ -180,7 +180,11 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
         <BatchUpdateModal
           selectedCount={selectedIds.length}
           selectedIds={selectedIds}
-          selectedShipments={actionableShipments.filter((shipment) => selectedIds.includes(shipment.shipment_id))}
+          selectedShipments={actionableShipments.filter((shipment) => selectedIds.includes(shipment.id || shipment.shipment_id || '')).map(s => ({
+            shipment_id: s.id || s.shipment_id || '',
+            type: s.type,
+            status: s.status
+          }))}
           isOpen={showBatchModal}
           onClose={() => setShowBatchModal(false)}
           onSuccess={() => {
