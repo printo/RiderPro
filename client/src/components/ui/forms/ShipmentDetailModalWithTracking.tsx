@@ -220,6 +220,14 @@ function ShipmentDetailModalWithTracking({
   };
 
   const can_update_status = (target_status: string) => {
+    // Check if user is authorized to update this shipment
+    const is_assigned_rider = user?.employee_id === shipment.employee_id;
+    const is_manager = user?.is_super_user || user?.is_ops_team || user?.is_staff || user?.role === 'admin' || user?.role === 'manager';
+    
+    if (!is_assigned_rider && !is_manager) {
+      return false;
+    }
+    
     if (shipment.type === "delivery") {
       return target_status === "Delivered" || target_status === "Cancelled" || target_status === "Returned";
     } else {
@@ -311,8 +319,14 @@ function ShipmentDetailModalWithTracking({
 
           {/* Status Management Footer */}
           <div className="border-t border-border bg-muted/30 p-4">
-            {/* Standard Status Updates: Visible for everyone when shipment is active (Assigned/In Transit) */}
-            {(shipment.status === "Assigned" || shipment.status === "In Transit") && (
+            {/* Standard Status Updates: Visible for assigned riders and managers when shipment is active (Assigned/In Transit/Collected) */}
+            {(() => {
+              const is_assigned_rider = user?.employee_id === shipment.employee_id;
+              const is_manager = user?.is_super_user || user?.is_ops_team || user?.is_staff || user?.role === 'admin' || user?.role === 'manager';
+              const can_update_shipment = is_assigned_rider || is_manager;
+              
+              return can_update_shipment && (shipment.status === "Assigned" || shipment.status === "In Transit" || shipment.status === "Collected");
+            })() && (
               <div className="space-y-3">
                 <h4 className="font-medium text-center">Update Status</h4>
                 <div className="grid grid-cols-2 gap-3">
@@ -383,6 +397,26 @@ function ShipmentDetailModalWithTracking({
                     Recording GPS location...
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Message for riders who are not assigned to this shipment */}
+            {(() => {
+              const is_assigned_rider = user?.employee_id === shipment.employee_id;
+              const is_manager = user?.is_super_user || user?.is_ops_team || user?.is_staff || user?.role === 'admin' || user?.role === 'manager';
+              const is_rider = !is_manager && user?.employee_id;
+              
+              return is_rider && !is_assigned_rider && (shipment.status === "Assigned" || shipment.status === "In Transit" || shipment.status === "Collected");
+            })() && (
+              <div className="space-y-3">
+                <div className="text-center p-4 bg-muted/50 rounded-lg">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <h4 className="font-medium text-center mb-2">Not Assigned to This Shipment</h4>
+                  <p className="text-sm text-muted-foreground text-center">
+                    This shipment is assigned to <strong>{shipment.employee_id || 'Unknown'}</strong>. 
+                    Only the assigned rider can update the status.
+                  </p>
+                </div>
               </div>
             )}
 

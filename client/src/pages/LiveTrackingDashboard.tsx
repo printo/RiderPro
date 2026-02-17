@@ -15,6 +15,7 @@ import LiveTrackingMap from '@/components/tracking/LiveTrackingMap';
 import RiderStatusPanel from '@/components/ui/status/RiderStatusPanel';
 import { useLiveTracking } from '@/hooks/useLiveTracking';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
+import { useAuth } from '@/hooks/useAuth';
 
 function LiveTrackingDashboard() {
   const [selectedRider, setSelectedRider] = useState<string | undefined>();
@@ -22,6 +23,7 @@ function LiveTrackingDashboard() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [mapCenter, setMapCenter] = useState<[number, number] | undefined>();
   const [refreshIntervalMs, setRefreshIntervalMs] = useState<number>(30000);
+  const { user } = useAuth();
 
   const {
     riders,
@@ -31,7 +33,8 @@ function LiveTrackingDashboard() {
     disconnect,
     isConnected
   } = useLiveTracking({
-    reconnectInterval: refreshIntervalMs
+    reconnectInterval: refreshIntervalMs,
+    user
   });
 
   const handleRiderSelect = useCallback((riderId: string) => {

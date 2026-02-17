@@ -3,18 +3,22 @@ import { RiderLocation } from '@/components/tracking/LiveTrackingMap';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/config/api';
 import { log } from "../utils/logger.js";
+import { isManagerUser } from '@/lib/roles';
+import type { AuthUser } from '@shared/types';
 
 interface UseLiveTrackingOptions {
   autoConnect?: boolean;
   reconnectInterval?: number;
   maxReconnectAttempts?: number;
+  user?: AuthUser | null;
 }
 
 export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
   const {
     autoConnect = true,
     reconnectInterval = 30000,
-    maxReconnectAttempts = 10
+    maxReconnectAttempts = 10,
+    user
   } = options;
 
   const [riders, setRiders] = useState<Map<string, RiderLocation>>(new Map());
@@ -53,6 +57,12 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
 
   // Fetch active riders from REST API
   const fetchActiveRiders = useCallback(async () => {
+    // Only fetch if user has manager permissions
+    if (!isManagerUser(user)) {
+      log.dev('Live tracking: User is not a manager, skipping active riders fetch');
+      return;
+    }
+
     if (isFetchingRef.current) {
       return;
     }
@@ -129,7 +139,7 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [getRiderStatus, maxReconnectAttempts]);
+  }, [getRiderStatus, maxReconnectAttempts, user]);
 
   // Connect (start polling)
   const connect = useCallback(() => {
@@ -165,6 +175,12 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
   useEffect(() => {
     if (!autoConnect) return;
 
+    // Only auto-connect if user has manager permissions
+    if (!isManagerUser(user)) {
+      log.dev('Live tracking: User is not a manager, skipping auto-connect');
+      return;
+    }
+
     // Initial connection
     connect();
 
@@ -180,7 +196,7 @@ export function useLiveTracking(options: UseLiveTrackingOptions = {}) {
       if (pollInterval) clearInterval(pollInterval);
       disconnect();
     };
-  }, [autoConnect, connect, disconnect, fetchActiveRiders, reconnectInterval]);
+  }, [autoConnect, connect, disconnect, fetchActiveRiders, reconnectInterval, user]);
 
   // Update rider statuses periodically
   useEffect(() => {

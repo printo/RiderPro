@@ -11,6 +11,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { useLiveTracking } from '@/hooks/useLiveTracking';
+import { useAuth } from '@/hooks/useAuth';
 import { shipmentsApi } from '@/apiClient/shipments';
 import { apiRequest } from '@/lib/queryClient';
 import { apiClient } from '@/services/ApiClient';
@@ -60,17 +61,18 @@ export default function ShipmentDetailTabs({
     shipment.employee_id || ''
   );
 
-  // Live tracking hook for rider location
-  const { riders } = useLiveTracking();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Live tracking hook for rider location (only for managers)
+  const { riders } = useLiveTracking({ user });
   const active_rider_location = riders.find(rider => rider.employee_id === local_rider_id);
   const shipment_map_location = shipment.latitude && shipment.longitude ? [{
     latitude: shipment.latitude,
     longitude: shipment.longitude,
     timestamp: new Date().toISOString()
   }] : [];
-
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   // Fetch PDF document
   const { data: pdf_data, isLoading: is_loading_pdf, isError: is_pdf_error, error: pdf_error } = useQuery({
