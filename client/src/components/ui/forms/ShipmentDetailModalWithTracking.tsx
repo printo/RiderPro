@@ -229,7 +229,7 @@ function ShipmentDetailModalWithTracking({
     }
     
     if (shipment.type === "delivery") {
-      return target_status === "Delivered" || target_status === "Cancelled" || target_status === "Returned";
+      return target_status === "Delivered" || target_status === "Collected" || target_status === "Cancelled" || target_status === "Returned";
     } else {
       return target_status === "Picked Up" || target_status === "Cancelled" || target_status === "Returned";
     }
@@ -325,7 +325,7 @@ function ShipmentDetailModalWithTracking({
               const is_manager = user?.is_super_user || user?.is_ops_team || user?.is_staff || user?.role === 'admin' || user?.role === 'manager';
               const can_update_shipment = is_assigned_rider || is_manager;
               
-              return can_update_shipment && (shipment.status === "Assigned" || shipment.status === "In Transit" || shipment.status === "Collected");
+              return can_update_shipment && (shipment.status === "Assigned" || shipment.status === "In Transit" || shipment.status === "Collected" || shipment.status === "Initiated");
             })() && (
               <div className="space-y-3">
                 <h4 className="font-medium text-center">Update Status</h4>
@@ -362,6 +362,24 @@ function ShipmentDetailModalWithTracking({
                       Mark as Picked Up
                       {hasActiveSession && (
                         <Navigation className="h-3 w-3 ml-1 text-green-200" />
+                      )}
+                    </Button>
+                  )}
+
+                  {shipment.type === "delivery" && (shipment.status === "Assigned" || shipment.status === "Initiated") && (
+                    <Button
+                      onClick={() => handle_status_update_with_gps("Collected")}
+                      disabled={is_processing}
+                      className="h-12 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {is_processing ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                      )}
+                      Mark as Collected
+                      {hasActiveSession && (
+                        <Navigation className="h-3 w-3 ml-1 text-blue-200" />
                       )}
                     </Button>
                   )}
@@ -406,7 +424,7 @@ function ShipmentDetailModalWithTracking({
               const is_manager = user?.is_super_user || user?.is_ops_team || user?.is_staff || user?.role === 'admin' || user?.role === 'manager';
               const is_rider = !is_manager && user?.employee_id;
               
-              return is_rider && !is_assigned_rider && (shipment.status === "Assigned" || shipment.status === "In Transit" || shipment.status === "Collected");
+              return is_rider && !is_assigned_rider && (shipment.status === "Assigned" || shipment.status === "In Transit" || shipment.status === "Collected" || shipment.status === "Initiated");
             })() && (
               <div className="space-y-3">
                 <div className="text-center p-4 bg-muted/50 rounded-lg">

@@ -53,6 +53,23 @@ export const apiRequest = async (
 
     return response;
   } catch (error) {
+    // Handle expected 404 errors for PDF documents gracefully
+    const isPdfEndpoint = url.includes('/pdf-document');
+    const is404Error = error && typeof error === 'object' && 'status' in error && (error as any).status === 404;
+    
+    if (isPdfEndpoint && is404Error) {
+      // Return a mock successful response for PDF 404s
+      const mockResponse = new Response(JSON.stringify({
+        success: false,
+        message: 'No PDF document available for this shipment'
+      }), {
+        status: 200,
+        statusText: 'OK',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      return mockResponse;
+    }
+    
     console.error('❌ apiRequest error:', {
       method: method.toUpperCase(),
       url,

@@ -380,13 +380,19 @@ export class ApiClient {
 
     // Log detailed error info for non-auth requests
     if (!isAuthRequest) {
-      console.error(`[ApiClient] ${response.status} ${response.statusText}`, {
-        url,
-        method,
-        status: response.status,
-        statusText: response.statusText,
-        errorData,
-      });
+      // Don't log 404 errors for PDF document endpoint as they are expected when no PDF exists
+      const isPdfEndpoint = url.includes('/pdf-document');
+      const isExpected404 = response.status === 404 && isPdfEndpoint;
+      
+      if (!isExpected404) {
+        console.error(`[ApiClient] ${response.status} ${response.statusText}`, {
+          url,
+          method,
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+        });
+      }
     }
 
     // Create error message

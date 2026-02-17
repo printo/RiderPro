@@ -12,7 +12,7 @@ interface DashboardShipmentActionsProps {
   employeeId: string;
 }
 
-const ACTIONABLE_STATUSES = new Set(['Assigned']);
+const ACTIONABLE_STATUSES = new Set(['Assigned', 'Initiated']);
 
 function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps) {
   const { toast } = useToast();
@@ -32,7 +32,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
 
   const handleSingleStatusUpdate = async (
     shipment: Shipment,
-    status: 'Collected'
+    status: 'Collected' | 'In Transit' | 'Picked Up'
   ) => {
     try {
       await apiRequest('PATCH', `/api/v1/shipments/${shipment.shipment_id}`, { status });
@@ -67,12 +67,15 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading actionable shipments...</p>
           ) : actionableShipments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No shipments available for collection.</p>
+            <p className="text-sm text-muted-foreground">No shipments available for action.</p>
           ) : (
             <>
               <div className="space-y-2">
                 {actionableShipments.map((shipment) => {
                   const canCollect = shipment.type === 'delivery' && shipment.status === 'Assigned';
+                  const canStartTransit = shipment.type === 'delivery' && (shipment.status === 'Collected' || shipment.status === 'Initiated');
+                  const canPickup = shipment.type === 'pickup' && shipment.status === 'Assigned';
+                  
                   return (
                     <div key={shipment.shipment_id} className="border rounded-lg p-3 flex flex-col gap-2">
                       <div className="flex items-center justify-between gap-3">
@@ -88,7 +91,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                         </div>
                         <Badge variant="outline">{shipment.status}</Badge>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         {canCollect && (
                           <Button
                             size="sm"
@@ -96,7 +99,27 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                             className="h-8"
                             onClick={() => handleSingleStatusUpdate(shipment, 'Collected')}
                           >
-                            Collected
+                            Mark as Collected
+                          </Button>
+                        )}
+                        {canStartTransit && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-8"
+                            onClick={() => handleSingleStatusUpdate(shipment, 'In Transit')}
+                          >
+                            Start Transit
+                          </Button>
+                        )}
+                        {canPickup && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-8"
+                            onClick={() => handleSingleStatusUpdate(shipment, 'Picked Up')}
+                          >
+                            Mark as Picked Up
                           </Button>
                         )}
                       </div>
