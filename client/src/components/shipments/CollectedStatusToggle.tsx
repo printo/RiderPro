@@ -6,7 +6,7 @@ import { ShipmentStatus } from "@shared/types";
 import { cn } from "@/lib/utils";
 
 interface CollectedStatusToggleProps {
-  shipment_id: string;
+  id: string;
   current_status: ShipmentStatus;
   on_status_change: (new_status: ShipmentStatus) => void;
   className?: string;
@@ -15,7 +15,7 @@ interface CollectedStatusToggleProps {
 }
 
 export function CollectedStatusToggle({
-  shipment_id,
+  id,
   current_status,
   on_status_change,
   className = "",
@@ -28,7 +28,7 @@ export function CollectedStatusToggle({
   const handle_toggle = async () => {
     try {
       set_is_loading(true);
-      const response = await fetch(`/api/shipments/${shipment_id}/toggle_collected_status/`, {
+      const response = await fetch(`/api/shipments/${id}/toggle_collected_status/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

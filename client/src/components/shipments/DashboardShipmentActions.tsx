@@ -46,7 +46,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
       queryClient.invalidateQueries({ queryKey: ['dashboard-shipment-actions', employeeId] });
       toast({
         title: 'Status updated',
-        description: `${shipment.customer_name || shipment.customer_name || shipment.id || shipment.shipment_id} marked as ${status}.`,
+        description: `${shipment.customer_name || `Customer ${shipment.id}`} marked as ${status}.`,
       });
     } catch (error) {
       toast({
@@ -138,10 +138,10 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <h3 className="font-semibold text-sm">
-                                {shipment.customer_name || `Customer ${shipment.shipment_id}`}
+                                {shipment.customer_name || `Customer ${shipment.id}`}
                               </h3>
                               <p className="text-xs text-muted-foreground">
-                                Shipment ID: #{shipment.shipment_id || shipment.id}
+                                Shipment ID: #{shipment.pops_order_id || shipment.id}
                               </p>
                             </div>
                             <Badge variant="outline">{shipment.status}</Badge>

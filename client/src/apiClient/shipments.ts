@@ -149,26 +149,26 @@ export const shipmentsApi = {
     return response.json();
   },
 
-  change_rider: async (shipment_id: string, employee_id: string, reason?: string): Promise<{ success: boolean; message: string; shipment: Shipment }> => {
-    const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.get(shipment_id)}/change-rider/`, {
+  change_rider: async (id: string, employee_id: string, reason?: string): Promise<{ success: boolean; message: string; shipment: Shipment }> => {
+    const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.get(id)}/change-rider/`, {
       employee_id: employee_id,
       reason: reason || ''
     });
     return response.json();
   },
 
-  batch_change_rider: async (shipment_ids: string[], employee_id: string, reason?: string): Promise<{ success: boolean; message: string; updated_count: number; failed_count: number; results: Array<{ shipment_id: number; success: boolean; old_rider?: string; new_rider?: string; error?: string }> }> => {
+  batch_change_rider: async (ids: string[], employee_id: string, reason?: string): Promise<{ success: boolean; message: string; updated_count: number; failed_count: number; results: Array<{ shipment_id: number; success: boolean; old_rider?: string; new_rider?: string; error?: string }> }> => {
     const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.base}/batch-change-rider/`, {
-      shipment_ids: shipment_ids.map(id => parseInt(id)),
+      shipment_ids: ids.map(id => parseInt(id)),
       employee_id: employee_id,
       reason: reason || ''
     });
     return response.json();
   },
 
-  get_pdf_document: async (shipment_id: string): Promise<{ success: boolean; pdf_url?: string; is_signed?: boolean; is_template?: boolean; message?: string }> => {
+  get_pdf_document: async (id: string): Promise<{ success: boolean; pdf_url?: string; is_signed?: boolean; is_template?: boolean; message?: string }> => {
     try {
-      const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(shipment_id)}/pdf-document/`);
+      const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(id)}/pdf-document/`);
       const data = await response.json();
       
       if (!response.ok) {
@@ -188,15 +188,15 @@ export const shipmentsApi = {
     }
   },
 
-  upload_signed_pdf: async (shipment_id: string, signed_pdf_url: string): Promise<{ success: boolean; message: string; signed_pdf_url: string }> => {
-    const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.get(shipment_id)}/upload-signed-pdf/`, {
+  upload_signed_pdf: async (id: string, signed_pdf_url: string): Promise<{ success: boolean; message: string; signed_pdf_url: string }> => {
+    const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.get(id)}/upload-signed-pdf/`, {
       signed_pdf_url: signed_pdf_url
     });
     return response.json();
   },
 
-  get_acknowledgment_settings: async (shipment_id: string): Promise<{ success: boolean; settings?: any }> => {
-    const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(shipment_id)}/acknowledgment-settings/`);
+  get_acknowledgment_settings: async (id: string): Promise<{ success: boolean; settings?: any }> => {
+    const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(id)}/acknowledgment-settings/`);
     return response.json();
   },
 

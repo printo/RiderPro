@@ -126,7 +126,6 @@ export interface RiderHomebaseAssignment {
 export interface Shipment {
   // Primary key
   id: string;                    // Internal database ID
-  shipment_id?: string;          // Optional external/alias ID if provided by backend
   created_at: string;
   updated_at: string;
 
