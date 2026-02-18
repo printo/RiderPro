@@ -40,7 +40,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
     try {
       // Map "Unmark as Collected" to actual API status
       const apiStatus = status === 'Unmark as Collected' ? 'Assigned' : status;
-      await apiRequest('PATCH', `/api/v1/shipments/${shipment.shipment_id}`, { status: apiStatus });
+      await apiRequest('PATCH', `/api/v1/shipments/${shipment.id}`, { status: apiStatus });
       queryClient.invalidateQueries({ queryKey: ['shipments'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-shipment-actions', employeeId] });
@@ -110,12 +110,28 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                   const canPickup = shipment.type === 'pickup' && shipment.status === 'Assigned';
                   
                   return (
-                    <div key={shipment.shipment_id} className="border rounded-lg p-4">
+                    <div 
+                      key={shipment.id} 
+                      className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                        selectedShipments.has(shipment.id) 
+                          ? 'bg-blue-50 border-blue-200' 
+                          : 'hover:bg-gray-50'
+                      }`}
+                      onClick={(e) => {
+                        // Prevent selection if clicking on buttons or checkbox
+                        if ((e.target as HTMLElement).closest('button') || 
+                            (e.target as HTMLElement).closest('input[type="checkbox"]')) {
+                          return;
+                        }
+                        handleShipmentSelection(shipment.id, !selectedShipments.has(shipment.id));
+                      }}
+                    >
                       <div className="flex items-start gap-3">
                         <Checkbox
-                          checked={selectedShipments.has(shipment.shipment_id)}
-                          onCheckedChange={(checked) => handleShipmentSelection(shipment.shipment_id, !!checked)}
+                          checked={selectedShipments.has(shipment.id)}
+                          onCheckedChange={(checked) => handleShipmentSelection(shipment.id, !!checked)}
                           className="mt-1"
+                          onClick={(e) => e.stopPropagation()}
                         />
                         <div className="flex-1 space-y-3">
                           {/* Header with customer name and status */}
@@ -125,7 +141,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                                 {shipment.customer_name || `Customer ${shipment.shipment_id}`}
                               </h3>
                               <p className="text-xs text-muted-foreground">
-                                Shipment ID: #{shipment.shipment_id}
+                                Shipment ID: #{shipment.shipment_id || shipment.id}
                               </p>
                             </div>
                             <Badge variant="outline">{shipment.status}</Badge>
@@ -140,12 +156,6 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                               </span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <User className="h-3 w-3 flex-shrink-0" />
-                              <span>
-                                {shipment.employee_id || 'Unassigned'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 sm:col-span-2">
                               <MapPin className="h-3 w-3 flex-shrink-0" />
                               <span className="truncate">
                                 {formatAddress(shipment.address_display || shipment.address)}
@@ -154,7 +164,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                           </div>
 
                           {/* Action Buttons */}
-                          <div className="flex gap-2 flex-wrap">
+                          <div className="flex gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
                             {canCollect && (
                               <Button
                                 size="sm"
