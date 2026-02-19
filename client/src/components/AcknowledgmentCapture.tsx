@@ -16,7 +16,7 @@ interface AcknowledgmentCaptureProps {
 function AcknowledgmentCapture({
   on_close: _on_close,
   onSubmit,
-  require_full_proof = true,
+  require_full_proof = false,
   is_submitting = false
 }: AcknowledgmentCaptureProps) {
   const [photo_file, set_photo_file] = useState<File | null>(null);
