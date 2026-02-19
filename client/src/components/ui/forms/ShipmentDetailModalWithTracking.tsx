@@ -121,10 +121,10 @@ function ShipmentDetailModalWithTracking({
     const has_photo = Boolean(data.photo);
     const has_signature = Boolean(data.signature.trim());
 
-    if (!has_photo || !has_signature) {
+    if (!has_photo && !has_signature) {
       toast({
         title: "Acknowledgment Required",
-        description: "Delivery/Pickup photo and recipient signature are required before status update.",
+        description: "Either delivery/pickup photo or recipient signature is required before status update.",
         variant: "destructive",
       });
       return;
@@ -514,7 +514,7 @@ function ShipmentDetailModalWithTracking({
         <AcknowledgmentCapture
           on_close={() => set_show_acknowledgment(false)}
           onSubmit={handle_acknowledgment_save}
-          require_full_proof
+          require_full_proof={false}
           is_submitting={is_processing}
         />
       )}
