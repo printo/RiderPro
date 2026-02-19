@@ -328,10 +328,12 @@ export class ApiClient {
     if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
       if (data instanceof FormData) {
         // For FormData, don't set Content-Type - browser will set it with boundary
+        console.log('[ApiClient] FormData detected, NOT setting Content-Type header');
         body = data;
       } else {
         // For regular data, use JSON
         headers['Content-Type'] = 'application/json';
+        console.log('[ApiClient] JSON data detected, setting Content-Type: application/json');
         body = JSON.stringify(data);
       }
     } else if (!data && ['POST', 'PUT', 'PATCH'].includes(method)) {
@@ -339,6 +341,7 @@ export class ApiClient {
       // But only if it's not FormData
       if (!(data instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
+        console.log('[ApiClient] No data detected, setting Content-Type: application/json');
       }
     }
 
@@ -1208,6 +1211,15 @@ export class ApiClient {
    * Upload FormData (files, etc.) with proper authentication
    */
   public async upload(url: string, formData: FormData, config: Partial<ApiRequestConfig> = {}): Promise<Response> {
+    // Debug: Log FormData contents
+    console.log('[ApiClient] Upload Debug:');
+    console.log('- URL:', url);
+    console.log('- FormData entries:');
+    for (let [key, value] of formData.entries()) {
+      console.log(`  ${key}:`, value instanceof File ? `File(${value.name}, ${value.size} bytes, ${value.type})` : value);
+    }
+    console.log('- FormData has entries:', formData.entries().next().done !== true);
+    
     return this.request({ ...config, url, method: 'POST', data: formData });
   }
 
