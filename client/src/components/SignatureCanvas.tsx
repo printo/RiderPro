@@ -10,6 +10,19 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
   const canvas_ref = useRef<HTMLCanvasElement>(null);
   const [is_drawing, set_is_drawing] = useState(false);
   const [has_signature, set_has_signature] = useState(false);
+  
+  // Refs to track current state values for touch handlers
+  const is_drawing_ref = useRef(is_drawing);
+  const has_signature_ref = useRef(has_signature);
+  
+  // Update refs when state changes
+  useEffect(() => {
+    is_drawing_ref.current = is_drawing;
+  }, [is_drawing]);
+  
+  useEffect(() => {
+    has_signature_ref.current = has_signature;
+  }, [has_signature]);
 
   useEffect(() => {
     const canvas = canvas_ref.current;
@@ -47,7 +60,7 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!is_drawing) return;
+      if (!is_drawing_ref.current) return;
       e.preventDefault();
       const rect = canvas.getBoundingClientRect();
       const touch = e.touches[0];
@@ -63,7 +76,7 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
       e.preventDefault();
       set_is_drawing(false);
       
-      if (has_signature) {
+      if (has_signature_ref.current) {
         const dataUrl = canvas.toDataURL('image/png');
         onSignatureChange(dataUrl);
       }
@@ -80,7 +93,7 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
       canvas.removeEventListener('touchmove', handleTouchMove);
       canvas.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [is_drawing, has_signature, onSignatureChange]);
+  }, [onSignatureChange]);
 
   const start_drawing = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvas_ref.current;
