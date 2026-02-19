@@ -470,13 +470,22 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         Validates against region-based acknowledgment settings
         """
         shipment = self.get_object()
-        signature_url = (
-            request.data.get('signature_url')
-            or request.data.get('signatureData')
-            or request.data.get('signature')
-        )
-        photo_url = request.data.get('photo_url')
-        signed_pdf_url = request.data.get('signed_pdf_url')
+        
+        # Handle FormData vs JSON properly
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            # FormData handling
+            signature_url = request.POST.get('signature_url')
+            photo_url = request.POST.get('photo_url')
+            signed_pdf_url = request.POST.get('signed_pdf_url')
+        else:
+            # JSON handling
+            signature_url = (
+                request.data.get('signature_url')
+                or request.data.get('signatureData')
+                or request.data.get('signature')
+            )
+            photo_url = request.data.get('photo_url')
+            signed_pdf_url = request.data.get('signed_pdf_url')
         
         # Handle file uploads if provided
         if 'signature' in request.FILES:
