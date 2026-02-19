@@ -32,7 +32,55 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
     // Fill with white background
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, []);
+
+    // Add non-passive touch event listeners to prevent default browser behavior
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      
+      set_is_drawing(true);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!is_drawing) return;
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      set_has_signature(true);
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      set_is_drawing(false);
+      
+      if (has_signature) {
+        const dataUrl = canvas.toDataURL('image/png');
+        onSignatureChange(dataUrl);
+      }
+    };
+
+    // Register non-passive event listeners
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+    // Cleanup function
+    return () => {
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchmove', handleTouchMove);
+      canvas.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [is_drawing, has_signature, onSignatureChange]);
 
   const start_drawing = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvas_ref.current;
@@ -45,9 +93,8 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
 
     let x, y;
     if ('touches' in event) {
-      event.preventDefault();
-      x = event.touches[0].clientX - rect.left;
-      y = event.touches[0].clientY - rect.top;
+      // Touch events are now handled by non-passive listeners
+      return;
     } else {
       x = event.clientX - rect.left;
       y = event.clientY - rect.top;
@@ -69,9 +116,8 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
 
     let x, y;
     if ('touches' in event) {
-      event.preventDefault();
-      x = event.touches[0].clientX - rect.left;
-      y = event.touches[0].clientY - rect.top;
+      // Touch events are now handled by non-passive listeners
+      return;
     } else {
       x = event.clientX - rect.left;
       y = event.clientY - rect.top;
