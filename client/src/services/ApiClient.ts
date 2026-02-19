@@ -91,6 +91,7 @@ export class ApiClient {
           status: response.status,
           statusText: response.statusText,
           url: response.url,
+          headers: Object.fromEntries(response.headers.entries()),
         });
       }
 
