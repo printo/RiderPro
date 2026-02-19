@@ -335,8 +335,11 @@ export class ApiClient {
         body = JSON.stringify(data);
       }
     } else if (!data && ['POST', 'PUT', 'PATCH'].includes(method)) {
-      // For requests without data, still set Content-Type
-      headers['Content-Type'] = 'application/json';
+      // For requests without data, still set Content-Type to JSON
+      // But only if it's not FormData
+      if (!(data instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+      }
     }
 
     // Add authentication headers if not skipped
