@@ -25,7 +25,16 @@ import { useToast } from "@/hooks/use-toast";
 type ExtendedShipmentFilters = ShipmentFilters & { employee_id?: string };
 
 function ShipmentsWithTracking() {
-  const [filters, setFilters] = useState<ExtendedShipmentFilters>({});
+  // Set default filter to show only today's orders
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  const [filters, setFilters] = useState<ExtendedShipmentFilters>({
+    created_at__gte: today.toISOString(),
+    created_at__lt: tomorrow.toISOString()
+  });
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [selected_shipment_ids, set_selected_shipment_ids] = useState<string[]>([]);
   const [show_batch_modal, set_show_batch_modal] = useState(false);

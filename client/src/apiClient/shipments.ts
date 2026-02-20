@@ -41,6 +41,11 @@ export const shipmentsApi = {
     if (filters.search) params.append('search', filters.search);
     if (filters.employee_id) params.append('employee_id', filters.employee_id);
     if (filters.pops_order_id) params.append('pops_order_id', String(filters.pops_order_id));
+    
+    // Add date range filters
+    if (filters.created_at__gte) params.append('created_at__gte', filters.created_at__gte);
+    if (filters.created_at__lt) params.append('created_at__lt', filters.created_at__lt);
+    if (filters.created_at__lte) params.append('created_at__lte', filters.created_at__lte);
 
     // Add date range if provided
     if (filters.date_range) {

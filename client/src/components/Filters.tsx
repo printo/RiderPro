@@ -26,7 +26,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
     });
   };
 
-  const hasActiveFilters = filters.status || filters.type || filters.route_name || filters.employee_id || filters.pops_order_id;
+  const hasActiveFilters = filters.status || filters.type || filters.route_name || filters.employee_id || filters.pops_order_id || filters.created_at__gte || filters.created_at__lt;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
@@ -48,7 +48,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
       </CollapsibleTrigger>
 
       <CollapsibleContent className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 border rounded-lg bg-card">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 border rounded-lg bg-card">
           <Select
             value={filters.status || "all"}
             onValueChange={(value) => updateFilter("status", value)}
@@ -128,6 +128,53 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
               placeholder="Filter by Pia order ID"
               className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
               data-testid="input-filter-order-id"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Created Date From
+            </label>
+            <input
+              type="date"
+              value={filters.created_at__gte ? new Date(filters.created_at__gte).toISOString().split('T')[0] : ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                onFiltersChange({
+                  ...filters,
+                  created_at__gte: value ? new Date(value).toISOString() : undefined,
+                });
+              }}
+              className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+              data-testid="input-filter-date-from"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">
+              Created Date To
+            </label>
+            <input
+              type="date"
+              value={filters.created_at__lt ? new Date(filters.created_at__lt).toISOString().split('T')[0] : ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value) {
+                  const toDate = new Date(value);
+                  toDate.setDate(toDate.getDate() + 1); // Add 1 day to make it inclusive
+                  onFiltersChange({
+                    ...filters,
+                    created_at__lt: toDate.toISOString(),
+                  });
+                } else {
+                  onFiltersChange({
+                    ...filters,
+                    created_at__lt: undefined,
+                  });
+                }
+              }}
+              className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+              data-testid="input-filter-date-to"
             />
           </div>
         </div>

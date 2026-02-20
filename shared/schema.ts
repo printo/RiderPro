@@ -369,6 +369,11 @@ export interface ShipmentFilters {
   employee_id?: string;
   pops_order_id?: string | number;
   sync_status?: string;
+  
+  // Date range filters
+  created_at__gte?: string;
+  created_at__lt?: string;
+  created_at__lte?: string;
 
   // Pagination
   page?: number | string;
