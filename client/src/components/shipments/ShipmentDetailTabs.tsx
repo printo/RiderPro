@@ -262,7 +262,11 @@ export default function ShipmentDetailTabs({
                 </p>
               </div>
               <div>
-                <span className="text-muted-foreground">Shipment ID (Internal)</span>
+                <span className="text-muted-foreground">Order ID</span>
+                <p className="font-medium">#{shipment.pops_order_id || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Internal ID</span>
                 <p className="font-medium">#{String(shipment.id).slice(-8)}</p>
               </div>
               <div>

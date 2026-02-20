@@ -84,7 +84,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
 
           <Select
             value={filters.route_name || "all"}
-            onValueChange={(value) => updateFilter("route_name" as keyof ShipmentFilters, value)}
+            onValueChange={(value) => updateFilter("route_name", value)}
           >
             <SelectTrigger data-testid="select-filter-route">
               <SelectValue placeholder="All Routes" />
@@ -104,7 +104,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
             <input
               type="text"
               value={filters.employee_id || ""}
-              onChange={(e) => updateFilter("employee_id" as keyof ShipmentFilters, e.target.value || "all")}
+              onChange={(e) => updateFilter("employee_id", e.target.value)}
               placeholder="Filter by rider ID"
               className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
               data-testid="input-filter-rider"
