@@ -31,6 +31,10 @@ function ShipmentsWithTracking() {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
   
+  // Calculate 3 days ago for max date range
+  const threeDaysAgo = new Date(today);
+  threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+  
   const [filters, setFilters] = useState<ExtendedShipmentFilters>({
     created_at__gte: today.toISOString(),
     created_at__lt: tomorrow.toISOString()

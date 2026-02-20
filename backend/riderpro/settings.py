@@ -172,7 +172,16 @@ LOGGING = {
     },
 }
 
-# 🚀 TEMP TEST MODE (bypass acknowledgment validation)
+# TEMP TEST MODE (bypass acknowledgment validation)
 TEST_MODE = True
+
+# Database Cleanup Settings
+CLEANUP_SETTINGS = {
+    'enabled': True,
+    'default_retention_days': 3,
+    'backup_before_delete': False,  # Set to True for production
+    'cleanup_time': '02:00',  # Daily at 2 AM
+    'log_file': 'cleanup.log',
+}
 
 from .localsettings import *  # noqa Do not comment out.

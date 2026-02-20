@@ -140,14 +140,28 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
               value={filters.created_at__gte ? new Date(filters.created_at__gte).toISOString().split('T')[0] : ''}
               onChange={(e) => {
                 const value = e.target.value;
+                const selectedDate = new Date(value);
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const threeDaysAgo = new Date(today);
+                threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+                
+                // Validate date range (max 3 days back)
+                if (selectedDate < threeDaysAgo) {
+                  alert('Data older than 3 days is not available due to cleanup policy.');
+                  return;
+                }
+                
                 onFiltersChange({
                   ...filters,
                   created_at__gte: value ? new Date(value).toISOString() : undefined,
                 });
               }}
+              max={new Date().toISOString().split('T')[0]}
               className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
               data-testid="input-filter-date-from"
             />
+            <p className="text-xs text-gray-500 mt-1">Max 3 days back</p>
           </div>
 
           <div>
@@ -173,6 +187,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
                   });
                 }
               }}
+              max={new Date().toISOString().split('T')[0]}
               className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
               data-testid="input-filter-date-to"
             />
