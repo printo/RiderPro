@@ -376,14 +376,28 @@ export class ApiClient {
   ): Promise<never> {
     // Try to parse error response
     let errorData: unknown;
+    let errorText = '';
+    
     try {
       const responseClone = response.clone();
       errorData = await responseClone.json().catch(async () => {
-        return await responseClone.text().catch(() => ({}));
+        errorText = await responseClone.text().catch(() => '');
+        return errorText;
       });
     } catch (_e) {
       errorData = {};
     }
+
+    // Log the actual error response for debugging
+    console.log('[ApiClient] Error Response Details:', {
+      status: response.status,
+      statusText: response.statusText,
+      url: response.url,
+      method: method,
+      errorData: errorData,
+      errorText: errorText,
+      headers: Object.fromEntries(response.headers.entries()),
+    });
 
     // Log detailed error info for non-auth requests
     if (!isAuthRequest) {
