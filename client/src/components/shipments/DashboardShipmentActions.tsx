@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { shipmentsApi } from '@/apiClient/shipments';
 import { apiRequest } from '@/lib/queryClient';
 import type { Shipment } from '@shared/types';
-import { MapPin, Route, User, Trash2 } from 'lucide-react';
+import { MapPin, Route, User, Trash2, MoreHorizontal, CheckSquare, RotateCcw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +19,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface DashboardShipmentActionsProps {
   employeeId: string;
@@ -47,30 +53,6 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
     () => (data?.data || []).filter((shipment) => ACTIONABLE_STATUSES.has(shipment.status)),
     [data]
   );
-
-  const handleSingleStatusUpdate = async (
-    shipment: Shipment,
-    status: 'Collected' | 'In Transit' | 'Picked Up' | 'Unmark as Collected'
-  ) => {
-    try {
-      // Map "Unmark as Collected" to actual API status
-      const apiStatus = status === 'Unmark as Collected' ? 'Assigned' : status;
-      await apiRequest('PATCH', `/api/v1/shipments/${shipment.id}`, { status: apiStatus });
-      queryClient.invalidateQueries({ queryKey: ['shipments'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-shipment-actions', employeeId] });
-      toast({
-        title: 'Status updated',
-        description: `${shipment.customer_name || `Customer ${shipment.id}`} marked as ${status}.`,
-      });
-    } catch (error) {
-      toast({
-        title: 'Update failed',
-        description: error instanceof Error ? error.message : 'Unable to update shipment status.',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const handleBulkAction = async (action: string) => {
     try {
@@ -202,16 +184,24 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                   <span className="text-sm text-muted-foreground">
                     {selectedShipments.size} selected
                   </span>
-                  {getAvailableBulkActions().map(action => (
-                    <Button
-                      key={action}
-                      size="sm"
-                      variant="default"
-                      onClick={() => openBulkActionDialog(action)}
-                    >
-                      {action}
-                    </Button>
-                  ))}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="default">
+                        <CheckSquare className="h-4 w-4 mr-2" />
+                        Bulk Actions
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {getAvailableBulkActions().map(action => (
+                        <DropdownMenuItem
+                          key={action}
+                          onClick={() => openBulkActionDialog(action)}
+                        >
+                          {action}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button
                     size="sm"
                     variant="outline"
@@ -222,7 +212,7 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                 </div>
               )}
               <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-                {isFetching ? 'Refreshing...' : 'Refresh'}
+                <RotateCcw className="h-4 w-4" />
               </Button>
             </div>
           </CardTitle>
@@ -236,11 +226,6 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
             <>
               <div className="space-y-2">
                 {actionableShipments.map((shipment) => {
-                  const canCollect = shipment.type === 'delivery' && shipment.status === 'Assigned';
-                  const canStartTransit = shipment.type === 'delivery' && (shipment.status === 'Collected' || shipment.status === 'Initiated');
-                  const canUnmarkCollected = shipment.type === 'delivery' && shipment.status === 'Collected';
-                  const canPickup = shipment.type === 'pickup' && shipment.status === 'Assigned';
-                  
                   return (
                     <div 
                       key={shipment.id} 
@@ -250,9 +235,8 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                           : 'hover:bg-gray-50'
                       }`}
                       onClick={(e) => {
-                        // Prevent selection if clicking on buttons or checkbox
-                        if ((e.target as HTMLElement).closest('button') || 
-                            (e.target as HTMLElement).closest('input[type="checkbox"]')) {
+                        // Prevent selection if clicking on checkbox
+                        if ((e.target as HTMLElement).closest('input[type="checkbox"]')) {
                           return;
                         }
                         handleShipmentSelection(shipment.id, !selectedShipments.has(shipment.id));
@@ -293,50 +277,6 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
                                 {formatAddress(shipment.address_display || shipment.address)}
                               </span>
                             </div>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="flex gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-                            {canCollect && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                className="h-8"
-                                onClick={() => handleSingleStatusUpdate(shipment, 'Collected')}
-                              >
-                                Mark as Collected
-                              </Button>
-                            )}
-                            {canStartTransit && (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                className="h-8"
-                                onClick={() => handleSingleStatusUpdate(shipment, 'In Transit')}
-                              >
-                                Start Transit
-                              </Button>
-                            )}
-                            {canUnmarkCollected && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8"
-                                onClick={() => handleSingleStatusUpdate(shipment, 'Unmark as Collected')}
-                              >
-                                Unmark as Collected
-                              </Button>
-                            )}
-                            {canPickup && (
-                              <Button
-                                size="sm"
-                                variant="default"
-                                className="h-8"
-                                onClick={() => handleSingleStatusUpdate(shipment, 'Picked Up')}
-                              >
-                                Mark as Picked Up
-                              </Button>
-                            )}
                           </div>
                         </div>
                       </div>
