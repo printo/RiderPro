@@ -172,4 +172,7 @@ LOGGING = {
     },
 }
 
+# 🚀 TEMP TEST MODE (bypass acknowledgment validation)
+TEST_MODE = True
+
 from .localsettings import *  # noqa Do not comment out.
