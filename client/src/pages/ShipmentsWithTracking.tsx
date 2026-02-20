@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Edit, RotateCcw, MapPin, AlertCircle } from "lucide-react";
-import ShipmentCardWithTracking from "@/components/shipments/ShipmentCardWithTracking";
+import ShipmentCard from "@/components/shipments/ShipmentCard";
 import ShipmentDetailModalWithTracking from "@/components/ui/forms/ShipmentDetailModalWithTracking";
 import BatchUpdateModal from "@/components/ui/forms/BatchUpdateModal";
 import BatchRiderAllocationModal from "@/components/ui/forms/BatchRiderAllocationModal";
@@ -452,14 +452,16 @@ function ShipmentsWithTracking() {
           {/* Shipment Cards */}
           {shipments?.map?.((shipment: Shipment) =>
             shipment?.id ? (
-              <ShipmentCardWithTracking
+              <ShipmentCard
                 key={shipment.id}
                 shipment={shipment}
                 selected={selected_shipment_ids.includes(shipment.id)}
-                onSelect={(selected) => handleShipmentSelect(shipment.id, selected)}
+                onSelect={(selected: boolean) => handleShipmentSelect(shipment.id, selected)}
                 onViewDetails={() => setSelectedShipment(shipment)}
                 employeeId={employee_id}
+                variant="list"
                 showTrackingControls={true}
+                showIndividualActions={true}
               />
             ) : null
           )}

@@ -2,13 +2,11 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { shipmentsApi } from '@/apiClient/shipments';
 import { apiRequest } from '@/lib/queryClient';
 import type { Shipment } from '@shared/types';
-import { MapPin, Route, User, Trash2, MoreHorizontal, CheckSquare, RotateCcw } from 'lucide-react';
+import { Trash2, MoreHorizontal, CheckSquare, RotateCcw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import ShipmentCard from './ShipmentCard';
 
 interface DashboardShipmentActionsProps {
   employeeId: string;
@@ -157,21 +156,6 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
     });
   };
 
-  const formatAddress = (address: any): string => {
-    if (!address) return 'No address';
-    if (typeof address === 'string') return address;
-    if (typeof address === 'object' && address !== null) {
-      const parts: string[] = [];
-      if (address.address) parts.push(String(address.address));
-      if (address.place_name) parts.push(String(address.place_name));
-      if (address.city) parts.push(String(address.city));
-      if (address.state) parts.push(String(address.state));
-      if (address.pincode) parts.push(String(address.pincode));
-      return parts.length > 0 ? parts.join(', ') : 'No address';
-    }
-    return 'No address';
-  };
-
   return (
     <>
       <Card className="mb-8">
@@ -225,64 +209,19 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
           ) : (
             <>
               <div className="space-y-2">
-                {actionableShipments.map((shipment) => {
-                  return (
-                    <div 
-                      key={shipment.id} 
-                      className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                        selectedShipments.has(shipment.id) 
-                          ? 'bg-blue-50 border-blue-200' 
-                          : 'hover:bg-gray-50'
-                      }`}
-                      onClick={(e) => {
-                        // Prevent selection if clicking on checkbox
-                        if ((e.target as HTMLElement).closest('input[type="checkbox"]')) {
-                          return;
-                        }
-                        handleShipmentSelection(shipment.id, !selectedShipments.has(shipment.id));
-                      }}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={selectedShipments.has(shipment.id)}
-                          onCheckedChange={(checked) => handleShipmentSelection(shipment.id, !!checked)}
-                          className="mt-1"
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <div className="flex-1 space-y-3">
-                          {/* Header with customer name and status */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-sm">
-                                {shipment.customer_name || `Customer ${shipment.id}`}
-                              </h3>
-                              <p className="text-xs text-muted-foreground">
-                                Shipment ID: #{shipment.pops_order_id || shipment.id}
-                              </p>
-                            </div>
-                            <Badge variant="outline">{shipment.status}</Badge>
-                          </div>
-
-                          {/* Additional Information */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1">
-                              <Route className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">
-                                {shipment.route_name || 'Not assigned'}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">
-                                {formatAddress(shipment.address_display || shipment.address)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {actionableShipments.map((shipment) => (
+                  <ShipmentCard
+                    key={shipment.id}
+                    shipment={shipment}
+                    selected={selectedShipments.has(shipment.id)}
+                    onSelect={(selected) => handleShipmentSelection(shipment.id, selected)}
+                    onViewDetails={() => {}} // No details view in dashboard
+                    employeeId={employeeId}
+                    variant="dashboard"
+                    showTrackingControls={false}
+                    showIndividualActions={false}
+                  />
+                ))}
               </div>
             </>
           )}

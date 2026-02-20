@@ -5,31 +5,51 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import {
   Truck, Package, MapPin, Phone, Route, Clock,
-  Navigation, Satellite, User, CheckCircle2
+  Navigation, Satellite, User, CheckCircle2, MoreHorizontal, CheckSquare, RotateCcw, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouteTracking } from "@/hooks/useRouteAPI";
 import { useGPSTracking } from "@/hooks/useGPSTracking";
 import { useToast } from "@/hooks/use-toast";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-interface ShipmentCardWithTrackingProps {
+interface ShipmentCardProps {
   shipment: Shipment;
   selected: boolean;
   onSelect: (selected: boolean) => void;
   onViewDetails: () => void;
   employeeId: string;
+  variant?: 'dashboard' | 'list';
   showTrackingControls?: boolean;
+  showIndividualActions?: boolean;
+  onBulkAction?: (action: string) => void;
+  selectedCount?: number;
+  onClearSelection?: () => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
-function ShipmentCardWithTracking({
+function ShipmentCard({
   shipment,
   selected,
   onSelect,
   onViewDetails,
   employeeId: employee_id,
-  showTrackingControls = true
-}: ShipmentCardWithTrackingProps) {
+  variant = 'list',
+  showTrackingControls = true,
+  showIndividualActions = true,
+  onBulkAction,
+  selectedCount = 0,
+  onClearSelection,
+  onRefresh,
+  isRefreshing = false
+}: ShipmentCardProps) {
   const [is_recording_event, set_is_recording_event] = useState(false);
   const { toast } = useToast();
 
@@ -111,7 +131,7 @@ function ShipmentCardWithTracking({
       // Get current GPS position
       const position = await getCurrentPosition();
 
-      // Record the shipment event with GPS coordinates
+      // Record shipment event with GPS coordinates
       if (!shipment?.id) {
         throw new Error('Shipment ID is missing');
       }
@@ -169,10 +189,71 @@ function ShipmentCardWithTracking({
     );
   };
 
+  // Dashboard variant - simplified card
+  if (variant === 'dashboard') {
+    return (
+      <div 
+        className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+          selected ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
+        }`}
+        onClick={(e) => {
+          // Prevent selection if clicking on checkbox
+          if ((e.target as HTMLElement).closest('input[type="checkbox"]')) {
+            return;
+          }
+          onSelect(!selected);
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <Checkbox
+            checked={selected}
+            onCheckedChange={(checked) => onSelect(!!checked)}
+            className="mt-1"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div className="flex-1">
+            {/* Header with customer name and status */}
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <h3 className="font-semibold text-sm">
+                  {shipment.customer_name || `Customer ${shipment.id}`}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Shipment ID: #{shipment.pops_order_id || shipment.id}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                  {shipment.status}
+                </span>
+              </div>
+            </div>
+
+            {/* Additional Information */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground mt-3">
+              <div className="flex items-center gap-1">
+                <Route className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">
+                  {shipment.route_name || 'Not assigned'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <MapPin className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">
+                  {format_address(shipment.address_display || shipment.address)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // List variant - full featured card
   return (
     <Card
       className="hover:shadow-md transition-shadow cursor-pointer"
-      data-testid={`card-shipment-${shipment?.id}`}
       onClick={onViewDetails}
     >
       <CardContent className="p-4">
@@ -182,7 +263,6 @@ function ShipmentCardWithTracking({
               checked={selected}
               onCheckedChange={(checked) => onSelect(!!checked)}
               className="mt-1"
-              data-testid={`checkbox-select-${shipment?.id}`}
               onClick={(e) => e.stopPropagation()}
             />
             <div className="flex-1">
@@ -195,7 +275,7 @@ function ShipmentCardWithTracking({
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-foreground" data-testid={`text-customer-name-${shipment?.id}`}>
+                    <h3 className="font-semibold text-foreground">
                       {shipment?.customer_name || 'Unknown Customer'}
                     </h3>
                     <div className="flex items-center gap-2">
@@ -205,13 +285,12 @@ function ShipmentCardWithTracking({
                           shipment?.status === 'Delivered' ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
                             shipment?.status === 'Picked Up' ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" :
                               shipment?.status === 'Skipped' ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400" :
-                              shipment?.status === 'In Transit' ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" :
-                                shipment?.status === 'Assigned' ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
-                                  shipment?.status === 'Cancelled' ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" :
-                                    shipment?.status === 'Returned' ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" :
-                                      "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
+                                shipment?.status === 'In Transit' ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" :
+                                  shipment?.status === 'Assigned' ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400" :
+                                    shipment?.status === 'Cancelled' ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400" :
+                                      shipment?.status === 'Returned' ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400" :
+                                        "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400"
                         )}
-                        data-testid={`text-status-${shipment?.id}`}
                       >
                         {shipment?.status || 'Unknown'}
                       </span>
@@ -219,10 +298,10 @@ function ShipmentCardWithTracking({
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground space-y-0.5">
-                    <p data-testid={`text-shipment-id-${shipment?.id}`}>
+                    <p>
                       Shipment ID: #{shipment?.id || 'Unknown ID'}
                     </p>
-                    <p data-testid={`text-pops-order-id-${shipment?.id}`}>
+                    <p>
                       Pia Order ID: {shipment?.pops_order_id || 'N/A'}
                     </p>
                   </div>
@@ -235,38 +314,37 @@ function ShipmentCardWithTracking({
                   <span
                     className="truncate"
                     title={format_address(shipment?.address_display || shipment?.address)}
-                    data-testid={`text-address-${shipment?.id}`}
                   >
                     {format_address(shipment?.address_display || shipment?.address)}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Phone className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-mobile-${shipment?.id}`}>
+                  <span>
                     {shipment?.customer_mobile || 'No phone'}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Route className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-route-${shipment?.id}`}>
+                  <span>
                     {shipment?.route_name || 'Not assigned'}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <User className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-rider-${shipment?.id}`} className="font-medium">
+                  <span className="font-medium">
                     {shipment?.employee_id || 'Unassigned'}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
-                  <span data-testid={`text-delivery-time-${shipment?.id}`}>
+                  <span>
                     {format_time(shipment?.delivery_time)}
                   </span>
                 </div>
                 <div className="flex items-center text-muted-foreground">
                   <Satellite className={`h-4 w-4 mr-2 flex-shrink-0 ${shipment?.latitude && shipment?.longitude ? 'animate-pulse text-green-600' : 'text-gray-500'}`} />
-                  <span data-testid={`text-location-${shipment?.id}`}>
+                  <span>
                     {shipment?.latitude && shipment?.longitude ? (
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center space-x-2">
@@ -296,7 +374,7 @@ function ShipmentCardWithTracking({
               </div>
 
               {/* GPS Tracking Controls */}
-              {showTrackingControls && (can_record_pickup() || can_record_delivery()) && (
+              {showTrackingControls && showIndividualActions && (can_record_pickup() || can_record_delivery()) && (
                 <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                   <span className="text-xs text-muted-foreground">GPS Tracking:</span>
 
@@ -309,7 +387,6 @@ function ShipmentCardWithTracking({
                         window.open(`https://www.google.com/maps/dir/?api=1&destination=${shipment.latitude},${shipment.longitude}`, '_blank');
                       }}
                       className="h-7 px-2 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
-                      data-testid={`btn-navigate-google-${shipment?.id}`}
                     >
                       <Navigation className="h-3 w-3 mr-1" />
                       Navigate
@@ -326,7 +403,6 @@ function ShipmentCardWithTracking({
                       }}
                       disabled={is_recording_event || is_getting_location || isSubmitting}
                       className="h-7 px-2 text-xs"
-                      data-testid={`btn-record-pickup-${shipment?.id}`}
                     >
                       <Truck className="h-3 w-3 mr-1" />
                       Record Pickup
@@ -343,7 +419,6 @@ function ShipmentCardWithTracking({
                       }}
                       disabled={is_recording_event || is_getting_location || isSubmitting}
                       className="h-7 px-2 text-xs"
-                      data-testid={`btn-record-delivery-${shipment?.id}`}
                     >
                       <Navigation className="h-3 w-3 mr-1" />
                       Record Delivery
@@ -365,7 +440,7 @@ function ShipmentCardWithTracking({
   );
 }
 
-export default withComponentErrorBoundary(ShipmentCardWithTracking, {
+export default withComponentErrorBoundary(ShipmentCard, {
   componentVariant: 'card',
-  componentName: 'ShipmentCardWithTracking'
+  componentName: 'ShipmentCard'
 });
