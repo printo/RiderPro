@@ -50,7 +50,8 @@ def _has_required_acknowledgment(shipment):
     signature_url = shipment.signature_url
     photo_url = shipment.photo_url
 
-    if signature_url and photo_url:
+    # Allow either signature OR photo during test phase
+    if signature_url or photo_url:
         return True
 
     try:
@@ -62,7 +63,7 @@ def _has_required_acknowledgment(shipment):
         signature_url = signature_url or acknowledgment.signature_url
         photo_url = photo_url or acknowledgment.photo_url
 
-    return bool(signature_url and photo_url)
+    return bool(signature_url or photo_url)
 
 
 class ShipmentViewSet(viewsets.ModelViewSet):
