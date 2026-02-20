@@ -5,6 +5,7 @@ import logging
 import math
 from collections import defaultdict
 from rest_framework import viewsets, status, filters
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
@@ -72,6 +73,7 @@ def _has_required_acknowledgment(shipment):
 
 
 class ShipmentViewSet(viewsets.ModelViewSet):
+    parser_classes = (MultiPartParser, FormParser)
     @action(detail=True, methods=['post'])
     def toggle_collected_status(self, request, pk=None):
         """
