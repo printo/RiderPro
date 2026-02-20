@@ -5,7 +5,7 @@ import logging
 import math
 from collections import defaultdict
 from rest_framework import viewsets, status, filters
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
@@ -471,7 +471,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             'shipmentId': shipment.id
         })
     
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser, JSONParser])
     def acknowledgement(self, request, pk=None):
         """
         Upload acknowledgment (signature and photo)
@@ -479,8 +479,15 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         """
         shipment = self.get_object()
         
+        # Debug logging
+        logger.info(f"Acknowledgment request - Content-Type: {request.content_type}")
+        logger.info(f"Acknowledgment request - FILES: {list(request.FILES.keys())}")
+        logger.info(f"Acknowledgment request - POST: {list(request.POST.keys())}")
+        logger.info(f"Acknowledgment request - data: {dict(request.data)}")
+        
         # Handle FormData vs JSON properly
-        if request.content_type and 'multipart/form-data' in request.content_type:
+        content_type = request.content_type or ''
+        if 'multipart/form-data' in content_type or request.FILES:
             # FormData handling
             signature_url = request.POST.get('signature_url')
             photo_url = request.POST.get('photo_url')
