@@ -3,6 +3,9 @@ Views for shipments app
 """
 import logging
 import math
+import base64
+import uuid
+import os
 from collections import defaultdict
 from rest_framework import viewsets, status, filters
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -180,6 +183,43 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         Prefer service token for server-to-server sync, fall back to user token.
         """
         return getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or getattr(request.user, 'access_token', None)
+
+    def _save_base64_image(self, base64_data, folder_name):
+        """
+        Save base64 image data to file and return the URL.
+        
+        Args:
+            base64_data: Base64 data URI (e.g., 'data:image/png;base64,iVBORw0KGgo...')
+            folder_name: Name of the folder to save the file in (e.g., 'signatures', 'photos')
+        
+        Returns:
+            str: URL path to the saved file
+        """
+        try:
+            # Extract the base64 part from the data URI
+            format, imgstr = base64_data.split(';base64,')
+            ext = format.split('/')[-1]
+            
+            # Generate a unique filename
+            filename = f"{uuid.uuid4()}.{ext}"
+            
+            # Create the media directory if it doesn't exist
+            media_root = getattr(settings, 'MEDIA_ROOT', '/tmp/media')
+            folder_path = os.path.join(media_root, folder_name)
+            os.makedirs(folder_path, exist_ok=True)
+            
+            # Save the file
+            file_path = os.path.join(folder_path, filename)
+            with open(file_path, 'wb') as f:
+                f.write(base64.b64decode(imgstr))
+            
+            # Return the URL path
+            return f"/media/{folder_name}/{filename}"
+            
+        except Exception as e:
+            logger.error(f"Failed to save base64 image: {e}")
+            # Return the original data if saving fails
+            return base64_data
 
     def _sync_shipment_to_pops(self, shipment, request):
         """
@@ -492,6 +532,14 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             signature_url = request.POST.get('signature_url')
             photo_url = request.POST.get('photo_url')
             signed_pdf_url = request.POST.get('signed_pdf_url')
+            
+            # Process base64 signature data if present
+            if signature_url and signature_url.startswith('data:image/'):
+                signature_url = self._save_base64_image(signature_url, 'signatures')
+            
+            # Process base64 photo data if present
+            if photo_url and photo_url.startswith('data:image/'):
+                photo_url = self._save_base64_image(photo_url, 'photos')
         else:
             # JSON handling
             signature_url = (
@@ -501,6 +549,13 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             )
             photo_url = request.data.get('photo_url')
             signed_pdf_url = request.data.get('signed_pdf_url')
+            
+            # Process base64 data in JSON requests too
+            if signature_url and signature_url.startswith('data:image/'):
+                signature_url = self._save_base64_image(signature_url, 'signatures')
+            
+            if photo_url and photo_url.startswith('data:image/'):
+                photo_url = self._save_base64_image(photo_url, 'photos')
         
         # Handle file uploads if provided
         if 'signature' in request.FILES:
