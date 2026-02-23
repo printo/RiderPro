@@ -76,7 +76,8 @@ def _has_required_acknowledgment(shipment):
 
 
 class ShipmentViewSet(viewsets.ModelViewSet):
-    parser_classes = (MultiPartParser, FormParser)
+    # Order matters: MultiPart first for files, JSON for standard updates
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
     @action(detail=True, methods=['post'])
     def toggle_collected_status(self, request, pk=None):
         """
