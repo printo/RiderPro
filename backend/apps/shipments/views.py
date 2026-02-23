@@ -1248,6 +1248,10 @@ class DashboardViewSet(viewsets.ViewSet):
         user = request.user
         queryset = Shipment.objects.all()
         
+        # Filter for today's shipments only
+        today = timezone.now().date()
+        queryset = queryset.filter(created_at__date=today)
+        
         # Filter by employee if not admin/manager
         if not (user.is_superuser or user.is_ops_team or user.is_staff):
             queryset = queryset.filter(employee_id=user.employee_id)
@@ -1280,6 +1284,33 @@ class DashboardViewSet(viewsets.ViewSet):
         else:
             avg_delivery_time = 0
         
+        # Calculate status breakdown
+        status_breakdown = dict(
+            queryset.values('status').annotate(count=Count('id')).values_list('status', 'count')
+        )
+        
+        # Calculate route breakdown
+        route_breakdown_data = queryset.values('route_name').annotate(
+            total=Count('id'),
+            delivered=Count('id', filter=Q(status='Delivered')),
+            pickedup=Count('id', filter=Q(status='Picked Up')),
+            delivery_pending=Count('id', filter=Q(status__in=['Assigned', 'Collected', 'In Transit'], type='delivery')),
+            pickup_pending=Count('id', filter=Q(status__in=['Assigned'], type='pickup')),
+            cancelled=Count('id', filter=Q(status='Cancelled'))
+        ).filter(route_name__isnull=False).exclude(route_name='')
+        
+        route_breakdown = {
+            route['route_name']: {
+                'total': route['total'],
+                'delivered': route['delivered'],
+                'pickedup': route['pickedup'],
+                'delivery_pending': route['delivery_pending'],
+                'pickup_pending': route['pickup_pending'],
+                'cancelled': route['cancelled']
+            }
+            for route in route_breakdown_data
+        }
+        
         metrics = {
             'total_shipments': total,
             'pending_shipments': pending,
@@ -1291,7 +1322,9 @@ class DashboardViewSet(viewsets.ViewSet):
             'returned_shipments': returned,
             'cancelled_shipments': cancelled,
             'total_revenue': total_revenue,
-            'average_delivery_time': avg_delivery_time
+            'average_delivery_time': avg_delivery_time,
+            'status_breakdown': status_breakdown,
+            'route_breakdown': route_breakdown
         }
         
         serializer = DashboardMetricsSerializer(metrics)

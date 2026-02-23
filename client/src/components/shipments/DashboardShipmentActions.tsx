@@ -43,7 +43,15 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['dashboard-shipment-actions', employeeId],
-    queryFn: () => shipmentsApi.getShipments({ employee_id: employeeId, limit: 30 }),
+    queryFn: () => {
+      // Get today's date in YYYY-MM-DD format
+      const today = new Date().toISOString().split('T')[0];
+      return shipmentsApi.getShipments({ 
+        employee_id: employeeId, 
+        created_at__gte: today,
+        limit: 30 
+      });
+    },
     enabled: !!employeeId,
     refetchInterval: 120000,
   });

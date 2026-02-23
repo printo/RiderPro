@@ -121,6 +121,8 @@ class DashboardMetricsSerializer(serializers.Serializer):
     cancelled_shipments = serializers.IntegerField()
     total_revenue = serializers.FloatField()
     average_delivery_time = serializers.FloatField()
+    status_breakdown = serializers.DictField(required=False)
+    route_breakdown = serializers.DictField(required=False)
 
 
 class RouteSessionSerializer(serializers.ModelSerializer):

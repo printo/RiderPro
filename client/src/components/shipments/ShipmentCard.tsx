@@ -233,7 +233,7 @@ function ShipmentCard({
               </div>
               <div>
                 <h3 className="font-semibold text-base text-foreground">
-                  Order ID: #{shipment.pops_order_id || 'Unknown'}
+                  Shipment ID: #{shipment.pops_order_id || 'Unknown'}
                 </h3>
                 <p className="text-sm text-muted-foreground font-medium">
                   Store: {shipment.customer_name || 'Unknown Store'}
@@ -298,7 +298,7 @@ function ShipmentCard({
               </div>
               <div>
                 <h3 className="font-semibold text-base sm:text-lg text-foreground">
-                  Order ID: #{shipment.pops_order_id || 'Unknown'}
+                  Shipment ID: #{shipment.pops_order_id || 'Unknown'}
                 </h3>
                 <p className="text-sm text-muted-foreground font-medium">
                   Store: {shipment.customer_name || 'Unknown Store'}
