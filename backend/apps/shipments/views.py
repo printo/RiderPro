@@ -550,7 +550,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             'shipmentId': shipment.id
         })
     
-    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser, JSONParser])
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
     def acknowledgement(self, request, pk=None):
         """
         Upload acknowledgment (signature and photo)
@@ -563,6 +563,12 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         logger.info(f"Acknowledgment request - FILES: {list(request.FILES.keys())}")
         logger.info(f"Acknowledgment request - POST: {list(request.POST.keys())}")
         logger.info(f"Acknowledgment request - data: {dict(request.data)}")
+        logger.info(f"Acknowledgment request - Parsers used: {getattr(request, 'parser', 'Unknown')}")
+        
+        # Log file details if present
+        if 'signature' in request.FILES:
+            signature_file = request.FILES['signature']
+            logger.info(f"Signature file - Name: {signature_file.name}, Size: {signature_file.size}, Type: {signature_file.content_type}")
         
         # Handle FormData vs JSON properly
         content_type = request.content_type or ''
