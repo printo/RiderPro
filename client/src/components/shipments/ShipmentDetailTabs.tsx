@@ -517,11 +517,13 @@ export default function ShipmentDetailTabs({
             icon={<span className="h-5 w-5 text-green-600">📷</span>}
           >
             <div className="border-2 border-green-200 dark:border-green-800 rounded-lg overflow-hidden bg-white dark:bg-gray-900 p-4">
-              <img
-                src={shipment.photo_url}
-                alt="Proof of delivery"
-                className="w-full max-w-2xl mx-auto border rounded shadow-sm"
-              />
+              <div className="flex justify-center">
+                <img
+                  src={shipment.photo_url}
+                  alt="Proof of delivery"
+                  className="max-w-full max-h-96 object-contain rounded shadow-sm bg-gray-50"
+                />
+              </div>
             </div>
           </CardSection>
         )}

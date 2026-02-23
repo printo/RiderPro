@@ -74,7 +74,7 @@ export default function PhotoCapture({
           <img
             src={photo_preview}
             alt="Proof of delivery"
-            className="w-full h-48 object-cover rounded"
+            className="w-full h-48 object-contain rounded bg-gray-50"
           />
           <div className="flex items-center justify-between mt-2">
             <div className="flex items-center gap-2 text-green-600 text-sm">
