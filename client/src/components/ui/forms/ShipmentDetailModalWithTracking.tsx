@@ -135,15 +135,30 @@ function ShipmentDetailModalWithTracking({
       form_data.append('photo', data.photo);
     }
     if (has_signature) {
-      form_data.append('signature_url', data.signature);
+      // Convert base64 signature to File object for proper FormData handling
+      if (data.signature.startsWith('data:image/')) {
+        const base64Data = data.signature.split(',')[1];
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'image/png' });
+        form_data.append('signature', blob, 'signature.png');
+      } else {
+        // Fallback to original approach for non-base64 data
+        form_data.append('signature_url', data.signature);
+      }
     }
 
     // First save the acknowledgment
     try {
       const response = await apiClient.upload(`/api/v1/shipments/${shipment.id}/acknowledgement`, form_data);
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || "Failed to save acknowledgment");
+        const errorText = await response.text();
+        console.log("Server validation error:", errorText);
+        throw new Error(errorText || "Failed to save acknowledgment");
       }
 
       // Record GPS coordinates if we have an active session

@@ -221,6 +221,45 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             # Return the original data if saving fails
             return base64_data
 
+    def _save_uploaded_file(self, uploaded_file, folder_name):
+        """
+        Save uploaded file to disk and return the URL.
+        
+        Args:
+            uploaded_file: Django UploadedFile object
+            folder_name: Name of the folder to save the file in (e.g., 'signatures', 'photos')
+        
+        Returns:
+            str: URL path to the saved file
+        """
+        try:
+            # Generate a unique filename while preserving the original extension
+            original_filename = uploaded_file.name
+            file_extension = os.path.splitext(original_filename)[1]
+            if not file_extension:
+                file_extension = '.png'  # Default extension
+            
+            unique_filename = f"{uuid.uuid4()}{file_extension}"
+            
+            # Create the media directory if it doesn't exist
+            media_root = getattr(settings, 'MEDIA_ROOT', '/tmp/media')
+            folder_path = os.path.join(media_root, folder_name)
+            os.makedirs(folder_path, exist_ok=True)
+            
+            # Save the file
+            file_path = os.path.join(folder_path, unique_filename)
+            with open(file_path, 'wb') as f:
+                for chunk in uploaded_file.chunks():
+                    f.write(chunk)
+            
+            # Return the URL path
+            return f"/media/{folder_name}/{unique_filename}"
+            
+        except Exception as e:
+            logger.error(f"Failed to save uploaded file: {e}")
+            # Return a fallback path if saving fails
+            return f"/media/{folder_name}/upload_error_{uploaded_file.name}"
+
     def _sync_shipment_to_pops(self, shipment, request):
         """
         Sync shipment updates to POPS for rider/status/route/remarks/ack artifacts.
@@ -561,14 +600,12 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         if 'signature' in request.FILES:
             # Save signature file
             signature_file = request.FILES['signature']
-            # TODO: Implement file upload handling
-            signature_url = f"/media/signatures/{signature_file.name}"
+            signature_url = self._save_uploaded_file(signature_file, 'signatures')
         
         if 'photo' in request.FILES:
             # Save photo file
             photo_file = request.FILES['photo']
-            # TODO: Implement file upload handling
-            photo_url = f"/media/photos/{photo_file.name}"
+            photo_url = self._save_uploaded_file(photo_file, 'photos')
         
         # Validate against acknowledgment settings
         region = shipment.region
