@@ -597,15 +597,22 @@ class AuthService {
     return this.state.access_token;
   }
 
-  public getAuthHeaders(): Record<string, string> {
+  public getAuthHeaders(formData?: FormData): Record<string, string> {
     const accessToken = this.state.access_token;
     if (!accessToken) {
       return {};
     }
-    return {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
+    
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${accessToken}`
     };
+    
+    // Only set Content-Type for non-FormData requests
+    if (!formData) {
+      headers['Content-Type'] = 'application/json';
+    }
+    
+    return headers;
   }
 }
 

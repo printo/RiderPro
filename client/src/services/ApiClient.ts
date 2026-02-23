@@ -349,7 +349,7 @@ export class ApiClient {
 
     // Add authentication headers if not skipped
     if (!skip_auth) {
-      const authHeaders = AuthService.getInstance().getAuthHeaders();
+      const authHeaders = AuthService.getInstance().getAuthHeaders(data instanceof FormData ? data : undefined);
       Object.assign(headers, authHeaders);
     }
 
