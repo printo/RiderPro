@@ -550,7 +550,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             'shipmentId': shipment.id
         })
     
-    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser, JSONParser])
     def acknowledgement(self, request, pk=None):
         """
         Upload acknowledgment (signature and photo)

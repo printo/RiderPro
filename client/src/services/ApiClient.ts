@@ -328,8 +328,9 @@ export class ApiClient {
     let body: BodyInit | null | undefined;
     if (data && ['POST', 'PUT', 'PATCH'].includes(method)) {
       if (data instanceof FormData) {
-        // For FormData, don't set Content-Type - browser will set it with boundary
-        console.log('[ApiClient] FormData detected, NOT setting Content-Type header');
+        // 🚨 FIX: Explicitly delete Content-Type header to prevent 415/JSON parse errors
+        delete headers['Content-Type'];
+        console.log('[ApiClient] FormData detected, EXPLICITLY REMOVED Content-Type header');
         body = data;
       } else {
         // For regular data, use JSON
