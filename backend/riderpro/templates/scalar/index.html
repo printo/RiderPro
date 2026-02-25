@@ -12,18 +12,18 @@
 </head>
 <body>
   {# Schema is embedded inline - no separate HTTP request needed #}
-  <script id="api-reference" type="application/json">{{ schema_json }}</script>
+  <script id="api-reference" type="application/json">{{ schema_json|safe }}</script>
 
   <script>
-      // Optional Scalar configuration
-      document.getElementById('api-reference').dataset.configuration = JSON.stringify({
-        theme: 'default',
-        layout: 'modern',
-        defaultHttpClient: {
-          targetKey: 'python',
-          clientKey: 'requests'
-        }
-      });
+    // Optional Scalar configuration
+    document.getElementById('api-reference').dataset.configuration = JSON.stringify({
+      theme: 'default',
+      layout: 'modern',
+      defaultHttpClient: {
+        targetKey: 'python',
+        clientKey: 'requests'
+      }
+    });
   </script>
 
   <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
