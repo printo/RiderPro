@@ -7,6 +7,7 @@ import json
 from django.views import View
 from django.shortcuts import render
 from rest_framework.permissions import AllowAny
+from rest_framework.request import Request
 from drf_spectacular.generators import SchemaGenerator
 
 
@@ -18,9 +19,12 @@ class ScalarDocsView(View):
     """
 
     def get(self, request, *args, **kwargs):
-        # Generate schema on-the-fly
+        # Wrap Django request with DRF Request to provide proper auth context
+        drf_request = Request(request)
+        
+        # Generate schema with proper DRF request context
         generator = SchemaGenerator(title='RiderPro API')
-        schema = generator.get_schema(request=request, public=True)
+        schema = generator.get_schema(request=drf_request, public=True)
 
         # Serialize to JSON for embedding in HTML
         schema_json = json.dumps(schema)
