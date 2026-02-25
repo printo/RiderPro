@@ -8,6 +8,8 @@ import uuid
 import os
 from collections import defaultdict
 from rest_framework import viewsets, status, filters
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -429,6 +431,48 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         
         return Response(ShipmentSerializer(shipment).data)
     
+    @extend_schema(
+        tags=['Shipments'],
+        summary='Add remarks & update status',
+        description='Submit remarks and update shipment status. Requires signature/photo for Delivered or Picked Up.',
+        request={
+            'application/x-www-form-urlencoded': {
+                'type': 'object',
+                'properties': {
+                    'status':  {'type': 'string', 'enum': ['Delivered', 'Picked Up', 'Skipped', 'Returned'], 'example': 'Delivered'},
+                    'remarks': {'type': 'string', 'example': 'Delivered to security'},
+                },
+                'required': ['status', 'remarks'],
+            },
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'status':  {'type': 'string'},
+                    'remarks': {'type': 'string'},
+                },
+            },
+        },
+        examples=[
+            OpenApiExample(
+                'Mark delivered (form)',
+                value={'status': 'Delivered', 'remarks': 'Handed to security guard'},
+                request_only=True,
+                media_type='application/x-www-form-urlencoded',
+            ),
+            OpenApiExample(
+                'Mark skipped (form)',
+                value={'status': 'Skipped', 'remarks': 'Customer not available, tried twice'},
+                request_only=True,
+                media_type='application/x-www-form-urlencoded',
+            ),
+            OpenApiExample(
+                'Success',
+                value={'success': True, 'message': 'Remarks saved successfully', 'shipment': {'id': '123', 'status': 'Delivered'}},
+                response_only=True,
+                status_codes=['200'],
+            ),
+        ],
+    )
     @action(detail=True, methods=['post'])
     def remarks(self, request, pk=None):
         """Add remarks to shipment"""
@@ -489,6 +533,39 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             'shipment': ShipmentSerializer(shipment).data
         })
     
+    @extend_schema(
+        tags=['Shipments'],
+        summary='Update tracking data',
+        description='Update GPS coordinates and tracking info for a shipment.',
+        request={
+            'application/x-www-form-urlencoded': {
+                'type': 'object',
+                'properties': {
+                    'start_latitude':  {'type': 'number', 'example': 12.9716},
+                    'start_longitude': {'type': 'number', 'example': 77.5946},
+                    'stop_latitude':   {'type': 'number', 'example': 12.9800},
+                    'stop_longitude':  {'type': 'number', 'example': 77.6000},
+                    'km_travelled':    {'type': 'number', 'example': 5.2},
+                    'status':          {'type': 'string', 'example': 'In Transit'},
+                    'actualDeliveryTime': {'type': 'string', 'example': '2024-01-15T14:30:00Z'},
+                },
+            },
+        },
+        examples=[
+            OpenApiExample(
+                'GPS update (form)',
+                value={'start_latitude': 12.9716, 'start_longitude': 77.5946, 'km_travelled': 5.2},
+                request_only=True,
+                media_type='application/x-www-form-urlencoded',
+            ),
+            OpenApiExample(
+                'Success',
+                value={'success': True, 'message': 'Tracking data updated successfully'},
+                response_only=True,
+                status_codes=['200'],
+            ),
+        ],
+    )
     @action(detail=True, methods=['patch'])
     def tracking(self, request, pk=None):
         """Update shipment tracking data - matches /api/shipments/:id/tracking"""
@@ -551,6 +628,57 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             'shipmentId': shipment.id
         })
     
+    @extend_schema(
+        tags=['Shipments'],
+        summary='Upload acknowledgement (signature + photo)',
+        description=(
+            'Upload delivery acknowledgement. Accepts multipart/form-data (file uploads), '
+            'form-encoded (base64 URLs), or JSON.\n\n'
+            '**FormData (recommended):** `signature` file + `photo` file\n'
+            '**JSON:** `signature_url` as base64 data URI (`data:image/png;base64,...`)'
+        ),
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'signature':     {'type': 'string', 'format': 'binary', 'description': 'Signature image file (PNG/JPEG)'},
+                    'photo':         {'type': 'string', 'format': 'binary', 'description': 'Shipment photo file (PNG/JPEG)'},
+                    'signature_url': {'type': 'string', 'description': 'Base64 data URI fallback'},
+                    'photo_url':     {'type': 'string', 'description': 'Base64 data URI fallback'},
+                },
+            },
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'signature_url':  {'type': 'string', 'example': 'data:image/png;base64,<base64-data>'},
+                    'photo_url':      {'type': 'string', 'example': 'data:image/png;base64,<base64-data>'},
+                    'signed_pdf_url': {'type': 'string'},
+                },
+            },
+        },
+        examples=[
+            OpenApiExample(
+                'Multipart file upload',
+                summary='Upload signature and photo as files',
+                description='Use multipart/form-data with `signature` and `photo` file fields.',
+                value={'signature': '(binary file)', 'photo': '(binary file)'},
+                request_only=True,
+                media_type='multipart/form-data',
+            ),
+            OpenApiExample(
+                'Base64 JSON',
+                value={'signature_url': 'data:image/png;base64,iVBORw0K...', 'photo_url': 'data:image/jpeg;base64,/9j/4AAQ...'},
+                request_only=True,
+                media_type='application/json',
+            ),
+            OpenApiExample(
+                'Success',
+                value={'success': True, 'message': 'Acknowledgment saved successfully', 'acknowledgment': {'id': '1', 'signature_url': '/media/signatures/uuid.png'}},
+                response_only=True,
+                status_codes=['200'],
+            ),
+        ],
+    )
     @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser, JSONParser])
     def acknowledgement(self, request, pk=None):
         """
@@ -670,6 +798,48 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             'acknowledgment': AcknowledgmentSerializer(acknowledgment).data
         })
     
+    @extend_schema(
+        tags=['Shipments'],
+        summary='Change assigned rider (manager only)',
+        description='Reassign a shipment to a different rider. Only works when shipment is in Initiated or Assigned status.',
+        request={
+            'application/x-www-form-urlencoded': {
+                'type': 'object',
+                'properties': {
+                    'employee_id': {'type': 'string', 'example': 'R001'},
+                    'reason':      {'type': 'string', 'example': 'Original rider unavailable'},
+                },
+                'required': ['employee_id'],
+            },
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'employee_id': {'type': 'string'},
+                    'reason':      {'type': 'string'},
+                },
+            },
+        },
+        examples=[
+            OpenApiExample(
+                'Change rider (form)',
+                value={'employee_id': 'R002', 'reason': 'Original rider fell sick'},
+                request_only=True,
+                media_type='application/x-www-form-urlencoded',
+            ),
+            OpenApiExample(
+                'Success',
+                value={'success': True, 'message': 'Rider changed from R001 to R002', 'shipment': {'id': '123', 'employee_id': 'R002'}},
+                response_only=True,
+                status_codes=['200'],
+            ),
+            OpenApiExample(
+                'Already in progress',
+                value={'success': False, 'message': 'Cannot change rider. Shipment is already Delivered.'},
+                response_only=True,
+                status_codes=['400'],
+            ),
+        ],
+    )
     @action(detail=True, methods=['post'], url_path='change-rider')
     def change_rider(self, request, pk=None):
         """
@@ -760,6 +930,19 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             'shipment': ShipmentSerializer(shipment).data
         })
     
+    @extend_schema(
+        tags=['Shipments'],
+        summary='List available riders',
+        description='Returns all active and approved riders available for shipment assignment.',
+        examples=[
+            OpenApiExample(
+                'Success',
+                value={'success': True, 'riders': [{'id': 'R001', 'name': 'Ravi Kumar', 'email': 'ravi@example.com'}], 'count': 1},
+                response_only=True,
+                status_codes=['200'],
+            ),
+        ],
+    )
     @action(detail=False, methods=['get'], url_path='available-riders')
     def available_riders(self, request):
         """

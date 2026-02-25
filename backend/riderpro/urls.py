@@ -6,6 +6,10 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
+from django.views.generic import TemplateView
+from rest_framework.permissions import AllowAny
+from drf_spectacular.views import SpectacularAPIView
+from riderpro.docs_views import ScalarDocsView
 
 @require_http_methods(["GET", "HEAD"])
 def health_check(request):
@@ -35,4 +39,10 @@ urlpatterns = [
     
     # Admin endpoints
     path('api/v1/admin/', include('apps.shipments.urls')),  # Access tokens
+    
+    # API Documentation (public - no auth required)
+    # /api/docs/ → Scalar UI with schema embedded inline (single URL)
+    # /api/schema/ → Raw OpenAPI JSON/YAML (for programmatic/tooling use)
+    path('api/docs/', ScalarDocsView.as_view(), name='scalar'),
+    path('api/schema/', SpectacularAPIView.as_view(permission_classes=[AllowAny]), name='schema'),
 ]

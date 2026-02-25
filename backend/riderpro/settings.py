@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'apps.authentication',
     'apps.shipments',
     'apps.vehicles',
+    'drf_spectacular',
 ]
 
 MIDDLEWARE = [
@@ -117,6 +118,17 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.FormParser',
         'rest_framework.parsers.JSONParser',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# Spectacular Settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'RiderPro API',
+    'DESCRIPTION': 'Modern logistics and shipment management API',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_PATCH': True,
+    'COMPONENT_SPLIT_REQUEST': True,
 }
 
 # JWT Settings

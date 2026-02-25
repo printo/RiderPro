@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>RiderPro API Reference</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  {# Schema is embedded inline - no separate HTTP request needed #}
+  <script id="api-reference" type="application/json">{{ schema_json }}</script>
+
+  <script>
+      // Optional Scalar configuration
+      document.getElementById('api-reference').dataset.configuration = JSON.stringify({
+        theme: 'default',
+        layout: 'modern',
+        defaultHttpClient: {
+          targetKey: 'python',
+          clientKey: 'requests'
+        }
+      });
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+</body>
+</html>

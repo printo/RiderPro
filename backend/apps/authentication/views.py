@@ -9,6 +9,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
 from .serializers import (
     LoginSerializer, LoginResponseSerializer, UserSerializer, 
     RiderAccountSerializer, HomebaseSerializer, RiderHomebaseAssignmentSerializer
@@ -20,6 +22,61 @@ import bcrypt
 logger = logging.getLogger(__name__)
 
 
+
+@extend_schema(
+    tags=['Authentication'],
+    summary='Login (Staff / POPS user)',
+    description='Authenticate with username + password. Falls back to POPS API if not found locally.',
+    request={
+        'application/x-www-form-urlencoded': {
+            'type': 'object',
+            'properties': {
+                'username': {'type': 'string', 'example': 'admin@printo.in'},
+                'password': {'type': 'string', 'example': 'secret123'},
+            },
+            'required': ['username', 'password'],
+        },
+        'application/json': LoginSerializer,
+    },
+    examples=[
+        OpenApiExample(
+            'Form login',
+            summary='Standard form-data login',
+            value={'username': 'admin@printo.in', 'password': 'secret123'},
+            request_only=True,
+            media_type='application/x-www-form-urlencoded',
+        ),
+        OpenApiExample(
+            'JSON login',
+            summary='JSON body login',
+            value={'username': 'admin@printo.in', 'password': 'secret123'},
+            request_only=True,
+            media_type='application/json',
+        ),
+        OpenApiExample(
+            'Success',
+            value={
+                'success': True,
+                'message': 'Login successful',
+                'access': '<jwt-access-token>',
+                'refresh': '<jwt-refresh-token>',
+                'full_name': 'John Doe',
+                'is_staff': True,
+                'is_super_user': False,
+                'is_ops_team': False,
+                'username': 'admin@printo.in',
+            },
+            response_only=True,
+            status_codes=['200'],
+        ),
+        OpenApiExample(
+            'Invalid credentials',
+            value={'success': False, 'message': 'Login failed: Invalid credentials'},
+            response_only=True,
+            status_codes=['401'],
+        ),
+    ],
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login(request):
@@ -119,6 +176,59 @@ def login(request):
     return Response(response_data, status=status.HTTP_200_OK)
 
 
+
+@extend_schema(
+    tags=['Authentication'],
+    summary='Register rider account',
+    description='Create a new rider account. Requires manager approval before login.',
+    request={
+        'application/x-www-form-urlencoded': {
+            'type': 'object',
+            'properties': {
+                'riderId':      {'type': 'string', 'example': 'R001'},
+                'password':     {'type': 'string', 'example': 'rider@123'},
+                'fullName':     {'type': 'string', 'example': 'Ravi Kumar'},
+                'email':        {'type': 'string', 'example': 'ravi@example.com'},
+                'riderType':    {'type': 'string', 'enum': ['bike', 'auto', '3pl', 'hyperlocal'], 'example': 'bike'},
+                'dispatchOption': {'type': 'string', 'example': 'printo-bike'},
+                'homebaseId':   {'type': 'string', 'example': 'HB001'},
+            },
+            'required': ['riderId', 'password', 'fullName'],
+        },
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'riderId':      {'type': 'string'},
+                'password':     {'type': 'string'},
+                'fullName':     {'type': 'string'},
+                'email':        {'type': 'string'},
+                'riderType':    {'type': 'string'},
+                'dispatchOption': {'type': 'string'},
+                'homebaseId':   {'type': 'string'},
+            },
+        },
+    },
+    examples=[
+        OpenApiExample(
+            'Auto rider registration (form)',
+            value={'riderId': 'R002', 'password': 'pass123', 'fullName': 'Suresh V', 'riderType': 'auto', 'homebaseId': 'HB001'},
+            request_only=True,
+            media_type='application/x-www-form-urlencoded',
+        ),
+        OpenApiExample(
+            '3PL rider registration (form)',
+            value={'riderId': 'R003', 'password': 'pass123', 'fullName': 'Mohan L', 'riderType': '3pl'},
+            request_only=True,
+            media_type='application/x-www-form-urlencoded',
+        ),
+        OpenApiExample(
+            'Success',
+            value={'success': True, 'message': 'Registration successful. Please wait for account approval.', 'riderId': 'R002'},
+            response_only=True,
+            status_codes=['201'],
+        ),
+    ],
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
@@ -223,6 +333,49 @@ def register(request):
     }, status=status.HTTP_201_CREATED)
 
 
+
+@extend_schema(
+    tags=['Authentication'],
+    summary='Local rider login',
+    description='Login for riders who are in the local RiderAccount table (not POPS). Uses rider ID + password.',
+    request={
+        'application/x-www-form-urlencoded': {
+            'type': 'object',
+            'properties': {
+                'riderId':   {'type': 'string', 'example': 'R001'},
+                'password':  {'type': 'string', 'example': 'rider@123'},
+            },
+            'required': ['riderId', 'password'],
+        },
+        'application/json': {
+            'type': 'object',
+            'properties': {
+                'riderId':  {'type': 'string'},
+                'password': {'type': 'string'},
+            },
+        },
+    },
+    examples=[
+        OpenApiExample(
+            'Form login',
+            value={'riderId': 'R001', 'password': 'rider@123'},
+            request_only=True,
+            media_type='application/x-www-form-urlencoded',
+        ),
+        OpenApiExample(
+            'Success',
+            value={'success': True, 'accessToken': '<jwt>', 'refreshToken': '<jwt>', 'fullName': 'Ravi Kumar', 'isApproved': True},
+            response_only=True,
+            status_codes=['200'],
+        ),
+        OpenApiExample(
+            'Pending approval',
+            value={'success': False, 'message': 'Account pending approval. Please wait for manager approval.', 'isApproved': False},
+            response_only=True,
+            status_codes=['403'],
+        ),
+    ],
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def local_login(request):
@@ -324,6 +477,37 @@ def local_login(request):
     })
 
 
+
+@extend_schema(
+    tags=['Authentication'],
+    summary='Refresh access token',
+    description='Exchange a refresh token for a new access token.',
+    request={
+        'application/x-www-form-urlencoded': {
+            'type': 'object',
+            'properties': {'refresh': {'type': 'string', 'example': '<jwt-refresh-token>'}},
+            'required': ['refresh'],
+        },
+        'application/json': {
+            'type': 'object',
+            'properties': {'refresh': {'type': 'string'}},
+        },
+    },
+    examples=[
+        OpenApiExample(
+            'Form refresh',
+            value={'refresh': '<jwt-refresh-token>'},
+            request_only=True,
+            media_type='application/x-www-form-urlencoded',
+        ),
+        OpenApiExample(
+            'Success',
+            value={'access': '<new-jwt-access-token>'},
+            response_only=True,
+            status_codes=['200'],
+        ),
+    ],
+)
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def refresh_token(request):
@@ -389,6 +573,20 @@ def refresh_token(request):
         }, status=status.HTTP_401_UNAUTHORIZED)
 
 
+
+@extend_schema(
+    tags=['Authentication'],
+    summary='Logout (blacklist token)',
+    description='Blacklists the current access token. Requires Bearer token in Authorization header.',
+    examples=[
+        OpenApiExample(
+            'Success',
+            value={'success': True, 'message': 'Successfully logged out'},
+            response_only=True,
+            status_codes=['200'],
+        ),
+    ],
+)
 @api_view(['DELETE', 'POST'])
 @permission_classes([IsAuthenticated])
 def logout(request):
@@ -432,6 +630,33 @@ def logout(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+
+@extend_schema(
+    tags=['Authentication'],
+    summary='Fetch & sync rider from POPS',
+    description='Fetch a rider from POPS by rider_id or name and sync to local DB. Requires manager/admin token.',
+    parameters=[
+        OpenApiParameter('rider_id', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Rider ID e.g. R001', required=False),
+        OpenApiParameter('name', OpenApiTypes.STR, OpenApiParameter.QUERY, description='Rider full name search', required=False),
+    ],
+    request={
+        'application/x-www-form-urlencoded': {
+            'type': 'object',
+            'properties': {
+                'rider_id': {'type': 'string', 'example': 'R001'},
+                'name':     {'type': 'string', 'example': 'Ravi Kumar'},
+            },
+        },
+    },
+    examples=[
+        OpenApiExample(
+            'Success',
+            value={'success': True, 'message': 'Rider data fetched and synced successfully', 'created': True},
+            response_only=True,
+            status_codes=['200'],
+        ),
+    ],
+)
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def fetch_rider(request):
@@ -571,6 +796,20 @@ def fetch_rider(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+
+@extend_schema(
+    tags=['Authentication'],
+    summary='Pending rider approvals',
+    description='List all riders waiting for manager/admin approval. Requires manager/admin token.',
+    examples=[
+        OpenApiExample(
+            'Success',
+            value={'success': True, 'users': [{'id': '1', 'rider_id': 'R001', 'full_name': 'Ravi Kumar', 'is_approved': False}]},
+            response_only=True,
+            status_codes=['200'],
+        ),
+    ],
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def pending_approvals(request):
@@ -598,6 +837,20 @@ def pending_approvals(request):
     }, status=status.HTTP_200_OK)
 
 
+
+@extend_schema(
+    tags=['Authentication'],
+    summary='List all users',
+    description='Returns all staff users and rider accounts. Requires manager/admin token.',
+    examples=[
+        OpenApiExample(
+            'Success',
+            value={'success': True, 'users': [{'id': '1', 'rider_id': 'admin@printo.in', 'full_name': 'Admin', 'role': 'admin', 'is_approved': True}]},
+            response_only=True,
+            status_codes=['200'],
+        ),
+    ],
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def all_users(request):
@@ -668,6 +921,20 @@ def all_users(request):
     }, status=status.HTTP_200_OK)
 
 
+
+@extend_schema(
+    tags=['Authentication'],
+    summary='Approve rider',
+    description='Approve a pending rider account by user ID. Rider becomes active immediately.',
+    examples=[
+        OpenApiExample(
+            'Success',
+            value={'success': True, 'message': 'Rider approved successfully'},
+            response_only=True,
+            status_codes=['200'],
+        ),
+    ],
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def approve_user(request, user_id):
@@ -725,6 +992,20 @@ def approve_user(request, user_id):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+
+@extend_schema(
+    tags=['Authentication'],
+    summary='Reject rider',
+    description='Reject and deactivate a pending rider account.',
+    examples=[
+        OpenApiExample(
+            'Success',
+            value={'success': True, 'message': 'Rider rejected successfully'},
+            response_only=True,
+            status_codes=['200'],
+        ),
+    ],
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def reject_user(request, user_id):
