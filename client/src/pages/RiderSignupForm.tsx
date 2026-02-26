@@ -38,23 +38,33 @@ const RiderSignupForm = () => {
   const loadVehicleTypes = async () => {
     setLoadingVehicleTypes(true);
     try {
+      console.log('Loading vehicle types from /api/v1/vehicle-types/');
       const response = await apiRequest("GET", '/api/v1/vehicle-types/');
+      console.log('Vehicle types response status:', response.status);
+      
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const data = await response.json();
+      console.log('Vehicle types data:', data);
+      
       // Handle both array and paginated response formats
       if (Array.isArray(data)) {
         setVehicleTypes(data);
+        console.log('Loaded vehicle types (array):', data.length);
       } else if (data.results && Array.isArray(data.results)) {
         setVehicleTypes(data.results);
+        console.log('Loaded vehicle types (paginated):', data.results.length);
       } else if (data.data && Array.isArray(data.data)) {
         setVehicleTypes(data.data);
+        console.log('Loaded vehicle types (data):', data.data.length);
       } else {
+        console.warn('Unexpected vehicle types response format:', data);
         setVehicleTypes([]);
       }
     } catch (error) {
       console.error('Failed to load vehicle types:', error);
+      setError('Failed to load vehicle types. Please refresh the page or contact support.');
       setVehicleTypes([]);
     } finally {
       setLoadingVehicleTypes(false);
@@ -74,6 +84,8 @@ const RiderSignupForm = () => {
     e.preventDefault();
     setError('');
 
+    console.log('Form submission started with data:', formData);
+
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -89,8 +101,26 @@ const RiderSignupForm = () => {
       return;
     }
 
+    if (!formData.riderId.trim()) {
+      setError('Please enter a Rider ID');
+      return;
+    }
+
+    if (!formData.fullName.trim()) {
+      setError('Please enter your Full Name');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      console.log('Calling registerUser with:', {
+        riderId: formData.riderId,
+        password: '***',
+        fullName: formData.fullName,
+        vehicleTypeId: formData.vehicleTypeId,
+        homebaseId: formData.homebaseId
+      });
+
       const result = await registerUser(
         formData.riderId,
         formData.password,
@@ -101,12 +131,15 @@ const RiderSignupForm = () => {
         formData.homebaseId
       );
 
+      console.log('Registration result:', result);
+
       if (result.success) {
         setLocation('/approval-pending');
       } else {
-        setError(result.message);
+        setError(result.message || 'Registration failed');
       }
-    } catch (_err) {
+    } catch (error) {
+      console.error('Registration error:', error);
       setError('Failed to create account. Please try again.');
     } finally {
       setIsSubmitting(false);
