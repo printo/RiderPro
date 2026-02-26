@@ -337,7 +337,7 @@ class AuthService {
   }
 
   // Register new user (local database)
-  public async registerUser(riderId: string, password: string, fullName: string, email?: string, riderType?: string, dispatchOption?: string, homebaseId?: string): Promise<{ success: boolean; message: string }> {
+  public async registerUser(riderId: string, password: string, fullName: string, email?: string, vehicleTypeId?: string, dispatchOption?: string, homebaseId?: string): Promise<{ success: boolean; message: string }> {
     try {
       const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
@@ -349,7 +349,7 @@ class AuthService {
           password,
           fullName,
           email,
-          riderType,
+          vehicleTypeId,
           dispatchOption,
           homebaseId,
         }),

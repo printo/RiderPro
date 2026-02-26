@@ -205,7 +205,16 @@ class RiderAccount(models.Model):
         related_name='assigned_riders'
     )
     
-    # Rider type (4 types: bike, auto, 3pl, hyperlocal)
+    # Vehicle type (references VehicleType from vehicles app)
+    vehicle_type = models.ForeignKey(
+        'vehicles.VehicleType',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='riders'
+    )
+    
+    # Legacy rider_type field for backward compatibility (deprecated)
     rider_type = models.CharField(
         max_length=50,
         choices=[
@@ -214,7 +223,10 @@ class RiderAccount(models.Model):
             ('3pl', '3PL'),
             ('hyperlocal', 'Hyperlocal'),
         ],
-        default='bike'
+        default='bike',
+        null=True,
+        blank=True,
+        help_text='Legacy field - use vehicle_type instead'
     )
     
     # Dispatch option (type of delivery - matches POPS dispatch_option)

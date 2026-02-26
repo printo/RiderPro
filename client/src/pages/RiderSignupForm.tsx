@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HomebaseSelector } from '@/components/ui/HomebaseSelector';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Eye, EyeOff } from 'lucide-react';
 import { ButtonLoader } from '@/components/ui/Loader';
+import { apiRequest } from '@/lib/queryClient';
+import { VehicleType } from '@shared/types';
 
 const RiderSignupForm = () => {
   const [formData, setFormData] = useState({
@@ -16,20 +18,56 @@ const RiderSignupForm = () => {
     fullName: '',
     password: '',
     confirmPassword: '',
-    riderType: 'bike' as 'bike' | 'auto' | '3pl' | 'hyperlocal',
-    dispatchOption: 'printo-bike' as 'printo-bike' | 'milkround' | 'goods-auto' | '3PL',
+    vehicleTypeId: '',
     homebaseId: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCaptchaValid, setIsCaptchaValid] = useState(false);
+  const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([]);
+  const [loadingVehicleTypes, setLoadingVehicleTypes] = useState(false);
   const [, setLocation] = useLocation();
   const { registerUser } = useAuth();
+
+  // Load vehicle types on component mount
+  useEffect(() => {
+    loadVehicleTypes();
+  }, []);
+
+  const loadVehicleTypes = async () => {
+    setLoadingVehicleTypes(true);
+    try {
+      const response = await apiRequest("GET", '/api/v1/vehicle-types/');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      // Handle both array and paginated response formats
+      if (Array.isArray(data)) {
+        setVehicleTypes(data);
+      } else if (data.results && Array.isArray(data.results)) {
+        setVehicleTypes(data.results);
+      } else if (data.data && Array.isArray(data.data)) {
+        setVehicleTypes(data.data);
+      } else {
+        setVehicleTypes([]);
+      }
+    } catch (error) {
+      console.error('Failed to load vehicle types:', error);
+      setVehicleTypes([]);
+    } finally {
+      setLoadingVehicleTypes(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleVehicleTypeChange = (value: string) => {
+    setFormData(prev => ({ ...prev, vehicleTypeId: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,6 +84,11 @@ const RiderSignupForm = () => {
       return;
     }
 
+    if (!formData.vehicleTypeId) {
+      setError('Please select a vehicle type');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const result = await registerUser(
@@ -53,8 +96,8 @@ const RiderSignupForm = () => {
         formData.password,
         formData.fullName,
         undefined, // email
-        formData.riderType,
-        formData.dispatchOption,
+        formData.vehicleTypeId,
+        '', // dispatch option (blank as requested)
         formData.homebaseId
       );
 
@@ -111,42 +154,31 @@ const RiderSignupForm = () => {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="riderType" className="text-sm font-medium text-foreground">
-                Rider Type
+              <label htmlFor="vehicleTypeId" className="text-sm font-medium text-foreground">
+                Vehicle Type
               </label>
               <select
-                id="riderType"
-                name="riderType"
-                value={formData.riderType}
-                onChange={(e) => setFormData(prev => ({ ...prev, riderType: e.target.value as typeof formData.riderType }))}
+                id="vehicleTypeId"
+                name="vehicleTypeId"
+                value={formData.vehicleTypeId}
+                onChange={(e) => handleVehicleTypeChange(e.target.value)}
                 className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
-                disabled={isSubmitting}
+                disabled={isSubmitting || loadingVehicleTypes}
                 required
               >
-                <option value="bike">Bike</option>
-                <option value="auto">Auto</option>
-                <option value="3pl">3PL</option>
-                <option value="hyperlocal">Hyperlocal</option>
+                <option value="">Select Vehicle Type</option>
+                {vehicleTypes.map((vehicle) => (
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.icon} {vehicle.name} ({vehicle.fuel_efficiency} km/l)
+                  </option>
+                ))}
               </select>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="dispatchOption" className="text-sm font-medium text-foreground">
-                Dispatch Option
-              </label>
-              <select
-                id="dispatchOption"
-                name="dispatchOption"
-                value={formData.dispatchOption}
-                onChange={(e) => setFormData(prev => ({ ...prev, dispatchOption: e.target.value as typeof formData.dispatchOption }))}
-                className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
-                disabled={isSubmitting}
-                required
-              >
-                <option value="printo-bike">Printo Bike</option>
-                <option value="milkround">Milkround Auto</option>
-                <option value="goods-auto">Goods Auto</option>
-              </select>
+              {loadingVehicleTypes && (
+                <p className="text-xs text-muted-foreground">Loading vehicle types...</p>
+              )}
+              {!loadingVehicleTypes && vehicleTypes.length === 0 && (
+                <p className="text-xs text-muted-foreground">No vehicle types available. Please contact admin.</p>
+              )}
             </div>
 
             <div className="space-y-2">

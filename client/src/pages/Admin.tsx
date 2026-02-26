@@ -807,10 +807,10 @@ function AdminPage() {
                   <p>No users found - Try refreshing the list or check if you have permission to view users.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {filteredUsers.map((user) => (
                     <div key={user.id} className="border rounded-lg p-4 bg-muted">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="flex flex-col gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
@@ -847,7 +847,7 @@ function AdminPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex gap-2 sm:flex-shrink-0">
+                        <div className="flex gap-2">
                           <Button
                             onClick={() => setEditingUser({
                               id: user.id,
@@ -858,7 +858,7 @@ function AdminPage() {
                             })}
                             size="sm"
                             variant="outline"
-                            className="w-full sm:w-auto"
+                            className="flex-1"
                           >
                             <Edit className="h-4 w-4 mr-1" />
                             Edit
@@ -868,7 +868,7 @@ function AdminPage() {
                             size="sm"
                             variant="outline"
                             disabled={isResettingPassword}
-                            className="w-full sm:w-auto"
+                            className="flex-1"
                           >
                             <Key className="h-4 w-4 mr-1" />
                             {isResettingPassword ? 'Resetting...' : 'Reset Password'}

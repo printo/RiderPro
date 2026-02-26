@@ -241,8 +241,8 @@ def register(request):
     password = request.data.get('password')
     full_name = request.data.get('fullName')
     email = request.data.get('email')
-    rider_type = request.data.get('riderType', 'bike')
-    dispatch_option = request.data.get('dispatchOption', 'printo-bike')
+    vehicle_type_id = request.data.get('vehicleTypeId')  # New field
+    dispatch_option = request.data.get('dispatchOption', '')  # Default to empty string
     homebase_id_code = request.data.get('homebaseId') # The string ID like 'HB001'
     
     if not rider_id or not password or not full_name:
@@ -250,6 +250,24 @@ def register(request):
             'success': False,
             'message': 'Rider ID, password, and full name are required'
         }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Validate vehicle type if provided
+    vehicle_type = None
+    if vehicle_type_id:
+        try:
+            from apps.vehicles.models import VehicleType
+            vehicle_type = VehicleType.objects.get(id=vehicle_type_id)
+        except VehicleType.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'Invalid vehicle type selected'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Error validating vehicle type: {e}")
+            return Response({
+                'success': False,
+                'message': 'Error validating vehicle type'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     # Check if rider already exists
     rider_account = RiderAccount.objects.filter(rider_id=rider_id).first()
@@ -273,16 +291,7 @@ def register(request):
                     # Use PIA data if available
                     if not full_name and pops_rider.get('name'):
                         full_name = pops_rider.get('name')
-                    # Map POPS tags to rider_type
-                    tags = pops_rider.get('tags', '').lower()
-                    if 'milkround' in tags or 'goods-auto' in tags or 'auto' in tags:
-                        rider_type = 'auto'
-                    elif 'printo-bike' in tags or 'bike' in tags:
-                        rider_type = 'bike'
-                    elif 'hyperlocal' in tags:
-                        rider_type = 'hyperlocal'
-                    elif '3pl' in tags:
-                        rider_type = '3pl'
+                    # Note: Vehicle type mapping removed - we now use vehicle_type field
             except Exception as e:
                 # Don't fail registration if PIA fetch fails - manager can fetch during approval
                 logger.debug(f"Could not fetch rider {rider_id} from PIA during registration: {e}")
@@ -306,7 +315,7 @@ def register(request):
         full_name=full_name,
         password_hash=password_hash,
         email=email,
-        rider_type=rider_type,
+        vehicle_type=vehicle_type,  # New field
         dispatch_option=dispatch_option,
         primary_homebase=primary_homebase,
         pops_rider_id=pops_rider_id,
