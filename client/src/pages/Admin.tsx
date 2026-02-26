@@ -164,6 +164,7 @@ function AdminPage() {
     userName: ''
   });
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([]);
   const [showVehicleModal, setShowVehicleModal] = useState(false);
@@ -430,35 +431,92 @@ function AdminPage() {
     }
   };
 
-  const resetPassword = async (userId: string) => {
+  const resetPassword = (userId: string, userName: string) => {
+    setResetPasswordModal({
+      isOpen: true,
+      userId,
+      userName
+    });
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPassword.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a new password",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 8 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Password strength validation
+    const hasUpperCase = /[A-Z]/.test(newPassword);
+    const hasLowerCase = /[a-z]/.test(newPassword);
+    const hasNumbers = /\d/.test(newPassword);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
+      toast({
+        title: "Error",
+        description: "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsResettingPassword(true);
     try {
-      const response = await fetch(`/api/v1/auth/reset-password/${userId}`, {
+      const response = await fetch(`/api/v1/auth/reset-password/${resetPasswordModal.userId}`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          newPassword: newPassword
+        }),
       });
+
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok) {
         toast({
           title: "Success",
           description: "Password reset successfully",
         });
+        setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
+        setNewPassword('');
+        setConfirmPassword('');
       } else {
-        throw new Error(data.message);
+        throw new Error(data.message || 'Failed to reset password');
       }
     } catch (error) {
-      console.error('Failed to reset password:', error);
       toast({
         title: "Error",
-        description: "Failed to reset password",
+        description: error instanceof Error ? error.message : "Failed to reset password. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsResettingPassword(false);
     }
   };
-
-
 
   const filteredUsers = allUsers.filter(user =>
     user.full_name.toLowerCase().includes(userFilter.toLowerCase()) ||
@@ -864,14 +922,14 @@ function AdminPage() {
                             Edit
                           </Button>
                           <Button
-                            onClick={() => resetPassword(user.id)}
+                            onClick={() => resetPassword(user.id, user.full_name)}
                             size="sm"
                             variant="outline"
-                            disabled={isResettingPassword}
+                            disabled={isResettingPassword && resetPasswordModal.userId === user.id}
                             className="flex-1"
                           >
                             <Key className="h-4 w-4 mr-1" />
-                            {isResettingPassword ? 'Resetting...' : 'Reset Password'}
+                            {isResettingPassword && resetPasswordModal.userId === user.id ? 'Resetting...' : 'Reset Password'}
                           </Button>
                         </div>
                       </div>
@@ -950,12 +1008,31 @@ function AdminPage() {
       {/* Reset Password Modal */}
       {
         resetPasswordModal.isOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                if (!isResettingPassword) {
+                  setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }
+              }
+            }}>
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <h3 className="text-lg font-semibold mb-4">Reset Password</h3>
               <p className="text-sm text-muted-foreground mb-4">
                 Reset password for {resetPasswordModal.userName}
               </p>
+              <div className="text-xs text-muted-foreground mb-4 p-3 bg-muted rounded-md">
+                <p className="font-medium mb-1">Password Requirements:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>At least 8 characters long</li>
+                  <li>Contains uppercase letter (A-Z)</li>
+                  <li>Contains lowercase letter (a-z)</li>
+                  <li>Contains number (0-9)</li>
+                  <li>Special characters are optional</li>
+                </ul>
+              </div>
               <div className="space-y-4">
                 <div>
                   <Label className="text-sm font-medium">New Password</Label>
@@ -964,6 +1041,28 @@ function AdminPage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('confirm-password-input')?.focus();
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Confirm Password</Label>
+                  <Input
+                    id="confirm-password-input"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleResetPassword();
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -972,22 +1071,20 @@ function AdminPage() {
                   onClick={() => {
                     setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
                     setNewPassword('');
+                    setConfirmPassword('');
                   }}
                   variant="outline"
                   className="flex-1"
+                  disabled={isResettingPassword}
                 >
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => {
-                    // Handle password reset logic here
-                    setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
-                    setNewPassword('');
-                  }}
+                  onClick={handleResetPassword}
                   className="flex-1"
-                  disabled={!newPassword.trim()}
+                  disabled={!newPassword.trim() || !confirmPassword.trim() || isResettingPassword}
                 >
-                  Reset Password
+                  {isResettingPassword ? 'Resetting...' : 'Reset Password'}
                 </Button>
               </div>
             </div>
