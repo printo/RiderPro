@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
-import { Fuel, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Plus, X, Target } from "lucide-react";
+import { Fuel, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Plus, X, Target, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -166,6 +166,8 @@ function AdminPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([]);
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Partial<VehicleType> | null>(null);
@@ -484,13 +486,15 @@ function AdminPage() {
 
     setIsResettingPassword(true);
     try {
+      const token = localStorage.getItem('access_token');
       const response = await fetch(`/api/v1/auth/reset-password/${resetPasswordModal.userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          newPassword: newPassword
+          password: newPassword
         }),
       });
 
@@ -504,6 +508,8 @@ function AdminPage() {
         setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
         setNewPassword('');
         setConfirmPassword('');
+        setShowNewPassword(false);
+        setShowConfirmPassword(false);
       } else {
         throw new Error(data.message || 'Failed to reset password');
       }
@@ -1015,6 +1021,8 @@ function AdminPage() {
                   setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
                   setNewPassword('');
                   setConfirmPassword('');
+                  setShowNewPassword(false);
+                  setShowConfirmPassword(false);
                 }
               }
             }}>
@@ -1036,34 +1044,54 @@ function AdminPage() {
               <div className="space-y-4">
                 <div>
                   <Label className="text-sm font-medium">New Password</Label>
-                  <Input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        document.getElementById('confirm-password-input')?.focus();
-                      }
-                    }}
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showNewPassword ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          document.getElementById('confirm-password-input')?.focus();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      tabIndex={-1}
+                    >
+                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <Label className="text-sm font-medium">Confirm Password</Label>
-                  <Input
-                    id="confirm-password-input"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Confirm new password"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleResetPassword();
-                      }
-                    }}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="confirm-password-input"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Confirm new password"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleResetPassword();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
@@ -1072,6 +1100,8 @@ function AdminPage() {
                     setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
                     setNewPassword('');
                     setConfirmPassword('');
+                    setShowNewPassword(false);
+                    setShowConfirmPassword(false);
                   }}
                   variant="outline"
                   className="flex-1"
