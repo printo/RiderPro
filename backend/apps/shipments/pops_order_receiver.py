@@ -104,7 +104,7 @@ def receive_order_from_pops(
             delivery_time=delivery_time or timezone.now(),
             route_name=order_data.get('routeName') or order_data.get('route_name') or '',
             employee_id=employee_id if employee_id and employee_id != "N/A" else "unassigned",
-            status='Initiated',  # Default status when received from POPS
+            status='Assigned' if employee_id and employee_id != "N/A" else 'Initiated',
             weight=float(weight),
             package_boxes=package_boxes if isinstance(package_boxes, (list, dict)) else None,
             special_instructions=order_data.get('specialInstructions') or order_data.get('special_instructions'),

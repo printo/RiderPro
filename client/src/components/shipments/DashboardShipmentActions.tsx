@@ -29,7 +29,7 @@ interface DashboardShipmentActionsProps {
   employeeId: string;
 }
 
-const ACTIONABLE_STATUSES = new Set(['Assigned', 'Initiated', 'Collected']);
+const ACTIONABLE_STATUSES = new Set(['Assigned', 'Collected']);
 
 function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps) {
   const { toast } = useToast();
@@ -132,10 +132,9 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
     if (selectedShipmentsData.every(s => s.type === 'delivery' && s.status === 'Assigned')) {
       actions.push('Mark as Collected');
     }
-    
+
     // Check if all selected can start transit
-    if (selectedShipmentsData.every(s => 
-      s.type === 'delivery' && (s.status === 'Collected' || s.status === 'Initiated'))) {
+    if (selectedShipmentsData.every(s => s.type === 'delivery' && s.status === 'Collected')) {
       actions.push('Start Transit');
     }
     
@@ -243,9 +242,22 @@ function DashboardShipmentActions({ employeeId }: DashboardShipmentActionsProps)
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Bulk Action</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to mark {bulkActionDialog.count} selected shipment(s) as "{bulkActionDialog.action}"?
-              This action will be applied to all selected shipments.
+            <AlertDialogDescription asChild>
+              {bulkActionDialog.action === 'Start Transit' ? (
+                <div className="space-y-2">
+                  <p>You are about to start transit for <strong>{bulkActionDialog.count}</strong> selected shipment(s).</p>
+                  <ul className="list-disc list-inside text-sm space-y-1">
+                    <li>All selected shipments will be marked as <strong>"Collected"</strong></li>
+                    <li>Their status will then be changed to <strong>"In Transit"</strong></li>
+                  </ul>
+                  <p className="text-sm text-muted-foreground mt-2">This indicates that you have collected the parcels and are now on your way to deliver them.</p>
+                </div>
+              ) : (
+                <div>
+                  Are you sure you want to mark {bulkActionDialog.count} selected shipment(s) as "{bulkActionDialog.action}"?
+                  This action will be applied to all selected shipments.
+                </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

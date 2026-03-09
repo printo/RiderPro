@@ -2212,7 +2212,7 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 'shipment_id': point.get('shipment_id'),
             })
 
-        active_drop_statuses = ['Assigned', 'Collected', 'In Transit', 'Initiated', 'Picked Up']
+        active_drop_statuses = ['Assigned', 'Collected', 'In Transit', 'Picked Up']
         active_drop_shipments = Shipment.objects.filter(
             employee_id__in=employee_ids,
             status__in=active_drop_statuses,
@@ -2344,7 +2344,7 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
         # Include collected/picked-up states so drop points stay visible after rider actions.
         shipments_qs = Shipment.objects.filter(
             employee_id__iexact=employee_id,
-            status__in=['Assigned', 'Collected', 'In Transit', 'Initiated', 'Picked Up']
+            status__in=['Assigned', 'Collected', 'In Transit', 'Picked Up']
         ).order_by('created_at')
         
         # Geocode any shipment missing lat/long (e.g. customer delivery address when POPS didn't send coords)
