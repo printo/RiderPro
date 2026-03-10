@@ -263,6 +263,19 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             # Return a fallback path if saving fails
             return f"/media/{folder_name}/upload_error_{uploaded_file.name}"
 
+    @staticmethod
+    def _build_absolute_media_url(request, url: str | None) -> str | None:
+        """
+        Ensure media URLs are absolute so external systems (like POPS)
+        receive fully-qualified URLs instead of relative paths.
+        """
+        if not url:
+            return url
+        if isinstance(url, str) and (url.startswith("http://") or url.startswith("https://")):
+            return url
+        # For relative paths like "/media/photos/...", build an absolute URL
+        return request.build_absolute_uri(url)
+
     def _sync_shipment_to_pops(self, shipment, request):
         """
         Sync shipment updates to POPS for rider/status/route/remarks/ack artifacts.
@@ -290,18 +303,22 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             payload['route'] = shipment.route_name
         if shipment.remarks:
             payload['remarks'] = shipment.remarks
+        # Normalize acknowledgment artifacts to absolute URLs
+        photo_url = self._build_absolute_media_url(request, shipment.photo_url)
+        signature_url = self._build_absolute_media_url(request, shipment.signature_url)
+        signed_pdf_url = self._build_absolute_media_url(request, shipment.signed_pdf_url)
 
-        if shipment.photo_url:
-            payload['acknowledgement_url'] = shipment.photo_url
-        if shipment.signed_pdf_url:
-            payload['acknowledgement_submission_file'] = shipment.signed_pdf_url
+        if photo_url:
+            payload['acknowledgement_url'] = photo_url
+        if signed_pdf_url:
+            payload['acknowledgement_submission_file'] = signed_pdf_url
         ack_artifacts = {}
-        if shipment.signature_url:
-            ack_artifacts['signature_url'] = shipment.signature_url
-        if shipment.photo_url:
-            ack_artifacts['photo_url'] = shipment.photo_url
-        if shipment.signed_pdf_url:
-            ack_artifacts['signed_pdf_url'] = shipment.signed_pdf_url
+        if signature_url:
+            ack_artifacts['signature_url'] = signature_url
+        if photo_url:
+            ack_artifacts['photo_url'] = photo_url
+        if signed_pdf_url:
+            ack_artifacts['signed_pdf_url'] = signed_pdf_url
         if ack_artifacts:
             payload['callback_response'] = {
                 'source': 'riderpro',
