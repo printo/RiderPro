@@ -182,3 +182,62 @@ Environment variables are defined in `.env` (git-ignored). Template: `.env.examp
 5. **Type safety** — All new code must be fully typed (TypeScript strict mode)
 6. **Test your logic** — Ensure `npm run check` and `npm run lint` pass
 7. **Cross-reference** — Read `ARCHITECTURE.md`, `TASK_RULES.md`, and `AI_GUARDRAILS.md` for additional constraints
+
+---
+
+## Setup & Operations
+
+### Docker Quick Start
+
+**Access Services:**
+- **Frontend**: http://localhost:5004
+- **Django API**: http://localhost:8004
+- **Node.js API (legacy)**: http://localhost:5000
+- **PostgreSQL**: localhost:5433
+
+```bash
+# Fresh start (empty database)
+docker compose up --build
+
+# Or restore from dump (with seed data)
+docker compose --profile db-restore up --build
+
+# Create admin user
+docker compose exec django python manage.py createsuperuser
+```
+
+### Database Operations
+
+**Database Manager Script (`db_manager.sh`):**
+Comprehensive script in `./scripts/` for local and production DB management.
+
+```bash
+./scripts/db_manager.sh reset local       # Reset DB (drop, recreate, permissions, migrate)
+./scripts/db_manager.sh dump local        # Dump database
+./scripts/db_manager.sh list              # List available dumps
+```
+
+**Manual Dump/Restore:**
+```bash
+# Dump
+docker compose exec postgres pg_dump -U postgres -F c riderpro_django > db-dumps/riderpro_django.dump
+
+# Restore
+docker compose exec postgres pg_restore -U postgres -d riderpro_django -c db-dumps/riderpro_django.dump
+```
+
+### Troubleshooting
+
+**Port Conflicts:**
+- PostgreSQL: `5433`
+- Frontend: `5004` (5000 taken by legacy)
+- Django: `8004`
+
+**Docker Issues:**
+```bash
+# Rebuild everything
+docker compose down -v && docker compose up --build
+
+# Check logs
+docker compose logs django
+```

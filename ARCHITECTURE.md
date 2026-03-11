@@ -186,10 +186,16 @@ RiderPro/
 │   ├── backup-db.sh                # DB backup
 │   └── setup-db-backup-cron.sh     # Backup scheduling
 │
-├── docs/                           # ── EXTENDED DOCUMENTATION ──
-│   ├── production-migration-strategy.md
-│   ├── security-audit-report.md
-│   └── smart-route-completion.md
+├── ── DOCUMENTATION ──
+│   ├── README.md
+│   ├── ARCHITECTURE.md
+│   ├── AI_PROJECT_CONTEXT.md
+│   ├── AI_GUARDRAILS.md
+│   ├── TASK_RULES.md
+│   ├── API_REFERENCE.md
+│   ├── DATABASE_SCHEMA.md
+│   ├── BACKEND_MIGRATION_GUIDE.md
+│   └── SMART_ROUTE_DETAILS.md
 │
 ├── ── CONFIG FILES ──
 │   ├── package.json                # Node dependencies + scripts
@@ -204,13 +210,10 @@ RiderPro/
 │
 └── ── ROOT DOCUMENTATION ──
     ├── README.md
-    ├── CHANGES.md
-    ├── system-architecture.md
-    ├── authentication-system.md
-    ├── database-schema.md
-    ├── api-documentation.md
-    ├── DATABASE.md
-    └── DATABASE_CLEANUP.md
+    ├── ARCHITECTURE.md
+    ├── AI_GUARDRAILS.md
+    ├── AI_PROJECT_CONTEXT.md
+    └── TASK_RULES.md
 ```
 
 ---
@@ -397,3 +400,28 @@ Clear synced items from IndexedDB
 | **Viewer** | Read-only access to own data |
 
 Role checks: `lib/roles.ts` (frontend) + `User.role` field (backend)
+
+### Detailed Permission Matrix
+
+| Feature                | Driver   | Manager | Admin  |
+| ---------------------- | -------- | ------- | ------ |
+| View Own Shipments     | ✅       | ✅      | ✅     |
+| View All Shipments     | ❌       | ✅      | ✅     |
+| Create Shipments       | ❌       | ✅      | ✅     |
+| Update Shipments       | ✅ (own) | ✅      | ✅     |
+| Delete Shipments       | ❌       | ✅      | ✅     |
+| GPS Tracking           | ✅       | ❌      | ❌     |
+| Route Management       | ✅ (own) | ✅      | ✅     |
+| Analytics              | Basic    | Full    | Full   |
+| User Management        | ❌       | ❌      | ✅     |
+| System Settings        | ❌       | ❌      | ✅     |
+| Admin Page Access      | ❌       | ❌      | ✅     |
+| Batch Operations       | ❌       | ✅      | ✅     |
+| Data Export            | ❌       | ✅      | ✅     |
+| Upload Acknowledgments | ✅       | ✅      | ✅     |
+
+### Token Management
+
+- **Access Token**: JWT stored in cookies (HTTP-only) or localStorage (`local_<timestamp>_<userId>`)
+- **Validation**: Middleware extracts user ID from token and validates against database.
+- **Security**: bcrypt hashing (12 salt rounds) for passwords; tokens cleared on logout.

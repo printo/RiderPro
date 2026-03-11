@@ -64,7 +64,7 @@ vehicle_types      - Vehicle configurations
 fuel_settings      - Fuel pricing
 ```
 
-See [Database Schema](./database-schema.md) for schema details.
+See [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) for schema details.
 
 ## 🔑 Authentication & Roles
 
@@ -619,12 +619,10 @@ curl http://localhost:5000/health
 
 ## 📖 Documentation
 
-- **Integration Guide**: This README (bidirectional integration overview)
-- **Database Schema**: [database-schema.md](./database-schema.md)
-- **System Architecture**: [system-architecture.md](./system-architecture.md)
-- **Authentication System**: [authentication-system.md](./authentication-system.md)
-- **API Reference**: [api-documentation.md](./api-documentation.md)
-- **Code Comments**: Inline documentation in source files
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — System design, database schema, and smart route logic.
+- **[AI_PROJECT_CONTEXT.md](./AI_PROJECT_CONTEXT.md)** — Tech stack, API reference, and backend operations.
+- **[AI_GUARDRAILS.md](./AI_GUARDRAILS.md)** — Strict safety rules for AI assistants.
+- **[TASK_RULES.md](./TASK_RULES.md)** — Coding workflows and implementation rules.
 
 ### Integration Endpoints
 
