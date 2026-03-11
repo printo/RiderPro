@@ -4,7 +4,7 @@ import { shipmentsApi, type PaginatedResponse } from "@/apiClient/shipments";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Edit, RotateCcw, MapPin, AlertCircle } from "lucide-react";
+import { Edit, RotateCcw, MapPin, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import ShipmentCard from "@/components/shipments/ShipmentCard";
 import ShipmentDetailModalWithTracking from "@/components/ui/forms/ShipmentDetailModalWithTracking";
 import BatchUpdateModal from "@/components/ui/forms/BatchUpdateModal";
@@ -123,7 +123,7 @@ function ShipmentsWithTracking() {
   }, []);
 
   // State for pagination
-  const [pagination] = useState({
+  const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
   });
@@ -211,12 +211,13 @@ function ShipmentsWithTracking() {
   useEffect(() => {
     if (shipments?.length > 0 && !isLoading && !error) {
       const userName = current_user?.full_name?.split?.(' ')?.[0] || current_user?.username || 'User';
+      const totalCount = paginated_data.total || shipments.length;
       toast({
         title: `Welcome back, ${userName}! 👋`,
-        description: `You have ${shipments.length} shipment${shipments.length !== 1 ? 's' : ''} to manage today.`,
+        description: `You have ${totalCount} shipment${totalCount !== 1 ? 's' : ''} to manage today.`,
       });
     }
-  }, [shipments?.length, isLoading, error, current_user, toast]);
+  }, [shipments?.length, isLoading, error, current_user, toast, paginated_data.total]);
 
   const handleShipmentSelect = (shipment_id: string, selected: boolean) => {
     set_selected_shipment_ids((prev) =>
@@ -264,9 +265,17 @@ function ShipmentsWithTracking() {
     setFilters(prev => ({
       ...prev,
       ...new_filters,
-      // Reset to first page when filters change
-      page: 1
     }));
+    // Reset to first page when filters change
+    setPagination(prev => ({ ...prev, page: 1 }));
+  }, []);
+
+  // Pagination handlers
+  const goToPage = useCallback((page: number) => {
+    setPagination(prev => ({ ...prev, page }));
+    set_selected_shipment_ids([]);
+    // Scroll to top of shipments list
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
   const [show_route_controls, set_show_route_controls] = useState(true);
@@ -437,6 +446,33 @@ function ShipmentsWithTracking() {
         </Card>
       ) : (
         <div className="space-y-4">
+          {/* Pagination Summary Bar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-2 py-2 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-foreground">
+                Showing {shipments?.length || 0} of {paginated_data.total} shipments
+              </span>
+              {paginated_data.totalPages > 1 && (
+                <span className="text-xs text-muted-foreground">
+                  (Page {paginated_data.page} of {paginated_data.totalPages})
+                </span>
+              )}
+              {isFetching && (
+                <span className="text-xs text-blue-500 flex items-center">
+                  Updating...
+                  <span className="ml-1 w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block"></span>
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {has_active_session && (
+                <span className="text-xs text-green-600 dark:text-green-400">
+                  • GPS tracking active
+                </span>
+              )}
+            </div>
+          </div>
+
           {/* Select All */}
           <div className="flex items-center gap-2 px-2">
             <input
@@ -447,19 +483,8 @@ function ShipmentsWithTracking() {
               data-testid="checkbox-select-all"
             />
             <span className="text-sm text-muted-foreground">
-              Select all ({shipments?.length || 0} shipments)
+              Select all on this page ({shipments?.length || 0})
             </span>
-            {has_active_session && (
-              <span className="text-xs text-green-600 dark:text-green-400 ml-4">
-                • GPS tracking active - locations will be recorded automatically
-              </span>
-            )}
-            {isFetching && (
-              <span className="text-xs text-blue-500 ml-auto">
-                Loading...
-                <span className="ml-1 w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block"></span>
-              </span>
-            )}
           </div>
 
           {/* Shipment Cards */}
@@ -477,6 +502,76 @@ function ShipmentsWithTracking() {
                 showIndividualActions={true}
               />
             ) : null
+          )}
+
+          {/* Pagination Controls */}
+          {paginated_data.totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 pb-2">
+              <span className="text-sm text-muted-foreground">
+                Showing {(paginated_data.page - 1) * paginated_data.limit + 1}–{Math.min(paginated_data.page * paginated_data.limit, paginated_data.total)} of {paginated_data.total} shipments
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(paginated_data.page - 1)}
+                  disabled={!paginated_data.hasPreviousPage || isFetching}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Previous
+                </Button>
+
+                {/* Page number buttons */}
+                {(() => {
+                  const totalPages = paginated_data.totalPages;
+                  const currentPage = paginated_data.page;
+                  const pages: (number | string)[] = [];
+
+                  if (totalPages <= 7) {
+                    // Show all pages if 7 or fewer
+                    for (let i = 1; i <= totalPages; i++) pages.push(i);
+                  } else {
+                    // Always show first page
+                    pages.push(1);
+                    if (currentPage > 3) pages.push('...');
+                    // Show pages around current
+                    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+                      pages.push(i);
+                    }
+                    if (currentPage < totalPages - 2) pages.push('...');
+                    // Always show last page
+                    pages.push(totalPages);
+                  }
+
+                  return pages.map((p, idx) =>
+                    typeof p === 'string' ? (
+                      <span key={`ellipsis-${idx}`} className="px-2 text-muted-foreground">...</span>
+                    ) : (
+                      <Button
+                        key={p}
+                        variant={p === currentPage ? "default" : "outline"}
+                        size="sm"
+                        className="min-w-[36px]"
+                        onClick={() => goToPage(p)}
+                        disabled={isFetching}
+                      >
+                        {p}
+                      </Button>
+                    )
+                  );
+                })()}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(paginated_data.page + 1)}
+                  disabled={!paginated_data.hasNextPage || isFetching}
+                >
+                  Next
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       )}

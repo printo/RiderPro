@@ -49,72 +49,109 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
 
       <CollapsibleContent className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 border rounded-lg bg-card">
-          <Select
-            value={filters.status || "all"}
-            onValueChange={(value) => updateFilter("status", value)}
-          >
-            <SelectTrigger data-testid="select-filter-status">
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="Assigned">Assigned</SelectItem>
-              <SelectItem value="Collected">Collected</SelectItem>
-              <SelectItem value="In Transit">In Transit</SelectItem>
-              <SelectItem value="Delivered">Delivered</SelectItem>
-              <SelectItem value="Picked Up">Picked Up</SelectItem>
-              <SelectItem value="Returned">Returned</SelectItem>
-              <SelectItem value="Cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Status */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Status</label>
+            <Select
+              value={filters.status || "all"}
+              onValueChange={(value) => updateFilter("status", value)}
+            >
+              <SelectTrigger data-testid="select-filter-status">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="Assigned">Assigned</SelectItem>
+                <SelectItem value="Collected">Collected</SelectItem>
+                <SelectItem value="In Transit">In Transit</SelectItem>
+                <SelectItem value="Delivered">Delivered</SelectItem>
+                <SelectItem value="Picked Up">Picked Up</SelectItem>
+                <SelectItem value="Returned">Returned</SelectItem>
+                <SelectItem value="Cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select
-            value={filters.type || "all"}
-            onValueChange={(value) => updateFilter("type", value as "delivery" | "pickup")}
-          >
-            <SelectTrigger data-testid="select-filter-type">
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="delivery">Delivery</SelectItem>
-              <SelectItem value="pickup">Pickup</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Type */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Type</label>
+            <Select
+              value={filters.type || "all"}
+              onValueChange={(value) => updateFilter("type", value as "delivery" | "pickup")}
+            >
+              <SelectTrigger data-testid="select-filter-type">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="delivery">Delivery</SelectItem>
+                <SelectItem value="pickup">Pickup</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select
-            value={filters.route_name || "all"}
-            onValueChange={(value) => updateFilter("route_name", value)}
-          >
-            <SelectTrigger data-testid="select-filter-route">
-              <SelectValue placeholder="All Routes" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Routes</SelectItem>
-              <SelectItem value="Route A">Route A</SelectItem>
-              <SelectItem value="Route B">Route B</SelectItem>
-              <SelectItem value="Route C">Route C</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Store Name */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Store</label>
+            <Select
+              value={filters.route_name || "all"}
+              onValueChange={(value) => updateFilter("route_name", value)}
+            >
+              <SelectTrigger data-testid="select-filter-store">
+                <SelectValue placeholder="All Stores" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Stores</SelectItem>
+                <SelectItem value="Brigade Road">Brigade Road</SelectItem>
+                <SelectItem value="Electronic City">Electronic City</SelectItem>
+                <SelectItem value="Frazer Town">Frazer Town</SelectItem>
+                <SelectItem value="HSR Layout">HSR Layout</SelectItem>
+                <SelectItem value="Indiranagar">Indiranagar</SelectItem>
+                <SelectItem value="Jayanagar">Jayanagar</SelectItem>
+                <SelectItem value="J.P. Nagar">J.P. Nagar</SelectItem>
+                <SelectItem value="Koramangala">Koramangala</SelectItem>
+                <SelectItem value="Kammanahalli">Kammanahalli</SelectItem>
+                <SelectItem value="Malleshwaram">Malleshwaram</SelectItem>
+                <SelectItem value="Varthur Main Road">Varthur Main Road</SelectItem>
+                <SelectItem value="Whitefield">Whitefield</SelectItem>
+                <SelectItem value="Yelahanka">Yelahanka</SelectItem>
+                <SelectItem value="New BEL Road">New BEL Road</SelectItem>
+                <SelectItem value="Bommanahalli">Bommanahalli</SelectItem>
+                <SelectItem value="Adyar">Adyar</SelectItem>
+                <SelectItem value="Nungambakkam">Nungambakkam</SelectItem>
+                <SelectItem value="Thoraipakkam">Thoraipakkam</SelectItem>
+                <SelectItem value="Anna Nagar">Anna Nagar</SelectItem>
+                <SelectItem value="Kottivakkam">Kottivakkam</SelectItem>
+                <SelectItem value="Gurugram">Gurugram</SelectItem>
+                <SelectItem value="Sohna Road">Sohna Road</SelectItem>
+                <SelectItem value="Udyog Vihar">Udyog Vihar</SelectItem>
+                <SelectItem value="Gachibowli">Gachibowli</SelectItem>
+                <SelectItem value="Madhapur">Madhapur</SelectItem>
+                <SelectItem value="Somajiguda">Somajiguda</SelectItem>
+                <SelectItem value="Kukatpally">Kukatpally</SelectItem>
+                <SelectItem value="Hinjewadi">Hinjewadi</SelectItem>
+                <SelectItem value="South Campus">South Campus</SelectItem>
+                <SelectItem value="Others">Others</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Rider ID
-            </label>
+          {/* Rider ID */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Rider ID</label>
             <input
               type="text"
               value={filters.employee_id || ""}
               onChange={(e) => updateFilter("employee_id", e.target.value)}
               placeholder="Filter by rider ID"
-              className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+              className="w-full h-9 px-3 py-2 border rounded-md bg-background text-foreground text-sm"
               data-testid="input-filter-rider"
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Pia Order ID
-            </label>
+          {/* Pia Order ID */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Pia Order ID</label>
             <input
               type="text"
               value={filters.pops_order_id?.toString() || ""}
@@ -126,15 +163,14 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
                 });
               }}
               placeholder="Filter by Pia order ID"
-              className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+              className="w-full h-9 px-3 py-2 border rounded-md bg-background text-foreground text-sm"
               data-testid="input-filter-order-id"
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Created Date From
-            </label>
+          {/* Created Date From */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Date From</label>
             <input
               type="date"
               value={filters.created_at__gte ? new Date(filters.created_at__gte).toISOString().split('T')[0] : ''}
@@ -145,29 +181,27 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
                 today.setHours(0, 0, 0, 0);
                 const threeDaysAgo = new Date(today);
                 threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-                
-                // Validate date range (max 3 days back)
+
                 if (selectedDate < threeDaysAgo) {
                   alert('Data older than 3 days is not available due to cleanup policy.');
                   return;
                 }
-                
+
                 onFiltersChange({
                   ...filters,
                   created_at__gte: value ? new Date(value).toISOString() : undefined,
                 });
               }}
               max={new Date().toISOString().split('T')[0]}
-              className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+              className="w-full h-9 px-3 py-2 border rounded-md bg-background text-foreground text-sm"
               data-testid="input-filter-date-from"
             />
-            <p className="text-xs text-gray-500 mt-1">Max 3 days back</p>
+            <p className="text-xs text-muted-foreground">Max 3 days back</p>
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Created Date To
-            </label>
+          {/* Created Date To */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Date To</label>
             <input
               type="date"
               value={filters.created_at__lt ? new Date(filters.created_at__lt).toISOString().split('T')[0] : ''}
@@ -175,7 +209,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
                 const value = e.target.value;
                 if (value) {
                   const toDate = new Date(value);
-                  toDate.setDate(toDate.getDate() + 1); // Add 1 day to make it inclusive
+                  toDate.setDate(toDate.getDate() + 1);
                   onFiltersChange({
                     ...filters,
                     created_at__lt: toDate.toISOString(),
@@ -188,7 +222,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
                 }
               }}
               max={new Date().toISOString().split('T')[0]}
-              className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
+              className="w-full h-9 px-3 py-2 border rounded-md bg-background text-foreground text-sm"
               data-testid="input-filter-date-to"
             />
           </div>
