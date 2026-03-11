@@ -27,8 +27,9 @@ import { isManagerUser } from "@/lib/roles";
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
-  // Show loading spinner while checking auth
-  if (isLoading) {
+  // Show loading spinner while checking auth, but only if we might be transitioning to an authenticated state
+  // If not authenticated, we want to stay on the login/signup pages even while loading
+  if (isLoading && isAuthenticated) {
     return <PageLoader text="Loading..." />;
   }
 

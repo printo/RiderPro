@@ -41,7 +41,8 @@ export const shipmentsApi = {
     if (filters.search) params.append('search', filters.search);
     if (filters.employee_id) params.append('employee_id', filters.employee_id);
     if (filters.pops_order_id) params.append('pops_order_id', String(filters.pops_order_id));
-    
+    if (filters.store_name) params.append('store_name', filters.store_name);
+
     // Add date range filters
     if (filters.created_at__gte) params.append('created_at__gte', filters.created_at__gte);
     if (filters.created_at__lt) params.append('created_at__lt', filters.created_at__lt);
@@ -175,14 +176,14 @@ export const shipmentsApi = {
     try {
       const response = await apiRequest("GET", `${API_ENDPOINTS.shipments.get(id)}/pdf-document/`);
       const data = await response.json();
-      
+
       if (!response.ok) {
         return {
           success: false,
           message: data.message || 'No PDF document available for this shipment'
         };
       }
-      
+
       return data;
     } catch (error) {
       log.error('Error fetching PDF document:', error);

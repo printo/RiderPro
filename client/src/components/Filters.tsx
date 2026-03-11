@@ -26,7 +26,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
     });
   };
 
-  const hasActiveFilters = filters.status || filters.type || filters.route_name || filters.employee_id || filters.pops_order_id || filters.created_at__gte || filters.created_at__lt;
+  const hasActiveFilters = filters.status || filters.type || filters.route_name || filters.store_name || filters.employee_id || filters.pops_order_id || filters.created_at__gte || filters.created_at__lt;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
@@ -94,8 +94,8 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Store</label>
             <Select
-              value={filters.route_name || "all"}
-              onValueChange={(value) => updateFilter("route_name", value)}
+              value={filters.store_name || "all"}
+              onValueChange={(value) => updateFilter("store_name", value)}
             >
               <SelectTrigger data-testid="select-filter-store">
                 <SelectValue placeholder="All Stores" />
@@ -134,6 +134,19 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
                 <SelectItem value="Others">Others</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Route Name */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-foreground">Route</label>
+            <input
+              type="text"
+              value={filters.route_name || ""}
+              onChange={(e) => updateFilter("route_name", e.target.value)}
+              placeholder="Filter by route name"
+              className="w-full h-9 px-3 py-2 border rounded-md bg-background text-foreground text-sm"
+              data-testid="input-filter-route"
+            />
           </div>
 
           {/* Rider ID */}

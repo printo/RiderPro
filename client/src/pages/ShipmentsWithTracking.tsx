@@ -30,11 +30,11 @@ function ShipmentsWithTracking() {
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   // Calculate 3 days ago for max date range
   const threeDaysAgo = new Date(today);
   threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
-  
+
   const [filters, setFilters] = useState<ExtendedShipmentFilters>({
     created_at__gte: today.toISOString(),
     created_at__lt: tomorrow.toISOString()
@@ -434,7 +434,7 @@ function ShipmentsWithTracking() {
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground" data-testid="text-no-shipments">
-              {filters.status || filters.type || filters.route_name || filters.date || filters.employee_id || filters.pops_order_id
+              {filters.status || filters.type || filters.route_name || filters.store_name || filters.date || filters.employee_id || filters.pops_order_id
                 ? "No shipments match the current filters. Try adjusting your filters."
                 : "No shipments available at the moment. Please check back later."}
             </p>

@@ -369,7 +369,8 @@ export interface ShipmentFilters {
   employee_id?: string;
   pops_order_id?: string | number;
   sync_status?: string;
-  
+  store_name?: string;
+
   // Date range filters
   created_at__gte?: string;
   created_at__lt?: string;
@@ -689,7 +690,8 @@ export const shipmentFiltersSchema: ShipmentFiltersSchema = {
       page: data.page ? parseInt(String(data.page), 10) : 1,
       limit: data.limit ? parseInt(String(data.limit), 10) : 20,
       sort_field: data.sort_field as string | undefined,
-      sort_order: data.sort_order as ShipmentFilters['sort_order'] | undefined
+      sort_order: data.sort_order as ShipmentFilters['sort_order'] | undefined,
+      store_name: data.store_name as string | undefined
     };
   },
   validate: (_data: unknown): _data is ShipmentFilters => true
