@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { shipmentsApi, type PaginatedResponse } from '@/apiClient/shipments';
 import { Shipment, ShipmentFilters } from '@shared/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import ShipmentCardWithTracking from './ShipmentCardWithTracking';
+import ShipmentCard from './ShipmentCard';
 import { withComponentErrorBoundary, ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface ShipmentsListProps {
@@ -107,10 +107,10 @@ const ShipmentsList: React.FC<ShipmentsListProps> = ({
         {shipments?.map?.((shipment: Shipment) =>
           shipment?.id ? (
             <ErrorBoundary key={shipment.id} variant="listItem" componentName="ShipmentCard">
-              <ShipmentCardWithTracking
+              <ShipmentCard
                 shipment={shipment}
                 selected={selected_shipment_ids?.includes?.(shipment.id) || false}
-                onSelect={(selected) => on_select_shipment(shipment.id, selected)}
+                onSelect={(selected: boolean) => on_select_shipment(shipment.id, selected)}
                 onViewDetails={() => on_shipment_select(shipment)}
                 employeeId={employee_id || ''}
                 showTrackingControls={true}

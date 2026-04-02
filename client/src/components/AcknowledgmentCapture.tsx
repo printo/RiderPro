@@ -8,7 +8,7 @@ import { withModalErrorBoundary } from "@/components/ErrorBoundary";
 
 interface AcknowledgmentCaptureProps {
   on_close: () => void;
-  onSubmit: (data: { photo: File | null; signature: string }) => void;
+  onSubmit: (data: { photo: File | null; signature: string }) => Promise<void>;
   require_full_proof?: boolean;
   is_submitting?: boolean;
 }
@@ -17,23 +17,31 @@ function AcknowledgmentCapture({
   on_close: _on_close,
   onSubmit,
   require_full_proof = false,
-  is_submitting = false
+  is_submitting: external_submitting = false
 }: AcknowledgmentCaptureProps) {
   const [photo_file, set_photo_file] = useState<File | null>(null);
   const [signature_data, set_signature_data] = useState<string>("");
+  const [local_submitting, set_local_submitting] = useState(false);
+  
+  const is_submitting = external_submitting || local_submitting;
   const has_photo = Boolean(photo_file);
   const has_signature = Boolean(signature_data.trim());
   const can_submit = require_full_proof ? has_photo && has_signature : has_photo || has_signature;
 
-  const handle_submit = () => {
-    if (!can_submit) {
+  const handle_submit = async () => {
+    if (!can_submit || is_submitting) {
       return;
     }
 
-    onSubmit({
-      photo: photo_file,
-      signature: signature_data
-    });
+    set_local_submitting(true);
+    try {
+      await onSubmit({
+        photo: photo_file,
+        signature: signature_data
+      });
+    } finally {
+      set_local_submitting(false);
+    }
   };
 
   return (

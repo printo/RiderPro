@@ -58,6 +58,7 @@ function ShipmentDetailModalWithTracking({
   const [show_remarks_modal, set_show_remarks_modal] = useState(false);
   const [remarks_status, set_remarks_status] = useState<"Cancelled" | "Returned" | null>(null);
   const [is_recording_location, set_is_recording_location] = useState(false);
+  const [is_uploading_acknowledgment, set_is_uploading_acknowledgment] = useState(false);
   const [show_revert_confirm, set_show_revert_confirm] = useState(false);
 
   const { toast } = useToast();
@@ -130,6 +131,8 @@ function ShipmentDetailModalWithTracking({
       return;
     }
 
+    set_is_uploading_acknowledgment(true);
+
     const form_data = new FormData();
     if (data.photo) {
       form_data.append('photo', data.photo);
@@ -199,17 +202,18 @@ function ShipmentDetailModalWithTracking({
       // Now update the shipment status
       const target_status = shipment.type === "delivery" ? "Delivered" : "Picked Up";
       await update_status_mutation.mutateAsync({ status: target_status });
-
-      // Close the acknowledgment modal
+      
       set_show_acknowledgment(false);
       on_close();
-
     } catch (error) {
+      console.error('Failed to save acknowledgment or update status:', error);
       toast({
-        title: "Save Failed",
-        description: (error as Error).message || "Failed to save acknowledgment.",
+        title: "Submission Failed",
+        description: error instanceof Error ? error.message : "Failed to save acknowledgment or update status.",
         variant: "destructive",
       });
+    } finally {
+      set_is_uploading_acknowledgment(false);
     }
   };
 
@@ -252,6 +256,7 @@ function ShipmentDetailModalWithTracking({
 
   const is_processing = update_status_mutation.isPending ||
     is_recording_location ||
+    is_uploading_acknowledgment ||
     is_getting_location ||
     is_recording_event;
 
@@ -530,7 +535,7 @@ function ShipmentDetailModalWithTracking({
           on_close={() => set_show_acknowledgment(false)}
           onSubmit={handle_acknowledgment_save}
           require_full_proof={false}
-          is_submitting={is_processing}
+          is_submitting={is_uploading_acknowledgment}
         />
       )}
 

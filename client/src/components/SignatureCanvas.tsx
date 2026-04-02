@@ -11,83 +11,86 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
   const [is_drawing, set_is_drawing] = useState(false);
   const [has_signature, set_has_signature] = useState(false);
   
-  // Refs to track current state values for touch handlers
-  const is_drawing_ref = useRef(is_drawing);
-  const has_signature_ref = useRef(has_signature);
-  
-  // Update refs when state changes
-  useEffect(() => {
-    is_drawing_ref.current = is_drawing;
-  }, [is_drawing]);
-  
-  useEffect(() => {
-    has_signature_ref.current = has_signature;
-  }, [has_signature]);
+  // Use refs for drawing state to ensure immediate updates in event handlers
+  const drawing_state = useRef({
+    is_drawing: false,
+    has_signature: false
+  });
 
   useEffect(() => {
     const canvas = canvas_ref.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false }); // Optimization: no alpha
     if (!ctx) return;
 
-    // Set canvas size
-    canvas.width = canvas.offsetWidth * 2;
-    canvas.height = canvas.offsetHeight * 2;
-    ctx.scale(2, 2);
+    // Set canvas size for high DPI displays
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
 
     // Set drawing styles
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3; // Slightly thicker for better visibility
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
     // Fill with white background
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, rect.width, rect.height);
 
-    // Add non-passive touch event listeners to prevent default browser behavior
-    const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
+    const getCoordinates = (e: TouchEvent) => {
       const rect = canvas.getBoundingClientRect();
       const touch = e.touches[0];
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
+      return {
+        x: touch.clientX - rect.left,
+        y: touch.clientY - rect.top
+      };
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      const { x, y } = getCoordinates(e);
       
+      drawing_state.current.is_drawing = true;
       set_is_drawing(true);
+      
       ctx.beginPath();
       ctx.moveTo(x, y);
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!is_drawing_ref.current) return;
+      if (!drawing_state.current.is_drawing) return;
       e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      const touch = e.touches[0];
-      const x = touch.clientX - rect.left;
-      const y = touch.clientY - rect.top;
+      const { x, y } = getCoordinates(e);
       
       ctx.lineTo(x, y);
       ctx.stroke();
-      set_has_signature(true);
+      
+      if (!drawing_state.current.has_signature) {
+        drawing_state.current.has_signature = true;
+        set_has_signature(true);
+      }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
       e.preventDefault();
+      drawing_state.current.is_drawing = false;
       set_is_drawing(false);
       
-      if (has_signature_ref.current) {
+      if (drawing_state.current.has_signature) {
         const dataUrl = canvas.toDataURL('image/png');
         onSignatureChange(dataUrl);
       }
     };
 
-    // Register non-passive event listeners
+    // Register non-passive event listeners for better mobile performance
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
 
-    // Cleanup function
     return () => {
       canvas.removeEventListener('touchstart', handleTouchStart);
       canvas.removeEventListener('touchmove', handleTouchMove);
@@ -95,30 +98,26 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
     };
   }, [onSignatureChange]);
 
-  const start_drawing = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const start_drawing = (event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvas_ref.current;
     if (!canvas) return;
 
+    drawing_state.current.is_drawing = true;
     set_is_drawing(true);
+    
     const rect = canvas.getBoundingClientRect();
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let x, y;
-    if ('touches' in event) {
-      // Touch events are now handled by non-passive listeners
-      return;
-    } else {
-      x = event.clientX - rect.left;
-      y = event.clientY - rect.top;
-    }
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
 
     ctx.beginPath();
     ctx.moveTo(x, y);
   };
 
-  const draw = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!is_drawing) return;
+  const draw = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!drawing_state.current.is_drawing) return;
 
     const canvas = canvas_ref.current;
     if (!canvas) return;
@@ -127,27 +126,25 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let x, y;
-    if ('touches' in event) {
-      // Touch events are now handled by non-passive listeners
-      return;
-    } else {
-      x = event.clientX - rect.left;
-      y = event.clientY - rect.top;
-    }
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
 
     ctx.lineTo(x, y);
     ctx.stroke();
-    set_has_signature(true);
+    
+    if (!drawing_state.current.has_signature) {
+      drawing_state.current.has_signature = true;
+      set_has_signature(true);
+    }
   };
 
   const stop_drawing = () => {
-    if (!is_drawing) return;
+    if (!drawing_state.current.is_drawing) return;
+    drawing_state.current.is_drawing = false;
     set_is_drawing(false);
 
-    // Convert to base64 and notify parent
     const canvas = canvas_ref.current;
-    if (canvas && has_signature) {
+    if (canvas && drawing_state.current.has_signature) {
       const dataUrl = canvas.toDataURL('image/png');
       onSignatureChange(dataUrl);
     }
@@ -160,8 +157,11 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const rect = canvas.getBoundingClientRect();
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    
+    drawing_state.current.has_signature = false;
     set_has_signature(false);
     onSignatureChange('');
   };
@@ -170,14 +170,11 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
     <div className="border border-border rounded-lg p-4 bg-muted/20">
       <canvas
         ref={canvas_ref}
-        className="w-full h-32 bg-white rounded border border-border cursor-crosshair touch-none"
+        className="w-full h-48 bg-white rounded border border-border cursor-crosshair touch-none"
         onMouseDown={start_drawing}
         onMouseMove={draw}
         onMouseUp={stop_drawing}
         onMouseLeave={stop_drawing}
-        onTouchStart={start_drawing}
-        onTouchMove={draw}
-        onTouchEnd={stop_drawing}
         data-testid="canvas-signature"
       />
       <div className="flex justify-between items-center mt-2">
@@ -187,6 +184,7 @@ function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
           variant="ghost"
           size="sm"
           onClick={clear_signature}
+          disabled={!has_signature}
           className="text-sm text-primary hover:text-primary/80"
           data-testid="button-clear-signature"
         >
