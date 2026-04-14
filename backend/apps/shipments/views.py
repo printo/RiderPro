@@ -263,6 +263,24 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             # Return a fallback path if saving fails
             return f"/media/{folder_name}/upload_error_{uploaded_file.name}"
 
+    def _save_file_bytes(self, content: bytes, original_filename: str, folder_name: str) -> str:
+        """Save raw bytes to media folder (used after multipart buffers are read once)."""
+        try:
+            file_extension = os.path.splitext(original_filename)[1]
+            if not file_extension:
+                file_extension = '.png'
+            unique_filename = f"{uuid.uuid4()}{file_extension}"
+            media_root = getattr(settings, 'MEDIA_ROOT', '/tmp/media')
+            folder_path = os.path.join(media_root, folder_name)
+            os.makedirs(folder_path, exist_ok=True)
+            file_path = os.path.join(folder_path, unique_filename)
+            with open(file_path, 'wb') as f:
+                f.write(content)
+            return f"/media/{folder_name}/{unique_filename}"
+        except Exception as e:
+            logger.error(f"Failed to save file bytes: {e}")
+            return f"/media/{folder_name}/upload_error_{original_filename}"
+
     @staticmethod
     def _build_absolute_media_url(request, url: str | None) -> str | None:
         """
@@ -355,7 +373,71 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                 'sync_attempts', 'last_sync_attempt', 'updated_at'
             ])
             return False
-    
+
+    def _upload_acknowledgement_to_pops(self, shipment, request, buffered_files=None):
+        """
+        Forward acknowledgement multipart/JSON to POPS so artifacts are stored on POPS media.
+        buffered_files: optional dict name -> (filename, bytes, content_type) from a single read of request.FILES.
+        Returns the POPS JSON body, or None if not attempted.
+        """
+        if not shipment.pops_order_id:
+            return None
+        access_token = self._resolve_pops_token(request)
+        if not access_token:
+            return None
+        try:
+            order_id = int(shipment.pops_order_id)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid pops_order_id for shipment %s: %s",
+                shipment.id,
+                shipment.pops_order_id,
+            )
+            return None
+
+        files = {}
+        data = {}
+        content_type = request.content_type or ""
+        if "multipart/form-data" in content_type or request.FILES or (buffered_files or {}):
+            bf = buffered_files or {}
+            if "signature" in bf:
+                name, raw, ct = bf["signature"]
+                files["signature"] = (name, raw, ct)
+            su = request.POST.get("signature_url")
+            if su and "signature" not in files:
+                data["signature_url"] = su
+            if "photo" in bf:
+                name, raw, ct = bf["photo"]
+                files["photo"] = (name, raw, ct)
+            pu = request.POST.get("photo_url")
+            if pu and "photo" not in files:
+                data["photo_url"] = pu
+            if "signed_pdf" in bf:
+                name, raw, ct = bf["signed_pdf"]
+                files["signed_pdf"] = (name, raw, ct)
+            sp = request.POST.get("signed_pdf_url")
+            if sp:
+                data["signed_pdf_url"] = sp
+        else:
+            body = request.data
+            sig = body.get("signature_url") or body.get("signatureData") or body.get("signature")
+            if sig:
+                data["signature_url"] = sig
+            if body.get("photo_url"):
+                data["photo_url"] = body.get("photo_url")
+            if body.get("signed_pdf_url"):
+                data["signed_pdf_url"] = body.get("signed_pdf_url")
+
+        if not files and not data:
+            return None
+
+        return pops_client.upload_acknowledgement(
+            order_id,
+            access_token,
+            files=files if files else None,
+            data=data if data else None,
+        )
+
     def create(self, request, *args, **kwargs):
         """Create new shipment"""
         serializer = self.get_serializer(data=request.data)
@@ -715,63 +797,29 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         if 'signature' in request.FILES:
             signature_file = request.FILES['signature']
             logger.info(f"Signature file - Name: {signature_file.name}, Size: {signature_file.size}, Type: {signature_file.content_type}")
-        
-        # Handle FormData vs JSON properly
+
         content_type = request.content_type or ''
         if 'multipart/form-data' in content_type or request.FILES:
-            # FormData handling
-            signature_url = request.POST.get('signature_url')
-            photo_url = request.POST.get('photo_url')
-            signed_pdf_url = request.POST.get('signed_pdf_url')
-            
-            # Process base64 signature data if present
-            if signature_url and signature_url.startswith('data:image/'):
-                signature_url = self._save_base64_image(signature_url, 'signatures')
-            
-            # Process base64 photo data if present
-            if photo_url and photo_url.startswith('data:image/'):
-                photo_url = self._save_base64_image(photo_url, 'photos')
+            has_signature = 'signature' in request.FILES or bool(request.POST.get('signature_url'))
+            has_photo = 'photo' in request.FILES or bool(request.POST.get('photo_url'))
         else:
-            # JSON handling
-            signature_url = (
+            has_signature = bool(
                 request.data.get('signature_url')
                 or request.data.get('signatureData')
                 or request.data.get('signature')
             )
-            photo_url = request.data.get('photo_url')
-            signed_pdf_url = request.data.get('signed_pdf_url')
-            
-            # Process base64 data in JSON requests too
-            if signature_url and signature_url.startswith('data:image/'):
-                signature_url = self._save_base64_image(signature_url, 'signatures')
-            
-            if photo_url and photo_url.startswith('data:image/'):
-                photo_url = self._save_base64_image(photo_url, 'photos')
-        
-        # Handle file uploads if provided
-        if 'signature' in request.FILES:
-            # Save signature file
-            signature_file = request.FILES['signature']
-            signature_url = self._save_uploaded_file(signature_file, 'signatures')
-        
-        if 'photo' in request.FILES:
-            # Save photo file
-            photo_file = request.FILES['photo']
-            photo_url = self._save_uploaded_file(photo_file, 'photos')
-        
-        # Validate against acknowledgment settings
+            has_photo = bool(request.data.get('photo_url'))
+
+        # Validate against acknowledgment settings (before reading/consuming uploads)
         region = shipment.region
         if not region and shipment.address and isinstance(shipment.address, dict):
             region = shipment.address.get('city') or shipment.address.get('state')
-        
+
         if region:
             try:
                 ack_settings = AcknowledgmentSettings.objects.get(region=region, is_active=True)
-                has_signature = bool(signature_url)
-                has_photo = bool(photo_url)
-                
                 is_valid, error_message = ack_settings.validate_acknowledgment(has_signature, has_photo)
-                
+
                 if not is_valid and not ack_settings.allow_skip_acknowledgment:
                     return Response(
                         {'success': False, 'message': error_message},
@@ -779,8 +827,97 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                     )
             except AcknowledgmentSettings.DoesNotExist:
                 pass  # No settings for this region, allow any acknowledgment
-        
-        # Create or update acknowledgment
+
+        buffered_files = {}
+        if 'multipart/form-data' in content_type or request.FILES:
+            if 'signature' in request.FILES:
+                f = request.FILES['signature']
+                buffered_files['signature'] = (f.name, f.read(), f.content_type)
+            if 'photo' in request.FILES:
+                p = request.FILES['photo']
+                buffered_files['photo'] = (p.name, p.read(), p.content_type)
+            if 'signed_pdf' in request.FILES:
+                pdf = request.FILES['signed_pdf']
+                buffered_files['signed_pdf'] = (pdf.name, pdf.read(), pdf.content_type)
+
+        pops_result = self._upload_acknowledgement_to_pops(
+            shipment, request, buffered_files if buffered_files else None
+        )
+        if pops_result and pops_result.get('success'):
+            ack_data = pops_result.get('acknowledgment') or {}
+            captured_by = self._resolve_user_employee_id(request.user)
+            acknowledgment, created = Acknowledgment.objects.get_or_create(
+                shipment=shipment,
+                defaults={
+                    'signature_url': ack_data.get('signature_url'),
+                    'photo_url': ack_data.get('photo_url'),
+                    'acknowledgment_captured_by': captured_by,
+                },
+            )
+            if not created:
+                acknowledgment.signature_url = ack_data.get('signature_url') or acknowledgment.signature_url
+                acknowledgment.photo_url = ack_data.get('photo_url') or acknowledgment.photo_url
+                acknowledgment.acknowledgment_captured_by = captured_by
+                acknowledgment.save()
+            shipment.signature_url = acknowledgment.signature_url
+            shipment.photo_url = acknowledgment.photo_url
+            if ack_data.get('signed_pdf_url'):
+                shipment.signed_pdf_url = ack_data['signed_pdf_url']
+            shipment.acknowledgment_captured_at = acknowledgment.acknowledgment_captured_at
+            shipment.acknowledgment_captured_by = acknowledgment.acknowledgment_captured_by
+            shipment.save()
+            return Response({
+                'success': True,
+                'message': pops_result.get('message') or 'Acknowledgment saved successfully',
+                'acknowledgment': AcknowledgmentSerializer(acknowledgment).data
+            })
+
+        if pops_result is not None and not pops_result.get('success'):
+            logger.warning(
+                "POPS acknowledgement upload failed for shipment %s: %s",
+                shipment.id,
+                pops_result.get('message'),
+            )
+
+        # Local fallback (no POPS order id, token, or upload failed)
+        signed_pdf_url = None
+        if 'multipart/form-data' in content_type or request.FILES:
+            signature_url = request.POST.get('signature_url')
+            photo_url = request.POST.get('photo_url')
+            signed_pdf_url = request.POST.get('signed_pdf_url')
+
+            if signature_url and signature_url.startswith('data:image/'):
+                signature_url = self._save_base64_image(signature_url, 'signatures')
+
+            if photo_url and photo_url.startswith('data:image/'):
+                photo_url = self._save_base64_image(photo_url, 'photos')
+        else:
+            signature_url = (
+                request.data.get('signature_url')
+                or request.data.get('signatureData')
+                or request.data.get('signature')
+            )
+            photo_url = request.data.get('photo_url')
+            signed_pdf_url = request.data.get('signed_pdf_url')
+
+            if signature_url and signature_url.startswith('data:image/'):
+                signature_url = self._save_base64_image(signature_url, 'signatures')
+
+            if photo_url and photo_url.startswith('data:image/'):
+                photo_url = self._save_base64_image(photo_url, 'photos')
+
+        if 'signature' in buffered_files:
+            name, content, _ct = buffered_files['signature']
+            signature_url = self._save_file_bytes(content, name, 'signatures')
+
+        if 'photo' in buffered_files:
+            name, content, _ct = buffered_files['photo']
+            photo_url = self._save_file_bytes(content, name, 'photos')
+
+        if 'signed_pdf' in buffered_files:
+            name, content, _ct = buffered_files['signed_pdf']
+            signed_pdf_url = self._save_file_bytes(content, name, 'signed')
+
         captured_by = self._resolve_user_employee_id(request.user)
         acknowledgment, created = Acknowledgment.objects.get_or_create(
             shipment=shipment,
@@ -790,14 +927,13 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                 'acknowledgment_captured_by': captured_by
             }
         )
-        
+
         if not created:
             acknowledgment.signature_url = signature_url or acknowledgment.signature_url
             acknowledgment.photo_url = photo_url or acknowledgment.photo_url
             acknowledgment.acknowledgment_captured_by = captured_by
             acknowledgment.save()
-        
-        # Update shipment
+
         shipment.signature_url = acknowledgment.signature_url
         shipment.photo_url = acknowledgment.photo_url
         if signed_pdf_url:
@@ -805,10 +941,9 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         shipment.acknowledgment_captured_at = acknowledgment.acknowledgment_captured_at
         shipment.acknowledgment_captured_by = acknowledgment.acknowledgment_captured_by
         shipment.save()
-        
-        # Sync to POPS
+
         self._sync_shipment_to_pops(shipment, request)
-        
+
         return Response({
             'success': True,
             'message': 'Acknowledgment saved successfully',
