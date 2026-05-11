@@ -91,11 +91,11 @@ if [[ "$MODE" == "both" ]]; then
   docker network rm riderpro_default 2>/dev/null || true
 elif [[ "$MODE" == "backend" ]]; then
   echo "🛑 Stopping django only..."
-  docker compose -f docker-compose.prod.yml stop django || true
+  docker stop riderpro-django 2>/dev/null || true
   docker rm -f riderpro-django 2>/dev/null || true
 elif [[ "$MODE" == "frontend" ]]; then
   echo "🛑 Stopping frontend only..."
-  docker compose -f docker-compose.prod.yml stop frontend || true
+  docker stop riderpro-frontend 2>/dev/null || true
   docker rm -f riderpro-frontend 2>/dev/null || true
 fi
 
@@ -108,12 +108,12 @@ if [[ "$MODE" == "backend" ]]; then
   echo "🔨 Building django service..."
   docker compose -f docker-compose.prod.yml build django
   echo "🚀 Starting django service..."
-  docker compose -f docker-compose.prod.yml up -d django
+  docker compose -f docker-compose.prod.yml up -d --no-deps django
 elif [[ "$MODE" == "frontend" ]]; then
   echo "🔨 Building frontend service..."
   docker compose -f docker-compose.prod.yml build frontend
   echo "🚀 Starting frontend service..."
-  docker compose -f docker-compose.prod.yml up -d frontend
+  docker compose -f docker-compose.prod.yml up -d --no-deps frontend
 else
   echo "🔨 Building all services (no cache)..."
   docker compose -f docker-compose.prod.yml build --no-cache
@@ -139,9 +139,9 @@ fi
 # Restart services
 echo "🔄 Restarting services..."
 if [[ "$MODE" == "backend" ]]; then
-  docker compose -f docker-compose.prod.yml restart django || true
+  docker restart riderpro-django || true
 elif [[ "$MODE" == "frontend" ]]; then
-  docker compose -f docker-compose.prod.yml restart frontend || true
+  docker restart riderpro-frontend || true
 else
   docker compose -f docker-compose.prod.yml restart || true
 fi
