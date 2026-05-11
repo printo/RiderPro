@@ -24,13 +24,17 @@ fi
 
 echo "🚀 Starting RiderPro deployment (mode: $MODE)..."
 
-# Pre-deployment cleanup: remove any existing containers that might conflict
+# Pre-deployment cleanup: only remove the container(s) being redeployed
 echo "🧹 Pre-deployment cleanup..."
-docker rm -f riderpro-frontend riderpro-django riderpro-db 2>/dev/null || true
-docker network rm riderpro_default 2>/dev/null || true
-
-# Clean up any dangling images to prevent conflicts
-docker system prune -f --volumes 2>/dev/null || true
+if [[ "$MODE" == "backend" ]]; then
+  docker rm -f riderpro-django 2>/dev/null || true
+elif [[ "$MODE" == "frontend" ]]; then
+  docker rm -f riderpro-frontend 2>/dev/null || true
+else
+  docker rm -f riderpro-frontend riderpro-django riderpro-db 2>/dev/null || true
+  docker network rm riderpro_default 2>/dev/null || true
+  docker system prune -f --volumes 2>/dev/null || true
+fi
 
 # Create backup directory if it doesn't exist
 mkdir -p "$BACKUP_DIR"
