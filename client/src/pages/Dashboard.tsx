@@ -6,8 +6,8 @@ import SyncStatusPanel from "@/components/sync/SyncStatusPanel";
 import config from '../config';
 
 import StatusDistributionPieChart from "@/components/analytics/StatusDistributionPieChart";
-import RoutePerformanceChart from "@/components/analytics/RoutePerformanceChart";
-import RouteSummary from "@/components/routes/RouteSummary";
+// import RoutePerformanceChart from "@/components/analytics/RoutePerformanceChart";
+// import RouteSummary from "@/components/routes/RouteSummary";
 import RouteSessionControls from "@/components/routes/RouteSessionControls";
 import { Package, CheckCircle, Clock } from "lucide-react";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
@@ -287,13 +287,13 @@ function Dashboard() {
       )}
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 gap-6 mb-8">
         <StatusDistributionPieChart status_breakdown={metrics.status_breakdown ?? {}} />
-        <RoutePerformanceChart route_breakdown={metrics.route_breakdown ?? {}} />
+        {/* <RoutePerformanceChart route_breakdown={metrics.route_breakdown ?? {}} /> */}
       </div>
 
       {/* Route Summary */}
-      <RouteSummary route_breakdown={metrics.route_breakdown ?? {}} />
+      {/* <RouteSummary route_breakdown={metrics.route_breakdown ?? {}} /> */}
     </div>
   );
 }
