@@ -20,7 +20,6 @@ system** for external systems.
 12. [Environment Variables](#️-environment-variables)
 13. [Cron Jobs & Database Maintenance](#-cron-jobs--database-maintenance)
 14. [Troubleshooting](#-troubleshooting)
-15. [Documentation](#-documentation)
 
 ## 🚀 Quick Start
 
@@ -63,8 +62,6 @@ users              - Authentication (Django User model)
 vehicle_types      - Vehicle configurations
 fuel_settings      - Fuel pricing
 ```
-
-See [DATABASE_SCHEMA.md](./DATABASE_SCHEMA.md) for schema details.
 
 ## 🔑 Authentication & Roles
 
@@ -619,10 +616,7 @@ curl http://localhost:5000/health
 
 ## 📖 Documentation
 
-- **[ARCHITECTURE.md](./ARCHITECTURE.md)** — System design, database schema, and smart route logic.
-- **[AI_PROJECT_CONTEXT.md](./AI_PROJECT_CONTEXT.md)** — Tech stack, API reference, and backend operations.
-- **[AI_GUARDRAILS.md](./AI_GUARDRAILS.md)** — Strict safety rules for AI assistants.
-- **[TASK_RULES.md](./TASK_RULES.md)** — Coding workflows and implementation rules.
+- **[CLAUDE.md](./CLAUDE.md)** — Architecture, conventions, workflows, and guidance for AI coding assistants (also useful as the contributor quick-reference).
 
 ### Integration Endpoints
 
