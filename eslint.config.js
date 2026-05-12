@@ -120,6 +120,8 @@ export default [
       'dist/',
       'dev-dist/',
       'node_modules/',
+      'client/dev-dist/',
+      'deprecated/',
       'client/src/**/*.js', // Only ignore client-side JS files
       'client/vite.config.ts', // Ignore Vite config due to type issues
       '*.mjs',
