@@ -2318,7 +2318,18 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def optimize_path(self, request):
-        """Optimize route path using a nearest-neighbor heuristic."""
+        """
+        Optimize route path using nearest-neighbor heuristic with road distances.
+
+        Uses the configured routing backend (OSRM by default) to get real road
+        distances and travel times. Falls back to Haversine straight-line distances
+        automatically if the routing service is unavailable.
+
+        Response includes per-stop ETA, distance from previous stop, and cumulative
+        totals so the driver knows exactly how long each leg will take.
+        """
+        from .routing import get_routing_backend
+
         serializer = RouteOptimizeRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -2327,43 +2338,64 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
         locations = serializer.validated_data['locations']
 
         if not locations:
-            return Response({'success': True, 'ordered_locations': []})
+            return Response({
+                'success': True,
+                'ordered_locations': [],
+                'total_distance_km': 0,
+                'total_duration_seconds': 0,
+                'provider': getattr(settings, 'ROUTING_PROVIDER', 'osrm'),
+            })
 
+        # Point 0 = driver's current position; points 1..N = delivery stops.
+        # Building all_points as a flat list lets us request one matrix call.
+        all_points = [(current_lat, current_lng)] + [
+            (loc['latitude'], loc['longitude']) for loc in locations
+        ]
+
+        # One API call → full NxN matrix of (distance_km, duration_seconds)
+        backend = get_routing_backend()
+        matrix = backend.get_distance_matrix(all_points)
+
+        # Nearest-neighbor TSP: at each step pick the stop with the shortest
+        # travel *time* (not distance) from the current position.
+        remaining = list(range(1, len(all_points)))  # indices into all_points
+        ordered_indices: list = []
+        current_idx = 0  # start at driver position (index 0)
+
+        while remaining:
+            nearest = min(remaining, key=lambda j: matrix[current_idx][j].duration_seconds)
+            ordered_indices.append(nearest)
+            remaining.remove(nearest)
+            current_idx = nearest
+
+        # Build enriched response: add ETA and leg details to each location.
         ordered_locations = []
-        remaining_locations = list(locations)
-        current_pos = (current_lat, current_lng)
+        cumulative_distance = 0.0
+        cumulative_duration = 0.0
+        prev_idx = 0  # driver start
 
-        def calculate_distance(p1, p2):
-            # Haversine distance in km
-            radius_km = 6371
-            dlat = math.radians(p2[0] - p1[0])
-            dlon = math.radians(p2[1] - p1[1])
-            a = (
-                math.sin(dlat / 2) ** 2
-                + math.cos(math.radians(p1[0]))
-                * math.cos(math.radians(p2[0]))
-                * math.sin(dlon / 2) ** 2
-            )
-            c = 2 * math.asin(math.sqrt(a))
-            return radius_km * c
+        for stop_num, point_idx in enumerate(ordered_indices):
+            leg = matrix[prev_idx][point_idx]
+            cumulative_distance += leg.distance_km
+            cumulative_duration += leg.duration_seconds
 
-        while remaining_locations:
-            nearest_idx = 0
-            min_dist = float('inf')
-
-            for idx, loc in enumerate(remaining_locations):
-                dist = calculate_distance(current_pos, (loc['latitude'], loc['longitude']))
-                if dist < min_dist:
-                    min_dist = dist
-                    nearest_idx = idx
-
-            next_loc = remaining_locations.pop(nearest_idx)
-            ordered_locations.append(next_loc)
-            current_pos = (next_loc['latitude'], next_loc['longitude'])
+            orig_loc = dict(locations[point_idx - 1])  # -1: point 0 is driver
+            orig_loc.update({
+                'stop_number':                 stop_num + 1,
+                'distance_from_previous_km':   round(leg.distance_km, 2),
+                'duration_from_previous_seconds': round(leg.duration_seconds),
+                'eta_minutes':                 round(cumulative_duration / 60),
+                'cumulative_distance_km':      round(cumulative_distance, 2),
+            })
+            ordered_locations.append(orig_loc)
+            prev_idx = point_idx
 
         return Response({
             'success': True,
-            'ordered_locations': ordered_locations
+            'ordered_locations': ordered_locations,
+            'total_distance_km': round(cumulative_distance, 2),
+            'total_duration_seconds': round(cumulative_duration),
+            'provider': getattr(settings, 'ROUTING_PROVIDER', 'osrm'),
         })
     
     @action(detail=False, methods=['get'])

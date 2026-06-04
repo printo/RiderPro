@@ -552,6 +552,13 @@ export interface RouteLocation {
   shipment_id?: string;
   address?: string;
   customer_name?: string;
+  // Phase 1 — ETA fields returned by optimize_path (all optional for backward compat)
+  stop_number?: number;
+  distance_from_previous_km?: number;
+  duration_from_previous_seconds?: number;
+  /** Cumulative estimated minutes from driver's current position to this stop. */
+  eta_minutes?: number;
+  cumulative_distance_km?: number;
 }
 
 export interface RouteOptimizeRequest {
@@ -563,6 +570,12 @@ export interface RouteOptimizeRequest {
 export interface RouteOptimizeResponse {
   success: boolean;
   ordered_locations: RouteLocation[];
+  /** Total road distance across all ordered stops (km). */
+  total_distance_km?: number;
+  /** Total estimated travel time across all ordered stops (seconds). */
+  total_duration_seconds?: number;
+  /** Routing provider used: 'osrm' | 'google' | 'haversine'. */
+  provider?: string;
 }
 
 export interface BulkShipmentEvent {

@@ -1,6 +1,7 @@
 """
 Django settings for riderpro project.
 """
+import os
 from pathlib import Path
 from datetime import timedelta
 
@@ -199,5 +200,30 @@ CLEANUP_SETTINGS = {
     'cleanup_time': '02:00',  # Daily at 2 AM
     'log_file': 'cleanup.log',
 }
+
+# ---------------------------------------------------------------------------
+# Routing provider
+# Change ROUTING_PROVIDER in the environment — no code changes needed.
+#
+#   ROUTING_PROVIDER=osrm      Self-hosted OSRM (default). Needs osrm-data/
+#                              prepared via scripts/setup-osrm.sh.
+#   ROUTING_PROVIDER=google    Google Distance Matrix API. Needs GOOGLE_MAPS_API_KEY.
+#   ROUTING_PROVIDER=haversine Straight-line fallback — no external service required.
+#
+# The active backend always falls back to Haversine if the external service
+# is unreachable, so the app runs without OSRM during local development.
+# ---------------------------------------------------------------------------
+ROUTING_PROVIDER = os.environ.get('ROUTING_PROVIDER', 'osrm')
+
+# OSRM: base URL of the running osrm-backend container / instance.
+# Default points to the 'osrm' service defined in docker-compose.yml.
+OSRM_BASE_URL = os.environ.get('OSRM_BASE_URL', 'http://osrm:5000')
+
+# Google Maps: API key (required only when ROUTING_PROVIDER=google).
+GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY', '')
+
+# Assumed average driving speed (km/h) used when computing estimated durations
+# from Haversine distances (i.e. when no routing provider gives real durations).
+ROUTING_AVERAGE_SPEED_KMH = float(os.environ.get('ROUTING_AVERAGE_SPEED_KMH', '30'))
 
 from .localsettings import *  # noqa Do not comment out.
