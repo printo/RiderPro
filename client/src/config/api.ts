@@ -80,6 +80,8 @@ export const API_ENDPOINTS = {
     active: (employee_id: string) => apiUrl(`/routes/active/${employee_id}`),
     analytics: apiUrl('/routes/analytics'),
     sessionSummary: (session_id: string) => apiUrl(`/routes/session/${session_id}/summary`),
+    optimizePath: apiUrl('/routes/optimize_path'),
+    roadPath: apiUrl('/routes/road-path'),
   },
 
   // Vehicle Types

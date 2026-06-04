@@ -20,12 +20,13 @@ services:
     environment:
       - DEBUG=True
       - NODE_ENV=development
-      # Routing provider — switch without any code changes:
-      #   osrm      → self-hosted OSRM (default, requires osrm-data/ setup — see scripts/setup-osrm.sh)
-      #   google    → Google Distance Matrix API (set GOOGLE_MAPS_API_KEY below)
-      #   haversine → straight-line fallback, no external service needed
-      - ROUTING_PROVIDER=${ROUTING_PROVIDER:-osrm}
-      - OSRM_BASE_URL=${OSRM_BASE_URL:-http://osrm:5000}
+      # ── Routing provider (switch via env var, no code changes needed) ──────
+      # ors       → OpenRouteService free API (DEFAULT — no local data needed)
+      #             Register free at https://openrouteservice.org → set ORS_API_KEY
+      # google    → Google Distance Matrix API → set GOOGLE_MAPS_API_KEY
+      # haversine → straight-line fallback, no external service (dev only)
+      - ROUTING_PROVIDER=${ROUTING_PROVIDER:-ors}
+      - ORS_API_KEY=${ORS_API_KEY:-}
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
       - ROUTING_AVERAGE_SPEED_KMH=${ROUTING_AVERAGE_SPEED_KMH:-30}
 
@@ -71,42 +72,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-      start_period: 10s
-
-  # ---------------------------------------------------------------------------
-  # OSRM — self-hosted road-network routing engine
-  #
-  # This service is optional. The Django backend falls back to straight-line
-  # (Haversine) distances automatically if OSRM is unreachable.
-  #
-  # ONE-TIME DATA SETUP (run once on the server before starting this service):
-  #   bash scripts/setup-osrm.sh
-  #
-  # To start the full stack including OSRM:
-  #   docker compose up
-  #
-  # To skip OSRM and use Haversine fallback:
-  #   ROUTING_PROVIDER=haversine docker compose up
-  # ---------------------------------------------------------------------------
-  osrm:
-    image: ghcr.io/project-osrm/osrm-backend:v5.27.1
-    container_name: riderpro-osrm
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./osrm-data:/data
-    command: >
-      osrm-routed
-      --algorithm mld
-      --max-table-size 1000
-      --max-matching-size 1000
-      /data/region.osrm
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/health || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
       start_period: 10s
 
 volumes:

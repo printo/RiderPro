@@ -574,7 +574,7 @@ export interface RouteOptimizeResponse {
   total_distance_km?: number;
   /** Total estimated travel time across all ordered stops (seconds). */
   total_duration_seconds?: number;
-  /** Routing provider used: 'osrm' | 'google' | 'haversine'. */
+  /** Routing provider used: 'ors' | 'google' | 'haversine' | 'osrm'. */
   provider?: string;
 }
 

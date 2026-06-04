@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-
 import L from 'leaflet';
 import { withChartErrorBoundary } from '@/components/ErrorBoundary';
 import { Shipment, RouteLocation } from '@shared/types';
+import { apiRequest } from '@/lib/queryClient';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for default markers in React Leaflet
@@ -162,43 +163,40 @@ function DropPointMap({
       return;
     }
 
-    const controller = new AbortController();
+    // Guard against stale responses overwriting newer ones and state updates
+    // after unmount (apiRequest has no AbortSignal support, so we use a flag).
+    let cancelled = false;
 
     const loadRoadPath = async () => {
       try {
-        // OSRM expects "lon,lat;lon,lat;..."
-        const coordinates = routeRequestPositions
-          .map(([lat, lng]) => `${lng},${lat}`)
-          .join(';');
-
-        const res = await fetch(
-          `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`,
-          { signal: controller.signal }
+        const res = await apiRequest(
+          'POST',
+          '/api/v1/routes/road-path',
+          { coordinates: routeRequestPositions }
         );
 
         if (!res.ok) {
-          throw new Error(`Routing API failed: ${res.status}`);
+          throw new Error(`Road path API failed: ${res.status}`);
         }
 
         const data = await res.json();
-        const geometry = data?.routes?.[0]?.geometry?.coordinates;
+        if (cancelled) return;
 
-        if (!Array.isArray(geometry) || geometry.length < 2) {
+        if (!data.success || !Array.isArray(data.geometry) || data.geometry.length < 2) {
           throw new Error('No road geometry returned');
         }
 
-        const snapped: [number, number][] = geometry.map((coord: [number, number]) => [coord[1], coord[0]]);
-        setRoadPathPositions(snapped);
-      } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
-          // Fall back to straight segments if road routing is unavailable.
+        setRoadPathPositions(data.geometry as [number, number][]);
+      } catch {
+        // Fall back to straight segments if road routing is unavailable.
+        if (!cancelled) {
           setRoadPathPositions(routeRequestPositions);
         }
       }
     };
 
     loadRoadPath();
-    return () => controller.abort();
+    return () => { cancelled = true; };
   }, [routeRequestPositions]);
 
   return (

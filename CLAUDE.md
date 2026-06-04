@@ -154,6 +154,20 @@ These changes are easy to get wrong and worth confirming:
 - Touching `localsettings.py`, Docker config, or the Vite proxy.
 - Replacing core frameworks (React/Wouter/TanStack Query/Tailwind/Radix on the frontend; Django/DRF/Simple JWT on the backend).
 
+## Git & GitHub workflow — MANDATORY
+
+**Never `git commit`, `git push`, or open a pull request without explicit user confirmation.**
+
+The required sequence for every change:
+1. Make all code changes
+2. Run syntax/type checks and confirm they pass
+3. Show the user a clear summary: what was changed, which files, why
+4. **Wait for the user to say "push it", "commit", "go ahead", or equivalent**
+5. Only then stage, commit, and push
+
+This applies to all changes — features, fixes, refactors, and documentation.
+Do not combine steps 3 and 5. The summary comes first; the commit only happens after the user confirms.
+
 ## Useful file locations
 
 | Concern | File |

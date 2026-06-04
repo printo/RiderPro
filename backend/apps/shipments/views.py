@@ -2321,9 +2321,10 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
         """
         Optimize route path using nearest-neighbor heuristic with road distances.
 
-        Uses the configured routing backend (OSRM by default) to get real road
-        distances and travel times. Falls back to Haversine straight-line distances
-        automatically if the routing service is unavailable.
+        Uses the configured routing backend (OpenRouteService by default) to get
+        real road distances and travel times. Falls back to Haversine straight-line
+        distances automatically if the routing service is unavailable or no API key
+        is configured.
 
         Response includes per-stop ETA, distance from previous stop, and cumulative
         totals so the driver knows exactly how long each leg will take.
@@ -2343,7 +2344,7 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 'ordered_locations': [],
                 'total_distance_km': 0,
                 'total_duration_seconds': 0,
-                'provider': getattr(settings, 'ROUTING_PROVIDER', 'osrm'),
+                'provider': getattr(settings, 'ROUTING_PROVIDER', 'ors'),
             })
 
         # Point 0 = driver's current position; points 1..N = delivery stops.
@@ -2395,9 +2396,51 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             'ordered_locations': ordered_locations,
             'total_distance_km': round(cumulative_distance, 2),
             'total_duration_seconds': round(cumulative_duration),
-            'provider': getattr(settings, 'ROUTING_PROVIDER', 'osrm'),
+            'provider': getattr(settings, 'ROUTING_PROVIDER', 'ors'),
         })
     
+    @action(detail=False, methods=['post'])
+    def road_path(self, request):
+        """
+        Return road-accurate geometry for a sequence of coordinates.
+
+        Replaces direct frontend calls to third-party routing APIs (previously
+        the public OSRM demo server). API key stays server-side.
+
+        Request body:
+            { "coordinates": [[lat, lng], [lat, lng], ...] }
+
+        Response:
+            { "success": true, "geometry": [[lat, lng], ...], "provider": "ors" }
+            Falls back to the input coordinates (straight lines) if the
+            routing provider is unavailable.
+        """
+        from .routing import get_routing_backend
+
+        coordinates = request.data.get('coordinates', [])
+        if not coordinates or len(coordinates) < 2:
+            return Response(
+                {'success': False, 'message': 'At least 2 coordinates required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            points = [(float(c[0]), float(c[1])) for c in coordinates]
+        except (TypeError, ValueError, IndexError):
+            return Response(
+                {'success': False, 'message': 'Invalid coordinate format. Expected [[lat, lng], ...]'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        backend = get_routing_backend()
+        geometry = backend.get_route_geometry(points)
+
+        return Response({
+            'success': True,
+            'geometry': [[lat, lng] for lat, lng in geometry],
+            'provider': getattr(settings, 'ROUTING_PROVIDER', 'ors'),
+        })
+
     @action(detail=False, methods=['get'])
     def shipments(self, request):
         """Get shipments assigned to the current rider session"""

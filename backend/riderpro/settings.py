@@ -202,28 +202,43 @@ CLEANUP_SETTINGS = {
 }
 
 # ---------------------------------------------------------------------------
-# Routing provider
-# Change ROUTING_PROVIDER in the environment — no code changes needed.
+# Routing provider — change ROUTING_PROVIDER in the environment only,
+# no code changes needed.
 #
-#   ROUTING_PROVIDER=osrm      Self-hosted OSRM (default). Needs osrm-data/
-#                              prepared via scripts/setup-osrm.sh.
-#   ROUTING_PROVIDER=google    Google Distance Matrix API. Needs GOOGLE_MAPS_API_KEY.
-#   ROUTING_PROVIDER=haversine Straight-line fallback — no external service required.
+#   ROUTING_PROVIDER=ors       OpenRouteService API (DEFAULT).
+#                              Free: 2,000 requests/day — enough for most ops.
+#                              Register free at https://openrouteservice.org
+#                              and set ORS_API_KEY. No local data required.
 #
-# The active backend always falls back to Haversine if the external service
-# is unreachable, so the app runs without OSRM during local development.
+#   ROUTING_PROVIDER=google    Google Distance Matrix API.
+#                              Set GOOGLE_MAPS_API_KEY. Pay-per-use after
+#                              $200/month free credit. No local data required.
+#
+#   ROUTING_PROVIDER=osrm      Self-hosted OSRM. Set OSRM_BASE_URL.
+#                              Requires one-time data setup via
+#                              scripts/setup-osrm.sh. No per-call cost.
+#
+#   ROUTING_PROVIDER=haversine Straight-line fallback. No external service.
+#                              Inaccurate on real roads — dev/offline only.
+#
+# Every backend falls back to Haversine automatically if its external service
+# is unreachable, so the app always works even without a provider configured.
 # ---------------------------------------------------------------------------
-ROUTING_PROVIDER = os.environ.get('ROUTING_PROVIDER', 'osrm')
+ROUTING_PROVIDER = os.environ.get('ROUTING_PROVIDER', 'ors')
 
-# OSRM: base URL of the running osrm-backend container / instance.
-# Default points to the 'osrm' service defined in docker-compose.yml.
-OSRM_BASE_URL = os.environ.get('OSRM_BASE_URL', 'http://osrm:5000')
+# OpenRouteService: free API key from https://openrouteservice.org (no local data needed)
+ORS_API_KEY = os.environ.get('ORS_API_KEY', '')
+ORS_BASE_URL = os.environ.get('ORS_BASE_URL', 'https://api.openrouteservice.org')
 
-# Google Maps: API key (required only when ROUTING_PROVIDER=google).
+# Google Maps: API key (required only when ROUTING_PROVIDER=google)
 GOOGLE_MAPS_API_KEY = os.environ.get('GOOGLE_MAPS_API_KEY', '')
 
-# Assumed average driving speed (km/h) used when computing estimated durations
-# from Haversine distances (i.e. when no routing provider gives real durations).
+# OSRM: only needed if ROUTING_PROVIDER=osrm (self-hosted, requires local map data)
+# See routing.py OSRMBackend for details. Not used in the default stack.
+OSRM_BASE_URL = os.environ.get('OSRM_BASE_URL', 'http://osrm:5000')
+
+# Assumed average driving speed (km/h) used by the Haversine fallback
+# to estimate travel times when no routing provider returns real durations.
 ROUTING_AVERAGE_SPEED_KMH = float(os.environ.get('ROUTING_AVERAGE_SPEED_KMH', '30'))
 
 from .localsettings import *  # noqa Do not comment out.

@@ -51,6 +51,7 @@ urlpatterns = [
     path('routes/coordinates/batch', RouteSessionViewSet.as_view({'post': 'coordinates_batch'}), name='route-coordinates-batch'),
     path('routes/shipment-event', RouteSessionViewSet.as_view({'post': 'shipment_event'}), name='route-shipment-event'),
     path('routes/optimize_path', RouteSessionViewSet.as_view({'post': 'optimize_path'}), name='route-optimize-path'),
+    path('routes/road-path', RouteSessionViewSet.as_view({'post': 'road_path'}), name='route-road-path'),
     path('routes/bulk_shipment_event', RouteSessionViewSet.as_view({'post': 'bulk_shipment_event'}), name='route-bulk-shipment-event'),
     path('routes/visualization', RouteSessionViewSet.as_view({'get': 'visualization_data'}), name='route-visualization-data'),
     path('routes/session/<str:pk>', RouteSessionViewSet.as_view({'get': 'session'}), name='route-session'),
