@@ -2069,9 +2069,11 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_401_UNAUTHORIZED
             )
         
-        session_id = request.data.get('sessionId')
+        # Frontend (OfflineStorageService) sends snake_case `session_id`; accept the
+        # legacy camelCase `sessionId` too so older mobile builds keep syncing.
+        session_id = request.data.get('session_id') or request.data.get('sessionId')
         coordinates = request.data.get('coordinates', [])
-        
+
         if not session_id:
             return Response(
                 {'success': False, 'message': 'Session ID required'},

@@ -6,6 +6,7 @@ import {
   RouteOptimizeRequest, RouteOptimizeResponse, BulkShipmentEvent
 } from "@shared/types";
 import { apiClient } from "../services/ApiClient";
+import { API_ENDPOINTS } from "@/config/api";
 
 export const routeAPI = {
   /**
@@ -209,7 +210,7 @@ export const routeAPI = {
    * Optimize route path
    */
   optimizePath: async (data: RouteOptimizeRequest): Promise<RouteOptimizeResponse> => {
-    const response = await apiRequest("POST", "/api/v1/routes/optimize_path", data);
+    const response = await apiRequest("POST", API_ENDPOINTS.routes.optimizePath, data);
     return await response.json();
   },
 

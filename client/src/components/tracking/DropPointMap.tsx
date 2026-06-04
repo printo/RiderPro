@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { withChartErrorBoundary } from '@/components/ErrorBoundary';
 import { Shipment, RouteLocation } from '@shared/types';
 import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/config/api';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for default markers in React Leaflet
@@ -171,7 +172,7 @@ function DropPointMap({
       try {
         const res = await apiRequest(
           'POST',
-          '/api/v1/routes/road-path',
+          API_ENDPOINTS.routes.roadPath,
           { coordinates: routeRequestPositions }
         );
 

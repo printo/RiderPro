@@ -59,6 +59,20 @@ class LegResult:
     duration_seconds: float   # estimated travel time in seconds
 
 
+def _avg_speed_kmh() -> float:
+    """
+    Average driving speed (km/h) used to estimate travel time from straight-line
+    distance in the Haversine fallback. Clamped to a positive value so a
+    misconfigured ROUTING_AVERAGE_SPEED_KMH (0 or negative) can never cause a
+    division-by-zero at request time.
+    """
+    try:
+        speed = float(getattr(settings, 'ROUTING_AVERAGE_SPEED_KMH', 30.0))
+    except (TypeError, ValueError):
+        speed = 30.0
+    return speed if speed > 0 else 30.0
+
+
 # ---------------------------------------------------------------------------
 # Backends
 # ---------------------------------------------------------------------------
@@ -106,7 +120,7 @@ class HaversineBackend(RoutingBackend):
         return R * 2 * math.asin(math.sqrt(max(0.0, a)))
 
     def get_distance_matrix(self, points: List[Coord]) -> List[List[LegResult]]:
-        avg_speed: float = getattr(settings, 'ROUTING_AVERAGE_SPEED_KMH', 30.0)
+        avg_speed = _avg_speed_kmh()
         n = len(points)
         matrix: List[List[LegResult]] = []
         for i in range(n):
@@ -144,7 +158,7 @@ class OpenRouteServiceBackend(RoutingBackend):
 
     def get_distance_matrix(self, points: List[Coord]) -> List[List[LegResult]]:
         api_key: str = getattr(settings, 'ORS_API_KEY', '')
-        avg_speed: float = getattr(settings, 'ROUTING_AVERAGE_SPEED_KMH', 30.0)
+        avg_speed = _avg_speed_kmh()
 
         if not api_key:
             logger.warning(
@@ -215,7 +229,7 @@ class OpenRouteServiceBackend(RoutingBackend):
 
             return matrix
 
-        except (urllib.error.URLError, urllib.error.HTTPError, KeyError, ValueError, OSError) as exc:
+        except (urllib.error.URLError, urllib.error.HTTPError, KeyError, IndexError, TypeError, ValueError, OSError) as exc:
             logger.warning(
                 "OpenRouteService unavailable (%s) — falling back to Haversine distances.", exc
             )
@@ -280,7 +294,7 @@ class OSRMBackend(RoutingBackend):
 
     def get_distance_matrix(self, points: List[Coord]) -> List[List[LegResult]]:
         base_url: str = getattr(settings, 'OSRM_BASE_URL', 'http://osrm:5000')
-        avg_speed: float = getattr(settings, 'ROUTING_AVERAGE_SPEED_KMH', 30.0)
+        avg_speed = _avg_speed_kmh()
 
         # OSRM uses lng,lat order — opposite of our internal (lat, lng)
         coords_str = ";".join(f"{lng},{lat}" for lat, lng in points)
@@ -320,7 +334,7 @@ class OSRMBackend(RoutingBackend):
 
             return matrix
 
-        except (urllib.error.URLError, urllib.error.HTTPError, KeyError, ValueError, OSError) as exc:
+        except (urllib.error.URLError, urllib.error.HTTPError, KeyError, IndexError, TypeError, ValueError, OSError) as exc:
             logger.warning(
                 "OSRM unavailable (%s) — falling back to Haversine. "
                 "Run scripts/setup-osrm.sh to set up routing data, or use ROUTING_PROVIDER=ors.",
@@ -344,7 +358,7 @@ class GoogleMapsBackend(RoutingBackend):
 
     def get_distance_matrix(self, points: List[Coord]) -> List[List[LegResult]]:
         api_key: str = getattr(settings, 'GOOGLE_MAPS_API_KEY', '')
-        avg_speed: float = getattr(settings, 'ROUTING_AVERAGE_SPEED_KMH', 30.0)
+        avg_speed = _avg_speed_kmh()
 
         if not api_key:
             logger.warning(
@@ -409,11 +423,16 @@ def get_routing_backend() -> RoutingBackend:
         osrm       → OSRMBackend              (requires local map data)
         haversine  → HaversineBackend         (straight-line, no external service)
     """
-    provider: str = getattr(settings, 'ROUTING_PROVIDER', 'ors').lower()
+    provider: str = getattr(settings, 'ROUTING_PROVIDER', 'ors').lower().strip()
     if provider == 'google':
         return GoogleMapsBackend()
     if provider == 'osrm':
         return OSRMBackend()
     if provider == 'haversine':
         return HaversineBackend()
+    if provider not in ('ors', ''):
+        logger.warning(
+            "Unknown ROUTING_PROVIDER=%r — valid options: ors, google, osrm, haversine. "
+            "Falling back to 'ors'.", provider
+        )
     return OpenRouteServiceBackend()  # default: ors
