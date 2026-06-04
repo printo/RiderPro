@@ -4,11 +4,20 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MapPin, Navigation, CheckCircle2, Package, User, Phone, XCircle, Zap, ExternalLink } from 'lucide-react';
+import { MapPin, Navigation, CheckCircle2, Package, User, Phone, XCircle, Zap, ExternalLink, Clock } from 'lucide-react';
 import DropPointMap from '../tracking/DropPointMap';
 import { useRouteOptimization } from '@/hooks/useRouteOptimization';
 import { Shipment, RouteLocation } from '@shared/types';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
+
+/** Format minutes as "Xh Ym" or "Z min" for ETA display. */
+function formatMins(mins?: number): string {
+  if (mins == null || !isFinite(mins)) return '—';
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}
 
 /** Build Google Maps URL for full route: origin → waypoints → destination (opens in nav mode). */
 function buildGoogleMapsRouteUrl(
@@ -59,6 +68,7 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
   const {
     shipments,
     optimizedPath: optimized_path,
+    routeTotals: route_totals,
     isLoadingShipments: is_loading_shipments,
     nearestPoint: nearest_point,
     bulkUpdateStatus,
@@ -69,6 +79,30 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
   const [is_updating, set_is_updating] = useState(false);
 
   const active_shipments = shipments.filter(s => s.status !== 'Delivered' && s.status !== 'Cancelled');
+
+  // Map each optimized stop to its order + ETA, keyed by rounded lat/lng
+  // (same key the optimizer groups by). Lets us show per-stop ETA in the list.
+  const eta_by_location = useMemo(() => {
+    const m = new Map<string, RouteLocation>();
+    optimized_path.forEach((loc) => {
+      if (loc.latitude != null && loc.longitude != null) {
+        m.set(`${loc.latitude.toFixed(5)},${loc.longitude.toFixed(5)}`, loc);
+      }
+    });
+    return m;
+  }, [optimized_path]);
+
+  const stop_for = (s: Shipment): RouteLocation | undefined =>
+    s.latitude != null && s.longitude != null
+      ? eta_by_location.get(`${s.latitude.toFixed(5)},${s.longitude.toFixed(5)}`)
+      : undefined;
+
+  // Render the list in optimized stop order; stops without an optimized entry go last.
+  const ordered_shipments = [...active_shipments].sort(
+    (a, b) =>
+      (stop_for(a)?.stop_number ?? Number.MAX_SAFE_INTEGER) -
+      (stop_for(b)?.stop_number ?? Number.MAX_SAFE_INTEGER)
+  );
 
   const google_maps_route_url = useMemo(
     () => buildGoogleMapsRouteUrl(current_location, optimized_path),
@@ -214,6 +248,12 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
               <Package className="w-5 h-5" />
               Shipments in Route
             </CardTitle>
+            {route_totals && route_totals.distance_km > 0 && (
+              <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
+                <Navigation className="w-3 h-3" />
+                Optimized route: {route_totals.distance_km.toFixed(1)} km · ~{formatMins(Math.round(route_totals.duration_seconds / 60))} total
+              </p>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             <ScrollArea className="h-[400px]">
@@ -224,16 +264,23 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
                     <p>All deliveries completed!</p>
                   </div>
                 ) : (
-                  active_shipments.map((s) => (
+                  ordered_shipments.map((s) => {
+                    const stop = stop_for(s);
+                    return (
                     <div
                       key={s.id}
                       className="p-3 rounded-lg border border-border/50 bg-background/50 hover:bg-background/80 transition-colors group"
                     >
                       <div className="flex justify-between items-start mb-2">
-                        <div className="font-semibold text-sm truncate max-w-[120px]">
-                          {s.customer_name}
+                        <div className="font-semibold text-sm flex items-center gap-1.5 min-w-0">
+                          {stop?.stop_number != null && (
+                            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex-shrink-0">
+                              {stop.stop_number}
+                            </span>
+                          )}
+                          <span className="truncate">{s.customer_name}</span>
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 flex-shrink-0">
                           <Badge variant="secondary" className="text-[9px] uppercase font-bold py-0 h-4">
                             {s.status}
                           </Badge>
@@ -250,6 +297,15 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
                       </div>
 
                       <div className="space-y-1">
+                        {stop && (
+                          <div className="flex items-center gap-2 text-xs font-medium text-primary">
+                            <Clock className="w-3 h-3" />
+                            <span>
+                              ETA ~{formatMins(stop.eta_minutes)}
+                              {stop.distance_from_previous_km != null && ` · ${stop.distance_from_previous_km} km from previous`}
+                            </span>
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <User className="w-3 h-3" />
                           <span>ID: {String(s.id).slice(-8)}</span>
@@ -288,7 +344,8 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
                         </Button>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </ScrollArea>

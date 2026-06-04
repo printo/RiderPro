@@ -14,6 +14,7 @@ export function useRouteOptimization({ session_id, current_location, enabled = t
   const [optimized_path, set_optimized_path] = useState<RouteLocation[]>([]);
   const [is_optimizing, set_is_optimizing] = useState(false);
   const [nearest_point, set_nearest_point] = useState<Shipment[] | null>(null);
+  const [route_totals, set_route_totals] = useState<{ distance_km: number; duration_seconds: number } | null>(null);
   const [skipped_shipment_ids, set_skipped_shipment_ids] = useState<string[]>(() => {
     const saved = localStorage.getItem(`skipped_shipments_${session_id || 'none'}`);
     return saved ? JSON.parse(saved) : [];
@@ -81,6 +82,10 @@ export function useRouteOptimization({ session_id, current_location, enabled = t
 
         if (response.success) {
           set_optimized_path(response.ordered_locations);
+          set_route_totals({
+            distance_km: response.total_distance_km ?? 0,
+            duration_seconds: response.total_duration_seconds ?? 0,
+          });
         }
       } catch (error) {
         console.error('Failed to optimize path:', error);
@@ -162,6 +167,7 @@ export function useRouteOptimization({ session_id, current_location, enabled = t
   return {
     shipments,
     optimizedPath: optimized_path,
+    routeTotals: route_totals,
     isOptimizing: is_optimizing,
     isLoadingShipments: is_loading_shipments,
     nearestPoint: nearest_point,

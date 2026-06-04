@@ -14,6 +14,12 @@ services:
     command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8004 --noreload"
     environment:
       - NODE_ENV=production
+      # Routing provider — values sourced from the .env file in this directory.
+      # ors (default) needs ORS_API_KEY set in .env; falls back to Haversine if empty.
+      - ROUTING_PROVIDER=${ROUTING_PROVIDER:-ors}
+      - ORS_API_KEY=${ORS_API_KEY:-}
+      - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}
+      - ROUTING_AVERAGE_SPEED_KMH=${ROUTING_AVERAGE_SPEED_KMH:-30}
 
   frontend:
     build:
