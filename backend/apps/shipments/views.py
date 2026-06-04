@@ -2028,22 +2028,28 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        from django.utils.dateparse import parse_datetime as _parse_dt
+
+        raw_start = request.data.get('start_time')
+        start_time = (_parse_dt(raw_start) if isinstance(raw_start, str) else None) or timezone.now()
+
         session, created = RouteSession.objects.get_or_create(
             id=session_id,
             defaults={
                 'employee_id': user.employee_id,
-                'start_latitude': request.data.get('startLatitude'),
-                'start_longitude': request.data.get('startLongitude'),
-                'shipment_id': request.data.get('shipmentId'),
-                'start_time': timezone.now(),
+                'start_latitude': request.data.get('start_latitude'),
+                'start_longitude': request.data.get('start_longitude'),
+                'shipment_id': request.data.get('shipment_id'),
+                'start_time': start_time,
                 'status': 'active'
             }
         )
-        
-        if request.data.get('status') == 'completed' or request.data.get('endTime'):
-            session.end_latitude = request.data.get('endLatitude')
-            session.end_longitude = request.data.get('endLongitude')
-            session.end_time = timezone.now()
+
+        if request.data.get('status') == 'completed' or request.data.get('end_time'):
+            raw_end = request.data.get('end_time')
+            session.end_latitude = request.data.get('end_latitude')
+            session.end_longitude = request.data.get('end_longitude')
+            session.end_time = (_parse_dt(raw_end) if isinstance(raw_end, str) else None) or timezone.now()
             session.status = 'completed'
             session.save()
         
@@ -2080,27 +2086,40 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
+        from django.utils.dateparse import parse_datetime as _parse_dt
+
         results = []
         for coord_data in coordinates:
+            lat = coord_data.get('latitude')
+            lng = coord_data.get('longitude')
+            if lat is None or lng is None:
+                results.append({'success': False, 'error': 'Missing latitude or longitude'})
+                continue
+
+            raw_ts = coord_data.get('timestamp')
+            ts = (_parse_dt(raw_ts) if isinstance(raw_ts, str) else None) or timezone.now()
+
             tracking = RouteTracking.objects.create(
                 session=session,
                 employee_id=user.employee_id,
-                latitude=float(coord_data.get('latitude', 0)),
-                longitude=float(coord_data.get('longitude', 0)),
-                timestamp=timezone.now(),
+                latitude=float(lat),
+                longitude=float(lng),
+                timestamp=ts,
                 accuracy=coord_data.get('accuracy'),
                 speed=coord_data.get('speed')
             )
-            results.append(RouteTrackingSerializer(tracking).data)
-        
-        logger.info(f'Offline coordinates synced for session {session_id}: {len(results)}')
+            results.append({'success': True, **RouteTrackingSerializer(tracking).data})
+
+        successful = sum(1 for r in results if r.get('success'))
+        logger.info(f'Offline coordinates synced for session {session_id}: {successful}/{len(results)}')
         
         return Response({
             'success': True,
             'results': results,
-            'message': 'Coordinates synced'
+            'summary': {'total': len(results), 'successful': successful, 'failed': len(results) - successful},
+            'message': f'Synced {successful}/{len(results)} coordinates'
         })
-    
+
     @action(detail=False, methods=['post'])
     def track_location(self, request):
         """Track user location in real-time"""

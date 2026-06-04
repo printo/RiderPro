@@ -6,7 +6,7 @@ import logging
 from typing import Optional, Dict, Any
 from django.utils import timezone
 from django.conf import settings
-from .models import Shipment, OrderEvent, Zone, RouteSession, RouteTracking
+from .models import Shipment, OrderEvent, RouteSession, RouteTracking
 
 logger = logging.getLogger(__name__)
 
@@ -268,79 +268,6 @@ class RoutePlanningService:
         
         return url
     
-    @staticmethod
-    def assign_to_zone(shipment: Shipment, zone: Optional[Zone] = None, auto_assign: bool = True) -> Optional[Zone]:
-        """
-        Assign shipment to a zone
-        
-        Args:
-            shipment: Shipment instance
-            zone: Zone to assign (if None and auto_assign=True, finds best zone)
-            auto_assign: Whether to auto-assign if zone is None
-        
-        Returns:
-            Assigned Zone instance or None
-        """
-        if zone:
-            shipment.zone = zone
-            shipment.save()
-            return zone
-        
-        if not auto_assign:
-            return None
-        
-        # Auto-assign based on coordinates
-        if shipment.latitude and shipment.longitude:
-            # Find zone that contains these coordinates
-            zones = Zone.objects.filter(is_active=True)
-            for z in zones:
-                if RoutePlanningService._point_in_zone(
-                    shipment.latitude,
-                    shipment.longitude,
-                    z.boundaries
-                ):
-                    shipment.zone = z
-                    shipment.save()
-                    logger.info(f"Auto-assigned shipment {shipment.id} to zone {z.name}")
-                    return z
-        
-        logger.warning(f"Could not auto-assign shipment {shipment.id} to any zone")
-        return None
-    
-    @staticmethod
-    def _point_in_zone(lat: float, lng: float, boundaries: Optional[list]) -> bool:
-        """
-        Check if a point is inside a zone polygon
-        
-        Args:
-            lat: Latitude
-            lng: Longitude
-            boundaries: List of [lat, lng] coordinates defining polygon
-        
-        Returns:
-            True if point is inside polygon
-        """
-        if not boundaries or not isinstance(boundaries, list) or len(boundaries) < 3:
-            return False
-        
-        # Simple point-in-polygon check (ray casting algorithm)
-        # This is a simplified version - for production, use a proper geospatial library
-        x, y = lng, lat
-        n = len(boundaries)
-        inside = False
-        
-        p1x, p1y = boundaries[0]
-        for i in range(1, n + 1):
-            p2x, p2y = boundaries[i % n]
-            if y > min(p1y, p2y):
-                if y <= max(p1y, p2y):
-                    if x <= max(p1x, p2x):
-                        if p1y != p2y:
-                            xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                        if p1x == p2x or x <= xinters:
-                            inside = not inside
-            p1x, p1y = p2x, p2y
-
 class LocationTrackingService:
     """
     Service for tracking user/rider locations in real-time
