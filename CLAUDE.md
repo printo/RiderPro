@@ -87,7 +87,8 @@ client/src/
   lib/           queryClient, roles, utils (cn, formatters)
 
 backend/apps/
-  authentication/  Custom User model (roles, vehicle_type FK, POPS tokens), JWT, signup/approval
+  authentication/  Custom User model (roles, POPS tokens) + RiderAccount (local riders;
+                   holds vehicle_type FK + is_approved), VehicleChangeRequest, JWT, signup/approval
   shipments/       Largest app — Shipment, Acknowledgment, RouteSession, RouteTracking,
                    route optimization + auto mileage/ETA, analytics, POPS integration, signals
   vehicles/        VehicleType (km/l mileage), FuelSetting (fuel price)
@@ -127,7 +128,8 @@ Bidirectional integration:
 
 - **Pluggable routing provider** — `backend/apps/shipments/routing.py`. `get_routing_backend()` picks a backend by the `ROUTING_PROVIDER` env var: `ors` (OpenRouteService, **default**), `google`, `osrm`, or `haversine`. Every backend **falls back to straight-line Haversine** if its service is unreachable, so routing never hard-fails. Config lives in `.env` (gitignored): `ORS_API_KEY`, `GOOGLE_MAPS_API_KEY`, `OSRM_BASE_URL`, `ROUTING_AVERAGE_SPEED_KMH`, `ROUTING_STOP_SERVICE_SECONDS`. **Mirror any new routing env var into BOTH `docker-compose.yml` and `docker-compose.prod.yml`.**
 - **Optimization** — `POST /api/v1/routes/optimize_path` orders a rider's stops by real road travel time (nearest-neighbour). Returns per-stop `eta_minutes`, absolute `eta_clock`, `distance_from_previous_km`, and route totals. ETAs add a per-stop service/dwell allowance (`ROUTING_STOP_SERVICE_SECONDS`, default 180s). The hook `useRouteOptimization` re-optimizes as the rider moves but is **debounced** (re-optimize on stop-count change, else only after moving ≥200 m AND ≥60 s) to protect the ORS free-tier quota — keep that debounce.
-- **Auto mileage & fuel** — `finalize_session_metrics()` in `apps/shipments/services.py` computes a session's distance as the **road distance between confirmed pickup/delivery stops** (robust to web-app GPS gaps), falling back to the filtered GPS trail only when there are no confirmed stops. Fuel litres/cost come from the rider's `VehicleType.fuel_efficiency` + active `FuelSetting`. Runs in `stop()` and the offline `sync_session`/`sync_coordinates` paths (idempotent). This is the source of mileage — don't reintroduce manual start/end-km as the primary path.
+- **Auto mileage & fuel** — `finalize_session_metrics()` in `apps/shipments/services.py` computes a session's distance as the **road distance between confirmed pickup/delivery stops** (robust to web-app GPS gaps), falling back to the filtered GPS trail only when there are no confirmed stops. The rider's mileage/fuel-type come from **`RiderAccount.vehicle_type`** — the vehicle lives on `RiderAccount` (keyed by `rider_id`, which equals the session's `employee_id`/username), **NOT** the auth `User` (querying `User` silently fell back to default mileage for everyone — a real bug we fixed). Fuel price from the active `FuelSetting`. The inputs used are snapshotted onto the session (`vehicle_type_used`, `fuel_efficiency_used`, `fuel_price_used`) so past reimbursements don't change if a vehicle/price is later updated. Runs in `stop()` + offline `sync_session`/`sync_coordinates` (idempotent). Source of mileage — don't reintroduce manual start/end-km as the primary path. External/POPS (`User`-only) riders have no `RiderAccount` → default mileage.
+- **Vehicle control & approval** — the vehicle sets mileage (= reimbursement money), so it's **admin-governed**, mirroring the rider signup-approval flow. `VehicleChangeRequest` model (`apps/authentication`) + `/api/v1/auth/` endpoints: `my-vehicle`, `vehicle-change-request` (rider raises a pending request), `vehicle-change-requests/pending` and `<id>/approve|reject` (manager-gated via `_is_manager`; approve updates `RiderAccount.vehicle_type`). Frontend: day-start `VehicleConfirmModal` confirms the vehicle before a session starts (no vehicle → "Start anyway", flagged via `vehicle_type_used=None`); admin `VehicleChangeRequests` panel embedded in `AdminRiderManagement`. Don't make the vehicle freely rider-editable — keep the approval gate.
 - **Web-GPS limitation** — this is a web app: `navigator.geolocation.watchPosition` only runs while the page is open & foregrounded; there is **no background GPS**. That's *why* mileage is stop-to-stop, not trail-based. True background tracking would need a native/Capacitor wrapper (analysis in `docs/route-planning-prd.html`).
 - **`POST /api/v1/routes/road-path`** returns road-accurate polyline geometry for the map — keeps the routing key server-side (the frontend must NOT call public routing servers directly).
 
@@ -138,7 +140,7 @@ Bidirectional integration:
 - New API calls go through `ApiClient` — never call `fetch`/`axios` directly elsewhere.
 - New data: validate with Zod on the client and DRF serializers on the server; update `shared/types.ts` / `shared/schema.ts` when the contract changes.
 - Tailwind utilities only — no inline styles, CSS modules, or competing UI libraries.
-- Python: 4-space indent, DRF serializers for all I/O, Django ORM (no raw SQL without a reason). Migrations are mandatory for model changes.
+- Python: 4-space indent, DRF serializers for all I/O, Django ORM (no raw SQL without a reason). Migrations are mandatory for model changes — **generate them with `makemigrations`, don't hand-write** (hand-written ones drift on index names / `id` field). If you can't run `makemigrations` locally, run it (or `makemigrations --check`) in the Django container/on the server, and commit the generated file.
 - No `console.log` in production code — use the shared logger (`shared/utils/logger.ts` / `client/src/utils/logger.ts`).
 
 ## Full-stack feature workflow (bottom-up)
@@ -205,6 +207,10 @@ Do not combine steps 3 and 5. The summary comes first; the commit only happens a
 | Auto mileage/fuel + status service | `backend/apps/shipments/services.py` (`finalize_session_metrics`) |
 | Route optimization / ETA endpoint | `optimize_path` in `backend/apps/shipments/views.py` |
 | Route optimization hook (debounced) | `client/src/hooks/useRouteOptimization.ts` |
+| Vehicle control model + endpoints | `backend/apps/authentication/{models,views,urls}.py` (`VehicleChangeRequest`) |
+| Day-start vehicle modal | `client/src/components/routes/VehicleConfirmModal.tsx` |
+| Admin vehicle approvals | `client/src/components/admin/VehicleChangeRequests.tsx` (in `AdminRiderManagement`) |
+| Vehicle API client / hook | `client/src/apiClient/vehicleControl.ts`, `client/src/hooks/useMyVehicle.ts` |
 | POPS inbound | `backend/apps/shipments/pops_order_receiver.py` |
 | Outbound callbacks | `backend/apps/shipments/external_callback_service.py` |
 | Post-save signal triggers | `backend/apps/shipments/signals.py` |
