@@ -19,6 +19,13 @@ function formatMins(mins?: number): string {
   return m ? `${h}h ${m}m` : `${h}h`;
 }
 
+/** Format an ISO timestamp as a short local clock time, e.g. "3:45 PM". */
+function formatClock(iso?: string): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
 /** Build Google Maps URL for full route: origin → waypoints → destination (opens in nav mode). */
 function buildGoogleMapsRouteUrl(
   current_location: { latitude: number; longitude: number } | undefined,
@@ -266,6 +273,7 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
                 ) : (
                   ordered_shipments.map((s) => {
                     const stop = stop_for(s);
+                    const arrival = stop ? formatClock(stop.eta_clock) : null;
                     return (
                     <div
                       key={s.id}
@@ -302,6 +310,7 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
                             <Clock className="w-3 h-3" />
                             <span>
                               ETA ~{formatMins(stop.eta_minutes)}
+                              {arrival && ` · arrives ${arrival}`}
                               {stop.distance_from_previous_km != null && ` · ${stop.distance_from_previous_km} km from previous`}
                             </span>
                           </div>

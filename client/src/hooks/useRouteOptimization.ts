@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { routeAPI } from '@/apiClient/routes';
 import { Shipment, RouteLocation, RouteOptimizeResponse } from '@shared/types';
 import { useQuery } from '@tanstack/react-query';
@@ -15,6 +15,9 @@ export function useRouteOptimization({ session_id, current_location, enabled = t
   const [is_optimizing, set_is_optimizing] = useState(false);
   const [nearest_point, set_nearest_point] = useState<Shipment[] | null>(null);
   const [route_totals, set_route_totals] = useState<{ distance_km: number; duration_seconds: number } | null>(null);
+  // Remembers the position/time/stop-count of the last optimization, so we can
+  // debounce re-optimization and avoid burning the ORS quota on every GPS tick.
+  const last_optimize_ref = useRef<{ lat: number; lng: number; at: number; count: number } | null>(null);
   const [skipped_shipment_ids, set_skipped_shipment_ids] = useState<string[]>(() => {
     const saved = localStorage.getItem(`skipped_shipments_${session_id || 'none'}`);
     return saved ? JSON.parse(saved) : [];
@@ -94,8 +97,32 @@ export function useRouteOptimization({ session_id, current_location, enabled = t
       }
     };
 
-    // Only optimize if we have new shipments or haven't optimized yet
-    if (optimized_path.length === 0 || shipments.length !== optimized_path.reduce((acc, loc) => acc + (loc.shipment_id ? 1 : 0), 0)) {
+    // Debounce re-optimization to protect the ORS request quota:
+    //  - optimize immediately on first run or when the stop count changes
+    //    (a pickup/delivery was completed) — that's when a fresh route matters
+    //  - for pure location drift, only re-optimize if the rider moved a
+    //    meaningful distance AND enough time has passed (not every GPS tick)
+    const MIN_REOPTIMIZE_KM = 0.2;     // 200 m
+    const MIN_REOPTIMIZE_MS = 60_000;  // 1 minute
+    const last = last_optimize_ref.current;
+    const stop_count_changed = !last || last.count !== shipments.length;
+    let should_optimize = false;
+    if (optimized_path.length === 0 || stop_count_changed) {
+      should_optimize = true;
+    } else if (last) {
+      const moved_km = calculateDistance(last.lat, last.lng, current_location.latitude, current_location.longitude);
+      if (moved_km >= MIN_REOPTIMIZE_KM && (Date.now() - last.at) >= MIN_REOPTIMIZE_MS) {
+        should_optimize = true;
+      }
+    }
+
+    if (should_optimize) {
+      last_optimize_ref.current = {
+        lat: current_location.latitude,
+        lng: current_location.longitude,
+        at: Date.now(),
+        count: shipments.length,
+      };
       optimize();
     }
   }, [shipments.length, current_location?.latitude, current_location?.longitude, enabled]);

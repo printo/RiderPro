@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target, Settings } from 'lucide-react';
+import { Play, Pause, Square, RotateCcw, MapPin, Clock, Route, Gauge, Target, Settings, Loader2 } from 'lucide-react';
 import { scrollToElementId } from '@/lib/utils';
 
 interface RouteSessionControlsProps {
@@ -40,6 +40,10 @@ function RouteSessionControls({
   onOpenRouteMap
 }: RouteSessionControlsProps) {
   const [show_smart_settings, set_show_smart_settings] = useState(false);
+  const [is_stopping, set_is_stopping] = useState(false);
+  const [stop_slow, set_stop_slow] = useState(false);
+  const STOP_SLOW_MS = 12000; // after this, the overlay offers a "Continue" escape hatch
+  const stop_handled_ref = useRef(false); // ensures onSessionStop fires exactly once
   const {
     session,
     status,
@@ -94,11 +98,36 @@ function RouteSessionControls({
   };
 
   const handleStopSession = async () => {
+    // Stopping now computes the route's distance & fuel server-side (a routing
+    // call), so it can take a few seconds. Show a blocking "please wait" overlay,
+    // and a fixed safety timeout so the UI never hangs with no response.
+    set_is_stopping(true);
+    set_stop_slow(false);
+    stop_handled_ref.current = false;
+    const slow_timer = setTimeout(() => set_stop_slow(true), STOP_SLOW_MS);
     try {
       await stopSession();
-      onSessionStop?.();
+      if (!stop_handled_ref.current) {
+        stop_handled_ref.current = true;
+        onSessionStop?.();
+      }
     } catch (error) {
       console.error('Failed to stop session:', error);
+    } finally {
+      clearTimeout(slow_timer);
+      set_is_stopping(false);
+      set_stop_slow(false);
+    }
+  };
+
+  // Lets the rider dismiss the overlay if the stop call is taking too long — the
+  // session-end is already saved server-side; the summary will catch up.
+  const dismissStopOverlay = () => {
+    set_is_stopping(false);
+    set_stop_slow(false);
+    if (!stop_handled_ref.current) {
+      stop_handled_ref.current = true;
+      onSessionStop?.();
     }
   };
 
@@ -148,6 +177,27 @@ function RouteSessionControls({
 
   return (
     <>
+      {is_stopping && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-card rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6 text-center">
+            <Loader2 className="h-10 w-10 mx-auto mb-4 text-primary animate-spin" />
+            <h3 className="text-lg font-bold mb-1">Finishing your route…</h3>
+            <p className="text-sm text-muted-foreground">
+              Computing distance, fuel &amp; summary. Please don't close the app.
+            </p>
+            {stop_slow && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <p className="text-xs text-amber-600 mb-3">
+                  Taking longer than usual. Your route end is already saved — you can continue and the summary will catch up.
+                </p>
+                <Button variant="outline" size="sm" className="w-full" onClick={dismissStopOverlay}>
+                  Continue
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <Card className="w-full">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-lg">
