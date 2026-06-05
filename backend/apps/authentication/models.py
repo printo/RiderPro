@@ -357,3 +357,52 @@ class BlackListedToken(models.Model):
     
     def __str__(self):
         return f"Blacklisted token for {self.user.username} at {self.timestamp}"
+
+
+class VehicleChangeRequest(models.Model):
+    """
+    A rider's request to change their assigned vehicle type. Mirrors the rider
+    signup-approval flow: the rider raises a pending request, a manager approves
+    it (which updates RiderAccount.vehicle_type) or rejects it. Keeps the vehicle
+    — which drives mileage and fuel cost — governed, not freely rider-editable.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    rider = models.ForeignKey(
+        'RiderAccount',
+        on_delete=models.CASCADE,
+        related_name='vehicle_change_requests'
+    )
+    current_vehicle_type = models.ForeignKey(
+        'vehicles.VehicleType',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='+'
+    )
+    requested_vehicle_type = models.ForeignKey(
+        'vehicles.VehicleType',
+        on_delete=models.CASCADE,
+        related_name='change_requests'
+    )
+    reason = models.TextField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reviewed_by = models.CharField(max_length=255, null=True, blank=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'vehicle_change_requests'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at']),
+            models.Index(fields=['rider', 'status']),
+        ]
+
+    def __str__(self):
+        return f"VehicleChangeRequest {self.id} - rider {self.rider_id} ({self.status})"

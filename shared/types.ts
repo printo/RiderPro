@@ -47,6 +47,37 @@ export interface AllUser {
   updated_at: string;
 }
 
+// --- Vehicle control & approval ---
+export interface VehicleTypeInfo {
+  id: string;
+  name: string;
+  fuel_efficiency: number;   // km per litre
+  fuel_type?: string;
+  icon?: string;
+}
+
+export interface VehicleChangeRequestItem {
+  id: number;
+  rider_id: string;
+  rider_name: string;
+  current_vehicle_name?: string | null;
+  requested_vehicle_type: string;
+  requested_vehicle_name: string;
+  requested_fuel_efficiency?: number;
+  reason?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+}
+
+export interface MyVehicleResponse {
+  success: boolean;
+  current_vehicle: VehicleTypeInfo | null;
+  available_vehicles: VehicleTypeInfo[];
+  pending_request: VehicleChangeRequestItem | null;
+}
+
 // --- Error Handling Types ---
 export interface ErrorLog {
   id: string;

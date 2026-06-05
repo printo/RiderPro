@@ -4,9 +4,28 @@ Serializers for authentication
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
-from .models import RiderAccount, Homebase, RiderHomebaseAssignment
+from .models import RiderAccount, Homebase, RiderHomebaseAssignment, VehicleChangeRequest
 
 User = get_user_model()
+
+
+class VehicleChangeRequestSerializer(serializers.ModelSerializer):
+    """A rider's vehicle-change request, with readable names for admin review."""
+    rider_id = serializers.CharField(source='rider.rider_id', read_only=True)
+    rider_name = serializers.CharField(source='rider.full_name', read_only=True)
+    current_vehicle_name = serializers.CharField(source='current_vehicle_type.name', read_only=True, default=None)
+    requested_vehicle_name = serializers.CharField(source='requested_vehicle_type.name', read_only=True)
+    requested_fuel_efficiency = serializers.FloatField(source='requested_vehicle_type.fuel_efficiency', read_only=True)
+
+    class Meta:
+        model = VehicleChangeRequest
+        fields = [
+            'id', 'rider_id', 'rider_name',
+            'current_vehicle_type', 'current_vehicle_name',
+            'requested_vehicle_type', 'requested_vehicle_name', 'requested_fuel_efficiency',
+            'reason', 'status', 'reviewed_by', 'reviewed_at', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'status', 'reviewed_by', 'reviewed_at', 'created_at', 'updated_at']
 
 
 class HomebaseSerializer(serializers.ModelSerializer):

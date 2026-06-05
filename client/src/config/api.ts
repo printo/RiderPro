@@ -37,6 +37,12 @@ export const API_ENDPOINTS = {
     resetPassword: (user_id: string) => apiUrl(`/auth/reset-password/${user_id}`),
     pendingApprovals: apiUrl('/auth/pending-approvals'),
     allUsers: apiUrl('/auth/all-users'),
+    // Vehicle (mileage) control & approval
+    myVehicle: apiUrl('/auth/my-vehicle'),
+    vehicleChangeRequest: apiUrl('/auth/vehicle-change-request'),
+    pendingVehicleRequests: apiUrl('/auth/vehicle-change-requests/pending'),
+    approveVehicleChange: (id: number) => apiUrl(`/auth/vehicle-change-requests/${id}/approve`),
+    rejectVehicleChange: (id: number) => apiUrl(`/auth/vehicle-change-requests/${id}/reject`),
   },
 
   // Shipments

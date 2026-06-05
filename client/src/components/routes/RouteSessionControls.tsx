@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRouteSessionContext } from '@/contexts/RouteSessionContext';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 import RouteCompletionDialog from '@/components/routes/RouteCompletionDialog';
+import VehicleConfirmModal from '@/components/routes/VehicleConfirmModal';
 import SmartCompletionSettings from '@/components/SmartCompletionSettings';
 import { withComponentErrorBoundary } from '@/components/ErrorBoundary';
 import {
@@ -41,6 +42,7 @@ function RouteSessionControls({
 }: RouteSessionControlsProps) {
   const [show_smart_settings, set_show_smart_settings] = useState(false);
   const [is_stopping, set_is_stopping] = useState(false);
+  const [show_vehicle_modal, set_show_vehicle_modal] = useState(false);
   const [stop_slow, set_stop_slow] = useState(false);
   const STOP_SLOW_MS = 12000; // after this, the overlay offers a "Continue" escape hatch
   const stop_handled_ref = useRef(false); // ensures onSessionStop fires exactly once
@@ -88,7 +90,12 @@ function RouteSessionControls({
     }
   });
 
-  const handleStartSession = async () => {
+  // Confirm the rider's vehicle (which sets mileage) before starting the session.
+  const handleStartSession = () => {
+    set_show_vehicle_modal(true);
+  };
+
+  const proceedStartSession = async () => {
     try {
       await startSession();
       onSessionStart?.();
@@ -177,6 +184,11 @@ function RouteSessionControls({
 
   return (
     <>
+      <VehicleConfirmModal
+        open={show_vehicle_modal}
+        onOpenChange={set_show_vehicle_modal}
+        onProceed={proceedStartSession}
+      />
       {is_stopping && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-card rounded-2xl shadow-2xl border border-border max-w-sm w-full p-6 text-center">

@@ -28,5 +28,12 @@ urlpatterns = [
     # POPS API proxy endpoints
     path('pops/homebases', views.pops_homebases, name='pops_homebases'),
     path('pops/riders', views.pops_create_rider, name='pops_create_rider'),
+
+    # Vehicle (mileage) control & approval
+    path('my-vehicle', views.my_vehicle, name='my_vehicle'),
+    path('vehicle-change-request', views.request_vehicle_change, name='request_vehicle_change'),
+    path('vehicle-change-requests/pending', views.pending_vehicle_change_requests, name='pending_vehicle_change_requests'),
+    path('vehicle-change-requests/<int:request_id>/approve', views.approve_vehicle_change, name='approve_vehicle_change'),
+    path('vehicle-change-requests/<int:request_id>/reject', views.reject_vehicle_change, name='reject_vehicle_change'),
 ]
 

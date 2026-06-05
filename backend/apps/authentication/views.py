@@ -12,10 +12,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from .serializers import (
-    LoginSerializer, LoginResponseSerializer, UserSerializer, 
-    RiderAccountSerializer, HomebaseSerializer, RiderHomebaseAssignmentSerializer
+    LoginSerializer, LoginResponseSerializer, UserSerializer,
+    RiderAccountSerializer, HomebaseSerializer, RiderHomebaseAssignmentSerializer,
+    VehicleChangeRequestSerializer
 )
-from .models import RiderAccount, Homebase, RiderHomebaseAssignment
+from .models import RiderAccount, Homebase, RiderHomebaseAssignment, VehicleChangeRequest
+from django.utils import timezone
 from utils.pops_client import pops_client
 import bcrypt
 
@@ -1501,3 +1503,154 @@ def sync_homebases_from_pops(request):
             'success': False,
             'message': f'Sync failed: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ---------------------------------------------------------------------------
+# Vehicle (mileage) control & approval
+# The vehicle sets the rider's mileage, which sets the fuel-cost / reimbursement
+# money — so it's admin-governed: a rider raises a request, a manager approves.
+# ---------------------------------------------------------------------------
+
+def _get_rider_account(request):
+    """Resolve the RiderAccount for the logged-in user (rider_id == username)."""
+    rid = getattr(request.user, 'employee_id', None) or getattr(request.user, 'username', None)
+    if not rid:
+        return None
+    return RiderAccount.objects.filter(rider_id=rid).select_related('vehicle_type').first()
+
+
+def _is_manager(user):
+    return bool(user.is_superuser or user.is_ops_team or user.is_staff)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_vehicle(request):
+    """Rider's current vehicle, the selectable vehicle types, and any pending change request."""
+    from apps.vehicles.models import VehicleType
+    from apps.vehicles.serializers import VehicleTypeSerializer
+
+    rider = _get_rider_account(request)
+    if not rider:
+        return Response({'success': False, 'message': 'Rider account not found'},
+                        status=status.HTTP_404_NOT_FOUND)
+    pending = (
+        VehicleChangeRequest.objects.filter(rider=rider, status='pending')
+        .select_related('requested_vehicle_type', 'current_vehicle_type').first()
+    )
+    return Response({
+        'success': True,
+        'current_vehicle': VehicleTypeSerializer(rider.vehicle_type).data if rider.vehicle_type else None,
+        'available_vehicles': VehicleTypeSerializer(VehicleType.objects.all(), many=True).data,
+        'pending_request': VehicleChangeRequestSerializer(pending).data if pending else None,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def request_vehicle_change(request):
+    """Rider raises a pending request to change their vehicle type (admin must approve)."""
+    from apps.vehicles.models import VehicleType
+
+    rider = _get_rider_account(request)
+    if not rider:
+        return Response({'success': False, 'message': 'Rider account not found'},
+                        status=status.HTTP_404_NOT_FOUND)
+
+    vt_id = request.data.get('vehicleTypeId') or request.data.get('requested_vehicle_type')
+    if not vt_id:
+        return Response({'success': False, 'message': 'vehicleTypeId is required'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    try:
+        requested = VehicleType.objects.get(id=vt_id)
+    except VehicleType.DoesNotExist:
+        return Response({'success': False, 'message': 'Vehicle type not found'},
+                        status=status.HTTP_404_NOT_FOUND)
+
+    if VehicleChangeRequest.objects.filter(rider=rider, status='pending').exists():
+        return Response({'success': False, 'message': 'You already have a pending vehicle change request'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    req = VehicleChangeRequest.objects.create(
+        rider=rider,
+        current_vehicle_type=rider.vehicle_type,
+        requested_vehicle_type=requested,
+        reason=request.data.get('reason', ''),
+        status='pending',
+    )
+    return Response({
+        'success': True,
+        'message': 'Vehicle change request submitted for approval',
+        'request': VehicleChangeRequestSerializer(req).data,
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def pending_vehicle_change_requests(request):
+    """Manager: list pending vehicle change requests."""
+    if not _is_manager(request.user):
+        return Response({'success': False, 'message': 'Permission denied'},
+                        status=status.HTTP_403_FORBIDDEN)
+    qs = (
+        VehicleChangeRequest.objects.filter(status='pending')
+        .select_related('rider', 'current_vehicle_type', 'requested_vehicle_type')
+    )
+    return Response({
+        'success': True,
+        'requests': VehicleChangeRequestSerializer(qs, many=True).data,
+        'count': qs.count(),
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def approve_vehicle_change(request, request_id):
+    """Manager: approve a vehicle change → updates the rider's vehicle type."""
+    if not _is_manager(request.user):
+        return Response({'success': False, 'message': 'Permission denied'},
+                        status=status.HTTP_403_FORBIDDEN)
+    try:
+        req = VehicleChangeRequest.objects.select_related('rider', 'requested_vehicle_type').get(id=request_id)
+    except VehicleChangeRequest.DoesNotExist:
+        return Response({'success': False, 'message': 'Request not found'},
+                        status=status.HTTP_404_NOT_FOUND)
+    if req.status != 'pending':
+        return Response({'success': False, 'message': f'Request already {req.status}'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    rider = req.rider
+    rider.vehicle_type = req.requested_vehicle_type
+    rider.save(update_fields=['vehicle_type'])
+
+    req.status = 'approved'
+    req.reviewed_by = getattr(request.user, 'username', None)
+    req.reviewed_at = timezone.now()
+    req.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'updated_at'])
+
+    logger.info(f"Vehicle change {req.id} approved by {req.reviewed_by}: "
+                f"rider {rider.rider_id} -> {req.requested_vehicle_type_id}")
+    return Response({'success': True, 'message': 'Vehicle change approved; rider vehicle updated'})
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reject_vehicle_change(request, request_id):
+    """Manager: reject a vehicle change request."""
+    if not _is_manager(request.user):
+        return Response({'success': False, 'message': 'Permission denied'},
+                        status=status.HTTP_403_FORBIDDEN)
+    try:
+        req = VehicleChangeRequest.objects.get(id=request_id)
+    except VehicleChangeRequest.DoesNotExist:
+        return Response({'success': False, 'message': 'Request not found'},
+                        status=status.HTTP_404_NOT_FOUND)
+    if req.status != 'pending':
+        return Response({'success': False, 'message': f'Request already {req.status}'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    req.status = 'rejected'
+    req.reviewed_by = getattr(request.user, 'username', None)
+    req.reviewed_at = timezone.now()
+    req.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'updated_at'])
+    return Response({'success': True, 'message': 'Vehicle change request rejected'})

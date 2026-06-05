@@ -4,6 +4,7 @@ import { apiClient } from '@/services/ApiClient';
 import { API_ENDPOINTS } from '@/config/api';
 import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
 import { HomebaseSelector } from '@/components/ui/HomebaseSelector';
+import VehicleChangeRequests from '@/components/admin/VehicleChangeRequests';
 
 interface CreateRiderForm {
   name: string;
@@ -197,6 +198,8 @@ const AdminRiderManagement = () => {
           </button>
         </div>
       </div>
+
+      <VehicleChangeRequests />
 
       <div className="mt-8 flex flex-col">
         <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
