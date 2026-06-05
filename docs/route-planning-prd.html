@@ -83,7 +83,7 @@
       <span class="pill">🧱 Builds on routing already live in production</span>
     </div>
     <h1>RiderPro Routes — Recommended Next Capabilities</h1>
-    <p>Two improvements that build on what's already running (road-aware routing &amp; per-stop ETAs): <strong>automatic mileage &amp; fuel cost per rider</strong>, and <strong>pre-shift route planning &amp; operations oversight</strong>. The summary is the 60-second read; the rest is the full detail.</p>
+    <p><strong>Automatic mileage &amp; fuel cost</strong> is now live in production; the proposed next step is <strong>rider-driven route planning with an ops approval gate</strong>. Both build on the road-aware routing &amp; per-stop ETAs already running. The summary is the 60-second read; the rest is the full detail.</p>
   </div>
 </header>
 
@@ -113,11 +113,12 @@
     <div class="exec">
       <div class="eyebrow">If you read nothing else</div>
       <h2 style="margin-top:.1em"><span class="num">★</span>Summary</h2>
-      <p style="margin:.2em 0 .4em">RiderPro already tracks every rider's GPS and computes road-aware routes &amp; ETAs. Two high-value steps build on that — neither needs new infrastructure or a rebuild:</p>
-      <div class="rec"><div class="badge one">1</div><div><strong>Automatic mileage &amp; fuel cost</strong> &nbsp;<span class="tag partial">MOSTLY BUILT</span><br/><span class="muted">Stop manually entering each rider's start/end km. Distance comes from the GPS trail; fuel litres &amp; petrol cost come from the rider's vehicle mileage &amp; current fuel price — automatically.</span></div></div>
-      <div class="rec"><div class="badge two">2</div><div><strong>Route planning with an ops approval gate</strong> &nbsp;<span class="tag later">PROPOSED</span><br/><span class="muted">RiderPro auto-routes each rider (pickups + deliveries); ops sees overlaps &amp; can reassign before approving &amp; dispatching; riders execute with ETAs. Reuses the existing optimizer.</span></div></div>
-      <div class="keybox green" style="margin-top:14px"><strong>What we deliberately skip:</strong> auto-assigning shipments to drivers, zones, multi-driver batch solving, background queues, advanced solvers. The order system already assigns each shipment to a rider — so none of that is needed today.</div>
-      <p style="margin:.5em 0 0"><strong>The ask:</strong> confirm priority (mileage first?), and answer the 6 open questions (last section) to finalise the planning spec.</p>
+      <p style="margin:.2em 0 .4em">RiderPro tracks GPS and computes road-aware routes &amp; ETAs in production. As of this update, <strong>automatic mileage &amp; fuel cost is also live</strong>. The remaining step is the planning feature:</p>
+      <div class="rec"><div class="badge one">1</div><div><strong>Automatic mileage &amp; fuel cost</strong> &nbsp;<span class="tag done">LIVE</span><br/><span class="muted">Replaces manual start/end-km entry. Distance = road distance between the rider's confirmed stops (robust to web-app GPS gaps); fuel litres &amp; cost from the rider's vehicle mileage &amp; current fuel price — automatic. <em>Calibrate against your manual numbers before trusting it for reimbursement.</em></span></div></div>
+      <div class="rec"><div class="badge two">2</div><div><strong>Route planning with an ops approval gate</strong> &nbsp;<span class="tag later">PROPOSED</span><br/><span class="muted">RiderPro auto-routes each rider (pickups + deliveries); ops sees overlaps &amp; can reassign before approving &amp; dispatching; riders execute with live ETAs. Reuses the existing optimizer.</span></div></div>
+      <div class="keybox green" style="margin-top:14px"><strong>✅ Live in production (deployed &amp; verified):</strong> road-aware routing · auto stop-to-stop mileage &amp; fuel cost · service-time + live ETAs with arrival clock-times · debounced re-optimization · stop "please wait" overlay.</div>
+      <div class="keybox amber"><strong>📋 Proposed — not built:</strong> the rider-driven planning feature (ops day-view, order/lock/dispatch, overlap detection + reassignment). We deliberately skip auto-assignment, zones, batch solving, queues &amp; advanced solvers — the order system (PIA) already assigns each shipment to a rider.</div>
+      <p style="margin:.5em 0 0"><strong>The ask:</strong> calibrate the live mileage/ETA against your manual numbers, then answer the open questions to green-light the planning feature.</p>
     </div>
   </section>
 
@@ -130,9 +131,10 @@
       <tr><td>Shipments arrive <strong>pre-assigned to a rider</strong></td><td><span class="tag done">LIVE</span></td><td>Rider is set from the upstream order system (<strong>PIA</strong>) payload, with a manual reassignment screen for overrides.</td></tr>
       <tr><td>Road-aware distances &amp; travel time</td><td><span class="tag done">LIVE</span></td><td>Real driving distances via OpenRouteService (verified), switchable to Google Maps with one setting.</td></tr>
       <tr><td>Per-driver best-order sequencing</td><td><span class="tag done">LIVE</span></td><td>The optimizer orders a rider's stops by shortest real travel time.</td></tr>
-      <tr><td>Per-stop arrival estimates (ETAs) in the driver app</td><td><span class="tag done">LIVE</span></td><td>Each stop shows its order number, ETA, distance from the previous stop, and a route total.</td></tr>
+      <tr><td>Per-stop arrival estimates (ETAs) in the driver app</td><td><span class="tag done">LIVE</span></td><td>Each stop shows order number, ETA (incl. per-stop service time), absolute arrival time, distance from previous, and route total — recomputed live as the rider progresses.</td></tr>
+      <tr><td><strong>Automatic mileage &amp; fuel cost</strong></td><td><span class="tag done">LIVE</span></td><td>Stop-to-stop road distance → litres → cost via the rider's vehicle mileage + fuel price. Replaces manual km entry (calibrate before reimbursement use).</td></tr>
       <tr><td>Live GPS tracking (app foreground) + offline sync</td><td><span class="tag done">LIVE</span></td><td>Location tracked <em>while the app is open</em>; points queue &amp; sync after a connectivity gap. Background tracking would need a native app (see Web vs native).</td></tr>
-      <tr><td>Per-rider vehicle mileage &amp; fuel pricing</td><td><span class="tag done">LIVE</span></td><td>Vehicle types (with km/litre) and fuel prices already modelled — ready to drive auto fuel cost.</td></tr>
+      <tr><td>Per-rider vehicle mileage &amp; fuel pricing</td><td><span class="tag done">LIVE</span></td><td>Vehicle types (with km/litre) and fuel prices — feed the auto fuel cost.</td></tr>
     </table>
   </section>
 
@@ -149,8 +151,8 @@
 
   <!-- CAPABILITY 1 -->
   <section id="mileage">
-    <h2><span class="num">①</span>Automatic mileage &amp; fuel cost <span class="tag partial" style="margin-left:6px">MOSTLY BUILT</span></h2>
-    <p class="lead">Replaces manual start/end-km entry — measured from the rider's <strong>confirmed stops</strong>, so it stays reliable even on a web app.</p>
+    <h2><span class="num">①</span>Automatic mileage &amp; fuel cost <span class="tag done" style="margin-left:6px">LIVE</span></h2>
+    <p class="lead">Replaces manual start/end-km entry — measured from the rider's <strong>confirmed stops</strong>, so it stays reliable even on a web app. <strong>Deployed &amp; verified in production</strong>; calibrate against your manual numbers before trusting it for reimbursement.</p>
     <div class="mermaid">
 flowchart LR
   A[Rider confirms each<br/>pickup / delivery] --> B[Road distance between<br/>consecutive confirmed stops]
@@ -162,20 +164,32 @@ flowchart LR
   style E fill:#dcfce7,stroke:#16a34a,color:#14532d
     </div>
     <div class="grid c2">
-      <div class="card"><h3 style="margin-top:0">✅ Already in place</h3><ul class="clean">
+      <div class="card"><h3 style="margin-top:0">✅ Already available (live)</h3><ul class="clean">
         <li>Per-stop pickup/delivery confirmations (the rider taps each)</li>
         <li>Road-distance routing (OpenRouteService) between any points</li>
-        <li>Per-rider vehicle &amp; mileage, plus fuel pricing, already modelled</li>
-        <li>Fields to store distance, fuel litres &amp; cost on every session</li>
-      </ul></div>
-      <div class="card"><h3 style="margin-top:0">🔧 What this adds</h3><ul class="clean">
+        <li>Per-rider vehicle &amp; mileage, plus fuel pricing (modelled)</li>
+        <li>Distance &amp; fuel cost stored on every session</li>
         <li><strong>Distance = road distance between confirmed stops</strong> (start → each pickup/delivery → end)</li>
         <li><strong>Auto fuel cost</strong> = km ÷ the rider's vehicle mileage × current fuel price</li>
-        <li><strong>Surface per rider</strong> in analytics → manual km entry goes away</li>
-        <li>GPS trail kept only as a <em>fallback</em> + sanity check</li>
+        <li>Computed on session stop <em>and</em> the offline-sync paths (idempotent); GPS trail kept only as a fallback + sanity check</li>
+      </ul></div>
+      <div class="card"><h3 style="margin-top:0">🛠️ What we still need to build</h3><ul class="clean">
+        <li>The mileage &amp; fuel-cost calc is <strong>fully live</strong>.</li>
+        <li><strong>Recommended addition — vehicle control &amp; approval:</strong> the chosen vehicle sets the mileage, which sets the reimbursement money — so it must be governed, not freely rider-editable (see the note below).</li>
+        <li>Operational: <strong>calibrate</strong> the auto figures against your manual numbers before reimbursement use.</li>
+        <li>(The larger build work is in <a href="#planning">②&nbsp;route planning</a>.)</li>
       </ul></div>
     </div>
     <div class="keybox amber"><strong>⚠️ Why stop-to-stop, not the live GPS trail:</strong> RiderPro is a <strong>web app</strong> — GPS only records while it's <em>open and in the foreground</em>. If a rider locks their phone or closes the browser mid-route, the trail has gaps and <strong>under-counts</strong> distance. The confirmed pickup/delivery taps are reliable, so road distance between them gives fair, gap-proof mileage. (True background tracking would need a native app — see <a href="#native">Web vs native app</a>.)</div>
+
+    <h3>Recommended: who controls the vehicle (and the mileage)</h3>
+    <p class="muted" style="margin-top:0">Mileage drives the fuel-cost money, so the vehicle that sets it must be <strong>governed, not freely rider-editable</strong>. Recommended model (reuses the existing signup-approval pattern):</p>
+    <div class="grid c3">
+      <div class="card"><strong>1 · Admin owns it</strong><p class="muted" style="margin:.3em 0 0">Admin assigns/approves each rider's vehicle type — the official mileage source (<code>User.vehicle_type</code> already exists).</p></div>
+      <div class="card"><strong>2 · Rider proposes</strong><p class="muted" style="margin:.3em 0 0">A rider can add/change their vehicle, but it's a <strong>request → admin approval</strong> (same flow as signup approval). Captures reality without letting the money input be gamed.</p></div>
+      <div class="card"><strong>3 · Confirm at day-start</strong><p class="muted" style="margin:.3em 0 0">At session start the rider one-taps "Today's vehicle: Bike · 45 km/l — Confirm / Request change." Logged per shift for audit; defaults to their approved vehicle.</p></div>
+    </div>
+    <div class="keybox green"><strong>✅ My recommendation (agrees with admin-approval + rider-add):</strong> admin-approved vehicle + rider-proposed changes + a day-start confirmation. Plus: <strong>snapshot the mileage onto each route session</strong> at finalize time, so past fuel costs don't change if the vehicle is later updated (immutable, auditable history). <strong>Avoid</strong> pure rider self-select with no approval — it lets a reimbursement input be gamed and invites disputes.</div>
   </section>
 
   <!-- CAPABILITY 2 -->
@@ -226,7 +240,7 @@ flowchart TB
       </div>
     </div>
     <p class="muted" style="font-size:13.5px">Expected benefit: optimized ordering on real road distances typically cuts ~10–25% of distance (and fuel) vs ad-hoc ordering — and the day-view makes your actual saving measurable.</p>
-    <div class="keybox"><strong>ETAs are realistic &amp; live:</strong> each stop's ETA = driving time <em>plus</em> a configurable <strong>service-time allowance per stop</strong> (handover, POD signature) — not just driving time. As the rider completes stops and moves, the route re-runs so arrival clock-times <strong>shift live</strong> — running 15 min behind at stop 3 pushes stops 4+ automatically. Ops &amp; customers see real arrival windows, not optimistic ones.</div>
+    <div class="keybox green"><strong>✅ Live — ETAs are realistic &amp; live:</strong> each stop's ETA = driving time <em>plus</em> a configurable <strong>service-time allowance per stop</strong> (handover, POD signature) — not just driving time. As the rider completes stops and moves, the route re-runs (debounced to protect the routing quota) so arrival clock-times <strong>shift live</strong> — running 15 min behind at stop 3 pushes stops 4+ automatically. <em>(The optimizer &amp; ETAs are live; what's still proposed is the ops-facing planning screen around them.)</em></div>
   </section>
 
   <!-- WON'T BUILD -->
@@ -351,12 +365,13 @@ sequenceDiagram
     <p class="lead">Each increment ships independently. Start with the highest-value, lowest-risk piece.</p>
     <table>
       <tr><th>Step</th><th>Deliverable</th><th>Value</th><th>Notes</th></tr>
-      <tr><td><strong>Auto-mileage</strong></td><td>Filtered auto-distance + auto fuel cost per rider, surfaced in analytics</td><td>Kills manual km entry; fair petrol cost</td><td>Helper already written; needs calibration vs current manual numbers.</td></tr>
-      <tr><td><strong>Stage 1 · Oversight</strong></td><td>Ops day-view (read-only): riders, auto-ordered routes (pickups+deliveries), totals, ETAs, and overlap/overload flags</td><td>Visibility before shift</td><td>Pure read; reuses the optimizer. Lowest risk.</td></tr>
-      <tr><td><strong>Stage 2 · Review, reassign &amp; dispatch</strong></td><td>Reassignment suggestions on overlaps; ops reassigns + approves → route locks → rider app reads it</td><td>Kills wasteful double-coverage; an agreed plan</td><td>Builds on the existing reassignment screen + a dispatch action.</td></tr>
-      <tr><td><strong>Stage 3 · Tuning</strong></td><td>Refine the overlap/suggestion heuristics; richer in-dashboard moves (optional)</td><td>Sharper suggestions over time</td><td>Only after real usage shows what to tune.</td></tr>
+      <tr><td><strong>Auto-mileage</strong> <span class="tag done">LIVE</span></td><td>Stop-to-stop road distance + auto fuel cost per rider</td><td>Kills manual km entry; fair petrol cost</td><td>Deployed &amp; verified; calibrate vs manual numbers.</td></tr>
+      <tr><td><strong>Live ETAs</strong> <span class="tag done">LIVE</span></td><td>Per-stop service time, absolute arrival times, debounced live recompute, stop "please wait" overlay</td><td>Realistic, live arrival windows</td><td>Deployed.</td></tr>
+      <tr><td><strong>Stage 1 · Oversight</strong> <span class="tag later">NEXT</span></td><td>Ops day-view (read-only): riders, auto-ordered routes (pickups+deliveries), totals, ETAs, and overlap/overload flags</td><td>Visibility before shift</td><td>Pure read; reuses the optimizer. Lowest risk.</td></tr>
+      <tr><td><strong>Stage 2 · Review, reassign &amp; dispatch</strong> <span class="tag later">PROPOSED</span></td><td>Reassignment suggestions on overlaps; ops reassigns + approves → route locks → rider app reads it</td><td>Kills wasteful double-coverage; an agreed plan</td><td>Builds on the existing reassignment screen + a dispatch action.</td></tr>
+      <tr><td><strong>Stage 3 · Tuning</strong> <span class="tag later">PROPOSED</span></td><td>Refine the overlap/suggestion heuristics; richer in-dashboard moves (optional)</td><td>Sharper suggestions over time</td><td>Only after real usage shows what to tune.</td></tr>
     </table>
-    <div class="keybox green"><strong>Recommended order:</strong> ship <em>Auto-mileage</em> first (most immediate value, mostly built), then <em>Stage 1 oversight</em>; let ops use it a week before building Stages 2 &amp; 3.</div>
+    <div class="keybox green"><strong>Where we are:</strong> Auto-mileage &amp; live ETAs are <strong>shipped and live</strong>. The next increment is <em>Stage 1 oversight</em> (read-only ops day-view) — let ops use it a week before building Stages 2 &amp; 3.</div>
   </section>
 
   <!-- METRICS -->
@@ -414,19 +429,49 @@ sequenceDiagram
   <section id="native">
     <h2><span class="num">11</span>Web app vs native app</h2>
     <p class="lead">The web app can't track GPS in the background (it only records while open &amp; in the foreground). That's the main reason "should we build an app?" comes up. Here's the honest trade-off.</p>
+    <h3>The core difference, side by side</h3>
+    <table>
+      <tr><th>Dimension</th><th>🌐 Web app (today)</th><th>📱 Native / hybrid app</th></tr>
+      <tr><td>Background GPS (screen off / backgrounded)</td><td class="no">❌ No — only while open &amp; foregrounded</td><td class="yes">✅ Continuous</td></tr>
+      <tr><td>Location accuracy</td><td class="maybe">⚠️ Browser-grade</td><td class="yes">✅ Native, finer</td></tr>
+      <tr><td>Push notifications (new/reassigned orders)</td><td class="maybe">⚠️ Limited / unreliable</td><td class="yes">✅ Reliable</td></tr>
+      <tr><td>Ship a fix / update</td><td class="yes">✅ Instant (web deploy)</td><td class="no">❌ App-store review delay</td></tr>
+      <tr><td>Getting it on a rider's phone</td><td class="yes">✅ Just a URL (or PWA install)</td><td class="maybe">⚠️ App-store download</td></tr>
+      <tr><td>Build &amp; maintenance cost</td><td class="yes">✅ One codebase, already built</td><td class="no">❌ Extra build + store fees + upkeep</td></tr>
+      <tr><td>Battery use</td><td class="yes">✅ Lighter</td><td class="maybe">⚠️ Heavier (background GPS)</td></tr>
+      <tr><td>Offline resilience</td><td class="maybe">⚠️ OK (IndexedDB queue)</td><td class="yes">✅ Stronger</td></tr>
+    </table>
+
+    <h3>Pros &amp; cons of each</h3>
     <div class="grid c2">
-      <div class="card"><h3 style="margin-top:0">✅ What a native app gains</h3><ul class="clean">
-        <li><strong>True background GPS</strong> — keeps tracking with the screen off / app backgrounded (the web app cannot). High-fidelity live map + a continuous trail for disputes.</li>
-        <li><strong>Push notifications</strong> — instant new-assignment / reassignment alerts to riders.</li>
-        <li><strong>Better offline</strong> &amp; battery-managed native location services.</li>
-        <li>App-store presence; smoother, more "app-like" feel.</li>
-      </ul></div>
-      <div class="card"><h3 style="margin-top:0">💸 What it costs / loses</h3><ul class="clean">
-        <li><strong>Build + ongoing maintenance</strong> of a native (or hybrid) app alongside the web app.</li>
-        <li><strong>App-store overhead</strong> — Apple $99/yr + Google $25; <strong>review delays</strong> on every release (no instant hot-fix like a web deploy).</li>
-        <li><strong>"Always-allow location" permission</strong> — app-store privacy justification; some riders may decline.</li>
-        <li><strong>Battery drain</strong> from continuous background GPS on rider phones.</li>
-      </ul></div>
+      <div class="card"><h3 style="margin-top:0">🌐 Web app (current)</h3>
+        <p style="margin:.2em 0 .1em"><strong class="yes">Pros</strong></p>
+        <ul class="clean">
+          <li>Nothing to install — open a URL; <strong>instant updates</strong> via web deploy</li>
+          <li>One codebase, already built &amp; live; <strong>lowest cost</strong></li>
+          <li>Lighter on battery; no app-store gatekeeping or review delays</li>
+        </ul>
+        <p style="margin:.5em 0 .1em"><strong class="no">Cons</strong></p>
+        <ul class="clean">
+          <li><strong>No background GPS</strong> — tracking pauses when the app is closed/backgrounded</li>
+          <li>Weaker push notifications; browser-grade location accuracy</li>
+          <li>Can't physically stop a rider closing the tab mid-route</li>
+        </ul>
+      </div>
+      <div class="card"><h3 style="margin-top:0">📱 Native / hybrid app</h3>
+        <p style="margin:.2em 0 .1em"><strong class="yes">Pros</strong></p>
+        <ul class="clean">
+          <li><strong>True background GPS</strong> — continuous trail + high-fidelity live map</li>
+          <li>Reliable push notifications; better location accuracy &amp; offline</li>
+          <li>App-store presence; smoother, more "app-like" feel</li>
+        </ul>
+        <p style="margin:.5em 0 .1em"><strong class="no">Cons</strong></p>
+        <ul class="clean">
+          <li>Extra <strong>build + ongoing maintenance</strong> alongside the web app</li>
+          <li>App-store fees (Apple $99/yr, Google $25) + <strong>review delays</strong> on every release</li>
+          <li>"Always-allow location" permission friction; heavier battery use</li>
+        </ul>
+      </div>
     </div>
     <div class="keybox green"><strong>Recommended middle path — Capacitor wrapper:</strong> wrap the <em>existing</em> React web app in a thin native shell (Capacitor) and add a background-geolocation plugin. You get true background tracking <strong>without rewriting the app</strong>, and keep deploying the web code as today. Far cheaper than a full native rebuild.</div>
     <div class="keybox"><strong>My recommendation:</strong> stay web for now. The stop-to-stop mileage already removes the biggest reason to rush native (fair mileage without needing a continuous trail). Move to a Capacitor wrapper when you genuinely need true live background tracking — e.g. a high-fidelity real-time ops map, or a continuous breadcrumb trail for delivery disputes.</div>

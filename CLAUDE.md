@@ -45,6 +45,15 @@ docker compose exec django python manage.py makemigrations
 docker compose exec django python manage.py migrate
 ```
 
+### Deployment (production server)
+
+The server deploys via `./deploy.sh [frontend|backend|both]` (default `both`), which uses **`docker-compose.prod.yml`** — NOT `docker-compose.yml`. It `git pull`s, rebuilds + recreates the chosen container(s), and runs migrate/collectstatic for the backend.
+
+- After pushing: on the server run `git pull && ./deploy.sh` (or `./deploy.sh backend` / `frontend` for a single service — those skip the volume prune).
+- `both` mode runs `docker system prune -f --volumes` — prefer `backend`/`frontend` for routine deploys to avoid it.
+- Production env (incl. routing keys) is in `.env` on the server (gitignored). A container must be **recreated** (not just restarted) to pick up `.env` changes.
+- **Any new `${VAR}` used in compose must be added to BOTH `docker-compose.yml` and `docker-compose.prod.yml`** (the prod file is a separate, standalone config).
+
 ### Ports
 
 | Service | Port |
@@ -61,7 +70,7 @@ Vite proxies `/api` → `http://django:8000` (container) or `VITE_API_BASE_URL` 
 ### Stack
 
 - **Frontend**: React 18 + TypeScript (strict), Vite 7, Tailwind 3, shadcn/ui (Radix), Wouter (router), TanStack Query (server state), Axios, React Hook Form + Zod, Leaflet, Recharts, vite-plugin-pwa.
-- **Backend**: Django 4.2 + DRF, Simple JWT, PostgreSQL 15 via psycopg2, drf-spectacular (Scalar UI), django-filter, django-import-export.
+- **Backend**: Django 4.2 + DRF, Simple JWT, PostgreSQL 15 via psycopg2, drf-spectacular (Scalar UI), django-filter, django-import-export. Road-aware routing via a pluggable provider (OpenRouteService default — see **Routing, mileage & ETAs**).
 - **Path aliases**: `@/` → `client/src/`, `@shared/` → `shared/`.
 
 ### Layered structure — boundaries matter
@@ -78,15 +87,18 @@ client/src/
   lib/           queryClient, roles, utils (cn, formatters)
 
 backend/apps/
-  authentication/  Custom User model (roles, POPS tokens), JWT, signup/approval
-  shipments/       Largest app — Shipment, Acknowledgment, batch ops, analytics, POPS integration, callback dispatch, signals
-  vehicles/        VehicleType, FuelSetting
-  routes/          RouteSession, RouteTracking (GPS coords)
+  authentication/  Custom User model (roles, vehicle_type FK, POPS tokens), JWT, signup/approval
+  shipments/       Largest app — Shipment, Acknowledgment, RouteSession, RouteTracking,
+                   route optimization + auto mileage/ETA, analytics, POPS integration, signals
+  vehicles/        VehicleType (km/l mileage), FuelSetting (fuel price)
   sync/            External-system integration models/views
   core/            Cross-cutting middleware
 
 shared/            Types/Zod schemas shared frontend ↔ backend contract (types.ts, schema.ts, syncStatus.ts)
 ```
+
+Note: there is **no `apps/routes/`** — it was dead and was deleted. `RouteSession`/`RouteTracking`
+live in `apps/shipments/`, and all `/routes/*` endpoints are served by `shipments` (`RouteSessionViewSet`).
 
 Dependency direction (do not invert):
 - Pages → hooks → services → `ApiClient` (the **only** HTTP caller). Components are stateless when possible.
@@ -110,6 +122,14 @@ Bidirectional integration:
 ### Offline-first frontend
 
 `OfflineStorageService` queues failed requests + GPS coords in IndexedDB. `ApiClient` retries with exponential backoff and falls back to the queue. Server is the source of truth on conflict. Do not remove retry or offline-queue logic.
+
+### Routing, mileage & ETAs
+
+- **Pluggable routing provider** — `backend/apps/shipments/routing.py`. `get_routing_backend()` picks a backend by the `ROUTING_PROVIDER` env var: `ors` (OpenRouteService, **default**), `google`, `osrm`, or `haversine`. Every backend **falls back to straight-line Haversine** if its service is unreachable, so routing never hard-fails. Config lives in `.env` (gitignored): `ORS_API_KEY`, `GOOGLE_MAPS_API_KEY`, `OSRM_BASE_URL`, `ROUTING_AVERAGE_SPEED_KMH`, `ROUTING_STOP_SERVICE_SECONDS`. **Mirror any new routing env var into BOTH `docker-compose.yml` and `docker-compose.prod.yml`.**
+- **Optimization** — `POST /api/v1/routes/optimize_path` orders a rider's stops by real road travel time (nearest-neighbour). Returns per-stop `eta_minutes`, absolute `eta_clock`, `distance_from_previous_km`, and route totals. ETAs add a per-stop service/dwell allowance (`ROUTING_STOP_SERVICE_SECONDS`, default 180s). The hook `useRouteOptimization` re-optimizes as the rider moves but is **debounced** (re-optimize on stop-count change, else only after moving ≥200 m AND ≥60 s) to protect the ORS free-tier quota — keep that debounce.
+- **Auto mileage & fuel** — `finalize_session_metrics()` in `apps/shipments/services.py` computes a session's distance as the **road distance between confirmed pickup/delivery stops** (robust to web-app GPS gaps), falling back to the filtered GPS trail only when there are no confirmed stops. Fuel litres/cost come from the rider's `VehicleType.fuel_efficiency` + active `FuelSetting`. Runs in `stop()` and the offline `sync_session`/`sync_coordinates` paths (idempotent). This is the source of mileage — don't reintroduce manual start/end-km as the primary path.
+- **Web-GPS limitation** — this is a web app: `navigator.geolocation.watchPosition` only runs while the page is open & foregrounded; there is **no background GPS**. That's *why* mileage is stop-to-stop, not trail-based. True background tracking would need a native/Capacitor wrapper (analysis in `docs/route-planning-prd.html`).
+- **`POST /api/v1/routes/road-path`** returns road-accurate polyline geometry for the map — keeps the routing key server-side (the frontend must NOT call public routing servers directly).
 
 ## Conventions
 
@@ -152,6 +172,8 @@ These changes are easy to get wrong and worth confirming:
 - Schema changes — they need migrations + serializer + `shared/` type updates in lockstep.
 - Changing API contracts (response shape, field names).
 - Touching `localsettings.py`, Docker config, or the Vite proxy.
+- Routing env vars or provider — mirror into BOTH compose files; they read from `.env` (gitignored). Don't remove the `useRouteOptimization` debounce (ORS quota) or the Haversine fallbacks.
+- Mileage/ETA logic (`finalize_session_metrics`, `optimize_path`) — it feeds reimbursement and customer ETAs; calibrate before trusting.
 - Replacing core frameworks (React/Wouter/TanStack Query/Tailwind/Radix on the frontend; Django/DRF/Simple JWT on the backend).
 
 ## Git & GitHub workflow — MANDATORY
@@ -179,7 +201,13 @@ Do not combine steps 3 and 5. The summary comes first; the commit only happens a
 | Django settings | `backend/riderpro/settings.py` |
 | Root URL routing | `backend/riderpro/urls.py` |
 | Shipment model/views/serializers | `backend/apps/shipments/{models,views,serializers}.py` |
+| Routing provider abstraction | `backend/apps/shipments/routing.py` |
+| Auto mileage/fuel + status service | `backend/apps/shipments/services.py` (`finalize_session_metrics`) |
+| Route optimization / ETA endpoint | `optimize_path` in `backend/apps/shipments/views.py` |
+| Route optimization hook (debounced) | `client/src/hooks/useRouteOptimization.ts` |
 | POPS inbound | `backend/apps/shipments/pops_order_receiver.py` |
 | Outbound callbacks | `backend/apps/shipments/external_callback_service.py` |
 | Post-save signal triggers | `backend/apps/shipments/signals.py` |
 | Shared types contract | `shared/types.ts`, `shared/schema.ts` |
+| Route planning PRD (recommendations) | `docs/route-planning-prd.html` |
+| Prod deploy script / compose | `deploy.sh`, `docker-compose.prod.yml` |
