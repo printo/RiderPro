@@ -475,7 +475,10 @@ sequenceDiagram
         </ul>
       </div>
     </div>
-    <div class="keybox green"><strong>Recommended middle path — Capacitor wrapper:</strong> wrap the <em>existing</em> React web app in a thin native shell (Capacitor) and add a background-geolocation plugin. You get true background tracking <strong>without rewriting the app</strong>, and keep deploying the web code as today. Far cheaper than a full native rebuild.</div>
+
+    <div class="keybox" style="border-left-color:#1e293b;background:#f1f5f9"><strong>Bottom line:</strong> stick with the web app — the <em>only</em> thing a native app truly buys us is <strong>background GPS tracking</strong> (recording while the rider's phone is locked or in a pocket), and we don't need that today because mileage is measured from the rider's confirmed stops, not a continuous live trail.</div>
+
+    <div class="keybox green"><strong>Recommended middle path — Capacitor wrapper:</strong> wrap the <em>existing</em> React web app in a thin native shell (Capacitor) + a background-geolocation plugin — true background tracking <strong>without rewriting the app</strong>, still deploying the web code as today.<br/><br/><strong>In plain business terms:</strong> it's like fitting your <em>existing</em> delivery van with an always-on GPS tracker instead of buying a brand-new van. You keep everything you've already built — same team, same codebase, same instant fixes — and pay only for the one part you're missing (always-on location), at a fraction of the cost and time of a full native rebuild.</div>
     <div class="keybox"><strong>My recommendation:</strong> stay web for now. The stop-to-stop mileage already removes the biggest reason to rush native (fair mileage without needing a continuous trail). Move to a Capacitor wrapper when you genuinely need true live background tracking — e.g. a high-fidelity real-time ops map, or a continuous breadcrumb trail for delivery disputes.</div>
   </section>
 
