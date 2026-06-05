@@ -241,4 +241,9 @@ OSRM_BASE_URL = os.environ.get('OSRM_BASE_URL', 'http://osrm:5000')
 # to estimate travel times when no routing provider returns real durations.
 ROUTING_AVERAGE_SPEED_KMH = float(os.environ.get('ROUTING_AVERAGE_SPEED_KMH', '30'))
 
+# Service (dwell) time per stop in seconds — time a rider spends at each stop
+# handing over, collecting the POD signature, etc. Added to ETAs so they reflect
+# reality, not just driving time. Default 3 minutes; tune to your operation.
+ROUTING_STOP_SERVICE_SECONDS = int(os.environ.get('ROUTING_STOP_SERVICE_SECONDS', '180'))
+
 from .localsettings import *  # noqa Do not comment out.

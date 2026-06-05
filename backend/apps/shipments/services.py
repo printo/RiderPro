@@ -423,3 +423,149 @@ class LocationTrackingService:
 
 # Singleton instance
 location_tracking = LocationTrackingService()
+
+
+def finalize_session_metrics(session):
+    """
+    Auto-derive a route session's distance, fuel consumed and petrol cost from
+    its GPS trail + the rider's vehicle mileage. Replaces manual start/end-km
+    entry for mileage and fuel reimbursement.
+
+    Distance is the sum of consecutive GPS points, filtered for noise:
+      - points with poor accuracy (> MAX_ACCURACY_M) are dropped
+      - sub-MIN_SEGMENT_KM hops (jitter while parked/idling) are ignored
+    This is intentionally conservative — raw, unfiltered summation over-counts.
+    Fuel = distance / vehicle mileage (km/l); cost = litres x active fuel price.
+
+    The session instance is saved before returning.
+    """
+    from django.contrib.auth import get_user_model
+    from apps.vehicles.models import FuelSetting
+    from .routing import get_routing_backend
+
+    # --- 1. Distance: real ROAD distance between the rider's CONFIRMED stops
+    #        (session start -> each pickup/delivery event in order -> end).
+    #        This is robust to GPS-trail gaps that happen when the web app is
+    #        backgrounded or closed: the trail may be incomplete, but the
+    #        confirmed stops are reliable (the rider taps each one). Falls back
+    #        to the filtered GPS trail only when there aren't enough stops. ---
+    confirmed_stops = [
+        (e['latitude'], e['longitude'])
+        for e in (
+            session.tracking_points
+            .filter(event_type__in=['pickup', 'delivery'])
+            .order_by('timestamp')
+            .values('latitude', 'longitude')
+        )
+    ]
+
+    total_km = 0.0
+    # Stop-to-stop is only meaningful with at least one CONFIRMED stop to trace
+    # the path through. With none, start->end would be a straight line that
+    # ignores the real route (e.g. a loop returning near the start), so fall
+    # back to the GPS trail in that case.
+    if len(confirmed_stops) >= 1:
+        stops = []
+        if session.start_latitude is not None and session.start_longitude is not None:
+            stops.append((session.start_latitude, session.start_longitude))
+        stops.extend(confirmed_stops)
+        if session.end_latitude is not None and session.end_longitude is not None:
+            stops.append((session.end_latitude, session.end_longitude))
+
+        distance_method = 'stop_to_stop'
+        try:
+            matrix = get_routing_backend().get_distance_matrix(stops)
+            total_km = sum(matrix[i][i + 1].distance_km for i in range(len(stops) - 1))
+        except Exception as exc:
+            logger.warning(f"Stop-to-stop routing failed ({exc}); falling back to GPS trail.")
+            total_km = _gps_trail_distance_km(session)
+            distance_method = 'gps_trail_fallback'
+    else:
+        total_km = _gps_trail_distance_km(session)
+        distance_method = 'gps_trail'
+
+    session.total_distance = round(total_km, 3)
+
+    # --- 2. Average speed (km/h) ---
+    if session.total_time and session.total_time > 0:
+        session.average_speed = round(total_km / (session.total_time / 3600.0), 2)
+
+    # --- 3. Fuel consumed + cost, from the rider's vehicle + active fuel price ---
+    mileage_km_per_l = 15.0   # sensible fallback if no vehicle configured
+    fuel_type = 'petrol'
+    try:
+        User = get_user_model()
+        rider = (
+            User.objects.filter(employee_id=session.employee_id)
+            .select_related('vehicle_type')
+            .first()
+        )
+        if rider and rider.vehicle_type and rider.vehicle_type.fuel_efficiency:
+            mileage_km_per_l = rider.vehicle_type.fuel_efficiency
+            fuel_type = rider.vehicle_type.fuel_type or 'petrol'
+    except Exception as exc:
+        logger.warning(f"Could not resolve rider vehicle for fuel calc: {exc}")
+
+    price_per_liter = None
+    try:
+        fuel_setting = (
+            FuelSetting.objects.filter(fuel_type=fuel_type, is_active=True)
+            .order_by('-effective_date')
+            .first()
+        )
+        if fuel_setting:
+            price_per_liter = fuel_setting.price_per_liter
+    except Exception as exc:
+        logger.warning(f"Could not resolve active fuel price: {exc}")
+
+    if mileage_km_per_l and mileage_km_per_l > 0:
+        litres = total_km / mileage_km_per_l
+        session.fuel_consumed = round(litres, 3)
+        if price_per_liter is not None:
+            session.fuel_cost = round(litres * price_per_liter, 2)
+
+    session.save()
+    logger.info(
+        f"Session {session.id} finalized via {distance_method}: {session.total_distance} km, "
+        f"{session.fuel_consumed} L, cost {session.fuel_cost}"
+    )
+    return session
+
+
+def _gps_trail_distance_km(session):
+    """
+    Fallback distance: sum of the GPS trail, filtered for noise.
+    Drops poor-accuracy fixes (> 50 m) and sub-10 m hops (stationary jitter).
+    Used only when there aren't enough confirmed stops for stop-to-stop routing.
+    NOTE: this under-counts when the web app was backgrounded/closed during the
+    route (gaps in the trail) — which is exactly why stop-to-stop is preferred.
+    """
+    import math
+    MAX_ACCURACY_M = 50
+    MIN_SEGMENT_KM = 0.010
+    EARTH_R_KM = 6371.0
+    points = list(
+        session.tracking_points
+        .filter(event_type='gps')
+        .order_by('timestamp')
+        .values('latitude', 'longitude', 'accuracy')
+    )
+    total = 0.0
+    prev = None
+    for p in points:
+        if p['accuracy'] is not None and p['accuracy'] > MAX_ACCURACY_M:
+            continue
+        if prev is not None:
+            dlat = math.radians(p['latitude'] - prev['latitude'])
+            dlon = math.radians(p['longitude'] - prev['longitude'])
+            a = (
+                math.sin(dlat / 2) ** 2
+                + math.cos(math.radians(prev['latitude']))
+                * math.cos(math.radians(p['latitude']))
+                * math.sin(dlon / 2) ** 2
+            )
+            seg = EARTH_R_KM * 2 * math.asin(math.sqrt(max(0.0, a)))
+            if seg >= MIN_SEGMENT_KM:
+                total += seg
+        prev = p
+    return total

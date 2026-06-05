@@ -552,12 +552,16 @@ export interface RouteLocation {
   shipment_id?: string;
   address?: string;
   customer_name?: string;
-  // Phase 1 — ETA fields returned by optimize_path (all optional for backward compat)
+  // ETA fields returned by optimize_path (all optional for backward compat)
   stop_number?: number;
   distance_from_previous_km?: number;
   duration_from_previous_seconds?: number;
-  /** Cumulative estimated minutes from driver's current position to this stop. */
+  /** Dwell time (seconds) added at this stop for handover / POD signature. */
+  service_seconds?: number;
+  /** Cumulative estimated minutes from driver's current position to this stop (driving + service). */
   eta_minutes?: number;
+  /** Absolute estimated arrival time (ISO). Recomputes live as the route is re-run. */
+  eta_clock?: string;
   cumulative_distance_km?: number;
 }
 
@@ -572,8 +576,12 @@ export interface RouteOptimizeResponse {
   ordered_locations: RouteLocation[];
   /** Total road distance across all ordered stops (km). */
   total_distance_km?: number;
-  /** Total estimated travel time across all ordered stops (seconds). */
+  /** Total estimated time across all ordered stops (seconds, driving + service). */
   total_duration_seconds?: number;
+  /** Dwell time (seconds) applied per stop. */
+  service_seconds_per_stop?: number;
+  /** When this optimization was computed (ISO) — anchor for the absolute ETAs. */
+  computed_at?: string;
   /** Routing provider used: 'ors' | 'google' | 'haversine' | 'osrm'. */
   provider?: string;
 }

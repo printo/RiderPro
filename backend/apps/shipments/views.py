@@ -1669,28 +1669,13 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
         if session.start_time and session.end_time:
             delta = session.end_time - session.start_time
             session.total_time = int(delta.total_seconds())
-        
-        # Calculate total distance from tracking points
-        tracking_points = session.tracking_points.all()
-        if tracking_points.count() > 1:
-            import math
-            total_distance = 0
-            prev_point = None
-            for point in tracking_points.order_by('timestamp'):
-                if prev_point:
-                    lat1, lon1 = prev_point.latitude, prev_point.longitude
-                    lat2, lon2 = point.latitude, point.longitude
-                    R = 6371  # Earth radius in km
-                    dlat = math.radians(lat2 - lat1)
-                    dlon = math.radians(lon2 - lon1)
-                    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
-                    c = 2 * math.asin(math.sqrt(a))
-                    total_distance += R * c
-                prev_point = point
-            session.total_distance = total_distance
-        
-        session.save()
-        
+
+        # Auto-derive distance (filtered for GPS noise), average speed, fuel
+        # consumed and petrol cost from the trail + the rider's vehicle mileage.
+        # Replaces manual start/end-km entry. (Saves the session.)
+        from .services import finalize_session_metrics
+        finalize_session_metrics(session)
+
         logger.info(f'Route session stopped: {session.id}')
         
         return Response({
@@ -2052,7 +2037,15 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             session.end_time = (_parse_dt(raw_end) if isinstance(raw_end, str) else None) or timezone.now()
             session.status = 'completed'
             session.save()
-        
+            # Auto-compute distance/fuel for offline-completed sessions too (they
+            # never hit stop()). finalize is idempotent and re-runs on coordinate
+            # sync as well, since GPS points may arrive after this call.
+            try:
+                from .services import finalize_session_metrics
+                finalize_session_metrics(session)
+            except Exception as exc:
+                logger.warning(f"finalize on sync_session failed for {session.id}: {exc}")
+
         return Response({
             'success': True,
             'session': RouteSessionSerializer(session).data,
@@ -2114,7 +2107,17 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
 
         successful = sum(1 for r in results if r.get('success'))
         logger.info(f'Offline coordinates synced for session {session_id}: {successful}/{len(results)}')
-        
+
+        # If this offline session is already completed, (re)compute its mileage now
+        # that more of its GPS trail has landed. finalize is idempotent; for offline
+        # sessions with no confirmed stops it uses the GPS-trail fallback (no ORS call).
+        if session.status == 'completed':
+            try:
+                from .services import finalize_session_metrics
+                finalize_session_metrics(session)
+            except Exception as exc:
+                logger.warning(f"finalize on sync_coordinates failed for {session.id}: {exc}")
+
         return Response({
             'success': True,
             'results': results,
@@ -2371,23 +2374,35 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             remaining.remove(nearest)
             current_idx = nearest
 
-        # Build enriched response: add ETA and leg details to each location.
+        # Service (dwell) time per stop — handover, collecting the POD signature,
+        # etc. Added to each leg so ETAs reflect reality, not just driving time.
+        # Configurable via ROUTING_STOP_SERVICE_SECONDS (default 3 min).
+        from datetime import timedelta
+        service_seconds = getattr(settings, 'ROUTING_STOP_SERVICE_SECONDS', 180)
+        now = timezone.now()
+
+        # Build enriched response: ETA (driving + service time), absolute arrival
+        # clock-time, and per-leg details for each stop. Because the frontend
+        # re-calls this as the rider completes stops / moves, the clock-times
+        # recompute live from the current position and time.
         ordered_locations = []
         cumulative_distance = 0.0
-        cumulative_duration = 0.0
+        cumulative_duration = 0.0   # driving + per-stop service time
         prev_idx = 0  # driver start
 
         for stop_num, point_idx in enumerate(ordered_indices):
             leg = matrix[prev_idx][point_idx]
             cumulative_distance += leg.distance_km
-            cumulative_duration += leg.duration_seconds
+            cumulative_duration += leg.duration_seconds + service_seconds
 
             orig_loc = dict(locations[point_idx - 1])  # -1: point 0 is driver
             orig_loc.update({
                 'stop_number':                 stop_num + 1,
                 'distance_from_previous_km':   round(leg.distance_km, 2),
                 'duration_from_previous_seconds': round(leg.duration_seconds),
+                'service_seconds':             service_seconds,
                 'eta_minutes':                 round(cumulative_duration / 60),
+                'eta_clock':                   (now + timedelta(seconds=cumulative_duration)).isoformat(),
                 'cumulative_distance_km':      round(cumulative_distance, 2),
             })
             ordered_locations.append(orig_loc)
@@ -2398,6 +2413,8 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             'ordered_locations': ordered_locations,
             'total_distance_km': round(cumulative_distance, 2),
             'total_duration_seconds': round(cumulative_duration),
+            'service_seconds_per_stop': service_seconds,
+            'computed_at': now.isoformat(),
             'provider': getattr(settings, 'ROUTING_PROVIDER', 'ors'),
         })
     
