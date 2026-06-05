@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RiderPro Routes — Recommended Next Capabilities (PRD)</title>
+<style>
+  :root{
+    --bg:#f4f7fb; --card:#fff; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0;
+    --brand:#2563eb; --brand-d:#1e40af; --teal:#0891b2; --green:#16a34a; --amber:#d97706; --red:#dc2626; --violet:#7c3aed;
+    --shadow:0 1px 3px rgba(15,23,42,.08),0 8px 24px rgba(15,23,42,.06); --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.6;font-size:15.5px}
+  a{color:var(--brand);text-decoration:none}
+  code{background:#eef2f7;padding:.1em .4em;border-radius:5px;font-size:.85em;font-family:ui-monospace,Menlo,monospace}
+
+  header.hero{background:linear-gradient(135deg,#1e293b 0%,#1e40af 60%,#0891b2 130%);color:#fff;padding:46px 24px 40px}
+  .hero-inner{max-width:1080px;margin:0 auto}
+  .badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .pill{display:inline-flex;gap:6px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
+    padding:4px 11px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .hero h1{margin:.1em 0 .25em;font-size:30px;line-height:1.2;letter-spacing:-.5px}
+  .hero p{margin:0;color:#dbeafe;max-width:760px;font-size:16px}
+
+  nav.toc{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);box-shadow:0 1px 8px rgba(15,23,42,.04)}
+  .toc-inner{max-width:1080px;margin:0 auto;display:flex;gap:4px;overflow-x:auto;padding:8px 16px}
+  .toc a{white-space:nowrap;padding:7px 12px;border-radius:8px;color:var(--muted);font-weight:600;font-size:13px}
+  .toc a:hover{background:#eef2f7;color:var(--ink)}.toc a.active{background:var(--brand);color:#fff}
+
+  main{max-width:1080px;margin:0 auto;padding:8px 16px 80px}
+  section{scroll-margin-top:64px;padding:30px 0 6px}
+  h2{font-size:22px;letter-spacing:-.3px;margin:.2em 0 .15em;display:flex;align-items:center;gap:10px}
+  h2 .num{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 8px;border-radius:9px;background:var(--brand);color:#fff;font-size:14px;flex:0 0 auto}
+  h3{font-size:16.5px;margin:1.2em 0 .4em}
+  .lead{color:var(--muted);margin-top:.1em}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);margin:14px 0}
+  .grid{display:grid;gap:16px}
+  @media(min-width:760px){.grid.c2{grid-template-columns:1fr 1fr}.grid.c3{grid-template-columns:1fr 1fr 1fr}}
+
+  .exec{background:linear-gradient(180deg,#ffffff,#f3f8ff);border:2px solid #bfdbfe;border-radius:16px;padding:22px 24px;box-shadow:var(--shadow);margin:18px 0}
+  .exec .eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--brand)}
+  .rec{display:flex;gap:12px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--line)}
+  .rec .badge{flex:0 0 auto;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
+  .rec .badge.one{background:var(--green)}.rec .badge.two{background:var(--brand)}
+
+  .keybox{border-left:4px solid var(--brand);background:#eff4ff;border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0}
+  .keybox.green{border-color:var(--green);background:#effaf1}.keybox.amber{border-color:var(--amber);background:#fff8ec}
+  .keybox strong{color:var(--brand-d)}.keybox.green strong{color:#166534}.keybox.amber strong{color:#92400e}
+
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;background:#fff;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+  th,td{text-align:left;padding:10px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:#f1f5f9;font-size:12.5px;text-transform:uppercase;letter-spacing:.04em;color:#475569}
+  tr:last-child td{border-bottom:none}
+  .yes{color:var(--green);font-weight:700}.no{color:var(--red);font-weight:700}.maybe{color:var(--amber);font-weight:700}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700}
+  .tag.in{background:#dcfce7;color:#166534}.tag.out{background:#fee2e2;color:#991b1b}
+  .tag.later{background:#fef3c7;color:#92400e}.tag.done{background:#dbeafe;color:#1e40af}.tag.partial{background:#e0e7ff;color:#3730a3}
+
+  .mermaid{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;margin:16px 0;text-align:center;box-shadow:var(--shadow)}
+  .chart-wrap{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow);margin:16px 0}
+
+  .pillar{display:flex;gap:14px;align-items:flex-start}
+  .pillar .ico{flex:0 0 auto;width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px}
+  .ico.b{background:#dbeafe}.ico.g{background:#dcfce7}.ico.v{background:#ede9fe}
+  ul.clean{margin:.3em 0;padding-left:1.1em}ul.clean li{margin:.28em 0}
+  .muted{color:var(--muted)}
+  details{background:#f8fafc;border:1px dashed var(--line);border-radius:10px;padding:2px 16px;margin:10px 0}
+  details>summary{cursor:pointer;font-weight:600;padding:11px 0;color:var(--brand-d);font-size:13.5px}
+  footer{max-width:1080px;margin:0 auto;padding:30px 16px 60px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="badge-row">
+      <span class="pill">📄 Recommendations — DRAFT for review</span>
+      <span class="pill">📅 2026-06-04</span>
+      <span class="pill">🧱 Builds on routing already live in production</span>
+    </div>
+    <h1>RiderPro Routes — Recommended Next Capabilities</h1>
+    <p>Two improvements that build on what's already running (road-aware routing &amp; per-stop ETAs): <strong>automatic mileage &amp; fuel cost per rider</strong>, and <strong>pre-shift route planning &amp; operations oversight</strong>. The summary is the 60-second read; the rest is the full detail.</p>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="toc-inner">
+    <a href="#summary">Summary</a>
+    <a href="#today">What we have</a>
+    <a href="#problem">The problem</a>
+    <a href="#mileage">① Auto mileage</a>
+    <a href="#planning">② Route planning</a>
+    <a href="#wontbuild">What we skip</a>
+    <a href="#scope">Build vs skip</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#flows">Flows</a>
+    <a href="#plan">Build plan</a>
+    <a href="#metrics">Metrics</a>
+    <a href="#future">Future option</a>
+    <a href="#questions">Open questions</a>
+    <a href="#native">Web vs native</a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- SUMMARY -->
+  <section id="summary">
+    <div class="exec">
+      <div class="eyebrow">If you read nothing else</div>
+      <h2 style="margin-top:.1em"><span class="num">★</span>Summary</h2>
+      <p style="margin:.2em 0 .4em">RiderPro already tracks every rider's GPS and computes road-aware routes &amp; ETAs. Two high-value steps build on that — neither needs new infrastructure or a rebuild:</p>
+      <div class="rec"><div class="badge one">1</div><div><strong>Automatic mileage &amp; fuel cost</strong> &nbsp;<span class="tag partial">MOSTLY BUILT</span><br/><span class="muted">Stop manually entering each rider's start/end km. Distance comes from the GPS trail; fuel litres &amp; petrol cost come from the rider's vehicle mileage &amp; current fuel price — automatically.</span></div></div>
+      <div class="rec"><div class="badge two">2</div><div><strong>Route planning with an ops approval gate</strong> &nbsp;<span class="tag later">PROPOSED</span><br/><span class="muted">RiderPro auto-routes each rider (pickups + deliveries); ops sees overlaps &amp; can reassign before approving &amp; dispatching; riders execute with ETAs. Reuses the existing optimizer.</span></div></div>
+      <div class="keybox green" style="margin-top:14px"><strong>What we deliberately skip:</strong> auto-assigning shipments to drivers, zones, multi-driver batch solving, background queues, advanced solvers. The order system already assigns each shipment to a rider — so none of that is needed today.</div>
+      <p style="margin:.5em 0 0"><strong>The ask:</strong> confirm priority (mileage first?), and answer the 6 open questions (last section) to finalise the planning spec.</p>
+    </div>
+  </section>
+
+  <!-- TODAY -->
+  <section id="today">
+    <h2><span class="num">1</span>What we already have today</h2>
+    <p class="lead">This is deliberately small because most of the foundation is already live in production.</p>
+    <table>
+      <tr><th>Capability</th><th>Status</th><th>Detail</th></tr>
+      <tr><td>Shipments arrive <strong>pre-assigned to a rider</strong></td><td><span class="tag done">LIVE</span></td><td>Rider is set from the upstream order system (<strong>PIA</strong>) payload, with a manual reassignment screen for overrides.</td></tr>
+      <tr><td>Road-aware distances &amp; travel time</td><td><span class="tag done">LIVE</span></td><td>Real driving distances via OpenRouteService (verified), switchable to Google Maps with one setting.</td></tr>
+      <tr><td>Per-driver best-order sequencing</td><td><span class="tag done">LIVE</span></td><td>The optimizer orders a rider's stops by shortest real travel time.</td></tr>
+      <tr><td>Per-stop arrival estimates (ETAs) in the driver app</td><td><span class="tag done">LIVE</span></td><td>Each stop shows its order number, ETA, distance from the previous stop, and a route total.</td></tr>
+      <tr><td>Live GPS tracking (app foreground) + offline sync</td><td><span class="tag done">LIVE</span></td><td>Location tracked <em>while the app is open</em>; points queue &amp; sync after a connectivity gap. Background tracking would need a native app (see Web vs native).</td></tr>
+      <tr><td>Per-rider vehicle mileage &amp; fuel pricing</td><td><span class="tag done">LIVE</span></td><td>Vehicle types (with km/litre) and fuel prices already modelled — ready to drive auto fuel cost.</td></tr>
+    </table>
+  </section>
+
+  <!-- PROBLEM -->
+  <section id="problem">
+    <h2><span class="num">2</span>The problems we're solving</h2>
+    <div class="grid c2">
+      <div class="card"><h3 style="margin-top:0">⛽ Manual mileage entry</h3><p class="muted">Today someone keys in each rider's start/end km by hand to work out mileage and petrol cost — slow, error-prone, and hard to audit.</p></div>
+      <div class="card"><h3 style="margin-top:0">👁️ No pre-shift visibility</h3><p class="muted">Ops can't see the day's planned routes, total distance, or finish times before drivers leave the depot.</p></div>
+      <div class="card"><h3 style="margin-top:0">⚖️ No balance check</h3><p class="muted">An overloaded rider, or a shipment with no rider / no map location, is only discovered mid-shift.</p></div>
+      <div class="card"><h3 style="margin-top:0">📞 No early ETAs / no locked plan</h3><p class="muted">Routes re-order live as drivers move; ops can't answer "when will it arrive?" until they're already out.</p></div>
+    </div>
+  </section>
+
+  <!-- CAPABILITY 1 -->
+  <section id="mileage">
+    <h2><span class="num">①</span>Automatic mileage &amp; fuel cost <span class="tag partial" style="margin-left:6px">MOSTLY BUILT</span></h2>
+    <p class="lead">Replaces manual start/end-km entry — measured from the rider's <strong>confirmed stops</strong>, so it stays reliable even on a web app.</p>
+    <div class="mermaid">
+flowchart LR
+  A[Rider confirms each<br/>pickup / delivery] --> B[Road distance between<br/>consecutive confirmed stops]
+  B --> C[Total km<br/>gap-proof]
+  C --> D[÷ vehicle mileage<br/>× current fuel price]
+  D --> E[Fuel litres + cost<br/>per rider · automatic]
+  style A fill:#dcfce7,stroke:#16a34a,color:#14532d
+  style C fill:#bfdbfe,stroke:#2563eb,color:#1e3a8a
+  style E fill:#dcfce7,stroke:#16a34a,color:#14532d
+    </div>
+    <div class="grid c2">
+      <div class="card"><h3 style="margin-top:0">✅ Already in place</h3><ul class="clean">
+        <li>Per-stop pickup/delivery confirmations (the rider taps each)</li>
+        <li>Road-distance routing (OpenRouteService) between any points</li>
+        <li>Per-rider vehicle &amp; mileage, plus fuel pricing, already modelled</li>
+        <li>Fields to store distance, fuel litres &amp; cost on every session</li>
+      </ul></div>
+      <div class="card"><h3 style="margin-top:0">🔧 What this adds</h3><ul class="clean">
+        <li><strong>Distance = road distance between confirmed stops</strong> (start → each pickup/delivery → end)</li>
+        <li><strong>Auto fuel cost</strong> = km ÷ the rider's vehicle mileage × current fuel price</li>
+        <li><strong>Surface per rider</strong> in analytics → manual km entry goes away</li>
+        <li>GPS trail kept only as a <em>fallback</em> + sanity check</li>
+      </ul></div>
+    </div>
+    <div class="keybox amber"><strong>⚠️ Why stop-to-stop, not the live GPS trail:</strong> RiderPro is a <strong>web app</strong> — GPS only records while it's <em>open and in the foreground</em>. If a rider locks their phone or closes the browser mid-route, the trail has gaps and <strong>under-counts</strong> distance. The confirmed pickup/delivery taps are reliable, so road distance between them gives fair, gap-proof mileage. (True background tracking would need a native app — see <a href="#native">Web vs native app</a>.)</div>
+  </section>
+
+  <!-- CAPABILITY 2 -->
+  <section id="planning">
+    <h2><span class="num">②</span>Rider-driven route planning, with an ops approval gate <span class="tag later" style="margin-left:6px">PROPOSED</span></h2>
+    <p class="lead">RiderPro auto-computes each route; ops reviews for overlaps &amp; can reassign, then approves — <strong>Auto-route → Ops review &amp; reassign → Approve → Execute</strong>.</p>
+    <div class="mermaid">
+flowchart LR
+  A[Order system<br/>assigns riders] --> B[RiderPro auto-computes route<br/>pickups + deliveries · ETAs · est. mileage]
+  B --> C{{Ops review<br/>overlap &amp; balance}}
+  C -->|suggest reassign<br/>if riders overlap| C
+  C --> D[Ops approves &amp; dispatches]
+  D --> E[Rider gets ordered route + ETAs]
+  E --> F[Pick up / deliver each stop<br/>confirm + live-track]
+  F --> G[Actual mileage &amp; fuel<br/>auto-recorded]
+  style B fill:#bbf7d0,stroke:#16a34a,color:#14532d
+  style C fill:#bfdbfe,stroke:#2563eb,color:#1e3a8a
+  style D fill:#bfdbfe,stroke:#2563eb,color:#1e3a8a
+  style G fill:#dcfce7,stroke:#16a34a,color:#14532d
+    </div>
+    <h3>Three pillars</h3>
+    <div class="grid c3">
+      <div class="card"><div class="pillar"><div class="ico g">🧭</div><div><strong>Auto-route + mileage</strong><p class="muted" style="margin:.3em 0 0">System orders each rider's stops (pickups + deliveries) by real travel time, with ETAs and estimated km &amp; fuel.</p></div></div></div>
+      <div class="card"><div class="pillar"><div class="ico b">🔀</div><div><strong>Ops review &amp; smart reassign</strong><p class="muted" style="margin:.3em 0 0">Flags overlaps (two riders covering the same area) and <strong>suggests moving an order to a nearer rider</strong>. Ops decides, then approves &amp; dispatches.</p></div></div></div>
+      <div class="card"><div class="pillar"><div class="ico v">🛵</div><div><strong>Rider executes</strong><p class="muted" style="margin:.3em 0 0">Gets the locked, ordered route + ETAs; confirms each pickup/delivery; actual mileage &amp; fuel auto-recorded on completion.</p></div></div></div>
+    </div>
+    <h3>Today vs proposed</h3>
+    <div class="grid c2">
+      <div><p class="muted" style="text-align:center;font-weight:600;margin:0 0 -8px">Today — reactive</p>
+        <div class="mermaid">
+flowchart TB
+  A[Order system assigns rider] --> B[Driver starts]
+  B --> C[Route re-orders<br/>as driver moves]
+  C --> D[Deliver]
+  style C fill:#fde68a,stroke:#d97706,color:#92400e
+        </div>
+      </div>
+      <div><p class="muted" style="text-align:center;font-weight:600;margin:0 0 -8px">Proposed — proactive</p>
+        <div class="mermaid">
+flowchart TB
+  A[Orders assigned] --> B[Auto-route + ETAs + mileage]
+  B --> C[Ops review:<br/>suggest reassign overlaps]
+  C --> D[Approve &amp; dispatch]
+  D --> E[Rider executes<br/>pickup/deliver + track]
+  style B fill:#bbf7d0,stroke:#16a34a,color:#14532d
+  style C fill:#bfdbfe,stroke:#2563eb,color:#1e3a8a
+        </div>
+      </div>
+    </div>
+    <p class="muted" style="font-size:13.5px">Expected benefit: optimized ordering on real road distances typically cuts ~10–25% of distance (and fuel) vs ad-hoc ordering — and the day-view makes your actual saving measurable.</p>
+    <div class="keybox"><strong>ETAs are realistic &amp; live:</strong> each stop's ETA = driving time <em>plus</em> a configurable <strong>service-time allowance per stop</strong> (handover, POD signature) — not just driving time. As the rider completes stops and moves, the route re-runs so arrival clock-times <strong>shift live</strong> — running 15 min behind at stop 3 pushes stops 4+ automatically. Ops &amp; customers see real arrival windows, not optimistic ones.</div>
+  </section>
+
+  <!-- WON'T BUILD -->
+  <section id="wontbuild">
+    <h2><span class="num">3</span>What we deliberately <em>won't</em> build</h2>
+    <p class="lead">A textbook delivery-routing system assumes the software decides assignments. Ours doesn't — the upstream system already does. So most of that machinery is dead weight.</p>
+    <table>
+      <tr><th>Textbook routing feature</th><th>Needed?</th><th>Why / why not</th></tr>
+      <tr><td>Assign shipments to drivers</td><td class="no">No</td><td>Decided upstream (order payload + manual override).</td></tr>
+      <tr><td>Zone-based grouping for assignment</td><td class="no">No</td><td>Zones decide coverage; nothing to group when assignment is upstream.</td></tr>
+      <tr><td>Batch multi-driver optimization ("split 80 stops across 5 drivers")</td><td class="no">No</td><td>Each stop already belongs to a rider — no pool to split.</td></tr>
+      <tr><td>Background job queue for heavy solves</td><td class="no">No</td><td>Per-rider ordering is instant; no heavy batch.</td></tr>
+      <tr><td>Advanced constraint solver (e.g. OR-Tools)</td><td class="maybe">Future</td><td>Pays off only with time-windows / capacity — see the future-option section.</td></tr>
+      <tr><td>Per-rider best-order sequencing</td><td class="yes">Yes ✓</td><td>The valuable core — already works.</td></tr>
+    </table>
+    <div class="keybox amber"><strong>Implication:</strong> this collapses from "build a routing engine" to "add a thin mileage calc + a planning &amp; oversight layer on top of what already works." Far less code, far less risk.</div>
+  </section>
+
+  <!-- SCOPE -->
+  <section id="scope">
+    <h2><span class="num">4</span>Scope — build vs skip</h2>
+    <div class="grid c2">
+      <div class="card"><h3 style="margin-top:0">✅ In scope</h3><ul class="clean">
+        <li><span class="tag in">IN</span> Auto-distance (filtered) + auto fuel cost per rider</li>
+        <li><span class="tag in">IN</span> Ops day-plan view: riders × stops, map + list</li>
+        <li><span class="tag in">IN</span> Per-rider ordered route, total km &amp; finish ETA</li>
+        <li><span class="tag in">IN</span> Problem flags: overload, unassigned, unmappable</li>
+        <li><span class="tag in">IN</span> Overlap detection + reassignment <strong>suggestions</strong>; ops approves &amp; dispatches</li>
+        <li><span class="tag in">IN</span> Rider gets the locked ordered route + ETAs; confirms pickup/delivery per stop</li>
+      </ul></div>
+      <div class="card"><h3 style="margin-top:0">🚫 Out of scope (and why)</h3><ul class="clean">
+        <li><span class="tag out">OUT</span> Auto-assignment / cross-driver balancing — <span class="muted">decided upstream</span></li>
+        <li><span class="tag out">OUT</span> Zone-based assignment — <span class="muted">decided upstream</span></li>
+        <li><span class="tag out">OUT</span> Batch multi-driver solving — <span class="muted">nothing to split</span></li>
+        <li><span class="tag out">OUT</span> Background job queue — <span class="muted">no heavy batch</span></li>
+        <li><span class="tag later">LATER</span> Advanced solver — <span class="muted">only with time-windows/capacity</span></li>
+      </ul></div>
+    </div>
+    <h3>Where the value is (impact vs effort)</h3>
+    <div class="chart-wrap"><canvas id="impactChart" height="150"></canvas></div>
+    <p class="muted" style="font-size:13px">Auto-mileage and the ops day-view are high-impact / low-effort; in-app rebalancing is polish.</p>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section id="architecture">
+    <h2><span class="num">5</span>Architecture — reuse first</h2>
+    <p class="lead">A thin layer on existing data and the routing we already have. No new external services, no new infrastructure.</p>
+    <div class="mermaid">
+flowchart TB
+  subgraph EX[Existing — reused as-is]
+    S[(Shipment · rider · map location)]
+    RS[(Route session + GPS trail)]
+    VT[(Vehicle mileage + fuel price)]
+  end
+  subgraph LIVE[Routing already live — reused]
+    OPT[Route optimizer + OpenRouteService]
+    ETAU[ETA display in driver app]
+  end
+  subgraph NEW[New — small additions]
+    FUEL[Filtered distance + fuel cost]
+    DASH[Ops day-plan view]
+    LOCK[Planned order + lock + dispatch]
+  end
+  RS --> FUEL
+  VT --> FUEL
+  S --> DASH --> OPT --> LOCK --> ETAU
+  RS --> DASH
+  style NEW fill:#eef4ff,stroke:#2563eb,color:#1e3a8a
+  style LIVE fill:#effaf1,stroke:#16a34a,color:#14532d
+    </div>
+    <details>
+      <summary>Likely data &amp; endpoint changes (for engineering)</summary>
+      <ul class="clean">
+        <li><strong>Mileage:</strong> on session end — filter the trail, compute km, look up the rider's vehicle mileage + active fuel price, store litres &amp; cost. <span class="muted">(Helper already written.)</span></li>
+        <li><strong>Planning (read):</strong> a "day-plan" feed → riders working a date, each with assigned shipments + route summary.</li>
+        <li><strong>Planning (save/action):</strong> store a planned order + locked flag; a "dispatch" action that exposes the locked route to drivers.</li>
+        <li><strong>Frontend:</strong> one new ops screen; the driver app already shows ordered stops + ETAs.</li>
+      </ul>
+    </details>
+  </section>
+
+  <!-- FLOWS -->
+  <section id="flows">
+    <h2><span class="num">6</span>Key user flows</h2>
+    <h3>Ops planning session</h3>
+    <div class="mermaid">
+sequenceDiagram
+  actor Ops
+  participant UI as Ops Dashboard
+  participant API as Server
+  participant ORS as OpenRouteService
+  Ops->>UI: Open today's plan
+  UI->>API: request the day plan
+  API-->>UI: riders + assigned shipments
+  loop per rider
+    UI->>API: order this rider's route
+    API->>ORS: real driving distances
+    ORS-->>API: distances + travel times
+    API-->>UI: ordered stops + ETAs + totals
+  end
+  UI-->>Ops: routes, finish ETAs, problem flags
+  Ops->>API: dispatch (lock the day)
+  API-->>UI: routes locked &amp; dispatched
+    </div>
+    <h3>Driver, at shift start</h3>
+    <div class="mermaid">
+sequenceDiagram
+  actor Driver
+  participant App as Driver App
+  participant API as Server
+  Driver->>App: Start session
+  App->>API: fetch my dispatched route
+  API-->>App: locked ordered stops + ETAs
+  App-->>Driver: Stop 1 · ETA ~12 min · 4.2 km → …
+  Driver->>App: deliver / mark complete (live tracking)
+    </div>
+  </section>
+
+  <!-- BUILD PLAN -->
+  <section id="plan">
+    <h2><span class="num">7</span>Build plan</h2>
+    <p class="lead">Each increment ships independently. Start with the highest-value, lowest-risk piece.</p>
+    <table>
+      <tr><th>Step</th><th>Deliverable</th><th>Value</th><th>Notes</th></tr>
+      <tr><td><strong>Auto-mileage</strong></td><td>Filtered auto-distance + auto fuel cost per rider, surfaced in analytics</td><td>Kills manual km entry; fair petrol cost</td><td>Helper already written; needs calibration vs current manual numbers.</td></tr>
+      <tr><td><strong>Stage 1 · Oversight</strong></td><td>Ops day-view (read-only): riders, auto-ordered routes (pickups+deliveries), totals, ETAs, and overlap/overload flags</td><td>Visibility before shift</td><td>Pure read; reuses the optimizer. Lowest risk.</td></tr>
+      <tr><td><strong>Stage 2 · Review, reassign &amp; dispatch</strong></td><td>Reassignment suggestions on overlaps; ops reassigns + approves → route locks → rider app reads it</td><td>Kills wasteful double-coverage; an agreed plan</td><td>Builds on the existing reassignment screen + a dispatch action.</td></tr>
+      <tr><td><strong>Stage 3 · Tuning</strong></td><td>Refine the overlap/suggestion heuristics; richer in-dashboard moves (optional)</td><td>Sharper suggestions over time</td><td>Only after real usage shows what to tune.</td></tr>
+    </table>
+    <div class="keybox green"><strong>Recommended order:</strong> ship <em>Auto-mileage</em> first (most immediate value, mostly built), then <em>Stage 1 oversight</em>; let ops use it a week before building Stages 2 &amp; 3.</div>
+  </section>
+
+  <!-- METRICS -->
+  <section id="metrics">
+    <h2><span class="num">8</span>Success metrics</h2>
+    <div class="grid c2">
+      <div class="card"><h3 style="margin-top:0">Operational</h3><ul class="clean">
+        <li>Manual km entries eliminated; fuel cost auto-computed per rider</li>
+        <li>Ops sees <strong>100% of planned routes + finish ETAs</strong> before dispatch</li>
+        <li>Overloaded / unassigned / unmappable shipments flagged before shift</li>
+        <li>Lower km &amp; fuel per route (ordered vs ad-hoc); fewer "where's my driver?" calls</li>
+      </ul></div>
+      <div class="card"><h3 style="margin-top:0">Leading indicators</h3><ul class="clean">
+        <li>% of riders with auto-computed (vs manual) mileage</li>
+        <li>% of days dispatched via the planner; % routes locked before first delivery</li>
+        <li>Auto-km vs odometer gap (validates the mileage calc)</li>
+        <li>Planned-vs-actual finish gap (calibrates the ETA estimate)</li>
+      </ul></div>
+    </div>
+  </section>
+
+  <!-- FUTURE -->
+  <section id="future">
+    <h2><span class="num">9</span>Future option — a smarter solver, when it's worth it</h2>
+    <p class="lead">We don't have delivery time-windows today, so an advanced constraint solver (such as Google's OR-Tools) is explicitly out of scope for now. This records <em>why</em> and <em>when</em> it becomes worth it.</p>
+    <div class="keybox amber">
+      <strong>Adopt a smarter solver when any of these become real:</strong>
+      <ul class="clean" style="margin-top:8px">
+        <li><strong>Delivery time-windows</strong> — "deliver only 10:00–12:00." Today's simple ordering can't honour windows; a solver optimises within them. <span class="muted">(Flagged as a likely future need.)</span></li>
+        <li><strong>Pickup-before-delivery precedence</strong> — if a picked-up item must be collected before its own delivery stop. Since routes already mix pickups &amp; deliveries, this is the most likely first trigger. <span class="muted">(Simple ordering handles independent pickups/deliveries fine; only same-item precedence needs a solver.)</span></li>
+        <li><strong>Vehicle capacity</strong> — bike vs van load limits per route.</li>
+        <li><strong>Assignment moves into RiderPro</strong> — if we ever stop receiving pre-assigned riders and must split a pool across drivers.</li>
+      </ul>
+    </div>
+    <p class="muted">Until then, today's road-aware ordering is sufficient, and the routing layer is already swappable — so changing the ordering strategy later is contained and low-risk.</p>
+  </section>
+
+  <!-- OPEN QUESTIONS -->
+  <section id="questions">
+    <h2><span class="num">10</span>Decisions &amp; open questions</h2>
+    <div class="keybox green"><strong>✓ Decided:</strong> rider-driven flow with an <strong>ops approval gate</strong> (ops sees overlap flags &amp; can reassign before dispatch) · <strong>both</strong> rider app + ops oversight · routes <strong>mix pickups &amp; deliveries</strong> along the way.</div>
+    <p class="lead">Still open — your answers finalise the spec:</p>
+    <div class="grid c2">
+      <div class="card"><strong>1. Reassignment sync</strong><p class="muted" style="margin:.3em 0 0">When ops reassigns an order in RiderPro, does it sync back to the upstream order system, or does RiderPro become the source of truth after reassign?</p></div>
+      <div class="card"><strong>2. Overlap trigger</strong><p class="muted" style="margin:.3em 0 0">What flags a "reassign" suggestion — a stop within X metres of another rider's route, or same area/pincode? What threshold?</p></div>
+      <div class="card"><strong>3. Day-based or rolling?</strong><p class="muted" style="margin:.3em 0 0">Plan a whole day at once, or a rolling window as orders arrive through the day?</p></div>
+      <div class="card"><strong>4. What defines "overloaded"?</strong><p class="muted" style="margin:.3em 0 0">Max stops, max hours, or max distance — what thresholds should the flags use?</p></div>
+      <div class="card"><strong>5. Re-route after approval?</strong><p class="muted" style="margin:.3em 0 0">If a new order lands for an already-dispatched rider, re-route automatically or leave it to the rider?</p></div>
+      <div class="card"><strong>6. Mileage basis for reimbursement</strong><p class="muted" style="margin:.3em 0 0">Is road-distance-between-confirmed-stops accepted as the official figure, or do you also want periodic odometer reconciliation?</p></div>
+      <div class="card"><strong>7. Native app — now or later?</strong><p class="muted" style="margin:.3em 0 0">Pursue a Capacitor wrapper for true background tracking now, or stay web until it's genuinely needed? (See next section.)</p></div>
+    </div>
+  </section>
+
+  <!-- WEB VS NATIVE -->
+  <section id="native">
+    <h2><span class="num">11</span>Web app vs native app</h2>
+    <p class="lead">The web app can't track GPS in the background (it only records while open &amp; in the foreground). That's the main reason "should we build an app?" comes up. Here's the honest trade-off.</p>
+    <div class="grid c2">
+      <div class="card"><h3 style="margin-top:0">✅ What a native app gains</h3><ul class="clean">
+        <li><strong>True background GPS</strong> — keeps tracking with the screen off / app backgrounded (the web app cannot). High-fidelity live map + a continuous trail for disputes.</li>
+        <li><strong>Push notifications</strong> — instant new-assignment / reassignment alerts to riders.</li>
+        <li><strong>Better offline</strong> &amp; battery-managed native location services.</li>
+        <li>App-store presence; smoother, more "app-like" feel.</li>
+      </ul></div>
+      <div class="card"><h3 style="margin-top:0">💸 What it costs / loses</h3><ul class="clean">
+        <li><strong>Build + ongoing maintenance</strong> of a native (or hybrid) app alongside the web app.</li>
+        <li><strong>App-store overhead</strong> — Apple $99/yr + Google $25; <strong>review delays</strong> on every release (no instant hot-fix like a web deploy).</li>
+        <li><strong>"Always-allow location" permission</strong> — app-store privacy justification; some riders may decline.</li>
+        <li><strong>Battery drain</strong> from continuous background GPS on rider phones.</li>
+      </ul></div>
+    </div>
+    <div class="keybox green"><strong>Recommended middle path — Capacitor wrapper:</strong> wrap the <em>existing</em> React web app in a thin native shell (Capacitor) and add a background-geolocation plugin. You get true background tracking <strong>without rewriting the app</strong>, and keep deploying the web code as today. Far cheaper than a full native rebuild.</div>
+    <div class="keybox"><strong>My recommendation:</strong> stay web for now. The stop-to-stop mileage already removes the biggest reason to rush native (fair mileage without needing a continuous trail). Move to a Capacitor wrapper when you genuinely need true live background tracking — e.g. a high-fidelity real-time ops map, or a continuous breadcrumb trail for delivery disputes.</div>
+  </section>
+
+</main>
+
+<footer>
+  RiderPro Routes — Recommended Next Capabilities · PRD (draft) · 2026-06-04 · builds on the road-aware routing &amp; per-stop ETAs already live in production.<br/>
+  A recommendation for discussion, not a committed spec. Edit freely; answer the open questions to finalise.
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+  mermaid.initialize({ startOnLoad:true, theme:'base', themeVariables:{
+    primaryColor:'#eff4ff', primaryTextColor:'#1e293b', primaryBorderColor:'#2563eb',
+    lineColor:'#64748b', fontSize:'14px'
+  }});
+
+  // Impact chart (visible → draw on load)
+  window.addEventListener('load', () => {
+    const ctx = document.getElementById('impactChart');
+    if (ctx && window.Chart) new Chart(ctx, {
+      type:'bar',
+      data:{ labels:['Auto mileage & fuel','Ops day-view','Order & lock','Dispatch','In-app rebalance'],
+        datasets:[
+          {label:'Impact', data:[9,9,8,7,5], backgroundColor:'#2563eb', borderRadius:6},
+          {label:'Effort', data:[3,3,4,2,6], backgroundColor:'#cbd5e1', borderRadius:6}
+        ]},
+      options:{ indexAxis:'y', responsive:true,
+        scales:{ x:{ beginAtZero:true, max:10, grid:{color:'#eef2f7'}, title:{display:true,text:'relative score (1–10)'} }, y:{ grid:{display:false} } },
+        plugins:{ legend:{ position:'top' } } }
+    });
+  });
+
+  // Sticky-nav active highlight
+  const links = Array.from(document.querySelectorAll('nav.toc a'));
+  const map = {}; links.forEach(a=>{const id=a.getAttribute('href').slice(1);const s=document.getElementById(id);if(s)map[id]=a;});
+  Object.keys(map).forEach(id=>{
+    new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.remove('active'));map[e.target.id].classList.add('active');map[e.target.id].scrollIntoView({block:'nearest',inline:'center'});}});},{rootMargin:'-45% 0px -50% 0px'}).observe(document.getElementById(id));
+  });
+</script>
+</body>
+</html>
