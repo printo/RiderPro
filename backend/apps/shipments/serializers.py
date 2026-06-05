@@ -137,6 +137,7 @@ class RouteSessionSerializer(serializers.ModelSerializer):
             'current_latitude', 'current_longitude', 'last_updated',
             'total_distance', 'total_time', 'fuel_consumed', 'fuel_cost',
             'average_speed', 'shipments_completed', 'shipment_id',
+            'vehicle_type_used', 'fuel_efficiency_used', 'fuel_price_used',
             'created_at', 'updated_at', 'tracking_points',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']

@@ -208,7 +208,14 @@ class RouteSession(models.Model):
     fuel_cost = models.FloatField(default=0)
     average_speed = models.FloatField(default=0)  # km/h
     shipments_completed = models.IntegerField(default=0)
-    
+
+    # Snapshot of the inputs used to compute fuel cost — set at finalize time so
+    # historical reimbursements stay fixed even if the rider's vehicle or the
+    # fuel price changes later (immutable audit trail).
+    vehicle_type_used = models.CharField(max_length=255, null=True, blank=True)
+    fuel_efficiency_used = models.FloatField(null=True, blank=True)  # km/l used
+    fuel_price_used = models.FloatField(null=True, blank=True)       # per-litre used
+
     # Optional shipment reference
     shipment_id = models.CharField(max_length=255, null=True, blank=True)
     

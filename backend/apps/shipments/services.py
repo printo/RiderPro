@@ -439,8 +439,8 @@ def finalize_session_metrics(session):
 
     The session instance is saved before returning.
     """
-    from django.contrib.auth import get_user_model
     from apps.vehicles.models import FuelSetting
+    from apps.authentication.models import RiderAccount
     from .routing import get_routing_backend
 
     # --- 1. Distance: real ROAD distance between the rider's CONFIRMED stops
@@ -491,18 +491,23 @@ def finalize_session_metrics(session):
         session.average_speed = round(total_km / (session.total_time / 3600.0), 2)
 
     # --- 3. Fuel consumed + cost, from the rider's vehicle + active fuel price ---
-    mileage_km_per_l = 15.0   # sensible fallback if no vehicle configured
+    # Vehicle/mileage live on RiderAccount, keyed by rider_id — which equals the
+    # session's employee_id (the rider's username). The auth User model has NO
+    # vehicle_type, so the old User query silently fell back to the default
+    # mileage for every rider; query RiderAccount instead.
+    mileage_km_per_l = 15.0   # fallback if no vehicle is configured
     fuel_type = 'petrol'
+    vehicle_label = None
     try:
-        User = get_user_model()
         rider = (
-            User.objects.filter(employee_id=session.employee_id)
+            RiderAccount.objects.filter(rider_id=session.employee_id)
             .select_related('vehicle_type')
             .first()
         )
         if rider and rider.vehicle_type and rider.vehicle_type.fuel_efficiency:
             mileage_km_per_l = rider.vehicle_type.fuel_efficiency
             fuel_type = rider.vehicle_type.fuel_type or 'petrol'
+            vehicle_label = rider.vehicle_type.name
     except Exception as exc:
         logger.warning(f"Could not resolve rider vehicle for fuel calc: {exc}")
 
@@ -523,6 +528,12 @@ def finalize_session_metrics(session):
         session.fuel_consumed = round(litres, 3)
         if price_per_liter is not None:
             session.fuel_cost = round(litres * price_per_liter, 2)
+
+    # Snapshot the inputs used, so past reimbursements don't change if the rider's
+    # vehicle or the fuel price is updated later (immutable audit trail).
+    session.vehicle_type_used = vehicle_label
+    session.fuel_efficiency_used = mileage_km_per_l
+    session.fuel_price_used = price_per_liter
 
     session.save()
     logger.info(
