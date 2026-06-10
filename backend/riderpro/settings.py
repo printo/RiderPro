@@ -246,4 +246,48 @@ ROUTING_AVERAGE_SPEED_KMH = float(os.environ.get('ROUTING_AVERAGE_SPEED_KMH', '3
 # reality, not just driving time. Default 3 minutes; tune to your operation.
 ROUTING_STOP_SERVICE_SECONDS = int(os.environ.get('ROUTING_STOP_SERVICE_SECONDS', '180'))
 
-from .localsettings import *  # noqa Do not comment out.
+# ---------------------------------------------------------------------------
+# Boot defaults — let the app run out-of-the-box (e.g. `docker compose up`)
+# WITHOUT a localsettings.py. These read from env vars (the docker-compose
+# values) and fall back to the local dev postgres container. localsettings.py
+# is imported LAST (below), so any server/prod config there overrides these
+# and existing deployments are unaffected.
+# ---------------------------------------------------------------------------
+DEBUG = os.environ.get('DEBUG', 'False').strip().lower() in ('1', 'true', 'yes', 'on')
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB', 'riderpro'),
+        'USER': os.environ.get('POSTGRES_USER', 'postgres'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'password'),
+        'HOST': os.environ.get('POSTGRES_HOST', 'postgres'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Google Sign-In ("Continue with Google" on the PIA Access login).
+# The OAuth client ID is public-by-design (it ships in the frontend); the
+# backend uses it to verify the `aud` of incoming id_tokens. GOOGLE_ADMIN_EMAILS
+# is the bootstrap allowlist — those verified emails are granted admin
+# (super_user) on first Google login. Override either in localsettings.py / env.
+# ---------------------------------------------------------------------------
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get(
+    'GOOGLE_OAUTH_CLIENT_ID',
+    '113607233592-0lrokk43kls28mo8q1di67bi2kohp2ja.apps.googleusercontent.com',
+)
+GOOGLE_ADMIN_EMAILS = [
+    e.strip().lower()
+    for e in os.environ.get('GOOGLE_ADMIN_EMAILS', '').split(',')
+    if e.strip()
+]
+
+# Local-only overrides (machine-specific secrets, DB, DEBUG, integration API
+# keys). GITIGNORED and OPTIONAL: copy localsettings.example.py to
+# localsettings.py only if you need to override the defaults above. Imported
+# last so it wins over everything in this file.
+try:
+    from .localsettings import *  # noqa: F401,F403
+except ImportError:
+    pass

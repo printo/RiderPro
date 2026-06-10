@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -11,11 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { FuelSetting, InsertFuelSetting, UpdateFuelSetting } from "@shared/types";
-import { Edit, Trash2, Fuel, Save, X } from "lucide-react";
+import { InsertFuelSetting } from "@shared/types";
+import { Fuel, Save } from "lucide-react";
 import { withModalErrorBoundary } from "@/components/ErrorBoundary";
 
 interface FuelSettingsModalProps {
@@ -24,8 +23,6 @@ interface FuelSettingsModalProps {
 }
 
 function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<InsertFuelSetting>({
     fuel_type: 'petrol',
     price_per_liter: 0,
@@ -37,28 +34,6 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  // Fetch fuel settings
-  const { data: fuelSettingsData = [], isLoading } = useQuery({
-    queryKey: ['/api/v1/fuel-settings'],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/v1/fuel-settings/");
-      const data = await response.json();
-      // Handle both array and paginated response formats (DRF returns paginated by default)
-      if (Array.isArray(data)) {
-        return data;
-      } else if (data.results && Array.isArray(data.results)) {
-        return data.results;
-      } else if (data.data && Array.isArray(data.data)) {
-        return data.data;
-      }
-      return [];
-    },
-    enabled: isOpen,
-  });
-
-  // Ensure fuelSettings is always an array
-  const fuelSettings: FuelSetting[] = Array.isArray(fuelSettingsData) ? fuelSettingsData : [];
 
   // Create fuel setting mutation
   const createMutation = useMutation({
@@ -83,51 +58,6 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
     },
   });
 
-  // Update fuel setting mutation
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: UpdateFuelSetting }) => {
-      const response = await apiRequest("PUT", `/api/v1/fuel-settings/${id}/`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v1/fuel-settings'] });
-      toast({
-        title: "Fuel Setting Updated",
-        description: "Fuel setting has been updated successfully.",
-      });
-      resetForm();
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to Update Fuel Setting",
-        description: error.message || "Failed to update fuel setting.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Delete fuel setting mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await apiRequest("DELETE", `/api/v1/fuel-settings/${id}/`);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/v1/fuel-settings'] });
-      toast({
-        title: "Fuel Setting Deleted",
-        description: "Fuel setting has been deleted successfully.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Failed to Delete Fuel Setting",
-        description: error.message || "Failed to delete fuel setting.",
-        variant: "destructive",
-      });
-    },
-  });
-
   const resetForm = () => {
     setFormData({
       fuel_type: 'petrol',
@@ -137,21 +67,6 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
       effective_date: new Date().toISOString().split('T')[0],
       is_active: true,
     });
-    setIsEditing(false);
-    setEditingId(null);
-  };
-
-  const handleEdit = (setting: FuelSetting) => {
-    setFormData({
-      fuel_type: setting.fuel_type,
-      price_per_liter: setting.price_per_liter,
-      currency: setting.currency,
-      region: setting.region || '',
-      effective_date: setting.effective_date,
-      is_active: setting.is_active,
-    });
-    setIsEditing(true);
-    setEditingId(setting.id);
   };
 
   const handleSubmit = () => {
@@ -164,27 +79,14 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
       return;
     }
 
-    if (isEditing && editingId) {
-      updateMutation.mutate({
-        id: editingId,
-        data: formData as UpdateFuelSetting,
-      });
-    } else {
-      createMutation.mutate(formData);
-    }
+    createMutation.mutate(formData);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this fuel setting?")) {
-      deleteMutation.mutate(id);
-    }
-  };
-
-  const isProcessing = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+  const isProcessing = createMutation.isPending;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Fuel className="h-5 w-5 text-blue-600" />
@@ -193,12 +95,10 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Add/Edit Form */}
+          {/* Add Form */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">
-                {isEditing ? "Edit Fuel Setting" : "Add New Fuel Setting"}
-              </CardTitle>
+              <CardTitle className="text-lg">Add New Fuel Setting</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -306,86 +206,9 @@ function FuelSettingsModal({ isOpen, onClose }: FuelSettingsModalProps) {
                   className="flex items-center gap-2"
                 >
                   <Save className="h-4 w-4" />
-                  {isEditing ? "Update" : "Add"} Fuel Setting
+                  Add Fuel Setting
                 </Button>
-                {isEditing && (
-                  <Button
-                    variant="outline"
-                    onClick={resetForm}
-                    disabled={isProcessing}
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Cancel
-                  </Button>
-                )}
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Fuel Settings List */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Current Fuel Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="text-center py-4">Loading fuel settings...</div>
-              ) : fuelSettings.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  No fuel settings found. Add your first fuel setting above.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {fuelSettings.map((setting: FuelSetting) => (
-                    <div
-                      key={setting.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <Fuel className="h-4 w-4 text-blue-600" />
-                          <span className="font-medium capitalize">
-                            {setting.fuel_type}
-                          </span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {setting.price_per_liter} {setting.currency}/liter
-                        </div>
-                        {setting.region && (
-                          <Badge variant="secondary">{setting.region}</Badge>
-                        )}
-                        <Badge
-                          variant={setting.is_active ? "default" : "secondary"}
-                        >
-                          {setting.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                        <div className="text-xs text-muted-foreground">
-                          Effective: {new Date(setting.effective_date).toLocaleDateString()}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(setting)}
-                          disabled={isProcessing}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(setting.id)}
-                          disabled={isProcessing}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>

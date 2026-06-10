@@ -11,6 +11,7 @@ urlpatterns = [
     path('logout', views.logout, name='logout'),
     path('register', views.register, name='register'),
     path('local-login', views.local_login, name='local_login'),
+    path('google/login', views.google_login, name='google_login'),
     path('refresh', views.refresh_token, name='refresh_token'),
     path('fetch-rider', views.fetch_rider, name='fetch_rider'),
     path('pending-approvals', views.pending_approvals, name='pending_approvals'),

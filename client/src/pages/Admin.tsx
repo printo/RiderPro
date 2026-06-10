@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
-import { Fuel, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Plus, X, Target, Eye, EyeOff } from "lucide-react";
+import { Fuel, Car, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Plus, X, Target, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import FuelSettingsModal from "@/components/ui/forms/FuelSettingsModal";
 import CurrentFuelSettings from "@/components/ui/forms/CurrentFuelSettings";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { VehicleType, PendingUser, AllUser } from '@shared/types';
 import { DispatchBadge } from '@/components/ui/DispatchBadge';
 import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
@@ -577,58 +578,69 @@ function AdminPage() {
             <Fuel className="h-5 w-5" />
             Fuel Settings
           </h2>
+          <p className="text-xs text-muted-foreground">
+            Configure fuel pricing and vehicle settings for accurate cost calculations
+          </p>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            <p className="text-sm text-muted-foreground">
-              Configure fuel pricing and vehicle settings for accurate cost calculations
-            </p>
+            {/* Current Fuel Settings — Manage Fuel Prices action lives in the header */}
+            <CurrentFuelSettings
+              headerAction={
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowFuelSettingsModal(true)}
+                      className="flex items-center gap-2"
+                    >
+                      <Fuel className="h-4 w-4" />
+                      Manage Fuel Prices
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs">
+                    Configure fuel prices for different fuel types and regions for route cost calculations and analytics
+                  </TooltipContent>
+                </Tooltip>
+              }
+            />
 
-            {/* Default Vehicle Type and Fuel Price - Responsive Layout */}
-
-            {/* Fuel Settings */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Fuel Price Settings</Label>
-              <div className="border rounded-lg p-4 bg-muted/30">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm">Fuel Price Management</p>
-                    <p className="text-xs text-muted-foreground">
-                      Configure fuel prices for different fuel types and regions
-                    </p>
-                  </div>
+            {/* Vehicle Types & Mileage — same card style as Current Fuel Settings */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                  <CardTitle className="flex items-center gap-2">
+                    <Car className="h-5 w-5 text-blue-600" />
+                    Vehicle Types & Mileage
+                  </CardTitle>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setShowFuelSettingsModal(true)}
+                    onClick={() => {
+                      setEditingVehicle({});
+                      setShowVehicleModal(true);
+                    }}
                     className="flex items-center gap-2"
                   >
-                    <Fuel className="h-4 w-4" />
-                    Manage Fuel Prices
+                    <Plus className="h-4 w-4" />
+                    Add Vehicle Type
                   </Button>
                 </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Set current fuel prices for accurate route cost calculations and analytics
-              </p>
-            </div>
-
-            {/* Current Fuel Settings Display */}
-            <CurrentFuelSettings className="mt-4" />
-
-            {/* Vehicle Types */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Vehicle Types & Mileage</Label>
-              <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+              </CardHeader>
+              <CardContent>
                 {loadingVehicleTypes ? (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-                    <p className="text-sm text-muted-foreground">Loading vehicle types...</p>
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-muted-foreground">Loading vehicle types...</span>
                   </div>
                 ) : vehicleTypes.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-4">
                     {vehicleTypes.map((vehicle) => (
-                      <div key={vehicle.id} className="flex items-center justify-between p-3 bg-background rounded-lg border">
+                      <div
+                        key={vehicle.id}
+                        className="flex items-center justify-between p-3 border rounded-lg bg-muted/30"
+                      >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
                             <span className="text-xs font-semibold">{vehicle.icon}</span>
@@ -669,28 +681,16 @@ function AdminPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <Fuel className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Car className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p className="text-sm">No vehicle types found</p>
                   </div>
                 )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    setEditingVehicle({});
-                    setShowVehicleModal(true);
-                  }}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Vehicle Type
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Manage vehicle types and their fuel efficiency for accurate cost calculations
-              </p>
-            </div>
+                <div className="mt-4 text-xs text-muted-foreground">
+                  Manage vehicle types and their fuel efficiency for accurate cost calculations
+                </div>
+              </CardContent>
+            </Card>
 
 
 

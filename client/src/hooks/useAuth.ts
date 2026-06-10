@@ -18,6 +18,7 @@ export const useAuth = () => {
     isLoading: authState.is_loading,
     loginWithExternalAPI: authService.loginWithExternalAPI.bind(authService),
     loginWithLocalDB: authService.loginWithLocalDB.bind(authService),
+    loginWithGoogle: authService.loginWithGoogle.bind(authService),
     registerUser: authService.registerUser.bind(authService),
     logout: async () => {
       await authService.logout();

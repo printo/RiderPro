@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { HomebaseSelector } from '@/components/ui/HomebaseSelector';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,8 +9,6 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Eye, EyeOff } from 'lucide-react';
 import { ButtonLoader } from '@/components/ui/Loader';
-import { apiRequest } from '@/lib/queryClient';
-import { VehicleType } from '@shared/types';
 
 const RiderSignupForm = () => {
   const [formData, setFormData] = useState({
@@ -18,73 +16,23 @@ const RiderSignupForm = () => {
     fullName: '',
     password: '',
     confirmPassword: '',
-    vehicleTypeId: '',
     homebaseId: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCaptchaValid, setIsCaptchaValid] = useState(false);
-  const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([]);
-  const [loadingVehicleTypes, setLoadingVehicleTypes] = useState(false);
   const [, setLocation] = useLocation();
   const { registerUser } = useAuth();
-
-  // Load vehicle types on component mount
-  useEffect(() => {
-    loadVehicleTypes();
-  }, []);
-
-  const loadVehicleTypes = async () => {
-    setLoadingVehicleTypes(true);
-    try {
-      console.log('Loading vehicle types from /api/v1/vehicle-types/');
-      const response = await apiRequest("GET", '/api/v1/vehicle-types/');
-      console.log('Vehicle types response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      console.log('Vehicle types data:', data);
-      
-      // Handle both array and paginated response formats
-      if (Array.isArray(data)) {
-        setVehicleTypes(data);
-        console.log('Loaded vehicle types (array):', data.length);
-      } else if (data.results && Array.isArray(data.results)) {
-        setVehicleTypes(data.results);
-        console.log('Loaded vehicle types (paginated):', data.results.length);
-      } else if (data.data && Array.isArray(data.data)) {
-        setVehicleTypes(data.data);
-        console.log('Loaded vehicle types (data):', data.data.length);
-      } else {
-        console.warn('Unexpected vehicle types response format:', data);
-        setVehicleTypes([]);
-      }
-    } catch (error) {
-      console.error('Failed to load vehicle types:', error);
-      setError('Failed to load vehicle types. Please refresh the page or contact support.');
-      setVehicleTypes([]);
-    } finally {
-      setLoadingVehicleTypes(false);
-    }
-  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleVehicleTypeChange = (value: string) => {
-    setFormData(prev => ({ ...prev, vehicleTypeId: value }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
-    console.log('Form submission started with data:', formData);
 
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
@@ -93,11 +41,6 @@ const RiderSignupForm = () => {
 
     if (!isCaptchaValid) {
       setError('Please complete the security check');
-      return;
-    }
-
-    if (!formData.vehicleTypeId) {
-      setError('Please select a vehicle type');
       return;
     }
 
@@ -113,25 +56,15 @@ const RiderSignupForm = () => {
 
     setIsSubmitting(true);
     try {
-      console.log('Calling registerUser with:', {
-        riderId: formData.riderId,
-        password: '***',
-        fullName: formData.fullName,
-        vehicleTypeId: formData.vehicleTypeId,
-        homebaseId: formData.homebaseId
-      });
-
       const result = await registerUser(
         formData.riderId,
         formData.password,
         formData.fullName,
         undefined, // email
-        formData.vehicleTypeId,
+        undefined, // vehicle type — selected after login at day-start (admin-approved), not at signup
         '', // dispatch option (blank as requested)
         formData.homebaseId
       );
-
-      console.log('Registration result:', result);
 
       if (result.success) {
         setLocation('/approval-pending');
@@ -184,34 +117,6 @@ const RiderSignupForm = () => {
                 required
                 autoComplete="name"
               />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="vehicleTypeId" className="text-sm font-medium text-foreground">
-                Vehicle Type
-              </label>
-              <select
-                id="vehicleTypeId"
-                name="vehicleTypeId"
-                value={formData.vehicleTypeId}
-                onChange={(e) => handleVehicleTypeChange(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-background text-foreground"
-                disabled={isSubmitting || loadingVehicleTypes}
-                required
-              >
-                <option value="">Select Vehicle Type</option>
-                {vehicleTypes.map((vehicle) => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.icon} {vehicle.name} ({vehicle.fuel_efficiency} km/l)
-                  </option>
-                ))}
-              </select>
-              {loadingVehicleTypes && (
-                <p className="text-xs text-muted-foreground">Loading vehicle types...</p>
-              )}
-              {!loadingVehicleTypes && vehicleTypes.length === 0 && (
-                <p className="text-xs text-muted-foreground">No vehicle types available. Please contact admin.</p>
-              )}
             </div>
 
             <div className="space-y-2">

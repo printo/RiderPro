@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -6,9 +6,39 @@ import { Input } from "@/components/ui/input";
 import { Eye, EyeOff } from "lucide-react";
 import { ButtonLoader } from "@/components/ui/Loader";
 import { useAuth } from "@/hooks/useAuth";
+import AuthService from "@/services/AuthService";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 
 type AuthMethod = 'pia' | 'rider';
+
+// Google Sign-In ("Continue with Google"). The client ID is public-by-design;
+// override with VITE_GOOGLE_CLIENT_ID. NOTE: the serving origin (e.g.
+// http://localhost:5004) must be an Authorized JavaScript origin on this OAuth
+// client in the Google Cloud Console, or Google blocks the button.
+const GOOGLE_CLIENT_ID =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  '113607233592-0lrokk43kls28mo8q1di67bi2kohp2ja.apps.googleusercontent.com';
+
+interface GoogleCredentialResponse {
+  credential: string;
+}
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: GoogleCredentialResponse) => void;
+          }) => void;
+          renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
 
 function Login() {
   const [username, setUsername] = useState("");
@@ -21,6 +51,69 @@ function Login() {
 
   // Use the authentication context with both methods
   const { loginWithExternalAPI, loginWithLocalDB } = useAuth();
+
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+
+  // Load Google Identity Services and render the "Continue with Google" button.
+  // Only active for the PIA Access method.
+  useEffect(() => {
+    if (authMethod !== 'pia') return;
+    const SCRIPT_SRC = 'https://accounts.google.com/gsi/client';
+    let cancelled = false;
+
+    const handleCredential = async (response: GoogleCredentialResponse) => {
+      setError("");
+      setIsLoading(true);
+      try {
+        const result = await AuthService.getInstance().loginWithGoogle(response.credential);
+        if (result.success) {
+          setLocation('/dashboard');
+        } else {
+          setError(result.message || 'Google sign-in failed');
+        }
+      } catch {
+        setError('An unexpected error occurred. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const renderButton = () => {
+      if (cancelled || !window.google || !googleBtnRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleCredential,
+      });
+      googleBtnRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: 'continue_with',
+        width: 320,
+        logo_alignment: 'center',
+      });
+    };
+
+    if (window.google) {
+      renderButton();
+      return () => { cancelled = true; };
+    }
+
+    let script = document.querySelector<HTMLScriptElement>(`script[src="${SCRIPT_SRC}"]`);
+    if (!script) {
+      script = document.createElement('script');
+      script.src = SCRIPT_SRC;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+    script.addEventListener('load', renderButton);
+    return () => {
+      cancelled = true;
+      script?.removeEventListener('load', renderButton);
+    };
+  }, [authMethod, setLocation]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,6 +269,20 @@ function Login() {
               </div>
             )}
           </form>
+
+          {authMethod === 'pia' && (
+            <div className="mt-4">
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-background px-2 text-muted-foreground">or</span>
+                </div>
+              </div>
+              <div ref={googleBtnRef} className="flex justify-center" />
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

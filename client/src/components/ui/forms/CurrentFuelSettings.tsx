@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,9 +8,11 @@ import { FuelSetting } from "@shared/types";
 
 interface CurrentFuelSettingsProps {
   className?: string;
+  /** Optional action rendered on the right side of the card header (e.g. a "Manage Fuel Prices" button). */
+  headerAction?: ReactNode;
 }
 
-function CurrentFuelSettings({ className }: CurrentFuelSettingsProps) {
+function CurrentFuelSettings({ className, headerAction }: CurrentFuelSettingsProps) {
   // Fetch current fuel settings
   const { data: fuelSettingsData, isLoading, error, refetch } = useQuery({
     queryKey: ['/api/v1/fuel-settings'],
@@ -46,79 +49,38 @@ function CurrentFuelSettings({ className }: CurrentFuelSettingsProps) {
     new Date(b.effective_date).getTime() - new Date(a.effective_date).getTime()
   );
 
+  let body: ReactNode;
   if (isLoading) {
-    return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Fuel className="h-5 w-5 text-blue-600" />
-            Current Fuel Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">Loading fuel settings...</span>
-          </div>
-        </CardContent>
-      </Card>
+    body = (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Loading fuel settings...</span>
+      </div>
     );
-  }
-
-  if (error) {
-    return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Fuel className="h-5 w-5 text-blue-600" />
-            Current Fuel Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <div className="text-muted-foreground mb-4">
-              Failed to load fuel settings
-            </div>
-            <button
-              onClick={() => refetch()}
-              className="text-sm text-blue-600 hover:text-blue-800 flex items-center justify-center mx-auto"
-            >
-              <RefreshCw className="h-4 w-4 mr-1" />
-              Retry
-            </button>
-          </div>
-        </CardContent>
-      </Card>
+  } else if (error) {
+    body = (
+      <div className="text-center py-8">
+        <div className="text-muted-foreground mb-4">
+          Failed to load fuel settings
+        </div>
+        <button
+          onClick={() => refetch()}
+          className="text-sm text-blue-600 hover:text-blue-800 flex items-center justify-center mx-auto"
+        >
+          <RefreshCw className="h-4 w-4 mr-1" />
+          Retry
+        </button>
+      </div>
     );
-  }
-
-  if (latestSettings.length === 0) {
-    return (
-      <Card className={className}>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Fuel className="h-5 w-5 text-blue-600" />
-            Current Fuel Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            No active fuel settings found
-          </div>
-        </CardContent>
-      </Card>
+  } else if (latestSettings.length === 0) {
+    body = (
+      <div className="text-center py-8 text-muted-foreground">
+        No active fuel settings found
+      </div>
     );
-  }
-
-  return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Fuel className="h-5 w-5 text-blue-600" />
-          Current Fuel Settings
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+  } else {
+    body = (
+      <>
         <div className="space-y-4">
           {latestSettings.map((setting: FuelSetting) => (
             <div
@@ -156,7 +118,22 @@ function CurrentFuelSettings({ className }: CurrentFuelSettingsProps) {
         <div className="mt-4 text-xs text-muted-foreground">
           Showing latest active fuel prices by type and region
         </div>
-      </CardContent>
+      </>
+    );
+  }
+
+  return (
+    <Card className={className}>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="flex items-center gap-2">
+            <Fuel className="h-5 w-5 text-blue-600" />
+            Current Fuel Settings
+          </CardTitle>
+          {headerAction}
+        </div>
+      </CardHeader>
+      <CardContent>{body}</CardContent>
     </Card>
   );
 }

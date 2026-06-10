@@ -259,6 +259,77 @@ class AuthService {
     }
   }
 
+  // Method C: Google Sign-In (PIA Access) — backend verifies the id_token
+  public async loginWithGoogle(idToken: string): Promise<{ success: boolean; message: string }> {
+    try {
+      this.setState({ is_loading: true });
+
+      const response = await fetch('/api/v1/auth/google/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id_token: idToken }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        this.setState({ is_loading: false });
+        return { success: false, message: errorData.message || 'Google sign-in failed' };
+      }
+
+      const data: ExternalAuthResponse = await response.json();
+      log.dev('[AuthService] Google login response:', data);
+
+      // Reuse the exact same role mapping + storage as the PIA username/password path
+      const internalRoles = this.mapPIARolesToInternal(data.is_staff, data.is_super_user, data.is_ops_team);
+      const userUsername = data.username || '';
+
+      localStorage.setItem('access_token', data.access);
+      localStorage.setItem('refresh_token', data.refresh);
+      localStorage.setItem('full_name', data.full_name);
+      localStorage.setItem('username', userUsername);
+      localStorage.setItem('is_rider', internalRoles.is_rider.toString());
+      localStorage.setItem('is_super_user', internalRoles.is_super_user.toString());
+      localStorage.setItem('isadmin', internalRoles.is_super_user.toString());
+      localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
+      localStorage.setItem('is_staff', (data.is_staff || false).toString());
+
+      this.setCookies(data.access, data.refresh, data.full_name, data.is_ops_team || false);
+
+      const role = this.determineRole(data.is_staff, data.is_super_user, data.is_ops_team);
+
+      this.setState({
+        user: {
+          id: userUsername,
+          username: userUsername,
+          email: '',
+          role,
+          employee_id: userUsername,
+          full_name: data.full_name,
+          is_active: true,
+          is_approved: true,
+          is_rider: internalRoles.is_rider,
+          is_super_user: internalRoles.is_super_user,
+          is_ops_team: data.is_ops_team || false,
+          is_staff: data.is_staff || false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        access_token: data.access,
+        refresh_token: data.refresh,
+        is_authenticated: true,
+        is_loading: false,
+      });
+
+      return { success: true, message: 'Login successful' };
+    } catch (error) {
+      console.error('Google login error:', error);
+      this.setState({ is_loading: false });
+      return { success: false, message: 'Google sign-in failed. Please try again.' };
+    }
+  }
+
   // Method B: Local Database Authentication
   public async loginWithLocalDB(riderId: string, password: string): Promise<{ success: boolean; message: string; isApproved?: boolean }> {
     try {
@@ -366,11 +437,15 @@ class AuthService {
   // Fetch all homebases
   public async fetchHomebases(): Promise<{ success: boolean; homebases?: any[]; message?: string }> {
     try {
-      const response = await fetch('/api/v1/auth/homebases/', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-      });
+      // Homebase listing is public so the signup page (no token yet) can load it.
+      // Only attach the Authorization header when a token exists — sending
+      // `Bearer null` makes SimpleJWT reject the request with a 401.
+      const token = localStorage.getItem('access_token');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      const response = await fetch('/api/v1/auth/homebases/', { headers });
 
       const data = await response.json();
       return {

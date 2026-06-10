@@ -174,8 +174,150 @@ def login(request):
         'is_ops_team': is_ops_team,
         'username': user.username,
     }
-    
+
     return Response(response_data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=['Authentication'],
+    summary='Login with Google (PIA Access)',
+    description='Verify a Google Sign-In id_token and return JWT tokens. The '
+                'verified email must be in GOOGLE_ADMIN_EMAILS (bootstrap admins) '
+                'or already exist as a user.',
+    request=OpenApiTypes.OBJECT,
+    examples=[OpenApiExample('Request', value={'id_token': '<google-id-token-jwt>'})],
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_login(request):
+    """
+    Google Sign-In endpoint. The "Continue with Google" button on the frontend
+    obtains a Google id_token (a signed JWT) and POSTs it here. We verify it
+    against Google's public certs (signature, audience == our client ID, issuer
+    and expiry), then map the verified email to a User and issue our own SimpleJWT
+    tokens — mirroring the response shape of the regular `login` view.
+
+    Access policy (no self-service admin creation, mirroring the rider approval
+    gate): emails in settings.GOOGLE_ADMIN_EMAILS are bootstrapped as admins on
+    first login; an already-existing user logs in with their current role; any
+    other email is rejected.
+    """
+    from django.conf import settings
+
+    token = request.data.get('id_token')
+    if not token:
+        return Response(
+            {'success': False, 'message': 'id_token is required'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '')
+    if not client_id:
+        logger.error('GOOGLE_OAUTH_CLIENT_ID is not configured')
+        return Response(
+            {'success': False, 'message': 'Google login is not configured on the server'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    # Verify the id_token with Google (signature via Google certs, audience ==
+    # our client ID, issuer and expiry). Raises ValueError on any failure.
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+        idinfo = google_id_token.verify_oauth2_token(
+            token, google_requests.Request(), client_id
+        )
+    except ValueError as exc:
+        logger.warning(f'Google id_token verification failed: {exc}')
+        return Response(
+            {'success': False, 'message': 'Invalid or expired Google sign-in'},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    email = (idinfo.get('email') or '').strip().lower()
+    if not email or not idinfo.get('email_verified', False):
+        return Response(
+            {'success': False, 'message': 'Google account has no verified email'},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+    full_name = idinfo.get('name') or email
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    admin_emails = getattr(settings, 'GOOGLE_ADMIN_EMAILS', []) or []
+
+    user = User.objects.filter(username__iexact=email).first()
+    if user is None:
+        if email in admin_emails:
+            # Bootstrap an admin from the allowlist on first Google login.
+            user = User.objects.create(
+                username=email,
+                full_name=full_name,
+                role='admin',
+                is_staff=True,
+                is_superuser=True,
+                is_active=True,
+                pia_access=True,
+                auth_source='local',
+            )
+        else:
+            return Response(
+                {
+                    'success': False,
+                    'message': 'This Google account is not authorized. '
+                               'Ask an admin to grant access.',
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+    else:
+        # Existing user: promote if newly allowlisted, ensure PIA access is on.
+        updated_fields = []
+        if email in admin_emails and not (user.is_superuser or user.role == 'admin'):
+            user.role = 'admin'
+            user.is_staff = True
+            user.is_superuser = True
+            updated_fields += ['role', 'is_staff', 'is_superuser']
+        if not user.pia_access:
+            user.pia_access = True
+            updated_fields.append('pia_access')
+        if full_name and user.full_name != full_name:
+            user.full_name = full_name
+            updated_fields.append('full_name')
+        if updated_fields:
+            user.save(update_fields=updated_fields)
+
+    if not user.is_active:
+        return Response(
+            {'success': False, 'message': 'Account is inactive'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Issue our own JWTs (same helper as the other login paths).
+    from .token_utils import get_token_for_user
+    tokens = get_token_for_user(user)
+
+    user.last_login = timezone.now()
+    user.save(update_fields=['last_login'])
+
+    is_staff = user.role in ['admin', 'manager'] or user.is_staff
+    is_super_user = user.role == 'admin' or user.is_superuser
+    is_ops_team = user.is_ops_team
+
+    return Response(
+        {
+            'success': True,
+            'message': 'Login successful',
+            'access': tokens['access'],
+            'refresh': tokens['refresh'],
+            'full_name': user.full_name or user.username,
+            'username': user.username,
+            'employee_id': user.username,
+            'is_staff': is_staff,
+            'is_super_user': is_super_user,
+            'is_ops_team': is_ops_team,
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 
@@ -1311,19 +1453,25 @@ def pops_create_rider(request):
             'message': f'Failed to create rider: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def homebase_list(request):
     """
-    Get all homebases or create a new one
-    GET /api/v1/auth/homebases/
-    POST /api/v1/auth/homebases/
+    List homebases or create a new one.
+    GET  /api/v1/auth/homebases/  — public; the unauthenticated signup page populates its homebase selector from this.
+    POST /api/v1/auth/homebases/  — managers/admins only.
     """
-    # Only managers and admins can manage homebases
-    if not (request.user.is_superuser or request.user.is_ops_team or request.user.is_staff):
-        return Response({
-            'success': False,
-            'message': 'Permission denied'
-        }, status=status.HTTP_403_FORBIDDEN)
+    # GET is public; creating a homebase stays restricted to managers/admins.
+    # Guard the role check with is_authenticated so AnonymousUser (no custom
+    # role attrs) doesn't raise on a public GET.
+    if request.method != 'GET':
+        is_manager = request.user.is_authenticated and (
+            request.user.is_superuser or request.user.is_ops_team or request.user.is_staff
+        )
+        if not is_manager:
+            return Response({
+                'success': False,
+                'message': 'Permission denied'
+            }, status=status.HTTP_403_FORBIDDEN)
     
     if request.method == 'GET':
         homebases = Homebase.objects.all().order_by('name')

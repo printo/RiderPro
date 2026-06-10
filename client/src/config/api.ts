@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
     logout: apiUrl('/auth/logout'),
     register: apiUrl('/auth/register'),
     localLogin: apiUrl('/auth/local-login'),
+    googleLogin: apiUrl('/auth/google/login'),
     refresh: apiUrl('/auth/refresh'),
     fetchRider: apiUrl('/auth/fetch-rider'),
     approve: (user_id: string) => apiUrl(`/auth/approve/${user_id}`),
