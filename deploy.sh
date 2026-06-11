@@ -155,10 +155,45 @@ else
     echo "⚠️  Warning: Some services may not be running. Please verify manually."
 fi
 
+# --- Optional: sync nginx config from the repo (drift-proof, opt-in) ---
+# The repo's nginx/conf.d/riderpro.conf mirrors the live server config. Enable with:
+#     SYNC_NGINX=1 ./deploy.sh ...
+# Backs up the live config, copies the repo version, validates with `nginx -t`, and
+# reloads — automatically ROLLING BACK if validation fails, so a bad config can never
+# take nginx down. Left OPT-IN (off by default) because the live config carries
+# Certbot-managed SSL blocks; keep the repo copy in sync if you re-run `certbot --nginx`.
+REPO_NGINX="$PROJECT_DIR/nginx/conf.d/riderpro.conf"
+LIVE_NGINX="/etc/nginx/conf.d/riderpro.conf"
+if [[ "${SYNC_NGINX:-0}" == "1" && -f "$REPO_NGINX" ]] && systemctl is-active --quiet nginx; then
+    echo "🔧 SYNC_NGINX=1 — syncing nginx config from repo..."
+    sudo cp "$LIVE_NGINX" "${LIVE_NGINX}.predeploy.$DATE.bak" 2>/dev/null || true
+    if sudo cp "$REPO_NGINX" "$LIVE_NGINX" && sudo nginx -t 2>/dev/null; then
+        sudo systemctl reload nginx && echo "✅ nginx config synced & reloaded" || true
+    else
+        echo "⚠️  Synced nginx config failed 'nginx -t' — ROLLING BACK to previous config."
+        sudo cp "${LIVE_NGINX}.predeploy.$DATE.bak" "$LIVE_NGINX" 2>/dev/null || true
+        sudo systemctl reload nginx 2>/dev/null || true
+    fi
+fi
+
 # Reload Nginx if it's running (for multi-project setup)
 if systemctl is-active --quiet nginx; then
     echo "🔄 Reloading Nginx..."
     sudo nginx -t && sudo systemctl reload nginx || echo "⚠️  Nginx reload skipped (not configured)"
+fi
+
+# --- Post-deploy smoke test: SPA deep-routes must NOT be swallowed by Django ---
+# Guards the regression where a greedy nginx 'location /admin' routed SPA paths like
+# /admin-dashboard / /admin-riders to Django (404 on hard-refresh). Read-only; never
+# fails the deploy — just warns loudly so drift is caught immediately.
+echo "🔎 Smoke test: /admin-dashboard should serve the SPA shell..."
+SMOKE_BODY=$(curl -s -m 10 https://riderpro.printo.in/admin-dashboard 2>/dev/null | head -c 300 || true)
+if echo "$SMOKE_BODY" | grep -qi "<!doctype html"; then
+    echo "✅ Smoke: /admin-dashboard serves the SPA app shell."
+else
+    echo "⚠️  Smoke: /admin-dashboard did NOT return the SPA shell — check the nginx '/admin' rule:"
+    echo "        location ^~ /admin/ {   # CORRECT — trailing slash, Django admin only"
+    echo "        location ^~ /admin {    # WRONG  — greedy, also catches /admin-dashboard"
 fi
 
 # Cleanup old backups (keep last 5)
