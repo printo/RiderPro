@@ -53,6 +53,8 @@ The server deploys via `./deploy.sh [frontend|backend|both]` (default `both`), w
 - `both` mode runs `docker system prune -f --volumes` — prefer `backend`/`frontend` for routine deploys to avoid it.
 - Production env (incl. routing keys) is in `.env` on the server (gitignored). A container must be **recreated** (not just restarted) to pick up `.env` changes.
 - **Any new `${VAR}` used in compose must be added to BOTH `docker-compose.yml` and `docker-compose.prod.yml`** (the prod file is a separate, standalone config).
+- **Production nginx** is host-level at `/etc/nginx/conf.d/riderpro.conf` (Certbot-managed TLS), mirrored in the repo at `nginx/conf.d/riderpro.conf`. It routes `/api/`, `/admin/`, `/static/`, `/media/`, `/health` → Django (`:8004`) and everything else → the SPA (`:5004`, `serve -s`). **The Django-admin location MUST be `location ^~ /admin/` (trailing slash)** — a greedy `^~ /admin` (no slash) also swallows SPA routes like `/admin-dashboard` and `/admin-riders` and gives a Django 404 on hard-refresh (in-app nav still works since it's client-side). `deploy.sh` runs a post-deploy smoke test for this, and `SYNC_NGINX=1 ./deploy.sh …` pushes the repo nginx config to the server (`nginx -t` + auto-rollback). It does **not** sync nginx by default — the live config carries Certbot SSL, so keep the repo copy in sync manually if you re-run `certbot --nginx`.
+- **Prod runs `DEBUG=False`**, set in the server's gitignored `backend/riderpro/localsettings.py`, which `settings.py` imports **last** (so it overrides the env-driven boot defaults). `settings.py` boots without `localsettings.py` using dev defaults; `localsettings.example.py` documents the structure. Keep `DEBUG=False` on prod — a debug error page leaks the URLconf/settings. `localsettings.py` also holds `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS`, DB creds, and `RIDER_PRO_API_KEYS`.
 
 ### Ports
 
@@ -119,6 +121,8 @@ Bidirectional integration:
 - JWT (Simple JWT) with cookie + Authorization-header support; custom User model in `apps.authentication`.
 - Two auth sources: external Printo API users and local DB users (with an approval workflow — see `ApprovalPending` page).
 - Roles: super_user, ops_team, staff, driver, viewer. Backend filters queries by `employee_id` for drivers; frontend gates UI via `client/src/lib/roles.ts` helpers (`isManagerUser`, etc.).
+- **Google SSO** — "Continue with Google" on the login page. `google_login` (`apps/authentication/views.py`) verifies the Google `id_token`'s `aud` against `GOOGLE_OAUTH_CLIENT_ID`; emails in `GOOGLE_ADMIN_EMAILS` are bootstrapped as admins on first login. The client ID is public-by-design (frontend reads `VITE_GOOGLE_CLIENT_ID`, backend `GOOGLE_OAUTH_CLIENT_ID`, both with a baked default). No client *secret* is used — the backend only verifies the id_token.
+- **Rider signup** (`/signup`, `RiderSignupForm`) is **unauthenticated**, so everything it reads must be public. It collects rider ID, name, password and an optional homebase — **not** a vehicle type (the vehicle is confirmed *after* login at day-start via `VehicleConfirmModal`, admin-approved — see **Routing, mileage & ETAs → Vehicle control**). Therefore `homebase_list` GET is `AllowAny` (POST/writes stay manager-gated). Don't re-add login-only data fetches (e.g. `/vehicle-types/`) to the signup page, and don't send an `Authorization` header when there's no token — an invalid `Bearer null` 401s even against `AllowAny` endpoints (the second authenticator raises).
 
 ### Offline-first frontend
 
@@ -217,3 +221,7 @@ Do not combine steps 3 and 5. The summary comes first; the commit only happens a
 | Shared types contract | `shared/types.ts`, `shared/schema.ts` |
 | Route planning PRD (recommendations) | `docs/route-planning-prd.html` |
 | Prod deploy script / compose | `deploy.sh`, `docker-compose.prod.yml` |
+| Production nginx config (mirrors live) | `nginx/conf.d/riderpro.conf` |
+| Rider signup page (unauthenticated) | `client/src/pages/RiderSignupForm.tsx` |
+| Google SSO login view | `google_login` in `backend/apps/authentication/views.py` |
+| Local settings template (prod overrides) | `backend/riderpro/localsettings.example.py` |

@@ -69,6 +69,9 @@ fuel_settings      - Fuel pricing
 
 1. **External API** (Printo) - Enterprise users
 2. **Local Database** - Self-hosted with approval workflow
+3. **Google SSO** - "Continue with Google"; the backend verifies the Google `id_token` and bootstraps admins listed in `GOOGLE_ADMIN_EMAILS`
+
+> **Signup** (`/signup`) is **unauthenticated** and collects rider ID, name, password and an optional homebase — **not** a vehicle. Riders confirm their vehicle *after* login at day-start (admin-approved). Anything the signup page reads must be public (e.g. the homebase list).
 
 ### Roles & Access
 
@@ -319,6 +322,16 @@ docker compose up -d --build
 ```
 
 _Note: The `--build` flag is critical to ensure the new code is compiled._
+
+> Prod actually deploys via **`./deploy.sh [frontend|backend|both]`** (uses `docker-compose.prod.yml`). It `git pull`s, rebuilds/recreates the chosen container(s), runs migrate/collectstatic for the backend, and runs a **smoke test** that warns if `/admin-dashboard` stops serving the SPA. Use `SYNC_NGINX=1 ./deploy.sh …` to also push the repo's nginx config to the server (`nginx -t` + auto-rollback). Prefer `frontend`/`backend` over `both` for routine deploys (`both` prunes volumes).
+
+### Nginx routing (important)
+
+Host nginx (`/etc/nginx/conf.d/riderpro.conf`, mirrored in repo `nginx/conf.d/riderpro.conf`) routes `/api/`, `/admin/`, `/static/`, `/media/`, `/health` → Django (`:8004`) and everything else → the SPA (`:5004`). The Django-admin block **must** be `location ^~ /admin/` (trailing slash) — a greedy `^~ /admin` also catches SPA routes like `/admin-dashboard` / `/admin-riders` and 404s them on hard-refresh.
+
+### Production settings
+
+Prod runs `DEBUG=False`, set in the server's gitignored `backend/riderpro/localsettings.py` (imported last in `settings.py`; see `localsettings.example.py`). Keep it `False` — a debug error page leaks internals.
 
 ### Restart services
 
@@ -613,6 +626,10 @@ npm run db:init           # Manual initialization
 ```bash
 curl http://localhost:5000/health
 ```
+
+### `/admin-dashboard` (or other `/admin-*` SPA routes) 404 on hard-refresh
+
+The nginx Django-admin location is too greedy. It must be `location ^~ /admin/` (trailing slash) so it matches **only** the Django admin site; a bare `^~ /admin` also catches SPA routes like `/admin-dashboard` / `/admin-riders` and proxies them to Django. Fix on the server, then `sudo nginx -t && sudo systemctl reload nginx`. (In-app menu navigation works regardless — it's client-side routing; only direct loads / hard-refresh hit nginx.)
 
 ## 📖 Documentation
 
