@@ -275,7 +275,7 @@ DATABASES = {
 # ---------------------------------------------------------------------------
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get(
     'GOOGLE_OAUTH_CLIENT_ID',
-    '113607233592-0lrokk43kls28mo8q1di67bi2kohp2ja.apps.googleusercontent.com',
+    '875434468582-2a7h0gahc6sq6jm3gfmre9cca1lhh0p7.apps.googleusercontent.com',
 )
 GOOGLE_ADMIN_EMAILS = [
     e.strip().lower()

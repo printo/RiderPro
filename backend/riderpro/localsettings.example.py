@@ -1,0 +1,57 @@
+"""
+Local settings TEMPLATE — optional machine-specific overrides.
+
+    cp backend/riderpro/localsettings.example.py backend/riderpro/localsettings.py
+
+`localsettings.py` is GITIGNORED. You usually do NOT need it: settings.py now
+ships boot defaults (DB → the docker `postgres` service, DEBUG from env), so
+`docker compose up` works on a fresh checkout with no localsettings.py at all.
+
+Create one ONLY to override those defaults — e.g. point at a different DB, run
+the backend outside Docker, or add integration secrets. Anything defined here is
+imported LAST in settings.py, so it wins over everything else.
+
+Do NOT commit your real localsettings.py. Keep this template in sync when you
+add a new overridable setting so the next person knows it exists.
+"""
+
+# --- Database -------------------------------------------------------------
+# Default (in settings.py) targets the docker `postgres` service. Override only
+# if you run Django outside Docker (talk to the host-mapped port 5433), or use a
+# different database.
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'riderpro',
+#         'USER': 'postgres',
+#         'PASSWORD': 'password',
+#         'HOST': 'localhost',
+#         'PORT': '5433',
+#     }
+# }
+
+# --- Debug ----------------------------------------------------------------
+# settings.py reads DEBUG from the env var (docker-compose sets DEBUG=True for
+# dev). Force it here if you run outside Docker.
+# DEBUG = True
+
+# --- Inbound POPS / external integration API keys -------------------------
+# Used by the inbound webhook auth (see CLAUDE.md → API surface). Each entry:
+#   key          required — the x-api-key value callers must send
+#   callback_url required — where outbound status callbacks are POSTed
+#   active       required — toggle without deleting
+#   auth_header  optional — extra Authorization header sent on callbacks
+# RIDER_PRO_API_KEYS = [
+#     {
+#         "key": "replace-with-a-real-key",
+#         "callback_url": "https://example.com/pops/callback",
+#         "active": True,
+#         # "auth_header": "Bearer <token>",
+#     },
+# ]
+
+# --- CORS -----------------------------------------------------------------
+# The Vite dev server proxies /api → django, so requests are same-origin and
+# CORS is usually unnecessary in dev. Add origins here if you call the API
+# cross-origin (e.g. a separately hosted frontend).
+# CORS_ALLOWED_ORIGINS = ["http://localhost:5004"]

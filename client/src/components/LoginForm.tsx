@@ -17,7 +17,7 @@ type AuthMethod = 'pia' | 'rider';
 // client in the Google Cloud Console, or Google blocks the button.
 const GOOGLE_CLIENT_ID =
   import.meta.env.VITE_GOOGLE_CLIENT_ID ||
-  '113607233592-0lrokk43kls28mo8q1di67bi2kohp2ja.apps.googleusercontent.com';
+  '875434468582-2a7h0gahc6sq6jm3gfmre9cca1lhh0p7.apps.googleusercontent.com';
 
 interface GoogleCredentialResponse {
   credential: string;

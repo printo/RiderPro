@@ -3,9 +3,11 @@ import App from "./App";
 import "./index.css";
 import { registerSW } from 'virtual:pwa-register';
 
-// Only register service worker if not on admin pages
-// Django admin should not be intercepted by the SPA service worker
-const isAdminPage = window.location.pathname.startsWith('/admin');
+// Only the Django admin (/admin, /admin/...) should be treated as a non-SPA page
+// and routed to the backend. Must NOT match SPA routes like /admin-dashboard,
+// or those get redirected to the backend (Django 404). Anchor to a path boundary.
+const isAdminPage =
+  window.location.pathname === '/admin' || window.location.pathname.startsWith('/admin/');
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 if (!isAdminPage) {

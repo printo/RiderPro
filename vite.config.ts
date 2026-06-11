@@ -37,9 +37,10 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        // Exclude /admin and /api paths from service worker navigation handling
-        // This allows Django admin to work without SPA interference
-        navigateFallbackDenylist: [/^\/admin/, /^\/api/],
+        // Exclude the Django admin (/admin, /admin/...) and API (/api/...) from SPA
+        // navigation handling. Anchored with (\/|$) so SPA routes like
+        // /admin-dashboard are NOT matched and still load the app shell.
+        navigateFallbackDenylist: [/^\/admin(\/|$)/, /^\/api(\/|$)/],
         // Runtime caching strategy for API calls (but don't intercept navigation)
         runtimeCaching: [
           {
