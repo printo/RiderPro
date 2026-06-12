@@ -9,9 +9,21 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Security
-SECRET_KEY = 'django-insecure-qr3&bu=w2n2!2w2-h(uej-!u9j46^&bd4^_+kd+b(x7($p8k2l'
+# DEBUG drives both Django's debug mode AND TEST_MODE (POD-acknowledgment bypass,
+# defined at the end of this file) — one switch. Defaults False (prod-safe);
+# docker-compose sets DEBUG=True for dev.
+DEBUG = os.environ.get('DEBUG', 'False').strip().lower() in ('1', 'true', 'yes', 'on')
 
-ALLOWED_HOSTS = ['*']
+# SECRET_KEY signs every JWT (see SIMPLE_JWT.SIGNING_KEY) — it MUST be a real secret
+# in production, set via the SECRET_KEY env var or localsettings.py. The insecure
+# default only exists so local/dev can boot; never rely on it in prod.
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-qr3&bu=w2n2!2w2-h(uej-!u9j46^&bd4^_+kd+b(x7($p8k2l',
+)
+
+# Comma-separated env; default '*' for dev. Set ALLOWED_HOSTS=riderpro.printo.in in prod.
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '*').split(',') if h.strip()]
 
 # Application definition
 INSTALLED_APPS = [
@@ -23,6 +35,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_filters',
     'import_export',
@@ -138,9 +151,10 @@ SPECTACULAR_SETTINGS = {
 
 # JWT Settings
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=45),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=10000),
-    "ROTATE_REFRESH_TOKENS": False,
+    # Lifetimes are env-tunable; defaults are a big cut from the old 45d/10000d.
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=int(os.environ.get('JWT_ACCESS_HOURS', '24'))),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.environ.get('JWT_REFRESH_DAYS', '14'))),
+    "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": False,
     "ALGORITHM": "HS256",
@@ -189,8 +203,8 @@ LOGGING = {
     },
 }
 
-# TEMP TEST MODE (bypass acknowledgment validation)
-TEST_MODE = True
+# TEST_MODE (POD-acknowledgment bypass) is defined at the END of this file, tied
+# to DEBUG so prod always enforces it — one switch. Do not set it here.
 
 # Database Cleanup Settings
 CLEANUP_SETTINGS = {
@@ -252,9 +266,8 @@ ROUTING_STOP_SERVICE_SECONDS = int(os.environ.get('ROUTING_STOP_SERVICE_SECONDS'
 # values) and fall back to the local dev postgres container. localsettings.py
 # is imported LAST (below), so any server/prod config there overrides these
 # and existing deployments are unaffected.
+# (DEBUG/SECRET_KEY/ALLOWED_HOSTS are defined at the top of this file, also env-driven.)
 # ---------------------------------------------------------------------------
-DEBUG = os.environ.get('DEBUG', 'False').strip().lower() in ('1', 'true', 'yes', 'on')
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -292,3 +305,21 @@ if os.path.exists(os.path.join(os.path.dirname(__file__), 'localsettings.py')):
     # localsettings.py surfaces (instead of being silently swallowed, which would
     # drop every override). Missing file = clean skip (boot on the defaults above).
     from .localsettings import *  # noqa: F401,F403
+
+# ---------------------------------------------------------------------------
+# Derived / last-word settings — computed AFTER localsettings so they track the
+# FINAL value of DEBUG (whether DEBUG came from env or a localsettings override).
+# ---------------------------------------------------------------------------
+# TEST_MODE bypasses delivery-acknowledgment (proof-of-delivery) validation. Tying
+# it to DEBUG means production (DEBUG=False) ALWAYS enforces POD — one switch.
+TEST_MODE = DEBUG
+
+if not DEBUG:
+    # Production hardening (active whenever DEBUG is off). nginx terminates TLS,
+    # already redirects HTTP->HTTPS and sends HSTS; here we make Django trust the
+    # proxy and mark its own cookies Secure/HttpOnly.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True

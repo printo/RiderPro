@@ -32,8 +32,24 @@ add a new overridable setting so the next person knows it exists.
 
 # --- Debug ----------------------------------------------------------------
 # settings.py reads DEBUG from the env var (docker-compose sets DEBUG=True for
-# dev). Force it here if you run outside Docker.
-# DEBUG = True
+# dev). Force it here if you run outside Docker. NOTE: DEBUG is the SINGLE switch
+# that also controls TEST_MODE (proof-of-delivery bypass) and the production
+# SECURE_* cookie/proxy hardening in settings.py — keep it False in production.
+# DEBUG = False
+
+# --- Production essentials (set these on the server) ----------------------
+# SECRET_KEY signs ALL JWTs — generate a fresh secret and keep it private.
+# Rotating it logs every user out. Generate one with:
+#   python -c "import secrets; print(secrets.token_urlsafe(50))"
+# SECRET_KEY = "replace-with-a-real-50+-char-secret"
+#
+# ALLOWED_HOSTS — lock to your domain in prod (settings.py defaults to '*').
+# ALLOWED_HOSTS = ["riderpro.printo.in"]
+#
+# CSRF_TRUSTED_ORIGINS — needed for admin/login POSTs over HTTPS in prod.
+# CSRF_TRUSTED_ORIGINS = ["https://riderpro.printo.in"]
+#
+# JWT lifetimes are env-tunable too: JWT_ACCESS_HOURS (default 24), JWT_REFRESH_DAYS (default 14).
 
 # --- Inbound POPS / external integration API keys -------------------------
 # Used by the inbound webhook auth (see CLAUDE.md → API surface). Each entry:
