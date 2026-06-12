@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
+import { log } from "@/utils/logger";
 import { Fuel, Car, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Plus, X, Target, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
@@ -355,9 +356,7 @@ function AdminPage() {
 
   const approveUser = async (userId: string) => {
     try {
-      const response = await fetch(`/api/v1/auth/approve/${userId}`, {
-        method: 'POST',
-      });
+      const response = await apiRequest("POST", `/api/v1/auth/approve/${userId}`);
       const data = await response.json();
 
       if (data.success) {
@@ -371,7 +370,7 @@ function AdminPage() {
         throw new Error(data.message);
       }
     } catch (error) {
-      console.error('Failed to approve user:', error);
+      log.error('Failed to approve user:', error);
       toast({
         title: "Error",
         description: "Failed to approve user",
@@ -382,9 +381,7 @@ function AdminPage() {
 
   const rejectUser = async (userId: string) => {
     try {
-      const response = await fetch(`/api/v1/auth/reject/${userId}`, {
-        method: 'POST',
-      });
+      const response = await apiRequest("POST", `/api/v1/auth/reject/${userId}`);
       const data = await response.json();
 
       if (data.success) {
@@ -398,7 +395,7 @@ function AdminPage() {
         throw new Error(data.message);
       }
     } catch (error) {
-      console.error('Failed to reject user:', error);
+      log.error('Failed to reject user:', error);
       toast({
         title: "Error",
         description: "Failed to reject user",
@@ -409,13 +406,7 @@ function AdminPage() {
 
   const updateUser = async (userId: string, updates: Partial<AllUser>) => {
     try {
-      const response = await fetch(`/api/v1/auth/users/${userId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      });
+      const response = await apiRequest("PATCH", `/api/v1/auth/users/${userId}`, updates);
       const data = await response.json();
 
       if (data.success) {
@@ -429,7 +420,7 @@ function AdminPage() {
         throw new Error(data.message);
       }
     } catch (error) {
-      console.error('Failed to update user:', error);
+      log.error('Failed to update user:', error);
       toast({
         title: "Error",
         description: "Failed to update user",

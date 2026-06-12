@@ -56,6 +56,7 @@ export const API_ENDPOINTS = {
     batch: apiUrl('/shipments/batch'),
     remarks: (shipment_id: string) => apiUrl(`/shipments/${shipment_id}/remarks`),
     acknowledgement: (shipment_id: string) => apiUrl(`/shipments/${shipment_id}/acknowledgement`),
+    toggleCollectedStatus: (shipment_id: string) => apiUrl(`/shipments/${shipment_id}/toggle_collected_status/`),
     tracking: (shipment_id: string) => apiUrl(`/shipments/${shipment_id}/tracking`),
     receive: apiUrl('/shipments/receive'),
     updateExternal: apiUrl('/shipments/update/external'),

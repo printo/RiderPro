@@ -13,6 +13,9 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { ConnectionStatus } from '@/components/ui/ConnectionStatus';
+import { apiClient } from '@/services/ApiClient';
+import { API_ENDPOINTS } from '@/config/api';
+import { log } from '@/utils/logger';
 
 interface MobileGPSTrackerProps {
   onLocationUpdate?: (location: { latitude: number; longitude: number; accuracy: number }) => void;
@@ -43,6 +46,9 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
   const startTimeRef = useRef<Date | null>(null);
   const lastLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Mirror the active geolocation watch id in a ref so the unmount cleanup can
+  // clear it without relying on a possibly-stale state closure.
+  const watchIdRef = useRef<number | null>(null);
 
   // Calculate distance between two coordinates
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -83,7 +89,10 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
       async (position) => {
         const { latitude, longitude, accuracy } = position.coords;
         const newLocation = { latitude, longitude, accuracy };
-        const speed = position.coords.speed || 0;
+
+        // Default to the device-reported speed; refine with our own computed
+        // value below when we have a previous fix to measure against.
+        let computedSpeed = position.coords.speed || 0;
 
         setLastUpdate(new Date());
 
@@ -100,7 +109,8 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
           // Calculate speed (m/s)
           const timeDiff = (new Date().getTime() - (lastUpdate?.getTime() || Date.now())) / 1000;
           if (timeDiff > 0) {
-            setSpeed(dist / timeDiff);
+            computedSpeed = dist / timeDiff;
+            setSpeed(computedSpeed);
           }
         }
 
@@ -109,28 +119,17 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
         // Update parent component
         onLocationUpdate?.(newLocation);
 
-        // Send to backend API
+        // Send to backend API (ApiClient attaches the JWT + handles offline retry)
         try {
-          const response = await fetch('/api/v1/routes/track-location', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-              latitude,
-              longitude,
-              accuracy,
-              speed
-            })
+          await apiClient.post(API_ENDPOINTS.routes.trackLocation, {
+            latitude,
+            longitude,
+            accuracy,
+            speed: computedSpeed
           });
-
-          if (!response.ok) {
-            console.warn('Failed to sync location to backend:', response.statusText);
-          }
         } catch (syncError) {
           // Silently fail - location is still tracked locally
-          console.error('Error syncing location to backend:', syncError);
+          log.error('Error syncing location to backend:', syncError);
           // TODO: Implement offline queue for retry
         }
       },
@@ -152,6 +151,7 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
       options
     );
 
+    watchIdRef.current = watchId;
     setWatchId(watchId);
     onTrackingStart?.();
   };
@@ -162,6 +162,7 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
       navigator.geolocation.clearWatch(watchId);
       setWatchId(null);
     }
+    watchIdRef.current = null;
 
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -193,6 +194,21 @@ export const MobileGPSTracker: React.FC<MobileGPSTrackerProps> = ({
       }
     };
   }, [isTracking]);
+
+  // Clear any active geolocation watch on unmount so the watch (and its
+  // location POSTs) doesn't leak if the component unmounts while tracking.
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Format duration
   const formatDuration = (seconds: number): string => {

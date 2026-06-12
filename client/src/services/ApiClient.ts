@@ -170,6 +170,10 @@ export class ApiClient {
       const refreshed = await AuthService.getInstance().refreshAccessToken();
 
       if (refreshed) {
+        // Reset the cooldown timestamp on success so a legitimate 401 shortly
+        // after a *successful* refresh isn't wrongly rejected as rate-limited.
+        this.refreshAttemptTimestamp = 0;
+
         // Process pending requests with new token
         await this.processPendingRequests();
 
@@ -330,12 +334,11 @@ export class ApiClient {
       if (data instanceof FormData) {
         // 🚨 FIX: Explicitly delete Content-Type header to prevent 415/JSON parse errors
         delete headers['Content-Type'];
-        console.log('[ApiClient] FormData detected, EXPLICITLY REMOVED Content-Type header');
+        log.dev('[ApiClient] FormData detected, removed Content-Type header');
         body = data;
       } else {
         // For regular data, use JSON
         headers['Content-Type'] = 'application/json';
-        console.log('[ApiClient] JSON data detected, setting Content-Type: application/json');
         body = JSON.stringify(data);
       }
     } else if (!data && ['POST', 'PUT', 'PATCH'].includes(method)) {
@@ -343,7 +346,6 @@ export class ApiClient {
       // But only if it's not FormData
       if (!(data instanceof FormData)) {
         headers['Content-Type'] = 'application/json';
-        console.log('[ApiClient] No data detected, setting Content-Type: application/json');
       }
     }
 
@@ -389,15 +391,15 @@ export class ApiClient {
       errorData = {};
     }
 
-    // Log the actual error response for debugging
-    console.log('[ApiClient] Error Response Details:', {
+    // Log the actual error response for debugging (dev-only; no headers to
+    // avoid leaking auth tokens / cookies).
+    log.dev('[ApiClient] Error Response Details:', {
       status: response.status,
       statusText: response.statusText,
       url: response.url,
       method: method,
       errorData: errorData,
       errorText: errorText,
-      headers: Object.fromEntries(response.headers.entries()),
     });
 
     // Log detailed error info for non-auth requests
@@ -1227,15 +1229,13 @@ export class ApiClient {
    * Upload FormData (files, etc.) with proper authentication
    */
   public async upload(url: string, formData: FormData, config: Partial<ApiRequestConfig> = {}): Promise<Response> {
-    // Debug: Log FormData contents
-    console.log('[ApiClient] Upload Debug:');
-    console.log('- URL:', url);
-    console.log('- FormData entries:');
-    for (let [key, value] of formData.entries()) {
-      console.log(`  ${key}:`, value instanceof File ? `File(${value.name}, ${value.size} bytes, ${value.type})` : value);
-    }
-    console.log('- FormData has entries:', formData.entries().next().done !== true);
-    
+    // Debug: log FormData metadata only (dev-only) — never the raw values,
+    // which may contain PII or file contents.
+    log.dev('[ApiClient] Upload', {
+      url,
+      fields: Array.from(formData.keys()),
+    });
+
     return this.request({ ...config, url, method: 'POST', data: formData });
   }
 

@@ -4,6 +4,9 @@ import { Loader2, PackageCheck, X } from "lucide-react";
 import { useState } from "react";
 import { ShipmentStatus } from "@shared/types";
 import { cn } from "@/lib/utils";
+import { apiClient } from "@/services/ApiClient";
+import { API_ENDPOINTS } from "@/config/api";
+import { log } from "@/utils/logger";
 
 interface CollectedStatusToggleProps {
   id: string;
@@ -28,19 +31,9 @@ export function CollectedStatusToggle({
   const handle_toggle = async () => {
     try {
       set_is_loading(true);
-      const response = await fetch(`/api/shipments/${id}/toggle_collected_status/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
+      const response = await apiClient.post(API_ENDPOINTS.shipments.toggleCollectedStatus(id));
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to update status");
-      }
 
       on_status_change(data.shipment.status);
 
@@ -49,7 +42,7 @@ export function CollectedStatusToggle({
         description: data.message,
       });
     } catch (error) {
-      console.error("Error toggling collected status:", error);
+      log.error("Error toggling collected status:", error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to update status",

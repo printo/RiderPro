@@ -22,6 +22,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { DateRange } from 'react-day-picker';
 import { format, subDays } from 'date-fns';
+import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/config/api';
 
 // Import chart components
 import PerformanceMetricsChart from '@/components/analytics/PerformanceMetricsChart';
@@ -66,16 +68,9 @@ function RouteAnalyticsPage() {
       if (filters.date_range?.to) params.append('end_date', format(filters.date_range.to, 'yyyy-MM-dd'));
       if (filters.employee_id) params.append('employee_id', filters.employee_id);
 
-      const url = `/api/routes/analytics${params.toString() ? '?' + params.toString() : ''}`;
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch analytics data');
-      }
+      const query = params.toString();
+      const url = `${API_ENDPOINTS.routes.analytics}${query ? '?' + query : ''}`;
+      const response = await apiRequest('GET', url);
 
       const result = await response.json();
       return result.analytics || [];

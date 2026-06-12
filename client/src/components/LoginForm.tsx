@@ -8,6 +8,7 @@ import { ButtonLoader } from "@/components/ui/Loader";
 import { useAuth } from "@/hooks/useAuth";
 import AuthService from "@/services/AuthService";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
+import { log } from "@/utils/logger";
 
 type AuthMethod = 'pia' | 'rider';
 
@@ -123,7 +124,7 @@ function Login() {
     setIsLoading(true);
 
     try {
-      console.log(`[Login] Attempting ${authMethod} login for:`, username);
+      log.dev(`[Login] Attempting ${authMethod} login`);
 
       let result;
 
@@ -134,20 +135,18 @@ function Login() {
         result = await loginWithLocalDB(username, password);
       }
 
-      console.log('[Login] Login result received:', result);
-
       if (result.success) {
-        console.log('[Login] Login successful! Navigating to dashboard...');
+        log.dev('[Login] Login successful, navigating to dashboard');
         setLocation('/dashboard');
       } else if (authMethod === 'rider' && 'isApproved' in result && result.isApproved === false) {
         // Handle pending approval for rider login - redirect to waiting page
         setLocation('/approval-pending');
       } else {
-        console.error('[Login] Login failed:', result.message);
+        log.dev('[Login] Login failed:', result.message);
         setError(result.message || "Invalid credentials");
       }
     } catch (error) {
-      console.error('[Login] Login error:', error);
+      log.error('[Login] Login error:', error);
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
