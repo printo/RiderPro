@@ -173,7 +173,56 @@ class PopsAPIClient:
         except Exception as e:
             logger.error(f"POPS update order fields error: {e}")
             return None
-    
+
+    def upload_acknowledgement(
+        self,
+        order_id: int,
+        access_token: str,
+        *,
+        files: Optional[Dict[str, Any]] = None,
+        data: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        POST multipart or JSON acknowledgement to POPS (stores files on POPS media).
+        """
+        url = f"{self.base_url}/deliveryq/{order_id}/acknowledgement/"
+        headers = {"Authorization": f"Bearer {access_token}"}
+        try:
+            if files:
+                clean_data = {
+                    k: v
+                    for k, v in (data or {}).items()
+                    if v is not None and v != ""
+                }
+                response = requests.post(
+                    url,
+                    headers=headers,
+                    files=files,
+                    data=clean_data,
+                    timeout=120,
+                )
+            else:
+                response = requests.post(
+                    url,
+                    headers=headers,
+                    json=data or {},
+                    timeout=120,
+                )
+            if response.status_code in (200, 201):
+                return response.json()
+            logger.warning(
+                "POPS upload acknowledgement failed: %s - %s",
+                response.status_code,
+                response.text[:500],
+            )
+            try:
+                return response.json()
+            except Exception:
+                return {"success": False, "message": response.text or "Upload failed"}
+        except Exception as e:
+            logger.error(f"POPS upload acknowledgement error: {e}")
+            return None
+
     def create_consignment(self, consignment_data: Dict[str, Any], access_token: str) -> Optional[Dict[str, Any]]:
         """
         Create consignment in POPS
