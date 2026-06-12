@@ -187,6 +187,10 @@ function AdminPage() {
 
   // Allow both super users and managers (ops_team/staff) to access admin
   const canAccessAdmin = !!(user?.is_super_user || user?.is_ops_team || user?.is_staff);
+  // Show the Django-admin (raw DB) link only to users who actually have Django
+  // access (Django's is_staff), granted per-user via the Django admin Users page —
+  // not to every app admin. Set at login (see AuthService); defaults false.
+  const hasDjangoAdmin = localStorage.getItem('django_admin') === 'true';
   
   // Load pending users and access tokens
   useEffect(() => {
@@ -554,21 +558,23 @@ function AdminPage() {
         <p className="text-muted-foreground mb-2">
           Manage system settings, users, and test shipments
         </p>
-        <p className="text-sm text-muted-foreground">
-          Need Django admin?{" "}
-          <button
-            type="button"
-            onClick={() => {
-              // Use localhost:8004 in development, otherwise use relative path
-              const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-              const adminUrl = isLocalhost ? 'http://localhost:8004/admin/' : '/admin/';
-              window.location.href = adminUrl;
-            }}
-            className="text-blue-600 hover:underline"
-          >
-            Open Django Admin
-          </button>
-        </p>
+        {hasDjangoAdmin && (
+          <p className="text-sm text-muted-foreground">
+            Need Django admin?{" "}
+            <button
+              type="button"
+              onClick={() => {
+                // Use localhost:8004 in development, otherwise use relative path
+                const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                const adminUrl = isLocalhost ? 'http://localhost:8004/admin/' : '/admin/';
+                window.location.href = adminUrl;
+              }}
+              className="text-blue-600 hover:underline"
+            >
+              Open Django Admin
+            </button>
+          </p>
+        )}
       </div>
 
       {/* Fuel Settings Section */}

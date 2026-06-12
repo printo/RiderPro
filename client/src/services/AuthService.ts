@@ -11,6 +11,7 @@ interface ExternalAuthResponse {
   is_super_user?: boolean;
   is_ops_team?: boolean;
   username?: string;
+  django_admin?: boolean;
 }
 
 interface LocalAuthResponse {
@@ -221,6 +222,7 @@ class AuthService {
       // Also save original PIA roles for server-side filtering
       localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
       localStorage.setItem('is_staff', (data.is_staff || false).toString());
+      localStorage.setItem('django_admin', (data.django_admin || false).toString());
 
       // Set cookies as requested
       this.setCookies(data.access, data.refresh, data.full_name, data.is_ops_team || false);
@@ -294,6 +296,7 @@ class AuthService {
       localStorage.setItem('isadmin', internalRoles.is_super_user.toString());
       localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
       localStorage.setItem('is_staff', (data.is_staff || false).toString());
+      localStorage.setItem('django_admin', (data.django_admin || false).toString());
 
       this.setCookies(data.access, data.refresh, data.full_name, data.is_ops_team || false);
 
@@ -373,6 +376,7 @@ class AuthService {
       localStorage.setItem('is_super_user', internalRoles.is_super_user.toString());
       localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
       localStorage.setItem('is_staff', (data.is_staff || false).toString());
+      localStorage.setItem('django_admin', 'false');  // riders never get Django (raw DB) access
 
       const role = this.determineRole(data.is_staff, data.is_super_user, data.is_ops_team);
 
@@ -624,6 +628,7 @@ class AuthService {
     localStorage.removeItem('is_super_user');
     localStorage.removeItem('isadmin');
     localStorage.removeItem('is_ops_team');
+    localStorage.removeItem('django_admin');
 
     // Clear cookies
     this.clearCookies();

@@ -24,20 +24,21 @@ system** for external systems.
 ## 🚀 Quick Start
 
 ```bash
-# One command to start everything (PostgreSQL + app with hot reload)
-npm run dev
+# Full stack (Django + Vite + Postgres) with hot reload — no localsettings.py needed
+docker compose up --build
 
 # Access the application
-# Dashboard: http://localhost:5000
-# Health Check: http://localhost:5000/health
+# Frontend:     http://localhost:5004
+# Health check: http://localhost:5004/api/v1/health
 ```
 
 **That's it!** Docker will automatically:
 
-- ✅ Start PostgreSQL main database (port 5432)
-- ✅ Start PostgreSQL backup database (port 5433) - dev only
-- ✅ Initialize all tables and indexes
-- ✅ Start app with hot reload on code changes
+- ✅ Start PostgreSQL (host port 5433)
+- ✅ Run migrations and initialize tables/indexes
+- ✅ Start Django (host port 8004) + the Vite frontend (port 5004) with hot reload
+
+> `npm run dev` runs the **Vite frontend only** (port 5004) — it does *not* start Docker/Postgres/Django. Use it only when the backend is already running.
 
 ## 📋 Prerequisites
 
@@ -69,7 +70,7 @@ fuel_settings      - Fuel pricing
 
 1. **External API** (Printo) - Enterprise users
 2. **Local Database** - Self-hosted with approval workflow
-3. **Google SSO** - "Continue with Google"; the backend verifies the Google `id_token` and bootstraps admins listed in `GOOGLE_ADMIN_EMAILS`
+3. **Google SSO** - "Continue with Google"; the backend verifies the Google `id_token` and bootstraps admins listed in `GOOGLE_ADMIN_EMAILS`. Set `GOOGLE_ADMIN_EMAILS` per environment in `localsettings.py` (empty by default), and add each serving origin (`http://localhost:5004`, `https://riderpro.printo.in`) to the OAuth client's **Authorized JavaScript origins** in Google Cloud Console — otherwise the button is blocked
 
 > **Signup** (`/signup`) is **unauthenticated** and collects rider ID, name, password and an optional homebase — **not** a vehicle. Riders confirm their vehicle *after* login at day-start (admin-approved). Anything the signup page reads must be public (e.g. the homebase list).
 
@@ -294,8 +295,8 @@ curl -X POST https://riderpro.printo.in/api/v1/shipments/receive \
 
 ```bash
 # Development
-npm run dev              # Start with Docker (hot reload)
-npm run dev:local        # Start without Docker
+docker compose up --build   # Full stack (Django + Vite + Postgres), hot reload
+npm run dev                 # Vite frontend ONLY (port 5004) — does not start Docker/backend
 
 # Database
 npm run db:init          # Initialize database

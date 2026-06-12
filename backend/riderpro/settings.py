@@ -287,7 +287,8 @@ GOOGLE_ADMIN_EMAILS = [
 # keys). GITIGNORED and OPTIONAL: copy localsettings.example.py to
 # localsettings.py only if you need to override the defaults above. Imported
 # last so it wins over everything in this file.
-try:
+if os.path.exists(os.path.join(os.path.dirname(__file__), 'localsettings.py')):
+    # Import only when the file actually exists, so a real error *inside*
+    # localsettings.py surfaces (instead of being silently swallowed, which would
+    # drop every override). Missing file = clean skip (boot on the defaults above).
     from .localsettings import *  # noqa: F401,F403
-except ImportError:
-    pass

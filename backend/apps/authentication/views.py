@@ -173,6 +173,7 @@ def login(request):
         'is_super_user': is_super_user,
         'is_ops_team': is_ops_team,
         'username': user.username,
+        'django_admin': user.is_staff,  # RAW Django-admin (/admin/) access — gates the UI button
     }
 
     return Response(response_data, status=status.HTTP_200_OK)
@@ -249,13 +250,13 @@ def google_login(request):
     user = User.objects.filter(username__iexact=email).first()
     if user is None:
         if email in admin_emails:
-            # Bootstrap an admin from the allowlist on first Google login.
+            # Bootstrap an APP admin from the allowlist on first Google login.
+            # NOTE: no is_staff/is_superuser — Django-admin (raw DB) access is
+            # granted separately, per-user, via the Django admin Users page.
             user = User.objects.create(
                 username=email,
                 full_name=full_name,
                 role='admin',
-                is_staff=True,
-                is_superuser=True,
                 is_active=True,
                 pia_access=True,
                 auth_source='local',
@@ -270,13 +271,13 @@ def google_login(request):
                 status=status.HTTP_403_FORBIDDEN,
             )
     else:
-        # Existing user: promote if newly allowlisted, ensure PIA access is on.
+        # Existing user: promote to APP admin if newly allowlisted, ensure PIA
+        # access is on. Django-admin (is_staff/is_superuser) is intentionally NOT
+        # set here — grant raw DB access per-user via the Django admin Users page.
         updated_fields = []
-        if email in admin_emails and not (user.is_superuser or user.role == 'admin'):
+        if email in admin_emails and user.role != 'admin':
             user.role = 'admin'
-            user.is_staff = True
-            user.is_superuser = True
-            updated_fields += ['role', 'is_staff', 'is_superuser']
+            updated_fields.append('role')
         if not user.pia_access:
             user.pia_access = True
             updated_fields.append('pia_access')
@@ -315,6 +316,7 @@ def google_login(request):
             'is_staff': is_staff,
             'is_super_user': is_super_user,
             'is_ops_team': is_ops_team,
+            'django_admin': user.is_staff,  # RAW Django-admin (/admin/) access — gates the UI button
         },
         status=status.HTTP_200_OK,
     )
