@@ -21,6 +21,7 @@ from django.utils import timezone
 from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Shipment, Acknowledgment, RouteSession, RouteTracking, AcknowledgmentSettings
+from .permissions import IsManagerUser
 from .serializers import (
     ShipmentSerializer, ShipmentCreateSerializer, ShipmentUpdateSerializer,
     AcknowledgmentSerializer, DashboardMetricsSerializer,
@@ -1306,7 +1307,9 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             processed_ids.add(shipment_key)
             
             try:
-                shipment = Shipment.objects.get(id=shipment_id)
+                # Scope by the per-driver queryset so a driver can only batch-update
+                # THEIR own shipments (managers still see all). Prevents IDOR (#5).
+                shipment = self.get_queryset().get(id=shipment_id)
                 requested_status = update_data.get('status')
                 if not requested_status:
                     failed_count += 1
@@ -1807,6 +1810,22 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
 
         event_type = serializer.validated_data['event_type']
         shipment_id = serializer.validated_data['shipment_id']
+
+        # Prevent a driver from recording events / driving status on another rider's
+        # shipment (IDOR #5) — mirrors the bulk_shipment_event ownership check
+        # (managers bypass; unassigned or own shipments allowed).
+        if not _is_manager_user(user):
+            _evt_shipment = Shipment.objects.filter(id=shipment_id).first()
+            if (
+                _evt_shipment
+                and _evt_shipment.employee_id
+                and user.employee_id
+                and _evt_shipment.employee_id.lower() != str(user.employee_id).lower()
+            ):
+                return Response(
+                    {'success': False, 'message': 'Shipment is not assigned to this rider.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
         shipment = None
         if event_type in ACK_REQUIRED_EVENT_TYPES:
@@ -2762,7 +2781,9 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
 # Sync views (consolidated from sync app)
 class SyncViewSet(viewsets.ViewSet):
     """ViewSet for sync operations"""
-    permission_classes = [IsAuthenticated]
+    # System/sync operations resolve arbitrary shipment ids — managers only,
+    # so a driver can't trigger sync/callbacks on other riders' shipments (IDOR #5).
+    permission_classes = [IsManagerUser]
     
     @action(detail=False, methods=['get'])
     def stats(self, request):

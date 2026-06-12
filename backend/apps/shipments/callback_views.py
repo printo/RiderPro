@@ -9,6 +9,7 @@ from rest_framework import status
 from django.conf import settings
 from .external_callback_service import ExternalCallbackService
 from .models import Shipment
+from .permissions import IsManagerUser
 from .signals import send_batch_shipment_callbacks
 
 logger = logging.getLogger(__name__)
@@ -79,7 +80,7 @@ def test_callback(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsManagerUser])
 def send_manual_callback(request):
     """
     Manually send callback for a specific shipment
@@ -125,7 +126,7 @@ def send_manual_callback(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsManagerUser])
 def send_batch_callbacks(request):
     """
     Send batch callbacks for multiple shipments
