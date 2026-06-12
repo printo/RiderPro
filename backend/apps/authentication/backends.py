@@ -166,8 +166,13 @@ class RiderProAuthBackend(BaseBackend):
                 'full_name': full_name,
                 'role': role,
                 'is_active': pops_response.get('is_active', True),
-                'is_staff': is_staff,
-                'is_superuser': is_superuser,
+                # Django-level admin (is_staff/is_superuser = raw DB / admin-site
+                # access) is NEVER granted from the external POPS response — that
+                # would let a compromised/MITM'd POPS mint a Django superuser. POPS
+                # controls only the app role + flags below; Django admin is granted
+                # per-user via the Django admin Users page.
+                'is_staff': False,
+                'is_superuser': False,
                 'is_ops_team': is_ops_team,
                 'is_deliveryq': is_deliveryq,
                 'pia_access': pia_access,
@@ -187,8 +192,8 @@ class RiderProAuthBackend(BaseBackend):
             user.full_name = full_name
             user.role = role
             user.is_active = pops_response.get('is_active', True)
-            user.is_staff = is_staff
-            user.is_superuser = is_superuser
+            # Intentionally NOT syncing is_staff/is_superuser from POPS — Django-admin
+            # access is managed via the Users page and must survive a POPS re-login.
             user.is_ops_team = is_ops_team
             user.is_deliveryq = is_deliveryq
             user.pia_access = pia_access
