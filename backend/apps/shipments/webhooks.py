@@ -3,13 +3,19 @@ Webhook endpoints for receiving orders from POPS
 """
 import logging
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from apps.authentication.jwt_auth import CookieJWTAuthentication
+from .api_key_auth import APIKeyAuthentication
 from .pops_order_receiver import receive_order_from_pops, update_shipment_status_from_pops
 
 logger = logging.getLogger(__name__)
+
+# Inbound webhooks accept either an x-api-key (integration partners) or a JWT/cookie.
+_WEBHOOK_AUTH = [APIKeyAuthentication, CookieJWTAuthentication, JWTAuthentication]
 
 
 def _process_batch_shipments(shipments_data, request=None):
@@ -104,7 +110,8 @@ def _process_batch_shipments(shipments_data, request=None):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # Allow API key or JWT authentication
+@authentication_classes(_WEBHOOK_AUTH)
+@permission_classes([IsAuthenticated])
 @csrf_exempt
 def receive_order_webhook(request):
     """
@@ -143,25 +150,7 @@ def receive_order_webhook(request):
         ]
     }
     """
-    # Check if user is authenticated (via API key or JWT)
-    if not request.user or not request.user.is_authenticated:
-        # Check what authentication was attempted
-        api_key = request.META.get('HTTP_X_API_KEY') or request.META.get('X-API-KEY')
-        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-        
-        if not api_key and not auth_header:
-            return Response(
-                {'success': False, 'message': 'Authentication required. Provide x-api-key header or Authorization: Bearer <token>.'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-        else:
-            # Authentication was attempted but failed
-            logger.warning(f"Webhook authentication failed. API key provided: {bool(api_key)}, Auth header provided: {bool(auth_header)}")
-            return Response(
-                {'success': False, 'message': 'Authentication failed. Invalid API key or token.'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-    
+    # Authentication (x-api-key or JWT/cookie) is enforced by the decorators above.
     try:
         # Check for new batch shipments format
         shipments_data = request.data.get('shipments', [])
@@ -232,7 +221,8 @@ def receive_order_webhook(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])
+@authentication_classes(_WEBHOOK_AUTH)
+@permission_classes([IsAuthenticated])
 @csrf_exempt
 def order_status_webhook(request):
     """
@@ -302,7 +292,8 @@ def order_status_webhook(request):
 
 
 @api_view(['POST'])
-@permission_classes([AllowAny])  # Allow API key or JWT authentication
+@authentication_classes(_WEBHOOK_AUTH)
+@permission_classes([IsAuthenticated])
 @csrf_exempt
 def receive_shipments_batch_webhook(request):
     """
@@ -331,23 +322,7 @@ def receive_shipments_batch_webhook(request):
         ]
     }
     """
-    # Check authentication
-    if not request.user or not request.user.is_authenticated:
-        api_key = request.META.get('HTTP_X_API_KEY') or request.META.get('X-API-KEY')
-        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-        
-        if not api_key and not auth_header:
-            return Response(
-                {'success': False, 'message': 'Authentication required. Provide x-api-key header or Authorization: Bearer <token>.'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-        else:
-            logger.warning(f"Batch webhook authentication failed. API key provided: {bool(api_key)}, Auth header provided: {bool(auth_header)}")
-            return Response(
-                {'success': False, 'message': 'Authentication failed. Invalid API key or token.'},
-                status=status.HTTP_401_UNAUTHORIZED
-            )
-    
+    # Authentication (x-api-key or JWT/cookie) is enforced by the decorators above.
     try:
         shipments_data = request.data.get('shipments', [])
         
