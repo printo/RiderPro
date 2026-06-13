@@ -8,6 +8,9 @@ django-filter>=23.0
 # Database
 psycopg2-binary>=2.9.0
 
+# Production WSGI server (replaces the dev `runserver` in prod)
+gunicorn>=21.2.0
+
 # API Client
 requests>=2.31.0
 httpx>=0.24.0

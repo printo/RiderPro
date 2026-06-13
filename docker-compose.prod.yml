@@ -11,7 +11,11 @@ services:
       - /var/www/riderpro-static:/app/staticfiles
     restart: unless-stopped
     stop_grace_period: 5s
-    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8004 --noreload"
+    # Production WSGI server (gunicorn), not the dev `runserver` (#8). Bound to
+    # 127.0.0.1 only — nginx proxies to localhost:8004, so this also stops Django
+    # being reachable directly on the host's public interface. nginx serves
+    # /static + /media; gunicorn serves the app.
+    command: sh -c "python manage.py migrate --noinput && gunicorn riderpro.wsgi:application --bind 127.0.0.1:8004 --workers 3 --timeout 120 --access-logfile - --error-logfile -"
     environment:
       - NODE_ENV=production
       # Routing provider — values sourced from the .env file in this directory.
