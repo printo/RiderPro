@@ -487,61 +487,85 @@ def finalize_session_metrics(session):
         total_km = _gps_trail_distance_km(session)
         distance_method = 'gps_trail'
 
-    session.total_distance = round(total_km, 3)
+    # No-regress (#13): finalize runs again on offline sync_session/sync_coordinates.
+    # A re-run with partial data, or an ORS hiccup that forces the GPS-trail
+    # fallback, must NEVER shrink a rider's recorded distance / pay — keep the
+    # larger value (later, more-complete syncs only grow it).
+    new_total_km = round(total_km, 3)
+    session.total_distance = max(new_total_km, float(session.total_distance or 0))
 
     # --- 2. Average speed (km/h) ---
     if session.total_time and session.total_time > 0:
-        session.average_speed = round(total_km / (session.total_time / 3600.0), 2)
+        session.average_speed = round(session.total_distance / (session.total_time / 3600.0), 2)
 
     # --- 3. Fuel consumed + cost, from the rider's vehicle + active fuel price ---
-    # Vehicle/mileage live on RiderAccount, keyed by rider_id — which equals the
-    # session's employee_id (the rider's username). The auth User model has NO
-    # vehicle_type, so the old User query silently fell back to the default
-    # mileage for every rider; query RiderAccount instead.
-    mileage_km_per_l = 15.0   # fallback if no vehicle is configured
-    fuel_type = 'petrol'
-    vehicle_label = None
-    try:
-        rider = (
-            RiderAccount.objects.filter(rider_id=session.employee_id)
-            .select_related('vehicle_type')
-            .first()
-        )
-        if rider and rider.vehicle_type and rider.vehicle_type.fuel_efficiency:
-            mileage_km_per_l = rider.vehicle_type.fuel_efficiency
-            fuel_type = rider.vehicle_type.fuel_type or 'petrol'
-            vehicle_label = rider.vehicle_type.name
-    except Exception as exc:
-        logger.warning(f"Could not resolve rider vehicle for fuel calc: {exc}")
+    # Snapshot the mileage + price used ONCE, on the first finalize, as an IMMUTABLE
+    # reimbursement audit trail (#13): a later vehicle/price change — or a re-run —
+    # must not rewrite a past payout. fuel_efficiency_used is always set on first
+    # finalize (defaults to 15), so its presence marks "already snapshotted".
+    # Vehicle/mileage live on RiderAccount (keyed by rider_id == session.employee_id);
+    # the auth User has no vehicle_type, so query RiderAccount to avoid silently
+    # using the default for everyone.
+    if session.fuel_efficiency_used is None:
+        mileage_km_per_l = 15.0   # fallback if no vehicle is configured
+        fuel_type = 'petrol'
+        vehicle_label = None
+        try:
+            rider = (
+                RiderAccount.objects.filter(rider_id=session.employee_id)
+                .select_related('vehicle_type')
+                .first()
+            )
+            if rider and rider.vehicle_type and rider.vehicle_type.fuel_efficiency:
+                mileage_km_per_l = rider.vehicle_type.fuel_efficiency
+                fuel_type = rider.vehicle_type.fuel_type or 'petrol'
+                vehicle_label = rider.vehicle_type.name
+        except Exception as exc:
+            logger.warning(f"Could not resolve rider vehicle for fuel calc: {exc}")
 
-    price_per_liter = None
-    try:
-        fuel_setting = (
-            FuelSetting.objects.filter(fuel_type=fuel_type, is_active=True)
-            .order_by('-effective_date')
-            .first()
-        )
-        if fuel_setting:
-            price_per_liter = fuel_setting.price_per_liter
-    except Exception as exc:
-        logger.warning(f"Could not resolve active fuel price: {exc}")
+        price_per_liter = None
+        try:
+            fuel_setting = (
+                FuelSetting.objects.filter(fuel_type=fuel_type, is_active=True)
+                .order_by('-effective_date')
+                .first()
+            )
+            if fuel_setting:
+                price_per_liter = fuel_setting.price_per_liter
+        except Exception as exc:
+            logger.warning(f"Could not resolve active fuel price: {exc}")
 
-    if mileage_km_per_l and mileage_km_per_l > 0:
-        litres = total_km / mileage_km_per_l
+        session.vehicle_type_used = vehicle_label
+        session.fuel_efficiency_used = mileage_km_per_l
+        session.fuel_price_used = price_per_liter
+
+    # Recompute fuel from the (possibly grown) distance using the IMMUTABLE snapshot,
+    # so a distance update is reflected but a later price/vehicle change is not.
+    eff = session.fuel_efficiency_used
+    price = session.fuel_price_used
+    if eff and eff > 0:
+        litres = session.total_distance / eff
         session.fuel_consumed = round(litres, 3)
-        if price_per_liter is not None:
-            session.fuel_cost = round(litres * price_per_liter, 2)
+        if price is not None:
+            session.fuel_cost = round(litres * price, 2)
 
-    # Snapshot the inputs used, so past reimbursements don't change if the rider's
-    # vehicle or the fuel price is updated later (immutable audit trail).
-    session.vehicle_type_used = vehicle_label
-    session.fuel_efficiency_used = mileage_km_per_l
-    session.fuel_price_used = price_per_liter
+    # --- 4. Shipments completed (#15) ---
+    # This was never incremented, so every per-shipment efficiency metric read 0.
+    # Derive it from the distinct shipments with a confirmed pickup/delivery event
+    # in this session. Events only accumulate, so guard with max for safety.
+    completed = (
+        session.tracking_points
+        .filter(event_type__in=['pickup', 'delivery'])
+        .values('shipment_id')
+        .distinct()
+        .count()
+    )
+    session.shipments_completed = max(completed, int(session.shipments_completed or 0))
 
     session.save()
     logger.info(
         f"Session {session.id} finalized via {distance_method}: {session.total_distance} km, "
-        f"{session.fuel_consumed} L, cost {session.fuel_cost}"
+        f"{session.fuel_consumed} L, cost {session.fuel_cost}, {session.shipments_completed} shipments"
     )
     return session
 

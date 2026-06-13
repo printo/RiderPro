@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.db import transaction
 from django.db.models import Q, Count, Avg, Sum, F
 from django.utils import timezone
 from django.conf import settings
@@ -1652,32 +1653,36 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
         serializer = RouteSessionStopSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
+        from .services import finalize_session_metrics
         try:
-            session = RouteSession.objects.get(
-                id=serializer.validated_data['session_id'],
-                employee_id=request.user.employee_id
-            )
+            # Lock the session row for the whole stop+finalize so a concurrent
+            # offline sync can't interleave a read-modify-write and clobber the
+            # session totals (#14 race).
+            with transaction.atomic():
+                session = RouteSession.objects.select_for_update().get(
+                    id=serializer.validated_data['session_id'],
+                    employee_id=request.user.employee_id
+                )
+
+                session.end_latitude = serializer.validated_data['end_latitude']
+                session.end_longitude = serializer.validated_data['end_longitude']
+                session.end_time = timezone.now()
+                session.status = 'completed'
+
+                # Calculate total time
+                if session.start_time and session.end_time:
+                    delta = session.end_time - session.start_time
+                    session.total_time = int(delta.total_seconds())
+
+                # Auto-derive distance (filtered for GPS noise), average speed, fuel
+                # consumed and petrol cost from the trail + the rider's vehicle
+                # mileage. Replaces manual start/end-km entry. (Saves the session.)
+                finalize_session_metrics(session)
         except RouteSession.DoesNotExist:
             return Response(
                 {'success': False, 'message': 'Session not found'},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-        session.end_latitude = serializer.validated_data['end_latitude']
-        session.end_longitude = serializer.validated_data['end_longitude']
-        session.end_time = timezone.now()
-        session.status = 'completed'
-        
-        # Calculate total time
-        if session.start_time and session.end_time:
-            delta = session.end_time - session.start_time
-            session.total_time = int(delta.total_seconds())
-
-        # Auto-derive distance (filtered for GPS noise), average speed, fuel
-        # consumed and petrol cost from the trail + the rider's vehicle mileage.
-        # Replaces manual start/end-km entry. (Saves the session.)
-        from .services import finalize_session_metrics
-        finalize_session_metrics(session)
 
         logger.info(f'Route session stopped: {session.id}')
         
@@ -2061,7 +2066,11 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             # sync as well, since GPS points may arrive after this call.
             try:
                 from .services import finalize_session_metrics
-                finalize_session_metrics(session)
+                # Lock the row so a concurrent stop()/sync can't interleave a
+                # read-modify-write and clobber the totals (#14 race).
+                with transaction.atomic():
+                    session = RouteSession.objects.select_for_update().get(pk=session.pk)
+                    finalize_session_metrics(session)
             except Exception as exc:
                 logger.warning(f"finalize on sync_session failed for {session.id}: {exc}")
 
@@ -2133,7 +2142,10 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
         if session.status == 'completed':
             try:
                 from .services import finalize_session_metrics
-                finalize_session_metrics(session)
+                # Lock the row so a concurrent stop()/sync can't clobber totals (#14).
+                with transaction.atomic():
+                    session = RouteSession.objects.select_for_update().get(pk=session.pk)
+                    finalize_session_metrics(session)
             except Exception as exc:
                 logger.warning(f"finalize on sync_coordinates failed for {session.id}: {exc}")
 
