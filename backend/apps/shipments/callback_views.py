@@ -50,7 +50,7 @@ def list_callback_configs(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsManagerUser])
 def test_callback(request):
     """
     Test callback URL for a specific API source

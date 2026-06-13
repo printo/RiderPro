@@ -43,10 +43,13 @@ class ShipmentStatusService:
         if old_status is None:
             old_status = shipment.status
         
-        # Update shipment
+        # Update shipment. When the change did NOT originate from us (sync_to_pops
+        # is False — i.e. it came FROM POPS), suppress the outbound callback so we
+        # don't echo the update straight back to the source (#10 callback loop).
         shipment.status = new_status
         shipment.synced_to_external = False
         shipment.sync_status = 'pending'
+        shipment._suppress_callback = not sync_to_pops
         shipment.save()
         
         # Create event

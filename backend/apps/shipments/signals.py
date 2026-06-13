@@ -3,6 +3,8 @@ Django signals for shipment status updates
 Automatically sends callbacks to external systems when shipments are updated
 """
 import logging
+import threading
+from django.db import transaction
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -30,50 +32,51 @@ def track_shipment_status_change(sender, instance, **kwargs):
         instance._status_changed = False
 
 
+def _dispatch_callback_async(shipment, status_change, event_type):
+    """Send one callback on a daemon thread. The send is HTTP-only (touches no DB),
+    so a slow/unreachable callback host can't block the request worker (#12)."""
+    def _run():
+        try:
+            ExternalCallbackService.send_shipment_update(
+                shipment, status_change=status_change, event_type=event_type
+            )
+        except Exception as e:
+            logger.error(f"Async callback failed for shipment {shipment.id}: {e}")
+    threading.Thread(target=_run, daemon=True).start()
+
+
 @receiver(post_save, sender=Shipment)
 def send_shipment_update_callback(sender, instance, created, **kwargs):
     """
-    Send callback to external system when shipment is created or updated
+    Notify the originating external system on shipment CREATE or STATUS CHANGE.
+    Fires AFTER the DB transaction commits (no phantom callback if the txn rolls
+    back, #12) and off the request thread (#12); never echoes a change that came
+    FROM the external system (#10); and stays silent on plain field updates (#11).
     """
-    try:
-        if created:
-            # New shipment created - send creation notification
-            logger.info(f"New shipment created: {instance.id}, sending creation callback")
-            ExternalCallbackService.send_shipment_update(
-                instance, 
-                status_change=f"Shipment created with status: {instance.status}",
-                event_type="shipment_created"
-            )
-        elif getattr(instance, '_status_changed', False):
-            # Status changed - send status update
-            old_status = getattr(instance, '_old_status', 'Unknown')
-            status_change = f"Status changed from {old_status} to {instance.status}"
-            logger.info(f"Shipment {instance.id} status changed: {status_change}")
-            
-            ExternalCallbackService.send_shipment_update(
-                instance,
-                status_change=status_change,
-                event_type="status_update"
-            )
-            
-            # Special handling for delivery confirmation
-            if instance.status in ['Delivered', 'Picked Up']:
-                ExternalCallbackService.send_shipment_update(
-                    instance,
-                    status_change=status_change,
-                    event_type="delivery_confirmation"
-                )
-        else:
-            # Other updates (location, remarks, etc.)
-            logger.debug(f"Shipment {instance.id} updated (no status change)")
-            ExternalCallbackService.send_shipment_update(
-                instance,
-                event_type="shipment_updated"
-            )
-            
-    except Exception as e:
-        # Don't fail the save operation if callback fails
-        logger.error(f"Failed to send callback for shipment {instance.id}: {e}")
+    # #10: don't echo a change that originated from the external system (POPS).
+    if getattr(instance, '_suppress_callback', False):
+        return
+
+    if created:
+        status_change = f"Shipment created with status: {instance.status}"
+        event_type = "shipment_created"
+    elif getattr(instance, '_status_changed', False):
+        old_status = getattr(instance, '_old_status', 'Unknown')
+        status_change = f"Status changed from {old_status} to {instance.status}"
+        event_type = "status_update"
+    else:
+        # #11: a plain field update (location, sync flags, remarks) previously fired
+        # a duplicate "shipment_updated" callback on every save — don't.
+        return
+
+    logger.info(f"Queuing {event_type} callback for shipment {instance.id}")
+    # #12: defer until after commit so a rolled-back txn can't fire a phantom callback.
+    transaction.on_commit(lambda: _dispatch_callback_async(instance, status_change, event_type))
+    # Delivery confirmation is a distinct event the partner expects.
+    if (not created) and instance.status in ['Delivered', 'Picked Up']:
+        transaction.on_commit(
+            lambda: _dispatch_callback_async(instance, status_change, "delivery_confirmation")
+        )
 
 
 # Optional: Signal for batch operations

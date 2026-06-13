@@ -2,14 +2,36 @@
 External Callback Service
 Sends shipment status updates to external systems based on their callback URLs
 """
+import ipaddress
 import logging
 import requests
+import socket
+from urllib.parse import urlparse
 from django.conf import settings
 from django.utils import timezone
 from typing import Dict, Optional, Any
 import json
 
 logger = logging.getLogger(__name__)
+
+
+def _is_safe_callback_url(url: str) -> bool:
+    """SSRF guard (#7): only http(s) to a PUBLIC host. Rejects private/loopback/
+    link-local/reserved targets so a callback URL can't be pointed at internal
+    services or cloud metadata. Defense-in-depth — callback URLs come from admin
+    config, but we also send credentials (auth_header) to them."""
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ('http', 'https') or not parsed.hostname:
+            return False
+        for info in socket.getaddrinfo(parsed.hostname, None):
+            ip = ipaddress.ip_address(info[4][0])
+            if (ip.is_private or ip.is_loopback or ip.is_link_local
+                    or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+                return False
+        return True
+    except Exception:
+        return False
 
 
 class ExternalCallbackService:
@@ -114,14 +136,22 @@ class ExternalCallbackService:
             if auth_header:
                 headers["Authorization"] = auth_header
             
+            if not _is_safe_callback_url(callback_url):
+                logger.error(
+                    f"Refusing callback for shipment {shipment.id}: callback_url is not a "
+                    f"public http(s) endpoint ({callback_url})"
+                )
+                return False
+
             logger.info(f"Sending callback to {callback_url} for shipment {shipment.id}")
-            
+
             response = requests.post(
                 callback_url,
                 json=payload,
                 headers=headers,
                 timeout=30,  # 30 second timeout
-                verify=True  # Verify SSL certificates
+                verify=True,  # Verify SSL certificates
+                allow_redirects=False,  # don't follow 3xx to internal hosts / leak auth_header (#7)
             )
             
             if response.status_code in [200, 201, 202]:
@@ -216,14 +246,21 @@ class ExternalCallbackService:
                 if auth_header:
                     headers["Authorization"] = auth_header
                 
+                if not _is_safe_callback_url(callback_url):
+                    logger.error(f"Refusing batch callback: callback_url is not a public http(s) endpoint ({callback_url})")
+                    for s in source_shipments:
+                        results[s.id] = False
+                    continue
+
                 logger.info(f"Sending batch callback to {callback_url} for {len(source_shipments)} shipments")
-                
+
                 response = requests.post(
                     callback_url,
                     json=payload,
                     headers=headers,
                     timeout=60,  # Longer timeout for batch
-                    verify=True
+                    verify=True,
+                    allow_redirects=False,  # #7
                 )
                 
                 success = response.status_code in [200, 201, 202]
@@ -286,13 +323,17 @@ class ExternalCallbackService:
             auth_header = client_config.get("auth_header")
             if auth_header:
                 headers["Authorization"] = auth_header
-            
+
+            if not _is_safe_callback_url(callback_url):
+                return {"success": False, "error": "callback_url is not a public http(s) endpoint"}
+
             response = requests.post(
                 callback_url,
                 json=test_payload,
                 headers=headers,
                 timeout=30,
-                verify=True
+                verify=True,
+                allow_redirects=False,  # #7
             )
             
             return {
