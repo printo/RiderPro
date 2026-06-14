@@ -323,3 +323,9 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Re-derive the JWT signing key from the FINAL SECRET_KEY. SIMPLE_JWT above was
+# built before localsettings.py was imported, so it captured the boot-time
+# SECRET_KEY; without this, a SECRET_KEY set in localsettings.py would rotate
+# Django's key but NOT the JWT signing key. Keep them in lockstep.
+SIMPLE_JWT["SIGNING_KEY"] = SECRET_KEY
