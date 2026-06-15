@@ -72,7 +72,7 @@ export default function SmartCompletionSettings({
 
   return (
     <div className="space-y-6 pt-2">
-      {/* Enable/Disable */}
+      {/* Enable/Disable - Full Width */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <Label className="text-base font-medium">Enable Smart Completion</Label>
@@ -112,172 +112,173 @@ export default function SmartCompletionSettings({
             </Alert>
           )}
 
-          {/* Detection Radius */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-medium">Detection Radius</Label>
-              <Badge variant="outline">{formatDistance(localConfig.radius)}</Badge>
-            </div>
-            <p className="text-sm text-gray-500">
-              How close you need to be to the starting point to trigger completion
-            </p>
-
-            <div className="space-y-2">
-              <Slider
-                value={[localConfig.radius]}
-                onValueChange={([radius]) => handleConfigUpdate({ radius })}
-                min={25}
-                max={500}
-                step={25}
-                className="w-full"
-              />
-              <div className="flex justify-between text-xs text-gray-400">
-                <span>25m</span>
-                <span>500m</span>
-              </div>
-            </div>
-
-            <Alert variant={radiusRecommendation.level === 'error' ? 'destructive' : 'default'}>
-              <div className="flex items-center gap-2">
-                {radiusRecommendation.level === 'good' && <CheckCircle className="h-4 w-4 text-green-600" />}
-                {radiusRecommendation.level === 'warning' && <AlertTriangle className="h-4 w-4 text-amber-600" />}
-                {radiusRecommendation.level === 'error' && <AlertTriangle className="h-4 w-4" />}
-                <AlertDescription>{radiusRecommendation.message}</AlertDescription>
-              </div>
-            </Alert>
-          </div>
-
-          <Separator />
-
-          {/* Minimum Session Duration */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-medium">Minimum Session Duration</Label>
-              <Badge variant="outline">{formatDuration(localConfig.minSessionDuration)}</Badge>
-            </div>
-            <p className="text-sm text-gray-500">
-              Minimum time before allowing route completion
-            </p>
-
-            <div className="grid grid-cols-3 gap-2">
-              {[300, 600, 900, 1800, 3600].map((seconds) => (
-                <Button
-                  key={seconds}
-                  variant={localConfig.minSessionDuration === seconds ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleConfigUpdate({ minSessionDuration: seconds })}
-                >
-                  {formatDuration(seconds)}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Auto-confirm Delay */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-base font-medium">Auto-confirm Delay</Label>
-              <Badge variant="outline">{localConfig.autoConfirmDelay}s</Badge>
-            </div>
-            <p className="text-sm text-gray-500">
-              Seconds to wait before automatically completing the route
-            </p>
-
-            <div className="grid grid-cols-4 gap-2">
-              {[15, 30, 60, 120].map((seconds) => (
-                <Button
-                  key={seconds}
-                  variant={localConfig.autoConfirmDelay === seconds ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleConfigUpdate({ autoConfirmDelay: seconds })}
-                >
-                  {seconds}s
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Minimum Distance Requirement */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label className="text-base font-medium">Require Minimum Distance</Label>
-                <p className="text-sm text-gray-500">
-                  Only allow completion after traveling a minimum distance
-                </p>
-              </div>
-              <Switch
-                checked={localConfig.requireMinDistance}
-                onCheckedChange={(requireMinDistance) =>
-                  handleConfigUpdate({ requireMinDistance })
-                }
-              />
-            </div>
-
-            {localConfig.requireMinDistance && (
-              <div className="space-y-2">
+          {/* Two Column Layout */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              {/* Detection Radius */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Minimum Distance</Label>
-                  <Badge variant="outline">{localConfig.minDistanceKm.toFixed(1)} km</Badge>
+                  <Label className="text-base font-medium">Detection Radius</Label>
+                  <Badge variant="outline">{formatDistance(localConfig.radius)}</Badge>
                 </div>
+                <p className="text-sm text-gray-500">
+                  How close you need to be to the starting point to trigger completion
+                </p>
 
                 <div className="space-y-2">
                   <Slider
-                    value={[localConfig.minDistanceKm]}
-                    onValueChange={([minDistanceKm]) => handleConfigUpdate({ minDistanceKm })}
-                    min={0.1}
-                    max={5.0}
-                    step={0.1}
+                    value={[localConfig.radius]}
+                    onValueChange={([radius]) => handleConfigUpdate({ radius })}
+                    min={25}
+                    max={500}
+                    step={25}
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-gray-400">
-                    <span>0.1 km</span>
-                    <span>5.0 km</span>
+                    <span>25m</span>
+                    <span>500m</span>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
 
-          <Separator />
-
-          {/* Auto-Deliver Shipments */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Label className="text-base font-medium">Auto-Deliver Shipments</Label>
-                <p className="text-sm text-gray-500">
-                  Automatically mark shipments as delivered when in range
-                </p>
+                <Alert variant={radiusRecommendation.level === 'error' ? 'destructive' : 'default'}>
+                  <div className="flex items-center gap-2">
+                    {radiusRecommendation.level === 'good' && <CheckCircle className="h-4 w-4 text-green-600" />}
+                    {radiusRecommendation.level === 'warning' && <AlertTriangle className="h-4 w-4 text-amber-600" />}
+                    {radiusRecommendation.level === 'error' && <AlertTriangle className="h-4 w-4" />}
+                    <AlertDescription>{radiusRecommendation.message}</AlertDescription>
+                  </div>
+                </Alert>
               </div>
-              <Switch
-                checked={localConfig.autoDeliver}
-                onCheckedChange={(autoDeliver) =>
-                  handleConfigUpdate({ autoDeliver })
-                }
-              />
+
+              {/* Auto-Deliver Shipments */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1 flex-1">
+                    <Label className="text-base font-medium">Auto-Deliver Shipments</Label>
+                    <p className="text-sm text-gray-500">
+                      Automatically mark shipments as delivered when in range
+                    </p>
+                  </div>
+                  <Switch
+                    checked={localConfig.autoDeliver}
+                    onCheckedChange={(autoDeliver) =>
+                      handleConfigUpdate({ autoDeliver })
+                    }
+                  />
+                </div>
+
+                {localConfig.autoDeliver && (
+                  <div className="space-y-3 pl-4 border-l-2 border-primary/20">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Auto-Delivery Radius</Label>
+                      <Badge variant="outline">{formatDistance(localConfig.autoDeliverRadius || 100)}</Badge>
+                    </div>
+                    <Slider
+                      value={[localConfig.autoDeliverRadius || 100]}
+                      onValueChange={([autoDeliverRadius]) => handleConfigUpdate({ autoDeliverRadius })}
+                      min={50}
+                      max={300}
+                      step={25}
+                      className="w-full"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
-            {localConfig.autoDeliver && (
-              <div className="space-y-3 pl-4 border-l-2 border-primary/20">
+            {/* Right Column */}
+            <div className="space-y-6">
+              {/* Minimum Session Duration */}
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Auto-Delivery Radius</Label>
-                  <Badge variant="outline">{formatDistance(localConfig.autoDeliverRadius || 100)}</Badge>
+                  <Label className="text-base font-medium">Minimum Session Duration</Label>
+                  <Badge variant="outline">{formatDuration(localConfig.minSessionDuration)}</Badge>
                 </div>
-                <Slider
-                  value={[localConfig.autoDeliverRadius || 100]}
-                  onValueChange={([autoDeliverRadius]) => handleConfigUpdate({ autoDeliverRadius })}
-                  min={50}
-                  max={300}
-                  step={25}
-                  className="w-full"
-                />
+                <p className="text-sm text-gray-500">
+                  Minimum time before allowing route completion
+                </p>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {[300, 600, 900, 1800, 3600].map((seconds) => (
+                    <Button
+                      key={seconds}
+                      variant={localConfig.minSessionDuration === seconds ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleConfigUpdate({ minSessionDuration: seconds })}
+                    >
+                      {formatDuration(seconds)}
+                    </Button>
+                  ))}
+                </div>
               </div>
-            )}
+
+              {/* Require Minimum Distance */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1 flex-1">
+                    <Label className="text-base font-medium">Require Minimum Distance</Label>
+                    <p className="text-sm text-gray-500">
+                      Only allow completion after traveling a minimum distance
+                    </p>
+                  </div>
+                  <Switch
+                    checked={localConfig.requireMinDistance}
+                    onCheckedChange={(requireMinDistance) =>
+                      handleConfigUpdate({ requireMinDistance })
+                    }
+                  />
+                </div>
+
+                {localConfig.requireMinDistance && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Minimum Distance</Label>
+                      <Badge variant="outline">{localConfig.minDistanceKm.toFixed(1)} km</Badge>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Slider
+                        value={[localConfig.minDistanceKm]}
+                        onValueChange={([minDistanceKm]) => handleConfigUpdate({ minDistanceKm })}
+                        min={0.1}
+                        max={5.0}
+                        step={0.1}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span>0.1 km</span>
+                        <span>5.0 km</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Auto-confirm Delay */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-medium">Auto-confirm Delay</Label>
+                  <Badge variant="outline">{localConfig.autoConfirmDelay}s</Badge>
+                </div>
+                <p className="text-sm text-gray-500">
+                  Seconds to wait before automatically completing the route
+                </p>
+
+                <div className="grid grid-cols-4 gap-2">
+                  {[15, 30, 60, 120].map((seconds) => (
+                    <Button
+                      key={seconds}
+                      variant={localConfig.autoConfirmDelay === seconds ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleConfigUpdate({ autoConfirmDelay: seconds })}
+                    >
+                      {seconds}s
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
           <Separator />
