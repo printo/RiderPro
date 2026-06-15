@@ -131,6 +131,11 @@ export interface Shipment {
 
   // External integration fields
   pops_order_id?: number | string; // External system tracking ID
+  // Paired hubjob_id + bill_code list from PIA (kept verbatim, index-aligned)
+  hub_job_entries?: Array<{
+    hubjob_id?: number | string | null;
+    bill_code?: string | null;
+  }>;
   status: string;                // Assigned, In Transit, Delivered, etc.
   priority: string;              // high, medium, low
   type: string;                  // delivery, pickup

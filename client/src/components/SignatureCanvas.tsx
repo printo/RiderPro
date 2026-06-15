@@ -8,7 +8,7 @@ interface SignatureCanvasProps {
 
 function SignatureCanvas({ onSignatureChange }: SignatureCanvasProps) {
   const canvas_ref = useRef<HTMLCanvasElement>(null);
-  const [is_drawing, set_is_drawing] = useState(false);
+  const [_is_drawing, set_is_drawing] = useState(false);
   const [has_signature, set_has_signature] = useState(false);
   
   // Use refs for drawing state to ensure immediate updates in event handlers

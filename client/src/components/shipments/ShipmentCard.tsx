@@ -80,12 +80,8 @@ function ShipmentCard({
   employeeId: employee_id,
   variant = 'list',
   showTrackingControls = true,
-  showIndividualActions = true,
-  onBulkAction,
-  selectedCount = 0,
-  onClearSelection,
-  onRefresh,
-  isRefreshing = false
+  showIndividualActions = true
+  // onBulkAction, selectedCount, onClearSelection, onRefresh, isRefreshing are unused but kept for interface compatibility
 }: ShipmentCardProps) {
   const [is_recording_event, set_is_recording_event] = useState(false);
   const { toast } = useToast();

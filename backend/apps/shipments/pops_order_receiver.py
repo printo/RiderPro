@@ -89,6 +89,12 @@ def receive_order_from_pops(
         shipment_type = order_data.get('type', 'delivery')
         if shipment_type not in ['delivery', 'pickup']:
             shipment_type = 'delivery'  # Default to delivery
+
+        # Extract PIA hub job entries (paired hubjob_id + bill_code list). Stored
+        # verbatim; only persisted when it's a non-empty list of pairs.
+        hub_job_entries = order_data.get('hubJobEntries') or order_data.get('hub_job_entries')
+        if not isinstance(hub_job_entries, list) or not hub_job_entries:
+            hub_job_entries = None
         
         # Create shipment
         shipment = Shipment.objects.create(
@@ -112,6 +118,7 @@ def receive_order_from_pops(
             priority=order_data.get('priority', 'medium'),
             api_source=api_source,
             pops_shipment_uuid=order_data.get('shipment_uuid') or order_data.get('pops_shipment_uuid'),
+            hub_job_entries=hub_job_entries,
             region=order_data.get('region'),
             synced_to_external=True,  # Mark as synced since it came from POPS
             sync_status='synced'

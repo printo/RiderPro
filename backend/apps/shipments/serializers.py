@@ -65,7 +65,7 @@ class ShipmentSerializer(serializers.ModelSerializer):
             'km_travelled', 'synced_to_external', 'sync_status', 'sync_attempts',
             'signature_url', 'photo_url', 'pdf_url', 'signed_pdf_url',
             'acknowledgment_captured_at', 'acknowledgment_captured_by',
-            'pops_order_id', 'pops_shipment_uuid', 'api_source', 'region',
+            'pops_order_id', 'pops_shipment_uuid', 'hub_job_entries', 'api_source', 'region',
             'created_at', 'updated_at', 'address_display',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']

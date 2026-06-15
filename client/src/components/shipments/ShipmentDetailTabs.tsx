@@ -262,12 +262,32 @@ export default function ShipmentDetailTabs({
                 </p>
               </div>
               <div>
-                <span className="text-muted-foreground">Order ID</span>
-                <p className="font-medium">#{shipment.pops_order_id || 'N/A'}</p>
+                <span className="text-muted-foreground">Bill Code</span>
+                {Array.isArray(shipment.hub_job_entries) && shipment.hub_job_entries.length > 0 ? (
+                  <div className="font-medium space-y-0.5">
+                    {shipment.hub_job_entries.map((entry, i) => (
+                      <p key={i}>{entry?.bill_code || '—'}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="font-medium">Not available</p>
+                )}
               </div>
               <div>
                 <span className="text-muted-foreground">Internal ID</span>
                 <p className="font-medium">#{String(shipment.id).slice(-8)}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Hubjob ID</span>
+                {Array.isArray(shipment.hub_job_entries) && shipment.hub_job_entries.length > 0 ? (
+                  <div className="font-medium space-y-0.5">
+                    {shipment.hub_job_entries.map((entry, i) => (
+                      <p key={i}>{entry?.hubjob_id ?? '—'}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="font-medium">Not available</p>
+                )}
               </div>
               <div>
                 <span className="text-muted-foreground">Type</span>

@@ -460,7 +460,7 @@ function AdminPage() {
     const hasUpperCase = /[A-Z]/.test(newPassword);
     const hasLowerCase = /[a-z]/.test(newPassword);
     const hasNumbers = /\d/.test(newPassword);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
+    const _hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
 
     if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
       toast({
@@ -571,10 +571,6 @@ function AdminPage() {
       {/* Fuel Settings Section */}
       <Card className="mb-6">
         <CardHeader>
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Fuel className="h-5 w-5" />
-            Fuel Settings
-          </h2>
           <p className="text-xs text-muted-foreground">
             Configure fuel pricing and vehicle settings for accurate cost calculations
           </p>

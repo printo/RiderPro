@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { shipmentsApi } from '@/apiClient/shipments';
 import { apiRequest } from '@/lib/queryClient';
-import type { Shipment } from '@shared/types';
-import { Trash2, MoreHorizontal, CheckSquare, RotateCcw } from 'lucide-react';
+import { Trash2, CheckSquare, RotateCcw } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,

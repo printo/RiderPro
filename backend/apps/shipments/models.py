@@ -114,6 +114,14 @@ class Shipment(models.Model):
     # POPS integration
     pops_order_id = models.IntegerField(null=True, blank=True, db_index=True)  # POPS Order.id
     pops_shipment_uuid = models.CharField(max_length=255, null=True, blank=True)
+    # Paired hubjob_id + bill_code list as sent by PIA (kept verbatim; explicitly
+    # paired by PIA so the Nth hubjob is never assumed to match the Nth bill code).
+    # e.g. [{"hubjob_id": 101, "bill_code": "DC-A"}, {"hubjob_id": 102, "bill_code": "DC-B"}]
+    hub_job_entries = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Paired hubjob_id + bill_code entries from PIA (list of objects)"
+    )
     
     # API source tracking
     api_source = models.CharField(
