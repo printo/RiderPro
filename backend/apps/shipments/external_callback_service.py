@@ -50,14 +50,8 @@ class ExternalCallbackService:
         Returns:
             Client configuration dict or None if not found
         """
-        api_keys_config = getattr(settings, 'RIDER_PRO_API_KEYS', {})
-        
-        if isinstance(api_keys_config, dict) and api_source in api_keys_config:
-            config = api_keys_config[api_source]
-            if isinstance(config, dict):
-                return config
-        
-        return None
+        from .api_key_auth import get_api_key_configs
+        return get_api_key_configs().get(api_source)
     
     @staticmethod
     def send_shipment_update(shipment, status_change: str = None, event_type: str = "status_update") -> bool:
@@ -127,7 +121,10 @@ class ExternalCallbackService:
                 "Content-Type": "application/json",
                 "User-Agent": "RiderPro-Callback/1.0",
                 "X-RiderPro-Source": "status_update",
-                "X-RiderPro-Shipment-ID": shipment.id,
+                # MUST be str — requests rejects non-str/bytes header values with
+                # InvalidHeader, which was silently killing every single-shipment
+                # callback (caught by the broad except below and logged as failed).
+                "X-RiderPro-Shipment-ID": str(shipment.id),
                 "X-RiderPro-Event": event_type
             }
             

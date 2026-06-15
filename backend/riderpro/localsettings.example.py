@@ -52,19 +52,24 @@ add a new overridable setting so the next person knows it exists.
 # JWT lifetimes are env-tunable too: JWT_ACCESS_HOURS (default 24), JWT_REFRESH_DAYS (default 14).
 
 # --- Inbound POPS / external integration API keys -------------------------
-# Used by the inbound webhook auth (see CLAUDE.md → API surface). Each entry:
+# Used by the inbound webhook auth (see CLAUDE.md → API surface). A DICT keyed by
+# SOURCE NAME (the source also becomes Shipment.api_source and routes the outbound
+# callback). Each value:
 #   key          required — the x-api-key value callers must send
 #   callback_url required — where outbound status callbacks are POSTed
 #   active       required — toggle without deleting
 #   auth_header  optional — extra Authorization header sent on callbacks
-# RIDER_PRO_API_KEYS = [
-#     {
+# Generate a key with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+# RIDER_PRO_API_KEYS = {
+#     "pops": {
 #         "key": "replace-with-a-real-key",
 #         "callback_url": "https://example.com/pops/callback",
 #         "active": True,
 #         # "auth_header": "Bearer <token>",
 #     },
-# ]
+# }
+# (A list of entries is also tolerated for backwards-compat, but the dict form is
+# canonical — a list entry has no source name unless it carries a "source" key.)
 
 # --- CORS -----------------------------------------------------------------
 # The Vite dev server proxies /api → django, so requests are same-origin and

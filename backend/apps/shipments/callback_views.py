@@ -22,21 +22,18 @@ def list_callback_configs(request):
     List all configured callback URLs and their status
     """
     try:
-        api_keys_config = getattr(settings, 'RIDER_PRO_API_KEYS', {})
-        
+        from .api_key_auth import get_api_key_configs
+        api_keys_config = get_api_key_configs()
+
         configs = []
         for source, config in api_keys_config.items():
-            if isinstance(config, dict):
-                configs.append({
-                    "api_source": source,
-                    "callback_url": config.get("callback_url"),
-                    "active": config.get("active", True),
-                    "has_auth": bool(config.get("auth_header"))
-                })
-            else:
-                # Skip invalid configurations
-                logger.warning(f"Invalid configuration format for {source}: expected dict, got {type(config)}")
-        
+            configs.append({
+                "api_source": source,
+                "callback_url": config.get("callback_url"),
+                "active": config.get("active", True),
+                "has_auth": bool(config.get("auth_header"))
+            })
+
         return Response({
             "success": True,
             "configs": configs
@@ -204,8 +201,9 @@ def callback_analytics(request):
         ).order_by('-count')
         
         # Get callback configurations
-        api_keys_config = getattr(settings, 'RIDER_PRO_API_KEYS', {})
-        
+        from .api_key_auth import get_api_key_configs
+        api_keys_config = get_api_key_configs()
+
         analytics = []
         for stat in source_stats:
             api_source = stat['api_source']

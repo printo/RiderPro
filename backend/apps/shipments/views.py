@@ -1664,6 +1664,18 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                     employee_id=request.user.employee_id
                 )
 
+                if session.status == 'completed':
+                    # Already finalized. A retry / double-tap must NOT re-stamp
+                    # end_time + coords or re-run finalize: total_time would grow
+                    # from a fresh now(), and distance/pay could inflate. Return
+                    # the existing session unchanged (idempotent stop).
+                    logger.info(f'Route session {session.id} already completed; ignoring duplicate stop')
+                    return Response({
+                        'success': True,
+                        'session': RouteSessionSerializer(session).data,
+                        'message': 'Route session already completed'
+                    })
+
                 session.end_latitude = serializer.validated_data['end_latitude']
                 session.end_longitude = serializer.validated_data['end_longitude']
                 session.end_time = timezone.now()

@@ -19,8 +19,11 @@ def health_check(request):
 urlpatterns = [
     path('admin/', admin.site.urls),
     
-    # Health check endpoint (for browser/service worker checks)
+    # Health check endpoint (for browser/service worker checks).
+    # Both paths exist: nginx proxies the bare `/health` location to Django, and
+    # the SPA/service-worker probes `/api/v1/health`.
     path('api/v1/health', health_check, name='health'),
+    path('health', health_check, name='health_root'),
     
     # All APIs under /api/v1 prefix
     # Authentication

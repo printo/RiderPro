@@ -499,31 +499,40 @@ def finalize_session_metrics(session):
         session.average_speed = round(session.total_distance / (session.total_time / 3600.0), 2)
 
     # --- 3. Fuel consumed + cost, from the rider's vehicle + active fuel price ---
-    # Snapshot the mileage + price used ONCE, on the first finalize, as an IMMUTABLE
-    # reimbursement audit trail (#13): a later vehicle/price change — or a re-run —
-    # must not rewrite a past payout. fuel_efficiency_used is always set on first
-    # finalize (defaults to 15), so its presence marks "already snapshotted".
-    # Vehicle/mileage live on RiderAccount (keyed by rider_id == session.employee_id);
-    # the auth User has no vehicle_type, so query RiderAccount to avoid silently
-    # using the default for everyone.
-    if session.fuel_efficiency_used is None:
-        mileage_km_per_l = 15.0   # fallback if no vehicle is configured
-        fuel_type = 'petrol'
-        vehicle_label = None
-        try:
-            rider = (
-                RiderAccount.objects.filter(rider_id=session.employee_id)
-                .select_related('vehicle_type')
-                .first()
-            )
-            if rider and rider.vehicle_type and rider.vehicle_type.fuel_efficiency:
-                mileage_km_per_l = rider.vehicle_type.fuel_efficiency
-                fuel_type = rider.vehicle_type.fuel_type or 'petrol'
-                vehicle_label = rider.vehicle_type.name
-        except Exception as exc:
-            logger.warning(f"Could not resolve rider vehicle for fuel calc: {exc}")
+    # Resolve the rider's vehicle (mileage + fuel type) on every finalize — it's a
+    # cheap query and we need fuel_type for the price lookup below. Vehicle/mileage
+    # live on RiderAccount (keyed by rider_id == session.employee_id); the auth User
+    # has no vehicle_type, so query RiderAccount to avoid silently using the default
+    # for everyone.
+    mileage_km_per_l = 15.0   # fallback if no vehicle is configured
+    fuel_type = 'petrol'
+    vehicle_label = None
+    try:
+        rider = (
+            RiderAccount.objects.filter(rider_id=session.employee_id)
+            .select_related('vehicle_type')
+            .first()
+        )
+        if rider and rider.vehicle_type and rider.vehicle_type.fuel_efficiency:
+            mileage_km_per_l = rider.vehicle_type.fuel_efficiency
+            fuel_type = rider.vehicle_type.fuel_type or 'petrol'
+            vehicle_label = rider.vehicle_type.name
+    except Exception as exc:
+        logger.warning(f"Could not resolve rider vehicle for fuel calc: {exc}")
 
-        price_per_liter = None
+    # Snapshot the vehicle + mileage ONCE, on the first finalize, as an IMMUTABLE
+    # reimbursement audit trail (#13): a later vehicle change — or a re-run — must
+    # not rewrite a past payout. fuel_efficiency_used is always set on first finalize
+    # (defaults to 15), so its presence marks "already snapshotted".
+    if session.fuel_efficiency_used is None:
+        session.vehicle_type_used = vehicle_label
+        session.fuel_efficiency_used = mileage_km_per_l
+
+    # Fuel price: snapshot once, but ALLOW a later finalize to fill it if it was
+    # missing the first time (e.g. no active FuelSetting had been seeded yet) —
+    # otherwise fuel_cost would be stuck at 0 forever even after a price is set.
+    # Once captured it stays put (a later price change won't rewrite past pay).
+    if session.fuel_price_used is None:
         try:
             fuel_setting = (
                 FuelSetting.objects.filter(fuel_type=fuel_type, is_active=True)
@@ -531,13 +540,9 @@ def finalize_session_metrics(session):
                 .first()
             )
             if fuel_setting:
-                price_per_liter = fuel_setting.price_per_liter
+                session.fuel_price_used = fuel_setting.price_per_liter
         except Exception as exc:
             logger.warning(f"Could not resolve active fuel price: {exc}")
-
-        session.vehicle_type_used = vehicle_label
-        session.fuel_efficiency_used = mileage_km_per_l
-        session.fuel_price_used = price_per_liter
 
     # Recompute fuel from the (possibly grown) distance using the IMMUTABLE snapshot,
     # so a distance update is reflected but a later price/vehicle change is not.

@@ -13,6 +13,29 @@ from django.conf import settings
 from rest_framework import authentication, exceptions
 
 
+def get_api_key_configs() -> dict:
+    """Return RIDER_PRO_API_KEYS normalized to {source: {key, callback_url, ...}}.
+
+    The code keys integrations by a SOURCE NAME (used for `request.api_key_source`,
+    `Shipment.api_source`, and outbound-callback routing), so the dict form is
+    canonical. But the docs/example historically showed a list, which silently
+    failed closed. Accept BOTH: a list entry's source is its `source`/`name`
+    field, else a synthetic `source_<i>`. Fails closed to {} on anything else.
+    """
+    raw = getattr(settings, 'RIDER_PRO_API_KEYS', {}) or {}
+    if isinstance(raw, dict):
+        return {src: entry for src, entry in raw.items() if isinstance(entry, dict)}
+    if isinstance(raw, list):
+        normalized = {}
+        for i, entry in enumerate(raw):
+            if not isinstance(entry, dict):
+                continue
+            source = entry.get('source') or entry.get('name') or f'source_{i}'
+            normalized[source] = entry
+        return normalized
+    return {}
+
+
 class APIKeyPrincipal:
     """Lightweight authenticated principal representing an inbound integration."""
 
@@ -38,18 +61,14 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
             # No API key — defer to the next authenticator (JWT/cookie).
             return None
 
-        config = getattr(settings, 'RIDER_PRO_API_KEYS', {}) or {}
-        if isinstance(config, dict):
-            for source, entry in config.items():
-                if not isinstance(entry, dict):
-                    continue
-                key = entry.get('key') or ''
-                # Constant-time compare to avoid timing oracles.
-                if key and hmac.compare_digest(str(key), str(provided)):
-                    if not entry.get('active', True):
-                        raise exceptions.AuthenticationFailed('API key is inactive.')
-                    request.api_key_source = source
-                    return (APIKeyPrincipal(source), None)
+        for source, entry in get_api_key_configs().items():
+            key = entry.get('key') or ''
+            # Constant-time compare to avoid timing oracles.
+            if key and hmac.compare_digest(str(key), str(provided)):
+                if not entry.get('active', True):
+                    raise exceptions.AuthenticationFailed('API key is inactive.')
+                request.api_key_source = source
+                return (APIKeyPrincipal(source), None)
 
         # A key was supplied but matched no active entry → reject.
         raise exceptions.AuthenticationFailed('Invalid API key.')

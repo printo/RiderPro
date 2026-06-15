@@ -329,3 +329,14 @@ if not DEBUG:
 # SECRET_KEY; without this, a SECRET_KEY set in localsettings.py would rotate
 # Django's key but NOT the JWT signing key. Keep them in lockstep.
 SIMPLE_JWT["SIGNING_KEY"] = SECRET_KEY
+
+# Fail LOUD if production ever boots on the insecure development SECRET_KEY (e.g.
+# localsettings.py missing on the server, or the SECRET_KEY env var unset). A
+# predictable key lets anyone forge JWTs and impersonate any user — refusing to
+# start is far safer than silently running prod with a known signing key.
+if not DEBUG and SECRET_KEY.startswith('django-insecure'):
+    from django.core.exceptions import ImproperlyConfigured
+    raise ImproperlyConfigured(
+        "DEBUG=False but SECRET_KEY is the insecure development default. "
+        "Set a real SECRET_KEY in localsettings.py or the SECRET_KEY env var."
+    )

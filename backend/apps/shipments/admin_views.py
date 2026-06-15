@@ -3,15 +3,15 @@ Admin views for shipments
 """
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.conf import settings
+from .permissions import IsManagerUser
 
 logger = __import__('logging').getLogger(__name__)
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsManagerUser])
 def access_tokens(request):
     """
     Get access tokens for external integration
@@ -27,11 +27,12 @@ def access_tokens(request):
                 return '****'
             return f"{token[:4]}****{token[-4:]}"
         
+        # NOTE: never return the raw `token` over the API — only the masked form.
+        # These are integration secrets; exposing them is a credential leak.
         access_tokens = [
             {
                 'id': 'access-token-1',
                 'name': 'Access Token 1',
-                'token': access_token_1,
                 'masked': get_masked_token(access_token_1),
                 'description': 'Primary access token for external system integration',
                 'created': '2024-01-01T00:00:00Z',
@@ -40,7 +41,6 @@ def access_tokens(request):
             {
                 'id': 'access-token-2',
                 'name': 'Access Token 2',
-                'token': access_token_2,
                 'masked': get_masked_token(access_token_2),
                 'description': 'Secondary access token for external system integration',
                 'created': '2024-01-01T00:00:00Z',

@@ -113,7 +113,7 @@ Dependency direction (do not invert):
 Everything is under `/api/v1/`. Endpoint groups: `auth/`, `shipments/` (also hosts `dashboard`, `routes/`, analytics, callbacks, admin sub-routes — see `backend/riderpro/urls.py`), `vehicle-types/`, `fuel-settings/`. Docs at `/api/docs/` (Scalar UI) and `/api/schema/`.
 
 Bidirectional integration:
-- **Inbound**: `POST /api/v1/shipments/receive` accepts batch payloads, authenticated by `x-api-key` or `Authorization: Bearer <jwt>`. API keys configured in `backend/riderpro/localsettings.py` as `RIDER_PRO_API_KEYS` (each entry has `key`, `callback_url`, `active`, optional `auth_header`).
+- **Inbound**: `POST /api/v1/shipments/receive` accepts batch payloads, authenticated by `x-api-key` or `Authorization: Bearer <jwt>`. API keys configured in `backend/riderpro/localsettings.py` as `RIDER_PRO_API_KEYS` — a **dict keyed by source name** (`{"pops": {"key", "callback_url", "active", "auth_header"?}}`); the source name becomes `Shipment.api_source` and routes the outbound callback. (A list of entries is tolerated for backwards-compat via `get_api_key_configs()`, but the dict is canonical.)
 - **Outbound**: status changes trigger `post_save` Django signals → callback service POSTs to the originating integration's `callback_url`.
 
 ### Auth & roles

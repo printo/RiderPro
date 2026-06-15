@@ -32,12 +32,14 @@ def route_analytics(request):
     queryset = RouteSession.objects.all()
     
     # Filter by employee
-    if employee_id:
+    is_manager = user.is_superuser or user.is_ops_team or user.is_staff
+    if not is_manager:
+        # Non-managers are ALWAYS scoped to their own data — even when an explicit
+        # ?employee_id= is supplied — else a driver could read another rider's
+        # distance / fuel cost / shipment counts (reimbursement data) by id.
+        queryset = queryset.filter(employee_id=user.employee_id) if user.employee_id else queryset.none()
+    elif employee_id:
         queryset = queryset.filter(employee_id=employee_id)
-    elif not (user.is_superuser or user.is_ops_team or user.is_staff):
-        # Non-admin users can only see their own data
-        if user.employee_id:
-            queryset = queryset.filter(employee_id=user.employee_id)
     
     # Filter by date
     if date:
@@ -93,11 +95,14 @@ def employee_analytics(request):
     
     queryset = RouteSession.objects.all()
     
-    if employee_id:
+    is_manager = user.is_superuser or user.is_ops_team or user.is_staff
+    if not is_manager:
+        # Non-managers are ALWAYS scoped to their own data — even when an explicit
+        # ?employee_id= is supplied — else a driver could read another rider's
+        # distance / fuel cost / shipment counts (reimbursement data) by id.
+        queryset = queryset.filter(employee_id=user.employee_id) if user.employee_id else queryset.none()
+    elif employee_id:
         queryset = queryset.filter(employee_id=employee_id)
-    elif not (user.is_superuser or user.is_ops_team or user.is_staff):
-        if user.employee_id:
-            queryset = queryset.filter(employee_id=user.employee_id)
     
     if start_date and end_date:
         queryset = queryset.filter(start_time__date__gte=start_date, start_time__date__lte=end_date)
@@ -144,11 +149,14 @@ def route_metrics(request):
     
     queryset = RouteSession.objects.all()
     
-    if employee_id:
+    is_manager = user.is_superuser or user.is_ops_team or user.is_staff
+    if not is_manager:
+        # Non-managers are ALWAYS scoped to their own data — even when an explicit
+        # ?employee_id= is supplied — else a driver could read another rider's
+        # distance / fuel cost / shipment counts (reimbursement data) by id.
+        queryset = queryset.filter(employee_id=user.employee_id) if user.employee_id else queryset.none()
+    elif employee_id:
         queryset = queryset.filter(employee_id=employee_id)
-    elif not (user.is_superuser or user.is_ops_team or user.is_staff):
-        if user.employee_id:
-            queryset = queryset.filter(employee_id=user.employee_id)
     
     if start_date and end_date:
         queryset = queryset.filter(start_time__date__gte=start_date, start_time__date__lte=end_date)
@@ -191,11 +199,14 @@ def time_based_analytics(request, group_by):
     
     queryset = RouteSession.objects.all()
     
-    if employee_id:
+    is_manager = user.is_superuser or user.is_ops_team or user.is_staff
+    if not is_manager:
+        # Non-managers are ALWAYS scoped to their own data — even when an explicit
+        # ?employee_id= is supplied — else a driver could read another rider's
+        # distance / fuel cost / shipment counts (reimbursement data) by id.
+        queryset = queryset.filter(employee_id=user.employee_id) if user.employee_id else queryset.none()
+    elif employee_id:
         queryset = queryset.filter(employee_id=employee_id)
-    elif not (user.is_superuser or user.is_ops_team or user.is_staff):
-        if user.employee_id:
-            queryset = queryset.filter(employee_id=user.employee_id)
     
     if start_date and end_date:
         queryset = queryset.filter(start_time__date__gte=start_date, start_time__date__lte=end_date)
@@ -252,11 +263,14 @@ def fuel_analytics(request):
     
     queryset = RouteSession.objects.all()
     
-    if employee_id:
+    is_manager = user.is_superuser or user.is_ops_team or user.is_staff
+    if not is_manager:
+        # Non-managers are ALWAYS scoped to their own data — even when an explicit
+        # ?employee_id= is supplied — else a driver could read another rider's
+        # distance / fuel cost / shipment counts (reimbursement data) by id.
+        queryset = queryset.filter(employee_id=user.employee_id) if user.employee_id else queryset.none()
+    elif employee_id:
         queryset = queryset.filter(employee_id=employee_id)
-    elif not (user.is_superuser or user.is_ops_team or user.is_staff):
-        if user.employee_id:
-            queryset = queryset.filter(employee_id=user.employee_id)
     
     if start_date and end_date:
         queryset = queryset.filter(start_time__date__gte=start_date, start_time__date__lte=end_date)
@@ -361,11 +375,14 @@ def hourly_activity(request):
     
     queryset = RouteSession.objects.all()
     
-    if employee_id:
+    is_manager = user.is_superuser or user.is_ops_team or user.is_staff
+    if not is_manager:
+        # Non-managers are ALWAYS scoped to their own data — even when an explicit
+        # ?employee_id= is supplied — else a driver could read another rider's
+        # distance / fuel cost / shipment counts (reimbursement data) by id.
+        queryset = queryset.filter(employee_id=user.employee_id) if user.employee_id else queryset.none()
+    elif employee_id:
         queryset = queryset.filter(employee_id=employee_id)
-    elif not (user.is_superuser or user.is_ops_team or user.is_staff):
-        if user.employee_id:
-            queryset = queryset.filter(employee_id=user.employee_id)
     
     if start_date and end_date:
         queryset = queryset.filter(start_time__date__gte=start_date, start_time__date__lte=end_date)
