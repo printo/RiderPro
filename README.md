@@ -124,9 +124,15 @@ RIDER_PRO_API_KEYS = {
 
 All webhook endpoints support dual authentication:
 
-- **API Key**: Include `x-api-key` header with your API key
+- **API Key (recommended for service-to-service)**: Include `x-api-key` header with your API key
 - **JWT Token**: Include `Authorization: Bearer <token>` header
 - **Optional**: `X-Service-Name` header for service identification
+
+> ⚠️ **Use `x-api-key`, not a long-lived JWT, for service integrations.** Rotating
+> RiderPro's `SECRET_KEY` invalidates **every** JWT, so a cached `Bearer` service
+> token silently breaks on rotation (you'll see *"Given token not valid for any
+> token type"*). The static `x-api-key` is independent of `SECRET_KEY` and survives
+> rotations. POPS/PIA uses `x-api-key` for exactly this reason.
 
 #### Main Endpoint: `/api/v1/shipments/receive`
 
@@ -173,6 +179,16 @@ All webhook endpoints support dual authentication:
 
 ### 📤 Outbound Integration (Sending Updates)
 
+> ℹ️ **Two independent outbound paths exist:** (1) the **custom callbacks** below
+> (`post_save` signals → `external_callback_service.py` → the integration's
+> `callback_url`), and (2) a direct **POPS status sync**
+> (`ShipmentStatusService._sync_to_pops` → POPS `/deliveryq/status-update/`).
+> As of now, path (1) is dormant for POPS/PIA (no receiver endpoint, so
+> `callback_url` is left empty), and path (2) is **not functional** — it targets
+> POPS's Locus-courier callback endpoint, which needs a permission grant for the
+> service account and a nested `{"order": {...}}` payload. Restoring POPS status
+> sync requires POPS-side changes; it does not affect inbound order ingestion.
+
 #### Automatic Callbacks
 
 RiderPro automatically sends callbacks when:
@@ -217,7 +233,7 @@ RiderPro automatically sends callbacks when:
 ```bash
 curl -X POST https://riderpro.printo.in/api/v1/shipments/receive \
   -H "Content-Type: application/json" \
-  -H "x-api-key: django-pia$z9@4u%6c!3p7y^2l0q*e_1r8h-k(m)=w#s&" \
+  -H "x-api-key: <your-x-api-key>" \
   -H "X-Service-Name: pops" \
   -d '{
     "shipments": [
