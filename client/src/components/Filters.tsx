@@ -162,9 +162,9 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
             />
           </div>
 
-          {/* Pia Order ID */}
+          {/* Pia Shipment ID */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-foreground">Pia Order ID</label>
+            <label className="text-sm font-medium text-foreground">Pia Shipment ID</label>
             <input
               type="text"
               value={filters.pops_order_id?.toString() || ""}
@@ -175,7 +175,7 @@ function Filters({ filters, onFiltersChange, onClear: _onClear }: FiltersProps) 
                   pops_order_id: value ? (isNaN(Number(value)) ? value : Number(value)) : undefined,
                 });
               }}
-              placeholder="Filter by Pia order ID"
+              placeholder="Filter by Pia Shipment ID"
               className="w-full h-9 px-3 py-2 border rounded-md bg-background text-foreground text-sm"
               data-testid="input-filter-order-id"
             />

@@ -160,7 +160,7 @@ def update_shipment_status_from_pops(
     Args:
         shipment_id: RiderPro shipment ID
         status: New status from POPS
-        order_id: Pia order ID (optional, for logging)
+        order_id: Pia Shipment ID (optional, for logging)
     
     Returns:
         True if update successful, False otherwise
