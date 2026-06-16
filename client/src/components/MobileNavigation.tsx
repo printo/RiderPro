@@ -55,9 +55,9 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
       icon: '⚙️'
     }] : []),
     ...(hasManagerAccess ? [{
-      path: '/route-visualization',
-      label: 'Routes',
-      icon: '🛣️'
+      path: '/ops-day-view',
+      label: 'Day Plan',
+      icon: '🗓️'
     }, {
       path: '/live-tracking',
       label: 'Live Tracking',

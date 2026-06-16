@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -48,6 +48,19 @@ function LiveTrackingDashboard() {
       setSelectedRider(riderId);
     }
   }, [riders]);
+
+  // Deep-link: /live-tracking?focus=<employee_id> selects + centers that rider
+  // once they appear in the feed (e.g. from an Ops Day Plan rider card). Applied
+  // once so it doesn't fight the user's own selection on later polls.
+  const focusApplied = useRef(false);
+  useEffect(() => {
+    if (focusApplied.current) return;
+    const focusId = new URLSearchParams(window.location.search).get('focus');
+    if (focusId && riders.some(r => r.employee_id === focusId)) {
+      handleCenterOnRider(focusId);
+      focusApplied.current = true;
+    }
+  }, [riders, handleCenterOnRider]);
 
   const handleReconnect = useCallback(() => {
     disconnect();

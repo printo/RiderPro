@@ -10,6 +10,7 @@ import {
   List,
   Settings,
   Map,
+  ClipboardList,
   Sun,
   Moon,
   LogOut,
@@ -48,10 +49,10 @@ function FloatingActionMenu() {
         testId: "menu-route-analytics"
       },
       {
-        href: "/route-visualization",
-        icon: Map,
-        label: "Route Visualization",
-        testId: "menu-route-visualization"
+        href: "/ops-day-view",
+        icon: ClipboardList,
+        label: "Ops Day Plan",
+        testId: "menu-ops-day-view"
       },
       {
         href: "/live-tracking",

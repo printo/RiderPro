@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useDayPlan } from "@/hooks/useDayPlan";
 import type { DayPlanWave, DayPlanRider } from "@shared/types";
 
@@ -153,6 +154,13 @@ function RiderCard({ rider }: { rider: DayPlanRider }) {
               Overloaded
             </span>
           )}
+          <Link
+            href={`/live-tracking?focus=${rider.employee_id}`}
+            className="text-xs font-medium text-blue-600 hover:underline"
+            title="See this rider live"
+          >
+            View live →
+          </Link>
         </div>
         <div className="text-sm text-muted-foreground">
           {t.stop_count} stops · {t.total_km} km · ~{t.est_duration_min} min · finish {formatClock(t.finish_eta_clock)}

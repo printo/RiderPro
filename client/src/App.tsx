@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,7 +15,6 @@ import ShipmentsWithTracking from "@/pages/ShipmentsWithTracking";
 import NotFound from "@/pages/not-found";
 import AdminPage from "@/pages/Admin";
 import RouteAnalytics from "@/pages/RouteAnalytics";
-import RouteVisualizationPage from "@/pages/RouteVisualizationPage";
 import Settings from "@/pages/Settings";
 import RiderSignupForm from "@/pages/RiderSignupForm";
 import AdminRiderManagement from "@/pages/AdminRiderManagement";
@@ -65,7 +64,8 @@ function Router() {
           <Route path="/shipments" component={ShipmentsWithTracking} />
           <Route path="/admin-dashboard" component={AdminPage} />
           <Route path="/route-analytics" component={hasManagerAccess ? RouteAnalytics : Dashboard} />
-          <Route path="/route-visualization" component={hasManagerAccess ? RouteVisualizationPage : Dashboard} />
+          {/* /route-visualization was a non-functional placeholder (fabricated/empty data); consolidated into Route Analytics. Redirect old links. */}
+          <Route path="/route-visualization" component={() => <Redirect to="/route-analytics" />} />
           <Route path="/live-tracking" component={hasManagerAccess ? LiveTrackingDashboard : Dashboard} />
           <Route path="/ops-day-view" component={hasManagerAccess ? OpsDayView : Dashboard} />
           <Route path="/settings" component={Settings} />
