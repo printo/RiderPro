@@ -369,11 +369,11 @@ sequenceDiagram
       <tr><td><strong>Auto-mileage</strong> <span class="tag done">LIVE</span></td><td>Stop-to-stop road distance + auto fuel cost per rider</td><td>Kills manual km entry; fair petrol cost</td><td>Deployed &amp; verified; calibrate vs manual numbers.</td></tr>
       <tr><td><strong>Vehicle control &amp; approval</strong> <span class="tag done">LIVE</span></td><td>Day-start confirmation; rider request → admin approve/reject; per-session mileage snapshot</td><td>Governs the mileage (= money); audit trail</td><td>Deployed. Covers local riders; external/POPS riders use default mileage.</td></tr>
       <tr><td><strong>Live ETAs</strong> <span class="tag done">LIVE</span></td><td>Per-stop service time, absolute arrival times, debounced live recompute, stop "please wait" overlay</td><td>Realistic, live arrival windows</td><td>Deployed.</td></tr>
-      <tr><td><strong>Stage 1 · Oversight</strong> <span class="tag later">NEXT</span></td><td>Ops day-view (read-only): riders, auto-ordered routes (pickups+deliveries), totals, ETAs, and overlap/overload flags</td><td>Visibility before shift</td><td>Pure read; reuses the optimizer. Lowest risk.</td></tr>
-      <tr><td><strong>Stage 2 · Review, reassign &amp; dispatch</strong> <span class="tag later">PROPOSED</span></td><td>Reassignment suggestions on overlaps; ops reassigns + approves → route locks → rider app reads it</td><td>Kills wasteful double-coverage; an agreed plan</td><td>Builds on the existing reassignment screen + a dispatch action.</td></tr>
+      <tr><td><strong>Stage 1 · Oversight</strong> <span class="tag later">NEXT</span></td><td>Ops day-view (read-only): riders, auto-ordered routes (pickups+deliveries), totals, ETAs, and overlap/overload flags</td><td>Visibility before shift</td><td>Now unblocked (decisions 2–4). Plans per wave (morning/noon/evening); overlap = same pincode, overload = finish-past-shift or stop-count. Pure read; reuses the optimizer.</td></tr>
+      <tr><td><strong>Stage 2 · Review, reassign &amp; dispatch</strong> <span class="tag later">PROPOSED</span></td><td>Reassignment suggestions on overlaps; ops reassigns + approves → route locks → rider app reads it</td><td>Kills wasteful double-coverage; an agreed plan</td><td>Reassignment already syncs to PIA via the existing channel (~67% working). Builds on the existing reassignment screen + a dispatch action.</td></tr>
       <tr><td><strong>Stage 3 · Tuning</strong> <span class="tag later">PROPOSED</span></td><td>Refine the overlap/suggestion heuristics; richer in-dashboard moves (optional)</td><td>Sharper suggestions over time</td><td>Only after real usage shows what to tune.</td></tr>
     </table>
-    <div class="keybox green"><strong>Where we are:</strong> Auto-mileage &amp; live ETAs are <strong>shipped and live</strong>. The next increment is <em>Stage 1 oversight</em> (read-only ops day-view) — let ops use it a week before building Stages 2 &amp; 3.</div>
+    <div class="keybox green"><strong>Where we are:</strong> Auto-mileage &amp; live ETAs are <strong>shipped and live</strong>, and the <strong>7 planning decisions are now resolved</strong> (see §10). The next increment — <em>Stage 1 oversight</em> (read-only ops day-view) — is <strong>unblocked and ready to build</strong>; let ops use it a week before building Stages 2 &amp; 3.</div>
   </section>
 
   <!-- METRICS -->
@@ -389,7 +389,7 @@ sequenceDiagram
       <div class="card"><h3 style="margin-top:0">Leading indicators</h3><ul class="clean">
         <li>% of riders with auto-computed (vs manual) mileage</li>
         <li>% of days dispatched via the planner; % routes locked before first delivery</li>
-        <li>Auto-km vs odometer gap (validates the mileage calc)</li>
+        <li>Auto-km vs a one-time manual calibration sample (validates the mileage calc)</li>
         <li>Planned-vs-actual finish gap (calibrates the ETA estimate)</li>
       </ul></div>
     </div>
@@ -413,18 +413,20 @@ sequenceDiagram
 
   <!-- OPEN QUESTIONS -->
   <section id="questions">
-    <h2><span class="num">10</span>Decisions &amp; open questions</h2>
-    <div class="keybox green"><strong>✓ Decided:</strong> rider-driven flow with an <strong>ops approval gate</strong> (ops sees overlap flags &amp; can reassign before dispatch) · <strong>both</strong> rider app + ops oversight · routes <strong>mix pickups &amp; deliveries</strong> along the way.</div>
-    <p class="lead">Still open — your answers finalise the spec:</p>
-    <div class="grid c2">
-      <div class="card"><strong>1. Reassignment sync</strong><p class="muted" style="margin:.3em 0 0">When ops reassigns an order in RiderPro, does it sync back to the upstream order system, or does RiderPro become the source of truth after reassign?</p></div>
-      <div class="card"><strong>2. Overlap trigger</strong><p class="muted" style="margin:.3em 0 0">What flags a "reassign" suggestion — a stop within X metres of another rider's route, or same area/pincode? What threshold?</p></div>
-      <div class="card"><strong>3. Day-based or rolling?</strong><p class="muted" style="margin:.3em 0 0">Plan a whole day at once, or a rolling window as orders arrive through the day?</p></div>
-      <div class="card"><strong>4. What defines "overloaded"?</strong><p class="muted" style="margin:.3em 0 0">Max stops, max hours, or max distance — what thresholds should the flags use?</p></div>
-      <div class="card"><strong>5. Re-route after approval?</strong><p class="muted" style="margin:.3em 0 0">If a new order lands for an already-dispatched rider, re-route automatically or leave it to the rider?</p></div>
-      <div class="card"><strong>6. Mileage basis for reimbursement</strong><p class="muted" style="margin:.3em 0 0">Is road-distance-between-confirmed-stops accepted as the official figure, or do you also want periodic odometer reconciliation?</p></div>
-      <div class="card"><strong>7. Native app — now or later?</strong><p class="muted" style="margin:.3em 0 0">Pursue a Capacitor wrapper for true background tracking now, or stay web until it's genuinely needed? (See next section.)</p></div>
-    </div>
+    <h2><span class="num">10</span>Decisions — now resolved</h2>
+    <div class="keybox green"><strong>✓ Decided earlier:</strong> rider-driven flow with an <strong>ops approval gate</strong> (ops sees overlap flags &amp; can reassign before dispatch) · <strong>both</strong> rider app + ops oversight · routes <strong>mix pickups &amp; deliveries</strong>.</div>
+    <p class="lead">The seven open questions are now answered — the planning feature is fully specced:</p>
+    <table>
+      <tr><th style="width:4%">#</th><th style="width:21%">Question</th><th>Decision</th></tr>
+      <tr><td><strong>1</strong></td><td>Reassignment sync</td><td><strong>Sync back to PIA</strong> via the existing outbound channel — verified working for ~67% of orders, and reassignment already rides it (no new channel to build). Open sub-task: improve the ~33% "empty response" failures.</td></tr>
+      <tr><td><strong>2</strong></td><td>Overlap trigger</td><td><strong>Same area / pincode</strong> — flag two riders with stops in the same pincode.</td></tr>
+      <tr><td><strong>3</strong></td><td>Day or rolling</td><td><strong>Rolling, in waves</strong> — morning / noon / evening by order count (at least morning + evening); re-plan as orders arrive.</td></tr>
+      <tr><td><strong>4</strong></td><td>"Overloaded"</td><td><strong>Both</strong> — flag if the estimated finish exceeds the ~8 hr shift <em>or</em> the stop count is over a threshold (numbers tunable later).</td></tr>
+      <tr><td><strong>5</strong></td><td>Post-dispatch order</td><td>New <strong>delivery → reassign</strong> to another rider; new <strong>pickup → keep</strong> on the dispatched rider (he's already out and can collect it).</td></tr>
+      <tr><td><strong>6</strong></td><td>Mileage basis</td><td><strong>Stop-to-stop distance is the official figure</strong>; no odometer reconciliation (odometer can be manipulated).</td></tr>
+      <tr><td><strong>7</strong></td><td>Native app</td><td><strong>Stay web</strong>; revisit a Capacitor wrapper only when true background tracking is genuinely needed.</td></tr>
+    </table>
+    <div class="keybox"><strong>Net:</strong> Stage 1 (the ops day-view) is fully unblocked. Stage 2's reassignment-sync rides an existing, mostly-working channel rather than a new build. The only de-scoped item is odometer reconciliation (decision 6).</div>
   </section>
 
   <!-- WEB VS NATIVE -->

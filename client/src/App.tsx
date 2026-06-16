@@ -20,6 +20,7 @@ import Settings from "@/pages/Settings";
 import RiderSignupForm from "@/pages/RiderSignupForm";
 import AdminRiderManagement from "@/pages/AdminRiderManagement";
 import LiveTrackingDashboard from "@/pages/LiveTrackingDashboard";
+import OpsDayView from "@/pages/OpsDayView";
 import { PageLoader } from "@/components/ui/Loader";
 import { RouteSessionProvider } from "@/contexts/RouteSessionContext";
 import { isManagerUser } from "@/lib/roles";
@@ -66,6 +67,7 @@ function Router() {
           <Route path="/route-analytics" component={hasManagerAccess ? RouteAnalytics : Dashboard} />
           <Route path="/route-visualization" component={hasManagerAccess ? RouteVisualizationPage : Dashboard} />
           <Route path="/live-tracking" component={hasManagerAccess ? LiveTrackingDashboard : Dashboard} />
+          <Route path="/ops-day-view" component={hasManagerAccess ? OpsDayView : Dashboard} />
           <Route path="/settings" component={Settings} />
           <Route path="/signup" component={RiderSignupForm} />
           <Route path="/admin-riders" component={AdminRiderManagement} />

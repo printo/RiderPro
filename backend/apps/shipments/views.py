@@ -45,6 +45,21 @@ DELIVERY_ACK_REQUIRED_MESSAGE = (
 SKIPPED_REASON_REQUIRED_MESSAGE = "Reason is required when marking a shipment as Skipped."
 
 
+def _extract_pincode(address):
+    """Best-effort pincode from a shipment's JSON address.
+
+    There is no dedicated pincode column on Shipment, so we probe the common
+    keys an address payload might use. Returns None when nothing is found
+    (those stops simply don't participate in overlap detection)."""
+    if not isinstance(address, dict):
+        return None
+    for key in ('pincode', 'postal_code', 'postalCode', 'zip', 'zipcode', 'zip_code', 'pin', 'pin_code'):
+        val = address.get(key)
+        if val:
+            return str(val).strip()
+    return None
+
+
 def _is_manager_user(user):
     return (
         user.is_superuser
@@ -2461,6 +2476,188 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             'provider': getattr(settings, 'ROUTING_PROVIDER', 'ors'),
         })
     
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsManagerUser])
+    def day_plan(self, request):
+        """
+        Read-only ops day-view (Stage 1 oversight). Manager-gated.
+
+        For a date (and optional wave: morning/noon/evening/all) return every
+        rider that has shipments that day, each with their road-optimised stop
+        order, per-stop ETAs, totals and an overload flag — plus pincode OVERLAP
+        detection and the unassigned / unmappable buckets.
+
+        Pure read; never writes shipments. Reuses the routing backend (ORS by
+        default, Haversine fallback). One matrix call per rider with >1 mapped
+        stop — so the client must NOT auto-refetch aggressively (protects the
+        ORS quota); refresh is manual / infrequent.
+        """
+        from .routing import get_routing_backend
+        from datetime import datetime, timedelta, time as dtime
+
+        # ---- params ----
+        date_str = request.query_params.get('date')
+        wave = (request.query_params.get('wave') or 'all').lower()
+        tz = timezone.get_current_timezone()
+
+        if date_str:
+            try:
+                day = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return Response(
+                    {'success': False, 'error': 'Invalid date — use YYYY-MM-DD.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            day = timezone.localdate()
+
+        # wave -> local hour window (for filtering) + assumed start hour (for ETAs)
+        WAVE_WINDOWS = {'morning': (0, 12), 'noon': (12, 16), 'evening': (16, 24), 'all': (0, 24)}
+        WAVE_START_HOUR = {'morning': 9, 'noon': 12, 'evening': 16, 'all': 9}
+        if wave not in WAVE_WINDOWS:
+            wave = 'all'
+        start_h, end_h = WAVE_WINDOWS[wave]
+
+        start_dt = timezone.make_aware(datetime.combine(day, dtime(start_h, 0)), tz)
+        if end_h >= 24:
+            end_dt = timezone.make_aware(datetime.combine(day, dtime(0, 0)), tz) + timedelta(days=1)
+        else:
+            end_dt = timezone.make_aware(datetime.combine(day, dtime(end_h, 0)), tz)
+        plan_start = timezone.make_aware(datetime.combine(day, dtime(WAVE_START_HOUR[wave], 0)), tz)
+
+        # ---- tunable thresholds ----
+        shift_minutes = getattr(settings, 'OPS_SHIFT_MINUTES', 480)
+        max_stops = getattr(settings, 'OPS_MAX_STOPS', 15)
+        service_seconds = getattr(settings, 'ROUTING_STOP_SERVICE_SECONDS', 180)
+
+        # ---- shipments in the window (exclude cancelled) ----
+        shipments = list(
+            Shipment.objects
+            .filter(delivery_time__gte=start_dt, delivery_time__lt=end_dt)
+            .exclude(status='Cancelled')
+        )
+
+        by_rider = defaultdict(list)
+        unassigned = []
+        for s in shipments:
+            if (s.employee_id or '').strip():
+                by_rider[s.employee_id].append(s)
+            else:
+                unassigned.append(s)
+
+        name_map = self._resolve_employee_name_map(list(by_rider.keys()))
+        backend = get_routing_backend()
+
+        riders_payload = []
+        pincode_riders = defaultdict(set)  # pincode -> {employee_id}
+
+        for emp_id, ships in by_rider.items():
+            mappable = [s for s in ships if s.latitude is not None and s.longitude is not None]
+            unmappable = [s for s in ships if s.latitude is None or s.longitude is None]
+
+            for s in ships:
+                pc = _extract_pincode(s.address)
+                if pc:
+                    pincode_riders[pc].add(emp_id)
+
+            # order the mapped stops by real road travel time (nearest-neighbour)
+            matrix = None
+            if len(mappable) <= 1:
+                order = list(range(len(mappable)))
+            else:
+                points = [(s.latitude, s.longitude) for s in mappable]
+                matrix = backend.get_distance_matrix(points)
+                remaining = list(range(1, len(points)))
+                order = [0]
+                cur = 0
+                while remaining:
+                    nxt = min(remaining, key=lambda j: matrix[cur][j].duration_seconds)
+                    order.append(nxt)
+                    remaining.remove(nxt)
+                    cur = nxt
+
+            ordered_stops = []
+            cum_km = 0.0
+            cum_seconds = 0.0
+            prev = None
+            for seq, idx in enumerate(order):
+                s = mappable[idx]
+                if prev is None:
+                    leg_km, leg_s = 0.0, 0.0
+                else:
+                    leg = matrix[prev][idx]
+                    leg_km, leg_s = leg.distance_km, leg.duration_seconds
+                cum_km += leg_km
+                cum_seconds += leg_s + service_seconds
+                ordered_stops.append({
+                    'shipment_id': s.id,
+                    'sequence': seq + 1,
+                    'type': s.type or 'delivery',
+                    'status': s.status,
+                    'customer_name': s.customer_name,
+                    'pincode': _extract_pincode(s.address),
+                    'latitude': s.latitude,
+                    'longitude': s.longitude,
+                    'distance_from_previous_km': round(leg_km, 2),
+                    'eta_minutes': round(cum_seconds / 60),
+                    'eta_clock': (plan_start + timedelta(seconds=cum_seconds)).isoformat(),
+                })
+                prev = idx
+
+            stop_count = len(mappable)
+            est_min = round(cum_seconds / 60)
+            reasons = []
+            if est_min > shift_minutes:
+                reasons.append(f'est. {est_min} min exceeds {shift_minutes} min shift')
+            if stop_count > max_stops:
+                reasons.append(f'{stop_count} stops exceeds {max_stops}')
+
+            riders_payload.append({
+                'employee_id': emp_id,
+                'rider_name': name_map.get(emp_id, emp_id),
+                'stops': ordered_stops,
+                'unmappable': [
+                    {'shipment_id': s.id, 'customer_name': s.customer_name} for s in unmappable
+                ],
+                'totals': {
+                    'stop_count': stop_count,
+                    'unmappable_count': len(unmappable),
+                    'total_km': round(cum_km, 2),
+                    'est_duration_min': est_min,
+                    'finish_eta_clock': (plan_start + timedelta(seconds=cum_seconds)).isoformat() if mappable else None,
+                },
+                'flags': {'overloaded': bool(reasons), 'reasons': reasons},
+            })
+
+        # overloaded riders first, then alphabetical
+        riders_payload.sort(key=lambda r: (not r['flags']['overloaded'], r['rider_name']))
+
+        overlaps = [
+            {'pincode': pc, 'rider_ids': sorted(riders)}
+            for pc, riders in pincode_riders.items() if len(riders) > 1
+        ]
+        overlaps.sort(key=lambda o: o['pincode'])
+
+        return Response({
+            'success': True,
+            'date': day.isoformat(),
+            'wave': wave,
+            'generated_at': timezone.now().isoformat(),
+            'thresholds': {'shift_minutes': shift_minutes, 'max_stops': max_stops},
+            'riders': riders_payload,
+            'unassigned': [
+                {'shipment_id': s.id, 'customer_name': s.customer_name, 'pincode': _extract_pincode(s.address)}
+                for s in unassigned
+            ],
+            'overlaps': overlaps,
+            'totals': {
+                'rider_count': len(riders_payload),
+                'shipment_count': len(shipments),
+                'unassigned_count': len(unassigned),
+                'overloaded_rider_count': sum(1 for r in riders_payload if r['flags']['overloaded']),
+                'overlap_pincode_count': len(overlaps),
+            },
+        })
+
     @action(detail=False, methods=['post'])
     def road_path(self, request):
         """

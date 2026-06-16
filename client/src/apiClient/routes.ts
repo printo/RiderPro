@@ -3,12 +3,25 @@ import {
   RouteSession, StartRouteSession, StopRouteSession,
   GPSCoordinate, RouteAnalytics, RouteFilters, RouteTracking,
   BatchCoordinatesResponse, SessionSummary, Shipment, RouteData,
-  RouteOptimizeRequest, RouteOptimizeResponse, BulkShipmentEvent
+  RouteOptimizeRequest, RouteOptimizeResponse, BulkShipmentEvent,
+  DayPlanResponse, DayPlanWave
 } from "@shared/types";
 import { apiClient } from "../services/ApiClient";
 import { API_ENDPOINTS } from "@/config/api";
 
 export const routeAPI = {
+  /**
+   * Ops day-view (read-only): every rider's road-ordered route, totals, flags
+   * and pincode overlaps for a date + wave. Manager-gated server-side.
+   */
+  dayPlan: async (date: string, wave: DayPlanWave = 'all'): Promise<DayPlanResponse> => {
+    const params = new URLSearchParams();
+    if (date) params.set('date', date);
+    if (wave) params.set('wave', wave);
+    const response = await apiRequest("GET", `${API_ENDPOINTS.routes.dayPlan}?${params.toString()}`);
+    return response.json();
+  },
+
   /**
    * Start a new route session
    */

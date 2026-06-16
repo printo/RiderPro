@@ -312,3 +312,55 @@ export interface ExportResult {
   record_count: number;
   error?: string;
 }
+
+// --- Ops Day-View (Stage 1 planning oversight, read-only) ---
+export type DayPlanWave = 'all' | 'morning' | 'noon' | 'evening';
+
+export interface DayPlanStop {
+  shipment_id: number;
+  sequence: number;
+  type: string; // 'delivery' | 'pickup'
+  status: string | null;
+  customer_name: string;
+  pincode: string | null;
+  latitude: number;
+  longitude: number;
+  distance_from_previous_km: number;
+  eta_minutes: number;
+  eta_clock: string; // ISO timestamp
+}
+
+export interface DayPlanRiderTotals {
+  stop_count: number;
+  unmappable_count: number;
+  total_km: number;
+  est_duration_min: number;
+  finish_eta_clock: string | null;
+}
+
+export interface DayPlanRider {
+  employee_id: string;
+  rider_name: string;
+  stops: DayPlanStop[];
+  unmappable: { shipment_id: number; customer_name: string }[];
+  totals: DayPlanRiderTotals;
+  flags: { overloaded: boolean; reasons: string[] };
+}
+
+export interface DayPlanResponse {
+  success: boolean;
+  date: string;
+  wave: string;
+  generated_at: string;
+  thresholds: { shift_minutes: number; max_stops: number };
+  riders: DayPlanRider[];
+  unassigned: { shipment_id: number; customer_name: string; pincode: string | null }[];
+  overlaps: { pincode: string; rider_ids: string[] }[];
+  totals: {
+    rider_count: number;
+    shipment_count: number;
+    unassigned_count: number;
+    overloaded_rider_count: number;
+    overlap_pincode_count: number;
+  };
+}

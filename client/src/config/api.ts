@@ -90,6 +90,7 @@ export const API_ENDPOINTS = {
     sessionSummary: (session_id: string) => apiUrl(`/routes/session/${session_id}/summary`),
     optimizePath: apiUrl('/routes/optimize_path'),
     roadPath: apiUrl('/routes/road-path'),
+    dayPlan: apiUrl('/routes/day-plan'),
   },
 
   // Vehicle Types
