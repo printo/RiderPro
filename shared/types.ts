@@ -355,7 +355,11 @@ export interface DayPlanResponse {
   thresholds: { shift_minutes: number; max_stops: number };
   riders: DayPlanRider[];
   unassigned: { shipment_id: number; customer_name: string; pincode: string | null }[];
-  overlaps: { pincode: string; rider_ids: string[] }[];
+  overlaps: {
+    pincode: string;
+    riders: { employee_id: string; rider_name: string; stops_here: number }[];
+    suggestion: string;
+  }[];
   totals: {
     rider_count: number;
     shipment_count: number;

@@ -2548,7 +2548,7 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
         backend = get_routing_backend()
 
         riders_payload = []
-        pincode_riders = defaultdict(set)  # pincode -> {employee_id}
+        pincode_counts = defaultdict(lambda: defaultdict(int))  # pincode -> {employee_id: stops_here}
 
         for emp_id, ships in by_rider.items():
             mappable = [s for s in ships if s.latitude is not None and s.longitude is not None]
@@ -2557,7 +2557,7 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             for s in ships:
                 pc = _extract_pincode(s.address)
                 if pc:
-                    pincode_riders[pc].add(emp_id)
+                    pincode_counts[pc][emp_id] += 1
 
             # order the mapped stops by real road travel time (nearest-neighbour)
             matrix = None
@@ -2631,10 +2631,28 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
         # overloaded riders first, then alphabetical
         riders_payload.sort(key=lambda r: (not r['flags']['overloaded'], r['rider_name']))
 
-        overlaps = [
-            {'pincode': pc, 'rider_ids': sorted(riders)}
-            for pc, riders in pincode_riders.items() if len(riders) > 1
-        ]
+        # An overlap = one pincode covered by 2+ riders. Enrich each with per-rider
+        # stop counts there + a plain suggestion of who to keep vs reassign, so ops
+        # can decide "reassign or ignore" at a glance. (Read-only here; the actual
+        # Reassign / Ignore actions land in Stage 2.)
+        overlaps = []
+        for pc, counts in pincode_counts.items():
+            if len(counts) < 2:
+                continue
+            riders_here = sorted(
+                (
+                    {'employee_id': eid, 'rider_name': name_map.get(eid, eid), 'stops_here': n}
+                    for eid, n in counts.items()
+                ),
+                key=lambda r: -r['stops_here'],
+            )
+            heaviest, lightest = riders_here[0], riders_here[-1]
+            suggestion = (
+                f"{lightest['rider_name']} has {lightest['stops_here']} stop(s) in {pc} vs "
+                f"{heaviest['rider_name']}'s {heaviest['stops_here']} — move the lighter rider's "
+                f"stop(s) here to {heaviest['rider_name']}, or ignore if intentional."
+            )
+            overlaps.append({'pincode': pc, 'riders': riders_here, 'suggestion': suggestion})
         overlaps.sort(key=lambda o: o['pincode'])
 
         return Response({

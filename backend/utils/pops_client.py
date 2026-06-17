@@ -145,7 +145,12 @@ class PopsAPIClient:
         try:
             response = self.session.patch(url, json=fields_data, headers=headers, timeout=30)
             if response.status_code in [200, 201]:
-                return response.json()
+                try:
+                    return response.json()
+                except ValueError:
+                    # A 2xx with an empty / non-JSON body still means POPS accepted
+                    # the update — treat as success, not a "returned empty response".
+                    return {}
 
             logger.warning(
                 "POPS update order fields failed on PATCH endpoint: %s - %s",
@@ -162,7 +167,10 @@ class PopsAPIClient:
                 timeout=30,
             )
             if fallback.status_code in [200, 201]:
-                return fallback.json()
+                try:
+                    return fallback.json()
+                except ValueError:
+                    return {}
 
             logger.error(
                 "POPS update order fields fallback failed: %s - %s",

@@ -2,7 +2,7 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   RouteSession, StartRouteSession, StopRouteSession,
   GPSCoordinate, RouteAnalytics, RouteFilters, RouteTracking,
-  BatchCoordinatesResponse, SessionSummary, Shipment, RouteData,
+  BatchCoordinatesResponse, SessionSummary, Shipment,
   RouteOptimizeRequest, RouteOptimizeResponse, BulkShipmentEvent,
   DayPlanResponse, DayPlanWave
 } from "@shared/types";
@@ -267,30 +267,6 @@ export const routeAPI = {
     return await response.json();
   },
 
-  /**
-   * Get route visualization payload from session/tracking tables
-   */
-  getVisualizationData: async (filters: RouteFilters = {}): Promise<{
-    success: boolean;
-    sessions: RouteSession[];
-    routeData: RouteData[];
-  }> => {
-    const params = new URLSearchParams();
-    if (filters.employee_id) params.append('employee_id', filters.employee_id);
-    if (filters.date) params.append('date', filters.date);
-    if (filters.start_date) params.append('start_date', filters.start_date);
-    if (filters.end_date) params.append('end_date', filters.end_date);
-
-    const url = `/api/v1/routes/visualization${params.toString() ? `?${params.toString()}` : ''}`;
-    const response = await apiClient.get(url);
-    const result = await response.json();
-
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || 'Failed to get route visualization data');
-    }
-
-    return result;
-  },
 
 };
 

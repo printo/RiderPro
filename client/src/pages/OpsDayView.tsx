@@ -87,12 +87,18 @@ export default function OpsDayView() {
           {data.overlaps.length > 0 && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
               <h2 className="text-sm font-semibold text-amber-800">
-                Pincode overlaps — riders covering the same area
+                Pincode overlaps — same area covered by 2+ riders (reassign or ignore)
               </h2>
-              <ul className="mt-2 space-y-1 text-sm text-amber-900">
+              <ul className="mt-2 space-y-2 text-sm text-amber-900">
                 {data.overlaps.map((o) => (
-                  <li key={o.pincode}>
-                    <span className="font-medium">{o.pincode}</span>: {o.rider_ids.join(", ")}
+                  <li key={o.pincode} className="rounded-md bg-amber-100/60 px-3 py-2">
+                    <div>
+                      <span className="font-semibold">{o.pincode}</span> —{" "}
+                      {o.riders
+                        .map((r) => `${r.rider_name} (${r.stops_here} stop${r.stops_here === 1 ? "" : "s"})`)
+                        .join(", ")}
+                    </div>
+                    <div className="mt-0.5 text-xs text-amber-800">{o.suggestion}</div>
                   </li>
                 ))}
               </ul>
