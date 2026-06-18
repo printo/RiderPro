@@ -1213,52 +1213,147 @@ def reject_user(request, user_id):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH', 'PUT'])
 @permission_classes([IsAuthenticated])
 def get_user(request, user_id):
     """
-    Get a specific user by ID - matches /api/auth/users/:userId from Node.js backend
-    Returns user data (either User or RiderAccount)
+    Get or update a specific user by ID - matches /api/auth/users/:userId.
+
+    GET       -> returns user data (either User or RiderAccount). Self or manager.
+    PATCH/PUT -> updates the editable fields surfaced by the admin "Edit User"
+                 modal (full_name, email, rider_id/username, is_active).
+                 Manager only.
     """
-    # Users can view their own data, managers/admins can view any user
-    if not (request.user.is_superuser or request.user.is_ops_team or request.user.is_staff or str(request.user.id) == str(user_id)):
-        return Response({
-            'success': False,
-            'message': 'Permission denied'
-        }, status=status.HTTP_403_FORBIDDEN)
-    
-    try:
-        # Try to find as RiderAccount first
-        try:
-            rider = RiderAccount.objects.get(id=user_id)
-            from .serializers import RiderAccountSerializer
-            serializer = RiderAccountSerializer(rider)
+    is_manager = request.user.is_superuser or request.user.is_ops_team or request.user.is_staff
+
+    if request.method == 'GET':
+        # Users can view their own data, managers/admins can view any user
+        if not (is_manager or str(request.user.id) == str(user_id)):
             return Response({
-                'success': True,
-                'user': serializer.data
-            }, status=status.HTTP_200_OK)
-        except RiderAccount.DoesNotExist:
-            # If not a rider, check if it's a User
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
+                'success': False,
+                'message': 'Permission denied'
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            # Try to find as RiderAccount first
             try:
-                user = User.objects.get(id=user_id)
-                from .serializers import UserSerializer
-                serializer = UserSerializer(user)
+                rider = RiderAccount.objects.get(id=user_id)
+                from .serializers import RiderAccountSerializer
+                serializer = RiderAccountSerializer(rider)
                 return Response({
                     'success': True,
                     'user': serializer.data
                 }, status=status.HTTP_200_OK)
-            except User.DoesNotExist:
-                return Response({
-                    'success': False,
-                    'message': 'User not found'
-                }, status=status.HTTP_404_NOT_FOUND)
-    except Exception as e:
-        logger.error(f"Error getting user {user_id}: {e}", exc_info=True)
+            except RiderAccount.DoesNotExist:
+                # If not a rider, check if it's a User
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                try:
+                    user = User.objects.get(id=user_id)
+                    from .serializers import UserSerializer
+                    serializer = UserSerializer(user)
+                    return Response({
+                        'success': True,
+                        'user': serializer.data
+                    }, status=status.HTTP_200_OK)
+                except User.DoesNotExist:
+                    return Response({
+                        'success': False,
+                        'message': 'User not found'
+                    }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Error getting user {user_id}: {e}", exc_info=True)
+            return Response({
+                'success': False,
+                'message': f'Failed to get user: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # PATCH / PUT -> update. Editing a user changes their login identifier and
+    # active state, so it stays manager-only (mirrors reset_password / approve).
+    if not is_manager:
         return Response({
             'success': False,
-            'message': f'Failed to get user: {str(e)}'
+            'message': 'Permission denied'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    def _errors_to_message(errors):
+        """Flatten DRF serializer errors into a single human-readable string."""
+        parts = []
+        for field, msgs in errors.items():
+            text = ' '.join(str(m) for m in msgs) if isinstance(msgs, (list, tuple)) else str(msgs)
+            parts.append(f"{field}: {text}")
+        return '; '.join(parts) or 'Validation failed'
+
+    try:
+        # Mirror the RiderAccount-first lookup used by GET / reset_password.
+        try:
+            rider = RiderAccount.objects.get(id=user_id)
+        except RiderAccount.DoesNotExist:
+            rider = None
+
+        if rider is not None:
+            from .serializers import RiderAccountSerializer
+            # Whitelist only the fields exposed by the "Edit User" modal so this
+            # endpoint can't be used to flip is_approved / role / privileges.
+            payload = {}
+            for field in ('full_name', 'email', 'rider_id', 'is_active'):
+                if field in request.data:
+                    payload[field] = request.data[field]
+
+            serializer = RiderAccountSerializer(rider, data=payload, partial=True)
+            if not serializer.is_valid():
+                return Response({
+                    'success': False,
+                    'message': _errors_to_message(serializer.errors),
+                    'errors': serializer.errors,
+                }, status=status.HTTP_400_BAD_REQUEST)
+            serializer.save()
+            return Response({
+                'success': True,
+                'user': serializer.data
+            }, status=status.HTTP_200_OK)
+
+        # Fall back to a regular User.
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({
+                'success': False,
+                'message': 'User not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        from .serializers import UserSerializer
+        # The User identifier is `username`; the admin UI sends it as `rider_id`.
+        # The User model has no email field, so email is ignored for User rows.
+        payload = {}
+        if 'full_name' in request.data:
+            payload['full_name'] = request.data['full_name']
+        if 'rider_id' in request.data:
+            payload['username'] = request.data['rider_id']
+        elif 'username' in request.data:
+            payload['username'] = request.data['username']
+        if 'is_active' in request.data:
+            payload['is_active'] = request.data['is_active']
+
+        serializer = UserSerializer(user, data=payload, partial=True)
+        if not serializer.is_valid():
+            return Response({
+                'success': False,
+                'message': _errors_to_message(serializer.errors),
+                'errors': serializer.errors,
+            }, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        return Response({
+            'success': True,
+            'user': serializer.data
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"Error updating user {user_id}: {e}", exc_info=True)
+        return Response({
+            'success': False,
+            'message': f'Failed to update user: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
