@@ -1,7 +1,21 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useDayPlan } from "@/hooks/useDayPlan";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import ReassignDialog from "@/components/ops/ReassignDialog";
 import type { DayPlanWave, DayPlanRider } from "@shared/types";
+
+/** Statuses where a shipment is already in progress — reassigning it is blocked server-side, so we disable selection. */
+const BLOCKED_STATUSES = new Set([
+  "Collected", "In Transit", "Picked Up", "Delivered", "Skipped", "Returned", "Cancelled",
+]);
+
+interface ReassignState {
+  shipmentIds: number[];
+  sourceEmployeeId: string;
+  sourceRiderName: string;
+}
 
 /** Local YYYY-MM-DD for the default date (avoids UTC off-by-one). */
 function todayISO(): string {
@@ -29,6 +43,19 @@ export default function OpsDayView() {
   const [date, setDate] = useState<string>(todayISO());
   const [wave, setWave] = useState<DayPlanWave>("all");
   const { data, isLoading, isError, error, refetch, isFetching } = useDayPlan(date, wave);
+  const [reassign, setReassign] = useState<ReassignState | null>(null);
+
+  // Open the reassign dialog prefilled with the LIGHTER rider's stops in a pincode.
+  // The overlap's riders are sorted heaviest-first, so the last entry is the lightest.
+  const reassignOverlap = (pincode: string, employeeId: string, riderName: string) => {
+    const rider = data?.riders.find((r) => r.employee_id === employeeId);
+    const ids = rider
+      ? rider.stops.filter((s) => s.pincode === pincode).map((s) => s.shipment_id)
+      : [];
+    if (ids.length) {
+      setReassign({ shipmentIds: ids, sourceEmployeeId: employeeId, sourceRiderName: riderName });
+    }
+  };
 
   return (
     <div className="container mx-auto space-y-6 p-4 md:p-6">
@@ -99,6 +126,20 @@ export default function OpsDayView() {
                         .join(", ")}
                     </div>
                     <div className="mt-0.5 text-xs text-amber-800">{o.suggestion}</div>
+                    {o.riders.length >= 2 && (
+                      <button
+                        onClick={() =>
+                          reassignOverlap(
+                            o.pincode,
+                            o.riders[o.riders.length - 1].employee_id,
+                            o.riders[o.riders.length - 1].rider_name,
+                          )
+                        }
+                        className="mt-1 text-xs font-semibold text-amber-900 underline hover:text-amber-950"
+                      >
+                        Reassign {o.riders[o.riders.length - 1].rider_name}'s stops in {o.pincode} →
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -107,7 +148,13 @@ export default function OpsDayView() {
 
           <div className="space-y-4">
             {data.riders.map((r) => (
-              <RiderCard key={r.employee_id} rider={r} />
+              <RiderCard
+                key={r.employee_id}
+                rider={r}
+                onReassign={(ids, emp, name) =>
+                  setReassign({ shipmentIds: ids, sourceEmployeeId: emp, sourceRiderName: name })
+                }
+              />
             ))}
             {data.riders.length === 0 && (
               <div className="text-sm text-muted-foreground">
@@ -133,6 +180,16 @@ export default function OpsDayView() {
           )}
         </>
       )}
+
+      <ReassignDialog
+        open={reassign !== null}
+        onOpenChange={(o) => {
+          if (!o) setReassign(null);
+        }}
+        shipmentIds={reassign?.shipmentIds ?? []}
+        sourceEmployeeId={reassign?.sourceEmployeeId ?? ""}
+        sourceRiderName={reassign?.sourceRiderName}
+      />
     </div>
   );
 }
@@ -148,8 +205,25 @@ function SummaryTile({ label, value, warn = false }: { label: string; value: num
   );
 }
 
-function RiderCard({ rider }: { rider: DayPlanRider }) {
+function RiderCard({
+  rider,
+  onReassign,
+}: {
+  rider: DayPlanRider;
+  onReassign: (shipmentIds: number[], sourceEmployeeId: string, sourceRiderName: string) => void;
+}) {
   const t = rider.totals;
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+
+  const toggle = (id: number, on: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -184,29 +258,57 @@ function RiderCard({ rider }: { rider: DayPlanRider }) {
 
       {rider.stops.length > 0 && (
         <ol className="mt-3 divide-y divide-border rounded-md border border-border">
-          {rider.stops.map((s) => (
-            <li key={s.shipment_id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
-              <span className="flex items-center gap-2">
-                <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs font-semibold">
-                  {s.sequence}
+          {rider.stops.map((s) => {
+            const blocked = BLOCKED_STATUSES.has(s.status ?? "");
+            return (
+              <li
+                key={s.shipment_id}
+                className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"
+              >
+                <span className="flex items-center gap-2">
+                  <Checkbox
+                    checked={selected.has(s.shipment_id)}
+                    onCheckedChange={(c) => toggle(s.shipment_id, c === true)}
+                    disabled={blocked}
+                    aria-label={`Select stop ${s.sequence} for reassignment`}
+                  />
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+                    {s.sequence}
+                  </span>
+                  <span className="font-medium text-foreground">{s.customer_name}</span>
+                  <span
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
+                      s.type === "pickup" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
+                    }`}
+                  >
+                    {s.type}
+                  </span>
+                  {s.pincode && <span className="text-xs text-muted-foreground">{s.pincode}</span>}
+                  {blocked && <span className="text-[10px] text-muted-foreground">({s.status})</span>}
                 </span>
-                <span className="font-medium text-foreground">{s.customer_name}</span>
-                <span
-                  className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
-                    s.type === "pickup" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
-                  }`}
-                >
-                  {s.type}
+                <span className="text-xs text-muted-foreground">
+                  {s.distance_from_previous_km > 0 ? `${s.distance_from_previous_km} km · ` : ""}
+                  ETA {formatClock(s.eta_clock)} (~{s.eta_minutes}m)
                 </span>
-                {s.pincode && <span className="text-xs text-muted-foreground">{s.pincode}</span>}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {s.distance_from_previous_km > 0 ? `${s.distance_from_previous_km} km · ` : ""}
-                ETA {formatClock(s.eta_clock)} (~{s.eta_minutes}m)
-              </span>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ol>
+      )}
+
+      {selected.size > 0 && (
+        <div className="mt-2 flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              onReassign([...selected], rider.employee_id, rider.rider_name);
+              setSelected(new Set());
+            }}
+          >
+            Reassign {selected.size} selected →
+          </Button>
+        </div>
       )}
     </div>
   );
