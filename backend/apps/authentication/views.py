@@ -1037,7 +1037,7 @@ def all_users(request):
     # Add regular users
     for user_data in user_serializer.data:
         all_users_data.append({
-            'id': str(user_data.get('id', '')),
+            'id': f"user:{user_data.get('id', '')}",
             'rider_id': user_data.get('username', ''),  # username is the identifier
             'full_name': user_data.get('full_name', ''),
             'username': user_data.get('username', ''),
@@ -1053,7 +1053,7 @@ def all_users(request):
     # Add rider accounts
     for rider_data in rider_serializer.data:
         all_users_data.append({
-            'id': str(rider_data.get('id', '')),
+            'id': f"rider:{rider_data.get('id', '')}",
             'rider_id': rider_data.get('rider_id', ''),
             'full_name': rider_data.get('full_name', ''),
             'username': rider_data.get('rider_id', ''),  # rider_id is the username
@@ -1074,6 +1074,54 @@ def all_users(request):
         'success': True,
         'users': all_users_data
     }, status=status.HTTP_200_OK)
+
+
+def _resolve_account(user_id):
+    """
+    Resolve a combined user-list id to its model instance.
+
+    all_users emits type-qualified ids -- 'user:<pk>' for User rows and
+    'rider:<pk>' for RiderAccount rows -- because the two models live in
+    separate tables with independent autoincrement pks (a User and a
+    RiderAccount can share the same numeric id). The prefix tells us which
+    table to hit so we never resolve to the wrong record.
+
+    For backwards compatibility (pending-approvals lists riders only and emits
+    bare pks, and external callers may still send bare pks) a bare id falls
+    back to the historical RiderAccount-first-then-User lookup.
+
+    Returns (kind, instance) where kind is 'rider' or 'user', or (None, None)
+    when no matching record exists.
+    """
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    raw = str(user_id)
+
+    if ':' in raw:
+        prefix, _, pk = raw.partition(':')
+        prefix = prefix.lower()
+        if prefix == 'rider':
+            try:
+                return 'rider', RiderAccount.objects.get(id=pk)
+            except (RiderAccount.DoesNotExist, ValueError, TypeError):
+                return None, None
+        if prefix == 'user':
+            try:
+                return 'user', User.objects.get(id=pk)
+            except (User.DoesNotExist, ValueError, TypeError):
+                return None, None
+        return None, None  # unknown prefix
+
+    # Legacy bare pk -- preserve the original RiderAccount-first behaviour.
+    try:
+        return 'rider', RiderAccount.objects.get(id=raw)
+    except (RiderAccount.DoesNotExist, ValueError, TypeError):
+        pass
+    try:
+        return 'user', User.objects.get(id=raw)
+    except (User.DoesNotExist, ValueError, TypeError):
+        return None, None
 
 
 
@@ -1105,40 +1153,35 @@ def approve_user(request, user_id):
         }, status=status.HTTP_403_FORBIDDEN)
     
     try:
-        # Try to find as RiderAccount first
-        try:
-            rider = RiderAccount.objects.get(id=user_id)
-            rider.is_approved = True
-            rider.is_active = True
-            rider.save()
-            
+        kind, account = _resolve_account(user_id)
+        if account is None:
+            return Response({
+                'success': False,
+                'message': 'User not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        if kind == 'rider':
+            account.is_approved = True
+            account.is_active = True
+            account.save()
+
             # Sync to POPS if manager has an access token
             from utils.pops_rider_sync import PopsRiderSyncService
             if request.user.access_token:
-                PopsRiderSyncService.sync_rider_to_pops(rider, request.user.access_token)
-            
+                PopsRiderSyncService.sync_rider_to_pops(account, request.user.access_token)
+
             return Response({
                 'success': True,
                 'message': 'Rider approved successfully'
             }, status=status.HTTP_200_OK)
-        except RiderAccount.DoesNotExist:
-            # If not a rider, check if it's a User
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            try:
-                user = User.objects.get(id=user_id)
-                # For regular users, just activate them
-                user.is_active = True
-                user.save()
-                return Response({
-                    'success': True,
-                    'message': 'User activated successfully'
-                }, status=status.HTTP_200_OK)
-            except User.DoesNotExist:
-                return Response({
-                    'success': False,
-                    'message': 'User not found'
-                }, status=status.HTTP_404_NOT_FOUND)
+
+        # Regular User -> just activate them
+        account.is_active = True
+        account.save()
+        return Response({
+            'success': True,
+            'message': 'User activated successfully'
+        }, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"Error approving user {user_id}: {e}", exc_info=True)
         return Response({
@@ -1176,35 +1219,29 @@ def reject_user(request, user_id):
         }, status=status.HTTP_403_FORBIDDEN)
     
     try:
-        # Try to find as RiderAccount first
-        try:
-            rider = RiderAccount.objects.get(id=user_id)
-            rider.is_approved = False
-            rider.is_active = False  # Deactivate rejected riders
-            rider.save()
-            
+        kind, account = _resolve_account(user_id)
+        if account is None:
+            return Response({
+                'success': False,
+                'message': 'User not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        if kind == 'rider':
+            account.is_approved = False
+            account.is_active = False  # Deactivate rejected riders
+            account.save()
             return Response({
                 'success': True,
                 'message': 'Rider rejected successfully'
             }, status=status.HTTP_200_OK)
-        except RiderAccount.DoesNotExist:
-            # If not a rider, check if it's a User
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            try:
-                user = User.objects.get(id=user_id)
-                # For regular users, deactivate them
-                user.is_active = False
-                user.save()
-                return Response({
-                    'success': True,
-                    'message': 'User deactivated successfully'
-                }, status=status.HTTP_200_OK)
-            except User.DoesNotExist:
-                return Response({
-                    'success': False,
-                    'message': 'User not found'
-                }, status=status.HTTP_404_NOT_FOUND)
+
+        # Regular User -> deactivate them
+        account.is_active = False
+        account.save()
+        return Response({
+            'success': True,
+            'message': 'User deactivated successfully'
+        }, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"Error rejecting user {user_id}: {e}", exc_info=True)
         return Response({
@@ -1227,40 +1264,32 @@ def get_user(request, user_id):
     is_manager = request.user.is_superuser or request.user.is_ops_team or request.user.is_staff
 
     if request.method == 'GET':
-        # Users can view their own data, managers/admins can view any user
-        if not (is_manager or str(request.user.id) == str(user_id)):
-            return Response({
-                'success': False,
-                'message': 'Permission denied'
-            }, status=status.HTTP_403_FORBIDDEN)
-
         try:
-            # Try to find as RiderAccount first
-            try:
-                rider = RiderAccount.objects.get(id=user_id)
-                from .serializers import RiderAccountSerializer
-                serializer = RiderAccountSerializer(rider)
+            kind, account = _resolve_account(user_id)
+            if account is None:
                 return Response({
-                    'success': True,
-                    'user': serializer.data
-                }, status=status.HTTP_200_OK)
-            except RiderAccount.DoesNotExist:
-                # If not a rider, check if it's a User
-                from django.contrib.auth import get_user_model
-                User = get_user_model()
-                try:
-                    user = User.objects.get(id=user_id)
-                    from .serializers import UserSerializer
-                    serializer = UserSerializer(user)
-                    return Response({
-                        'success': True,
-                        'user': serializer.data
-                    }, status=status.HTTP_200_OK)
-                except User.DoesNotExist:
-                    return Response({
-                        'success': False,
-                        'message': 'User not found'
-                    }, status=status.HTTP_404_NOT_FOUND)
+                    'success': False,
+                    'message': 'User not found'
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            # Users can view their own data; managers/admins can view anyone.
+            is_self = (kind == 'user' and str(account.id) == str(request.user.id))
+            if not (is_manager or is_self):
+                return Response({
+                    'success': False,
+                    'message': 'Permission denied'
+                }, status=status.HTTP_403_FORBIDDEN)
+
+            if kind == 'rider':
+                from .serializers import RiderAccountSerializer
+                serializer = RiderAccountSerializer(account)
+            else:
+                from .serializers import UserSerializer
+                serializer = UserSerializer(account)
+            return Response({
+                'success': True,
+                'user': serializer.data
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"Error getting user {user_id}: {e}", exc_info=True)
             return Response({
@@ -1285,13 +1314,14 @@ def get_user(request, user_id):
         return '; '.join(parts) or 'Validation failed'
 
     try:
-        # Mirror the RiderAccount-first lookup used by GET / reset_password.
-        try:
-            rider = RiderAccount.objects.get(id=user_id)
-        except RiderAccount.DoesNotExist:
-            rider = None
+        kind, account = _resolve_account(user_id)
+        if account is None:
+            return Response({
+                'success': False,
+                'message': 'User not found'
+            }, status=status.HTTP_404_NOT_FOUND)
 
-        if rider is not None:
+        if kind == 'rider':
             from .serializers import RiderAccountSerializer
             # Whitelist only the fields exposed by the "Edit User" modal so this
             # endpoint can't be used to flip is_approved / role / privileges.
@@ -1299,45 +1329,22 @@ def get_user(request, user_id):
             for field in ('full_name', 'email', 'rider_id', 'is_active'):
                 if field in request.data:
                     payload[field] = request.data[field]
+            serializer = RiderAccountSerializer(account, data=payload, partial=True)
+        else:
+            from .serializers import UserSerializer
+            # The User identifier is `username`; the admin UI sends it as `rider_id`.
+            # The User model has no email field, so email is ignored for User rows.
+            payload = {}
+            if 'full_name' in request.data:
+                payload['full_name'] = request.data['full_name']
+            if 'rider_id' in request.data:
+                payload['username'] = request.data['rider_id']
+            elif 'username' in request.data:
+                payload['username'] = request.data['username']
+            if 'is_active' in request.data:
+                payload['is_active'] = request.data['is_active']
+            serializer = UserSerializer(account, data=payload, partial=True)
 
-            serializer = RiderAccountSerializer(rider, data=payload, partial=True)
-            if not serializer.is_valid():
-                return Response({
-                    'success': False,
-                    'message': _errors_to_message(serializer.errors),
-                    'errors': serializer.errors,
-                }, status=status.HTTP_400_BAD_REQUEST)
-            serializer.save()
-            return Response({
-                'success': True,
-                'user': serializer.data
-            }, status=status.HTTP_200_OK)
-
-        # Fall back to a regular User.
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        try:
-            user = User.objects.get(id=user_id)
-        except User.DoesNotExist:
-            return Response({
-                'success': False,
-                'message': 'User not found'
-            }, status=status.HTTP_404_NOT_FOUND)
-
-        from .serializers import UserSerializer
-        # The User identifier is `username`; the admin UI sends it as `rider_id`.
-        # The User model has no email field, so email is ignored for User rows.
-        payload = {}
-        if 'full_name' in request.data:
-            payload['full_name'] = request.data['full_name']
-        if 'rider_id' in request.data:
-            payload['username'] = request.data['rider_id']
-        elif 'username' in request.data:
-            payload['username'] = request.data['username']
-        if 'is_active' in request.data:
-            payload['is_active'] = request.data['is_active']
-
-        serializer = UserSerializer(user, data=payload, partial=True)
         if not serializer.is_valid():
             return Response({
                 'success': False,
@@ -1382,51 +1389,35 @@ def reset_password(request, user_id):
         password_was_generated = True
     
     try:
-        # Try to find as RiderAccount first
-        try:
-            rider = RiderAccount.objects.get(id=user_id)
+        kind, account = _resolve_account(user_id)
+        if account is None:
+            return Response({
+                'success': False,
+                'message': 'User not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        if kind == 'rider':
             # Hash password with bcrypt
             password_bytes = new_password.encode('utf-8')
             salt = bcrypt.gensalt()
             hash_bytes = bcrypt.hashpw(password_bytes, salt)
-            rider.password_hash = hash_bytes.decode('utf-8')
-            rider.save()
-            
-            response_data = {
-                'success': True,
-                'message': 'Password reset successfully'
-            }
-            # Include generated password in response if it was auto-generated
-            if password_was_generated:
-                response_data['password'] = new_password
-                response_data['message'] = 'Password reset successfully. New password generated.'
-            
-            return Response(response_data, status=status.HTTP_200_OK)
-        except RiderAccount.DoesNotExist:
-            # If not a rider, check if it's a User
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            try:
-                user = User.objects.get(id=user_id)
-                # Set password using Django's built-in method
-                user.set_password(new_password)
-                user.save()
-                
-                response_data = {
-                    'success': True,
-                    'message': 'Password reset successfully'
-                }
-                # Include generated password in response if it was auto-generated
-                if password_was_generated:
-                    response_data['password'] = new_password
-                    response_data['message'] = 'Password reset successfully. New password generated.'
-                
-                return Response(response_data, status=status.HTTP_200_OK)
-            except User.DoesNotExist:
-                return Response({
-                    'success': False,
-                    'message': 'User not found'
-                }, status=status.HTTP_404_NOT_FOUND)
+            account.password_hash = hash_bytes.decode('utf-8')
+            account.save()
+        else:
+            # Set password using Django's built-in method
+            account.set_password(new_password)
+            account.save()
+
+        response_data = {
+            'success': True,
+            'message': 'Password reset successfully'
+        }
+        # Include generated password in response if it was auto-generated
+        if password_was_generated:
+            response_data['password'] = new_password
+            response_data['message'] = 'Password reset successfully. New password generated.'
+
+        return Response(response_data, status=status.HTTP_200_OK)
     except Exception as e:
         logger.error(f"Error resetting password for user {user_id}: {e}", exc_info=True)
         return Response({
