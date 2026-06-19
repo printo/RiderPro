@@ -57,6 +57,12 @@ export default function OpsDayView() {
     }
   };
 
+  // Current stop-count per rider — feeds the dialog's overload warning.
+  const riderLoads: Record<string, number> = {};
+  (data?.riders ?? []).forEach((r) => {
+    riderLoads[r.employee_id] = r.totals.stop_count;
+  });
+
   return (
     <div className="container mx-auto space-y-6 p-4 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -189,6 +195,8 @@ export default function OpsDayView() {
         shipmentIds={reassign?.shipmentIds ?? []}
         sourceEmployeeId={reassign?.sourceEmployeeId ?? ""}
         sourceRiderName={reassign?.sourceRiderName}
+        riderLoads={riderLoads}
+        maxStops={data?.thresholds.max_stops}
       />
     </div>
   );

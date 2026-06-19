@@ -932,13 +932,23 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         # Store old rider for event logging
         old_employee_id = shipment.employee_id
         
+        # Idempotency: already this rider — nothing to write, sync, or log.
+        if old_employee_id == new_employee_id:
+            return Response({
+                'success': True,
+                'message': f'Shipment is already assigned to {new_employee_id}',
+                'pops_synced': shipment.sync_status == 'synced',
+                'unchanged': True,
+                'shipment': ShipmentSerializer(shipment).data,
+            })
+
         # Update shipment
         shipment.employee_id = new_employee_id
         shipment.synced_to_external = False
         shipment.sync_status = 'needs_sync'
         shipment.save()
-        self._sync_shipment_to_pops(shipment, request)
-        
+        pops_synced = bool(self._sync_shipment_to_pops(shipment, request))
+
         # Create assignment event
         from .services import ShipmentStatusService
         ShipmentStatusService.create_event(
@@ -961,6 +971,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         return Response({
             'success': True,
             'message': f'Rider changed from {old_employee_id} to {new_employee_id}',
+            'pops_synced': pops_synced,
             'shipment': ShipmentSerializer(shipment).data
         })
     
@@ -1109,18 +1120,34 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         # Update shipments
         updated_count = 0
         failed_count = 0
+        pops_sync_failed_count = 0
         results = []
         
         for shipment in shipments:
             try:
                 old_employee_id = shipment.employee_id
                 
+                # Idempotency: already this rider — skip write/sync/event.
+                if old_employee_id == new_employee_id:
+                    updated_count += 1
+                    results.append({
+                        'shipment_id': shipment.id,
+                        'success': True,
+                        'old_rider': old_employee_id,
+                        'new_rider': new_employee_id,
+                        'pops_synced': shipment.sync_status == 'synced',
+                        'unchanged': True,
+                    })
+                    continue
+
                 # Update shipment
                 shipment.employee_id = new_employee_id
                 shipment.synced_to_external = False
                 shipment.sync_status = 'needs_sync'
                 shipment.save()
-                self._sync_shipment_to_pops(shipment, request)
+                pops_synced = bool(self._sync_shipment_to_pops(shipment, request))
+                if not pops_synced:
+                    pops_sync_failed_count += 1
                 
                 # Create assignment event
                 from .services import ShipmentStatusService
@@ -1142,7 +1169,8 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                     'shipment_id': shipment.id,
                     'success': True,
                     'old_rider': old_employee_id,
-                    'new_rider': new_employee_id
+                    'new_rider': new_employee_id,
+                    'pops_synced': pops_synced,
                 })
                 
             except Exception as e:
@@ -1164,6 +1192,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             'message': f'Updated {updated_count} shipment(s), {failed_count} failed',
             'updated_count': updated_count,
             'failed_count': failed_count,
+            'pops_sync_failed_count': pops_sync_failed_count,
             'results': results
         })
     

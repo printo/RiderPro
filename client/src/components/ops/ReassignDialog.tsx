@@ -26,6 +26,10 @@ interface ReassignDialogProps {
   shipmentIds: number[];
   sourceEmployeeId: string;
   sourceRiderName?: string;
+  /** Current stop count per rider (employee_id → stops), for the overload warning. */
+  riderLoads?: Record<string, number>;
+  /** Overload threshold from the day-plan; omit to skip the warning. */
+  maxStops?: number;
 }
 
 /**
@@ -39,6 +43,8 @@ export default function ReassignDialog({
   shipmentIds,
   sourceEmployeeId,
   sourceRiderName,
+  riderLoads,
+  maxStops,
 }: ReassignDialogProps) {
   const [target, setTarget] = useState<string>("");
   const [reason, setReason] = useState<string>("");
@@ -61,6 +67,11 @@ export default function ReassignDialog({
 
   const targets = (ridersData?.riders ?? []).filter((r) => r.id !== sourceEmployeeId);
   const count = shipmentIds.length;
+
+  // Advisory: warn (don't block) if moving these onto the target exceeds the limit.
+  const targetName = targets.find((r) => r.id === target)?.name ?? target;
+  const projected = target ? (riderLoads?.[target] ?? 0) + count : 0;
+  const willOverload = !!maxStops && !!target && projected > maxStops;
 
   const submit = () => {
     if (!target || count === 0) return;
@@ -109,12 +120,19 @@ export default function ReassignDialog({
           </div>
         </div>
 
+        {willOverload && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            This puts <span className="font-medium">{targetName}</span> at {projected} stops — over the{" "}
+            {maxStops}-stop limit.
+          </div>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={reassign.isPending}>
             Cancel
           </Button>
           <Button onClick={submit} disabled={!target || count === 0 || reassign.isPending}>
-            {reassign.isPending ? "Reassigning…" : "Reassign"}
+            {reassign.isPending ? "Reassigning…" : willOverload ? "Reassign anyway" : "Reassign"}
           </Button>
         </DialogFooter>
       </DialogContent>

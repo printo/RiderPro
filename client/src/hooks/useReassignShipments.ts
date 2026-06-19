@@ -33,6 +33,11 @@ export function useReassignShipments() {
           description: failed ? `Not moved: ${failed} (already in progress?)` : undefined,
           variant: "destructive",
         });
+      } else if ((res.pops_sync_failed_count ?? 0) > 0) {
+        toast({
+          title: `Reassigned ${res.updated_count} — POPS sync pending for ${res.pops_sync_failed_count}`,
+          description: "Saved locally; the sync retries automatically.",
+        });
       } else {
         toast({ title: `Reassigned ${res.updated_count} shipment(s)` });
       }
