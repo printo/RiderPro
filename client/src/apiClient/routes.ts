@@ -22,6 +22,22 @@ export const routeAPI = {
     return response.json();
   },
 
+  /** Toggle a server-shared ignore on a pincode-overlap flag (manager-gated). */
+  overlapIgnore: async (
+    date: string,
+    wave: DayPlanWave,
+    pincode: string,
+    ignored: boolean,
+  ): Promise<{ success: boolean; ignored: boolean }> => {
+    const response = await apiRequest("POST", API_ENDPOINTS.routes.overlapIgnore, {
+      date,
+      wave,
+      pincode,
+      ignored,
+    });
+    return response.json();
+  },
+
   /**
    * Start a new route session
    */

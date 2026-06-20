@@ -508,3 +508,27 @@ class AcknowledgmentSettings(models.Model):
         return True, ""
 
 
+class OverlapIgnore(models.Model):
+    """
+    An ops decision to ignore a pincode-overlap flag on the day-view for a given
+    date + wave. Server-shared so the dismissal is visible to every ops user
+    (not just the browser that dismissed it).
+    """
+    id = models.AutoField(primary_key=True)
+    date = models.DateField(db_index=True)
+    wave = models.CharField(max_length=20)  # all / morning / noon / evening
+    pincode = models.CharField(max_length=20)
+    created_by = models.CharField(max_length=255, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'overlap_ignores'
+        unique_together = ('date', 'wave', 'pincode')
+        indexes = [
+            models.Index(fields=['date', 'wave']),
+        ]
+
+    def __str__(self):
+        return f"OverlapIgnore {self.date} {self.wave} {self.pincode}"
+
+

@@ -21,7 +21,7 @@ from django.db.models import Q, Count, Avg, Sum, F
 from django.utils import timezone
 from django.conf import settings
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Shipment, Acknowledgment, RouteSession, RouteTracking, AcknowledgmentSettings
+from .models import Shipment, Acknowledgment, RouteSession, RouteTracking, AcknowledgmentSettings, OverlapIgnore
 from .permissions import IsManagerUser
 from .serializers import (
     ShipmentSerializer, ShipmentCreateSerializer, ShipmentUpdateSerializer,
@@ -2684,6 +2684,15 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             overlaps.append({'pincode': pc, 'riders': riders_here, 'suggestion': suggestion})
         overlaps.sort(key=lambda o: o['pincode'])
 
+        # Mark overlaps an ops user has chosen to ignore for this date + wave
+        # (server-shared, visible to everyone). Marked, not dropped — the count
+        # stays auditable; the UI de-emphasises ignored rows.
+        ignored_pincodes = set(
+            OverlapIgnore.objects.filter(date=day, wave=wave).values_list('pincode', flat=True)
+        )
+        for o in overlaps:
+            o['ignored'] = o['pincode'] in ignored_pincodes
+
         return Response({
             'success': True,
             'date': day.isoformat(),
@@ -2704,6 +2713,44 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 'overlap_pincode_count': len(overlaps),
             },
         })
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsManagerUser])
+    def overlap_ignore(self, request):
+        """
+        Toggle a server-shared "ignore" on a pincode-overlap flag for a date + wave
+        (so every ops user sees the dismissal). Manager-gated.
+
+        Body: {date: 'YYYY-MM-DD', wave, pincode, ignored: bool}.
+        """
+        from datetime import datetime
+
+        date_str = request.data.get('date')
+        wave = (request.data.get('wave') or 'all').lower()
+        pincode = (request.data.get('pincode') or '').strip()
+        ignored = bool(request.data.get('ignored', True))
+
+        if not date_str or not pincode:
+            return Response(
+                {'success': False, 'error': 'date and pincode are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            day = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response(
+                {'success': False, 'error': 'Invalid date — use YYYY-MM-DD.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if ignored:
+            OverlapIgnore.objects.get_or_create(
+                date=day, wave=wave, pincode=pincode,
+                defaults={'created_by': request.user.username or str(request.user.id)},
+            )
+        else:
+            OverlapIgnore.objects.filter(date=day, wave=wave, pincode=pincode).delete()
+
+        return Response({'success': True, 'ignored': ignored})
 
     @action(detail=False, methods=['post'])
     def road_path(self, request):

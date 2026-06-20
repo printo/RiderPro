@@ -52,6 +52,7 @@ urlpatterns = [
     path('routes/shipment-event', RouteSessionViewSet.as_view({'post': 'shipment_event'}), name='route-shipment-event'),
     path('routes/optimize_path', RouteSessionViewSet.as_view({'post': 'optimize_path'}), name='route-optimize-path'),
     path('routes/day-plan', RouteSessionViewSet.as_view({'get': 'day_plan'}), name='route-day-plan'),
+    path('routes/overlap-ignore', RouteSessionViewSet.as_view({'post': 'overlap_ignore'}), name='route-overlap-ignore'),
     path('routes/road-path', RouteSessionViewSet.as_view({'post': 'road_path'}), name='route-road-path'),
     path('routes/bulk_shipment_event', RouteSessionViewSet.as_view({'post': 'bulk_shipment_event'}), name='route-bulk-shipment-event'),
     path('routes/visualization', RouteSessionViewSet.as_view({'get': 'visualization_data'}), name='route-visualization-data'),

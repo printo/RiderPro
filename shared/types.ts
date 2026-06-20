@@ -363,6 +363,7 @@ export interface DayPlanResponse {
     pincode: string;
     riders: { employee_id: string; rider_name: string; stops_here: number }[];
     suggestion: string;
+    ignored?: boolean;
   }[];
   totals: {
     rider_count: number;

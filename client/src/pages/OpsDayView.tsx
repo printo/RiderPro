@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useDayPlan } from "@/hooks/useDayPlan";
+import { useOverlapIgnore } from "@/hooks/useOverlapIgnore";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import ReassignDialog from "@/components/ops/ReassignDialog";
@@ -44,6 +45,7 @@ export default function OpsDayView() {
   const [wave, setWave] = useState<DayPlanWave>("all");
   const { data, isLoading, isError, error, refetch, isFetching } = useDayPlan(date, wave);
   const [reassign, setReassign] = useState<ReassignState | null>(null);
+  const ignore = useOverlapIgnore();
 
   // Open the reassign dialog prefilled with the LIGHTER rider's stops in a pincode.
   // The overlap's riders are sorted heaviest-first, so the last entry is the lightest.
@@ -124,28 +126,41 @@ export default function OpsDayView() {
               </h2>
               <ul className="mt-2 space-y-2 text-sm text-amber-900">
                 {data.overlaps.map((o) => (
-                  <li key={o.pincode} className="rounded-md bg-amber-100/60 px-3 py-2">
+                  <li
+                    key={o.pincode}
+                    className={`rounded-md bg-amber-100/60 px-3 py-2 ${o.ignored ? "opacity-60" : ""}`}
+                  >
                     <div>
                       <span className="font-semibold">{o.pincode}</span> —{" "}
                       {o.riders
                         .map((r) => `${r.rider_name} (${r.stops_here} stop${r.stops_here === 1 ? "" : "s"})`)
                         .join(", ")}
+                      {o.ignored && <span className="ml-1 text-xs font-medium text-amber-700">(ignored)</span>}
                     </div>
-                    <div className="mt-0.5 text-xs text-amber-800">{o.suggestion}</div>
-                    {o.riders.length >= 2 && (
+                    {!o.ignored && <div className="mt-0.5 text-xs text-amber-800">{o.suggestion}</div>}
+                    <div className="mt-1 flex flex-wrap gap-3">
+                      {!o.ignored && o.riders.length >= 2 && (
+                        <button
+                          onClick={() =>
+                            reassignOverlap(
+                              o.pincode,
+                              o.riders[o.riders.length - 1].employee_id,
+                              o.riders[o.riders.length - 1].rider_name,
+                            )
+                          }
+                          className="text-xs font-semibold text-amber-900 underline hover:text-amber-950"
+                        >
+                          Reassign {o.riders[o.riders.length - 1].rider_name}'s stops in {o.pincode} →
+                        </button>
+                      )}
                       <button
-                        onClick={() =>
-                          reassignOverlap(
-                            o.pincode,
-                            o.riders[o.riders.length - 1].employee_id,
-                            o.riders[o.riders.length - 1].rider_name,
-                          )
-                        }
-                        className="mt-1 text-xs font-semibold text-amber-900 underline hover:text-amber-950"
+                        onClick={() => ignore.mutate({ date, wave, pincode: o.pincode, ignored: !o.ignored })}
+                        disabled={ignore.isPending}
+                        className="text-xs font-medium text-amber-800 underline hover:text-amber-950 disabled:opacity-50"
                       >
-                        Reassign {o.riders[o.riders.length - 1].rider_name}'s stops in {o.pincode} →
+                        {o.ignored ? "Un-ignore" : "Ignore"}
                       </button>
-                    )}
+                    </div>
                   </li>
                 ))}
               </ul>

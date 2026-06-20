@@ -96,6 +96,7 @@ export const API_ENDPOINTS = {
     optimizePath: apiUrl('/routes/optimize_path'),
     roadPath: apiUrl('/routes/road-path'),
     dayPlan: apiUrl('/routes/day-plan'),
+    overlapIgnore: apiUrl('/routes/overlap-ignore'),
   },
 
   // Vehicle Types
