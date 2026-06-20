@@ -411,30 +411,96 @@ class AuthService {
     }
   }
 
-  // Register new user (local database)
-  public async registerUser(riderId: string, password: string, fullName: string, email?: string, vehicleTypeId?: string, dispatchOption?: string, homebaseId?: string): Promise<{ success: boolean; message: string }> {
+  // Request OTP for Rider
+  public async requestOtp(phone: string): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await fetch('/api/v1/auth/register', {
+      const response = await fetch('/api/v1/auth/request-otp', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          riderId,
-          password,
-          fullName,
-          email,
-          vehicleTypeId,
-          dispatchOption,
-          homebaseId,
-        }),
+        body: JSON.stringify({ phone }),
       });
 
       const data = await response.json();
-      return { success: data.success, message: data.message };
+      if (!response.ok || !data.success) {
+        return { success: false, message: data.message || 'Failed to send OTP' };
+      }
+
+      return { success: true, message: data.message || 'OTP sent successfully' };
     } catch (error) {
-      console.error('Registration error:', error);
-      return { success: false, message: 'Registration failed. Please try again.' };
+      console.error('Request OTP error:', error);
+      return { success: false, message: 'Failed to request OTP. Please try again.' };
+    }
+  }
+
+  // Verify OTP for Rider
+  public async verifyOtp(phone: string, code: string): Promise<{ success: boolean; message: string }> {
+    try {
+      this.setState({ is_loading: true });
+
+      const response = await fetch('/api/v1/auth/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone, code }),
+      });
+
+      const data: LocalAuthResponse = await response.json();
+
+      if (!response.ok || !data.success) {
+        this.setState({ is_loading: false });
+        return { success: false, message: data.message || 'Verification failed' };
+      }
+
+      // Map PIA roles to internal role structure
+      const internalRoles = this.mapPIARolesToInternal(data.is_staff, data.is_super_user, data.is_ops_team);
+
+      // Get username from response or fallback to phone
+      const userUsername = data.username || phone;
+
+      // Save to localStorage with all user details
+      localStorage.setItem('access_token', data.accessToken);
+      localStorage.setItem('refresh_token', data.refreshToken);
+      localStorage.setItem('full_name', data.fullName);
+      localStorage.setItem('username', userUsername);  // Username is the primary identifier
+      localStorage.setItem('is_rider', internalRoles.is_rider.toString());
+      localStorage.setItem('is_super_user', internalRoles.is_super_user.toString());
+      localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
+      localStorage.setItem('is_staff', (data.is_staff || false).toString());
+      localStorage.setItem('django_admin', 'false');  // riders never get Django (raw DB) access
+
+      const role = this.determineRole(data.is_staff, data.is_super_user, data.is_ops_team);
+
+      this.setState({
+        user: {
+          id: userUsername,
+          username: userUsername,
+          email: '',
+          role,
+          employee_id: userUsername, // Keep for backward compatibility
+          full_name: data.fullName,
+          is_active: true,
+          is_approved: data.isApproved || false,
+          is_rider: internalRoles.is_rider,
+          is_super_user: internalRoles.is_super_user,
+          is_ops_team: data.is_ops_team || false,
+          is_staff: data.is_staff || false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        access_token: data.accessToken,
+        refresh_token: data.refreshToken,
+        is_authenticated: true,
+        is_loading: false,
+      });
+
+      return { success: true, message: 'Login successful' };
+    } catch (error) {
+      console.error('Verify OTP error:', error);
+      this.setState({ is_loading: false });
+      return { success: false, message: 'Verification failed. Please try again.' };
     }
   }
 
@@ -482,6 +548,70 @@ class AuthService {
     } catch (error) {
       console.error('Sync homebases error:', error);
       return { success: false, message: 'Failed to sync homebases' };
+    }
+  }
+
+  // Sync riders from POPS
+  public async syncRiders(): Promise<{ success: boolean; message: string; stats?: any }> {
+    try {
+      const response = await fetch(API_ENDPOINTS.auth.syncRiders, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+
+      const data = await response.json();
+      return {
+        success: data.success,
+        message: data.message,
+        stats: data.stats
+      };
+    } catch (error) {
+      console.error('Sync riders error:', error);
+      return { success: false, message: 'Failed to sync riders' };
+    }
+  }
+
+  // Archive user
+  public async archiveUser(userId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await fetch(API_ENDPOINTS.auth.archive(userId), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+
+      const data = await response.json();
+      return {
+        success: data.success,
+        message: data.message
+      };
+    } catch (error) {
+      console.error('Archive user error:', error);
+      return { success: false, message: 'Failed to archive user' };
+    }
+  }
+
+  // Restore user
+  public async restoreUser(userId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await fetch(API_ENDPOINTS.auth.restore(userId), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        },
+      });
+
+      const data = await response.json();
+      return {
+        success: data.success,
+        message: data.message
+      };
+    } catch (error) {
+      console.error('Restore user error:', error);
+      return { success: false, message: 'Failed to restore user' };
     }
   }
 

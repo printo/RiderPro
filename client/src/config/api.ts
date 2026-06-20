@@ -30,6 +30,8 @@ export const API_ENDPOINTS = {
     register: apiUrl('/auth/register'),
     localLogin: apiUrl('/auth/local-login'),
     googleLogin: apiUrl('/auth/google/login'),
+    requestOtp: apiUrl('/auth/request-otp'),
+    verifyOtp: apiUrl('/auth/verify-otp'),
     refresh: apiUrl('/auth/refresh'),
     fetchRider: apiUrl('/auth/fetch-rider'),
     approve: (user_id: string) => apiUrl(`/auth/approve/${user_id}`),
@@ -38,6 +40,9 @@ export const API_ENDPOINTS = {
     resetPassword: (user_id: string) => apiUrl(`/auth/reset-password/${user_id}`),
     pendingApprovals: apiUrl('/auth/pending-approvals'),
     allUsers: apiUrl('/auth/all-users'),
+    syncRiders: apiUrl('/auth/riders/sync'),
+    archive: (user_id: string) => apiUrl(`/auth/users/${user_id}/archive`),
+    restore: (user_id: string) => apiUrl(`/auth/users/${user_id}/restore`),
     // Vehicle (mileage) control & approval
     myVehicle: apiUrl('/auth/my-vehicle'),
     vehicleChangeRequest: apiUrl('/auth/vehicle-change-request'),

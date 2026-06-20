@@ -16,7 +16,6 @@ import NotFound from "@/pages/not-found";
 import AdminPage from "@/pages/Admin";
 import RouteAnalytics from "@/pages/RouteAnalytics";
 import Settings from "@/pages/Settings";
-import RiderSignupForm from "@/pages/RiderSignupForm";
 import AdminRiderManagement from "@/pages/AdminRiderManagement";
 import LiveTrackingDashboard from "@/pages/LiveTrackingDashboard";
 import OpsDayView from "@/pages/OpsDayView";
@@ -38,7 +37,6 @@ function Router() {
     return (
       <Switch>
         <Route path="/login" component={LoginForm} />
-        <Route path="/signup" component={RiderSignupForm} />
         <Route path="/approval-pending" component={ApprovalPending} />
         <Route component={LoginForm} />
       </Switch>
@@ -69,7 +67,6 @@ function Router() {
           <Route path="/live-tracking" component={hasManagerAccess ? LiveTrackingDashboard : Dashboard} />
           <Route path="/ops-day-view" component={hasManagerAccess ? OpsDayView : Dashboard} />
           <Route path="/settings" component={Settings} />
-          <Route path="/signup" component={RiderSignupForm} />
           <Route path="/admin-riders" component={AdminRiderManagement} />
           <Route component={NotFound} />
         </Switch>

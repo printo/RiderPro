@@ -17,6 +17,8 @@ interface CreateRiderForm {
 
 const AdminRiderManagement = () => {
   const [riders, setRiders] = useState<Rider[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
+  const [isSyncingRiders, setIsSyncingRiders] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -90,6 +92,57 @@ const AdminRiderManagement = () => {
     }
   };
 
+  const handleArchive = async (riderId: string) => {
+    if (window.confirm('Are you sure you want to archive this rider?')) {
+      try {
+        const response = await apiClient.post(API_ENDPOINTS.auth.archive(riderId), {});
+        const data = await response.json();
+        if (data.success) {
+          await fetchRiders();
+        } else {
+          setError(data.message || 'Failed to archive rider');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to archive rider');
+      }
+    }
+  };
+
+  const handleRestore = async (riderId: string) => {
+    if (window.confirm('Are you sure you want to restore this rider?')) {
+      try {
+        const response = await apiClient.post(API_ENDPOINTS.auth.restore(riderId), {});
+        const data = await response.json();
+        if (data.success) {
+          await fetchRiders();
+        } else {
+          setError(data.message || 'Failed to restore rider');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to restore rider');
+      }
+    }
+  };
+
+  const handleSyncRiders = async () => {
+    setIsSyncingRiders(true);
+    setError('');
+    try {
+      const response = await apiClient.post(API_ENDPOINTS.auth.syncRiders, {});
+      const data = await response.json();
+      if (data.success) {
+        alert(data.message || 'Riders synced successfully');
+        await fetchRiders();
+      } else {
+        setError(data.message || 'Failed to sync riders');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to sync riders');
+    } finally {
+      setIsSyncingRiders(false);
+    }
+  };
+
   // Removed toggleSuperUserStatus - riders should NEVER have superuser permissions
 
   const handleCreateRider = async (e: React.FormEvent) => {
@@ -144,11 +197,13 @@ const AdminRiderManagement = () => {
           rider_id: u.rider_id || u.employee_id || '',
           full_name: u.full_name || '',
           email: u.email || '',
+          phone: u.phone || '',
           is_active: u.is_active !== false,
           created_at: u.created_at || '',
           last_login_at: u.last_login_at || '',
           primary_homebase_details: u.primary_homebase_details,
-          dispatch_option: u.dispatch_option
+          dispatch_option: u.dispatch_option,
+          archived_at: u.archived_at
         }));
 
         setRiders(mappedRiders);
@@ -164,13 +219,14 @@ const AdminRiderManagement = () => {
     }
   };
 
-  const filteredRiders = riders.filter(rider =>
-    Object.values(rider).some(
+  const filteredRiders = riders.filter(rider => {
+    if (!showArchived && rider.archived_at) return false;
+    return Object.values(rider).some(
       value =>
         value &&
         value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+    );
+  });
 
   if (isLoading) {
     return (
@@ -189,7 +245,14 @@ const AdminRiderManagement = () => {
             View and manage all rider accounts in the system.
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex space-x-2">
+          <button
+            onClick={handleSyncRiders}
+            disabled={isSyncingRiders}
+            className="inline-flex items-center justify-center rounded-md border border-transparent bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 sm:w-auto disabled:opacity-50"
+          >
+            {isSyncingRiders ? 'Syncing...' : 'Sync Riders from POPS'}
+          </button>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:w-auto"
@@ -204,8 +267,8 @@ const AdminRiderManagement = () => {
       <div className="mt-8 flex flex-col">
         <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-            <div className="mb-4">
-              <div className="relative mt-1 rounded-md shadow-sm max-w-md">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="relative mt-1 rounded-md shadow-sm max-w-md flex-1">
                 <input
                   type="text"
                   className="block w-full rounded-md border-gray-300 pl-3 pr-10 py-2 focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
@@ -228,6 +291,16 @@ const AdminRiderManagement = () => {
                     />
                   </svg>
                 </div>
+              </div>
+              <div className="flex items-center space-x-2 ml-4">
+                <input
+                  type="checkbox"
+                  id="showArchivedRiders"
+                  checked={showArchived}
+                  onChange={(e) => setShowArchived(e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 h-4 w-4"
+                />
+                <label htmlFor="showArchivedRiders" className="text-sm font-medium text-gray-700">Show Archived</label>
               </div>
             </div>
 
@@ -269,6 +342,9 @@ const AdminRiderManagement = () => {
                       Email
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Phone
+                    </th>
+                    <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                       Status
                     </th>
                     <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
@@ -286,7 +362,7 @@ const AdminRiderManagement = () => {
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {filteredRiders.length > 0 ? (
                     filteredRiders.map((rider) => (
-                      <tr key={rider.id}>
+                      <tr key={rider.id} className={rider.archived_at ? 'bg-red-50/50 opacity-75' : ''}>
                         <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
                           {rider.rider_id}
                         </td>
@@ -296,15 +372,24 @@ const AdminRiderManagement = () => {
                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
                           {rider.email || 'N/A'}
                         </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {rider.phone || 'N/A'}
+                        </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
-                          <span
-                            className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${rider.is_active
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                              }`}
-                          >
-                            {rider.is_active ? 'Active' : 'Inactive'}
-                          </span>
+                          {rider.archived_at ? (
+                            <span className="inline-flex rounded-full px-2 text-xs font-semibold leading-5 bg-gray-100 text-gray-800">
+                              Archived
+                            </span>
+                          ) : (
+                            <span
+                              className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${rider.is_active
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                                }`}
+                            >
+                              {rider.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          )}
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 text-sm">
                           {rider.primary_homebase_details && (
@@ -318,23 +403,40 @@ const AdminRiderManagement = () => {
                         </td>
                         <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                           <div className="flex space-x-2 justify-end">
-                            <button
-                              onClick={() => handleResetPassword(rider.id)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Reset Password
-                            </button>
-                            <button
-                              onClick={() =>
-                                toggleUserStatus(rider.id, rider.is_active || false)
-                              }
-                              className={`ml-4 ${rider.is_active
-                                ? 'text-yellow-600 hover:text-yellow-900'
-                                : 'text-green-600 hover:text-green-900'
-                                }`}
-                            >
-                              {rider.is_active ? 'Deactivate' : 'Activate'}
-                            </button>
+                            {!rider.archived_at ? (
+                              <>
+                                <button
+                                  onClick={() => handleResetPassword(rider.id)}
+                                  className="text-blue-600 hover:text-blue-900"
+                                >
+                                  Reset Password
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    toggleUserStatus(rider.id, rider.is_active || false)
+                                  }
+                                  className={`ml-4 ${rider.is_active
+                                    ? 'text-yellow-600 hover:text-yellow-900'
+                                    : 'text-green-600 hover:text-green-900'
+                                    }`}
+                                >
+                                  {rider.is_active ? 'Deactivate' : 'Activate'}
+                                </button>
+                                <button
+                                  onClick={() => handleArchive(rider.id)}
+                                  className="text-red-600 hover:text-red-900 ml-4"
+                                >
+                                  Archive
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => handleRestore(rider.id)}
+                                className="text-emerald-600 hover:text-emerald-900"
+                              >
+                                Restore
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -342,7 +444,7 @@ const AdminRiderManagement = () => {
                   ) : (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="px-6 py-4 text-center text-sm text-gray-500"
                       >
                         No riders found

@@ -1344,6 +1344,7 @@ export interface Rider {
   rider_id: string;
   full_name: string;
   email: string;
+  phone?: string;
   is_active: boolean;
   primary_homebase_details?: Homebase;
   dispatch_option?: string;
@@ -1351,6 +1352,7 @@ export interface Rider {
   updated_at?: string;
   last_login_at?: string | null;
   is_super_user?: boolean;
+  archived_at?: string;
 }
 
 export interface UserProfile {

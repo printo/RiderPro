@@ -340,13 +340,13 @@ class PopsAPIClient:
             logger.error(f"POPS fetch rider by name error: {e}")
             return None
     
-    def fetch_homebases(self, access_token: str) -> Optional[list]:
+    def fetch_homebases(self, access_token: str) -> tuple[Optional[list], Optional[dict]]:
         """
         Fetch all homebases from POPS
         Uses the master/homebases endpoint
         
         Returns:
-            List of homebase data dicts, or None if failed
+            Tuple of (list of homebase data dicts or None, error_details dict or None)
         """
         url = f"{self.base_url}/master/homebases/"
         headers = {
@@ -358,17 +358,45 @@ class PopsAPIClient:
                 data = response.json()
                 # Handle both list and paginated responses
                 if isinstance(data, list):
-                    return data
+                    return data, None
                 elif isinstance(data, dict) and 'results' in data:
-                    return data['results']
-                return []
+                    return data['results'], None
+                return [], None
             else:
-                logger.error(f"POPS fetch homebases failed: {response.status_code}")
-                return None
+                logger.error(f"POPS fetch homebases failed: {response.status_code} - {response.text}")
+                return None, {'status': response.status_code, 'message': response.text[:200]}
         except Exception as e:
             logger.error(f"POPS fetch homebases error: {e}")
-            return None
+            return None, {'status': 500, 'message': str(e)}
     
+    def fetch_riders(self, access_token: str) -> tuple[Optional[list], Optional[dict]]:
+        """
+        Fetch all riders from POPS
+        Uses the master/riders endpoint
+        
+        Returns:
+            Tuple of (list of rider data dicts or None, error_details dict or None)
+        """
+        url = f"{self.base_url}/master/riders/"
+        headers = {
+            'Authorization': f'Bearer {access_token}'
+        }
+        try:
+            response = self.session.get(url, headers=headers, timeout=30)
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    return data, None
+                elif isinstance(data, dict) and 'results' in data:
+                    return data['results'], None
+                return [], None
+            else:
+                logger.error(f"POPS fetch riders failed: {response.status_code} - {response.text}")
+                return None, {'status': response.status_code, 'message': response.text[:200]}
+        except Exception as e:
+            logger.error(f"POPS fetch riders error: {e}")
+            return None, {'status': 500, 'message': str(e)}
+
     def create_rider(self, rider_data: Dict[str, Any], access_token: str) -> Optional[Dict[str, Any]]:
         """
         Create a rider in POPS

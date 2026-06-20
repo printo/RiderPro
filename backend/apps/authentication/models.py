@@ -248,6 +248,8 @@ class RiderAccount(models.Model):
     is_rider = models.BooleanField(default=True)
     
     # POPS integration
+    phone = models.CharField(max_length=20, blank=True, default='')
+    archived_at = models.DateTimeField(null=True, blank=True)
     pops_rider_id = models.IntegerField(null=True, blank=True)  # POPS rider ID after approval
     synced_to_pops = models.BooleanField(default=False)
     pops_sync_error = models.TextField(null=True, blank=True)
@@ -406,3 +408,27 @@ class VehicleChangeRequest(models.Model):
 
     def __str__(self):
         return f"VehicleChangeRequest {self.id} - rider {self.rider_id} ({self.status})"
+
+
+class OtpChallenge(models.Model):
+    """
+    OTP challenges for passwordless rider authentication
+    """
+    phone = models.CharField(max_length=20, db_index=True)
+    code_hash = models.CharField(max_length=255)
+    purpose = models.CharField(max_length=50, default='rider_login')
+    attempts = models.IntegerField(default=0)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    request_ip = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'otp_challenges'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['phone', 'expires_at']),
+        ]
+
+    def __str__(self):
+        return f"OtpChallenge for {self.phone} ({self.purpose})"

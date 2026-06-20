@@ -46,7 +46,7 @@ class PopsRiderSyncService:
             rider_data = {
                 'rider_id': rider.rider_id,
                 'name': rider.full_name,
-                'phone': '', # Phone not currently stored in RiderAccount
+                'phone': rider.phone,
                 'account_code': '', 
                 'tags': tags,
                 'homebaseId': homebase_id

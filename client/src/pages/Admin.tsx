@@ -176,6 +176,8 @@ function AdminPage() {
   const [loadingVehicleTypes, setLoadingVehicleTypes] = useState(false);
   const [showFuelSettingsModal, setShowFuelSettingsModal] = useState(false);
   const [isSyncingHomebases, setIsSyncingHomebases] = useState(false);
+  const [isSyncingRiders, setIsSyncingRiders] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const { toast } = useToast();
   const smartCompletion = useSmartRouteCompletion({
     sessionId: null,
@@ -268,6 +270,81 @@ function AdminPage() {
       });
     } finally {
       setIsSyncingHomebases(false);
+    }
+  };
+
+  const syncRiders = async () => {
+    setIsSyncingRiders(true);
+    try {
+      const result = await AuthService.getInstance().syncRiders();
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: result.message,
+        });
+        loadAllUsers();
+        loadPendingUsers();
+      } else {
+        toast({
+          title: "Error",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to sync riders",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncingRiders(false);
+    }
+  };
+
+  const archiveUser = async (userId: string) => {
+    try {
+      const result = await AuthService.getInstance().archiveUser(userId);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: result.message || "User archived successfully",
+        });
+        loadPendingUsers();
+        loadAllUsers();
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error: any) {
+      log.error('Failed to archive user:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to archive user",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const restoreUser = async (userId: string) => {
+    try {
+      const result = await AuthService.getInstance().restoreUser(userId);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: result.message || "User restored successfully",
+        });
+        loadPendingUsers();
+        loadAllUsers();
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error: any) {
+      log.error('Failed to restore user:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to restore user",
+        variant: "destructive",
+      });
     }
   };
 
@@ -520,11 +597,14 @@ function AdminPage() {
     }
   };
 
-  const filteredUsers = allUsers.filter(user =>
-    user.full_name.toLowerCase().includes(userFilter.toLowerCase()) ||
-    user.rider_id.toLowerCase().includes(userFilter.toLowerCase()) ||
-    (user.email && user.email.toLowerCase().includes(userFilter.toLowerCase()))
-  );
+  const filteredUsers = allUsers.filter(user => {
+    if (!showArchived && user.archived_at) return false;
+    return (
+      user.full_name.toLowerCase().includes(userFilter.toLowerCase()) ||
+      user.rider_id.toLowerCase().includes(userFilter.toLowerCase()) ||
+      (user.email && user.email.toLowerCase().includes(userFilter.toLowerCase()))
+    );
+  });
 
   if (!canAccessAdmin) {
     return (
@@ -839,18 +919,50 @@ function AdminPage() {
                       </>
                     )}
                   </Button>
+                  <Button
+                    onClick={syncRiders}
+                    disabled={isSyncingRiders}
+                    variant="outline"
+                    size="sm"
+                    className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                    title="Sync riders from POPS"
+                  >
+                    {isSyncingRiders ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                        Syncing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Sync POPS Riders
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
 
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search users..."
-                  value={userFilter}
-                  onChange={(e) => setUserFilter(e.target.value)}
-                  className="pl-10"
-                />
+              {/* Search & Archived Toggle */}
+              <div className="flex gap-4 items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Search users..."
+                    value={userFilter}
+                    onChange={(e) => setUserFilter(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="showArchived"
+                    checked={showArchived}
+                    onChange={(e) => setShowArchived(e.target.checked)}
+                    className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                  />
+                  <Label htmlFor="showArchived" className="text-sm font-medium">Show Archived</Label>
+                </div>
               </div>
 
               {loadingAllUsers ? (
@@ -866,7 +978,7 @@ function AdminPage() {
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {filteredUsers.map((user) => (
-                    <div key={user.id} className="border rounded-lg p-4 bg-muted">
+                    <div key={user.id} className={`border rounded-lg p-4 ${user.archived_at ? 'bg-red-50/50 opacity-75 border-red-200' : 'bg-muted'}`}>
                       <div className="flex flex-col gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3">
@@ -886,6 +998,11 @@ function AdminPage() {
                                 <Badge variant="outline">
                                   {user.role}
                                 </Badge>
+                                {user.archived_at && (
+                                  <Badge variant="destructive">
+                                    Archived
+                                  </Badge>
+                                )}
                                 {user.primary_homebase_details && (
                                   <HomebaseBadge homebase={user.primary_homebase_details} className="text-xs" />
                                 )}
@@ -894,9 +1011,16 @@ function AdminPage() {
                                 <p className="truncate">
                                   ID: {user.rider_id}
                                 </p>
-                                <p className="truncate">
-                                  {user.email}
-                                </p>
+                                {user.email && (
+                                  <p className="truncate">
+                                    {user.email}
+                                  </p>
+                                )}
+                                {user.phone && (
+                                  <p className="truncate">
+                                    Phone: {user.phone}
+                                  </p>
+                                )}
                               </div>
                               <p className="text-xs text-muted-foreground">
                                 Last Login: {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
@@ -905,31 +1029,60 @@ function AdminPage() {
                           </div>
                         </div>
                         <div className="flex gap-2">
-                          <Button
-                            onClick={() => setEditingUser({
-                              id: user.id,
-                              name: user.full_name,
-                              email: user.email || '',
-                              riderId: user.rider_id,
-                              isActive: Boolean(user.is_active)
-                            })}
-                            size="sm"
-                            variant="outline"
-                            className="flex-1"
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
-                          <Button
-                            onClick={() => resetPassword(user.id, user.full_name)}
-                            size="sm"
-                            variant="outline"
-                            disabled={isResettingPassword && resetPasswordModal.userId === user.id}
-                            className="flex-1"
-                          >
-                            <Key className="h-4 w-4 mr-1" />
-                            {isResettingPassword && resetPasswordModal.userId === user.id ? 'Resetting...' : 'Reset Password'}
-                          </Button>
+                          {!user.archived_at ? (
+                            <>
+                              <Button
+                                onClick={() => setEditingUser({
+                                  id: user.id,
+                                  name: user.full_name,
+                                  email: user.email || '',
+                                  riderId: user.rider_id,
+                                  isActive: Boolean(user.is_active)
+                                })}
+                                size="sm"
+                                variant="outline"
+                                className="flex-1"
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                onClick={() => resetPassword(user.id, user.full_name)}
+                                size="sm"
+                                variant="outline"
+                                disabled={isResettingPassword && resetPasswordModal.userId === user.id}
+                                className="flex-1"
+                              >
+                                <Key className="h-4 w-4 mr-1" />
+                                {isResettingPassword && resetPasswordModal.userId === user.id ? 'Resetting...' : 'Reset Password'}
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  if (window.confirm(`Are you sure you want to archive user ${user.full_name}?`)) {
+                                    archiveUser(user.id);
+                                  }
+                                }}
+                                size="sm"
+                                variant="destructive"
+                                className="flex-1"
+                              >
+                                Archive
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to restore user ${user.full_name}?`)) {
+                                  restoreUser(user.id);
+                                }
+                              }}
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                            >
+                              Restore
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>

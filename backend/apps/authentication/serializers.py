@@ -83,13 +83,13 @@ class RiderAccountSerializer(serializers.ModelSerializer):
     class Meta:
         model = RiderAccount
         fields = [
-            'id', 'rider_id', 'full_name', 'email', 'rider_type', 'dispatch_option',
+            'id', 'rider_id', 'full_name', 'email', 'phone', 'rider_type', 'dispatch_option',
             'primary_homebase', 'primary_homebase_details', 'homebase_assignments',
             'is_active', 'is_approved', 'is_rider', 'is_super_user',
             'pops_rider_id', 'synced_to_pops', 'password',
-            'last_login_at', 'created_at', 'updated_at'
+            'last_login_at', 'archived_at', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'pops_rider_id', 'synced_to_pops', 'created_at', 'updated_at', 'is_super_user']
+        read_only_fields = ['id', 'pops_rider_id', 'synced_to_pops', 'archived_at', 'created_at', 'updated_at', 'is_super_user']
     
     def get_is_super_user(self, obj):
         """Riders should NEVER have superuser permissions"""

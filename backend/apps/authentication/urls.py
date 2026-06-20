@@ -12,6 +12,8 @@ urlpatterns = [
     path('register', views.register, name='register'),
     path('local-login', views.local_login, name='local_login'),
     path('google/login', views.google_login, name='google_login'),
+    path('request-otp', views.request_otp, name='request_otp'),
+    path('verify-otp', views.verify_otp, name='verify_otp'),
     path('refresh', views.refresh_token, name='refresh_token'),
     path('fetch-rider', views.fetch_rider, name='fetch_rider'),
     path('pending-approvals', views.pending_approvals, name='pending_approvals'),
@@ -29,6 +31,9 @@ urlpatterns = [
     # POPS API proxy endpoints
     path('pops/homebases', views.pops_homebases, name='pops_homebases'),
     path('pops/riders', views.pops_create_rider, name='pops_create_rider'),
+    path('riders/sync', views.sync_riders_from_pops, name='sync_riders_from_pops'),
+    path('users/<str:user_id>/archive', views.archive_user, name='archive_user'),
+    path('users/<str:user_id>/restore', views.restore_user, name='restore_user'),
 
     # Vehicle (mileage) control & approval
     path('my-vehicle', views.my_vehicle, name='my_vehicle'),

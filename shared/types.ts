@@ -22,11 +22,13 @@ export interface PendingUser {
   rider_id: string;
   full_name: string;
   email?: string;
+  phone?: string;
   rider_type?: string;
   dispatch_option?: string;
   primary_homebase?: number;
   primary_homebase_details?: Homebase;
   created_at: string;
+  archived_at?: string;
 }
 
 export interface AllUser {
@@ -34,6 +36,7 @@ export interface AllUser {
   rider_id: string;
   full_name: string;
   email?: string;
+  phone?: string;
   is_active: number;
   is_approved: number;
   role: string;
@@ -45,6 +48,7 @@ export interface AllUser {
   last_login_at?: string;
   created_at: string;
   updated_at: string;
+  archived_at?: string;
 }
 
 // --- Vehicle control & approval ---
