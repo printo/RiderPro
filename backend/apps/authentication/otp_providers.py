@@ -22,7 +22,7 @@ def send_whatsapp_otp(phone: str, code: str, name: str = "") -> None:
     Raises on any misconfiguration or delivery failure (caller maps it to a
     generic user-facing message and logs the detail).
     """
-    api_base = getattr(settings, 'BOTSPACE_API_BASE', 'https://api.botspace.co/v1')
+    api_base = getattr(settings, 'BOTSPACE_API_BASE', 'https://public-api.bot.space/v1')
     api_key = getattr(settings, 'BOTSPACE_API_KEY', '')
     channel_id = getattr(settings, 'BOTSPACE_CHANNEL_ID', '')
     template_id = getattr(settings, 'BOTSPACE_OTP_TEMPLATE', '')

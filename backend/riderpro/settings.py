@@ -191,7 +191,7 @@ OTP_MAX_PER_PHONE_PER_DAY = int(os.environ.get('OTP_MAX_PER_PHONE_PER_DAY', 10))
 OTP_MAX_PER_IP_PER_HOUR = int(os.environ.get('OTP_MAX_PER_IP_PER_HOUR', 30))
 
 # Botspace WhatsApp API credentials
-BOTSPACE_API_BASE = os.environ.get('BOTSPACE_API_BASE', 'https://api.botspace.co/v1')
+BOTSPACE_API_BASE = os.environ.get('BOTSPACE_API_BASE', 'https://public-api.bot.space/v1')
 BOTSPACE_API_KEY = os.environ.get('BOTSPACE_API_KEY', '')
 BOTSPACE_CHANNEL_ID = os.environ.get('BOTSPACE_CHANNEL_ID', '')
 BOTSPACE_OTP_TEMPLATE = os.environ.get('BOTSPACE_OTP_TEMPLATE', '')
