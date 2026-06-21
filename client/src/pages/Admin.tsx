@@ -978,8 +978,8 @@ function AdminPage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                   {filteredUsers.map((user) => (
-                    <div key={user.id} className={`border rounded-lg p-4 ${user.archived_at ? 'bg-red-50/50 opacity-75 border-red-200' : 'bg-muted'}`}>
-                      <div className="flex flex-col gap-4">
+                    <div key={user.id} className={`h-full flex flex-col border rounded-lg p-4 ${user.archived_at ? 'bg-red-50/50 opacity-75 border-red-200' : 'bg-muted'}`}>
+                      <div className="flex flex-col gap-4 flex-1">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1028,7 +1028,7 @@ function AdminPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 mt-auto">
                           {!user.archived_at ? (
                             <>
                               <Button
