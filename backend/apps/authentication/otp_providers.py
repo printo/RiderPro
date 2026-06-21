@@ -41,9 +41,19 @@ def send_whatsapp_otp(phone: str, code: str, name: str = "") -> None:
         base = base + '/v1'
     url = f"{base}/{channel_id}/message/send-message"
 
+    # Botspace requires the number in E.164 form with a leading '+' and the
+    # country code, e.g. +919940117071. Rider phones are often stored as bare
+    # 10 digits, which Botspace rejects with "Invalid phone number". Default to
+    # India (91).
+    default_cc = getattr(settings, 'OTP_DEFAULT_COUNTRY_CODE', '91')
+    digits = ''.join(c for c in phone if c.isdigit())
+    if len(digits) == 10:
+        digits = default_cc + digits
+    phone_e164 = '+' + digits
+
     payload = {
         "name": name or "",
-        "phone": phone,
+        "phone": phone_e164,
         "templateId": template_id,
         "variables": [code],
     }
