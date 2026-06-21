@@ -18,6 +18,7 @@ from .serializers import (
 )
 from .models import RiderAccount, Homebase, RiderHomebaseAssignment, VehicleChangeRequest
 from django.utils import timezone
+from django.conf import settings
 from utils.pops_client import pops_client
 import bcrypt
 
@@ -1581,11 +1582,13 @@ def sync_homebases_from_pops(request):
             'message': 'Permission denied'
         }, status=status.HTTP_403_FORBIDDEN)
         
-    access_token = request.user.access_token
+    # Prefer the service token (works for Google-SSO admins who have no POPS
+    # session token); fall back to the caller's own POPS token.
+    access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or request.user.access_token
     if not access_token:
         return Response({
             'success': False,
-            'message': 'User must have a valid POPS access token'
+            'message': 'No configured service token or user POPS token'
         }, status=status.HTTP_401_UNAUTHORIZED)
         
     try:
