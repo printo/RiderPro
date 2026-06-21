@@ -56,23 +56,28 @@ docker compose up --build
 ### Tables
 
 ```
-shipments          - External shipment data (main table)
-route_sessions     - Route tracking sessions
-route_tracking     - GPS coordinates
-users              - Authentication (Django User model)
-vehicle_types      - Vehicle configurations
-fuel_settings      - Fuel pricing
+shipments               - External shipment data (main table)
+route_sessions          - Route tracking sessions
+route_tracking          - GPS coordinates
+users                   - Authentication (Django User model)
+rider_accounts          - Local riders (phone, vehicle_type, is_approved, archived_at)
+otp_challenges          - Hashed rider-login OTP codes (TTL + attempt tracking)
+homebases               - Rider homebases (synced from POPS)
+vehicle_change_requests - Admin-approved rider vehicle changes
+vehicle_types           - Vehicle configurations (mileage)
+fuel_settings           - Fuel pricing
 ```
 
 ## 🔑 Authentication & Roles
 
-### Dual System
+### Login paths
 
-1. **External API** (Printo) - Enterprise users
-2. **Local Database** - Self-hosted with approval workflow
-3. **Google SSO** - "Continue with Google"; the backend verifies the Google `id_token` and bootstraps admins listed in `GOOGLE_ADMIN_EMAILS`. Set `GOOGLE_ADMIN_EMAILS` per environment in `localsettings.py` (empty by default), and add each serving origin (`http://localhost:5004`, `https://riderpro.printo.in`) to the OAuth client's **Authorized JavaScript origins** in Google Cloud Console — otherwise the button is blocked
+1. **Riders — phone + OTP (passwordless).** Enter a registered phone, receive a 6-digit code over **WhatsApp** (Botspace), verify it to log in. `POST /api/v1/auth/request-otp` → `POST /api/v1/auth/verify-otp`. Both endpoints return the **same response whether or not the number is registered**, so they can't be used to enumerate riders. Codes are stored only as bcrypt hashes with a TTL, resend cooldown, and per-phone/day + per-IP/hour abuse caps.
+2. **Staff/admins — Google SSO.** "Continue with Google"; the backend verifies the Google `id_token` and bootstraps admins listed in `GOOGLE_ADMIN_EMAILS`. Set `GOOGLE_ADMIN_EMAILS` per environment in `localsettings.py` (empty by default), and add each serving origin (`http://localhost:5004`, `https://riderpro.printo.in`) to the OAuth client's **Authorized JavaScript origins** in Google Cloud Console — otherwise the button is blocked.
 
-> **Signup** (`/signup`) is **unauthenticated** and collects rider ID, name, password and an optional homebase — **not** a vehicle. Riders confirm their vehicle *after* login at day-start (admin-approved). Anything the signup page reads must be public (e.g. the homebase list).
+> **No self-signup.** The old password-based signup/login is **retired**. Riders are provisioned by **POPS sync** (manager-gated) into `RiderAccount`; removal is a **soft-archive**. A rider must be approved, active, and non-archived to receive an OTP. Vehicle is confirmed *after* login at day-start (admin-approved), not at signup.
+
+> **OTP delivery (Botspace):** WhatsApp numbers must be E.164 with a leading `+` and country code (e.g. `+919940117071`). Rider phones are stored as bare 10 digits, so the Botspace sender normalizes to `+<cc><number>` (default `91`, override via `OTP_DEFAULT_COUNTRY_CODE`) — a bare 10-digit number is rejected by Botspace with *"Invalid phone number"*. Botspace host is `public-api.bot.space` (NOT `api.botspace.co`). In dev, set `OTP_PROVIDER=console` to log the code instead of sending WhatsApp.
 
 ### Roles & Access
 
@@ -441,6 +446,23 @@ PORT=5000
 
 # Security
 JWT_SECRET=your-secret-key-32-chars-min
+
+# Rider OTP login (WhatsApp via Botspace)
+OTP_PROVIDER=botspace                 # 'botspace' (prod WhatsApp) or 'console' (dev: logs the code)
+OTP_DEFAULT_COUNTRY_CODE=91           # prepended to bare 10-digit phones before sending
+OTP_TTL_SECONDS=300                   # code lifetime
+OTP_RESEND_COOLDOWN=45                # seconds between resends per phone
+OTP_MAX_ATTEMPTS=5                    # verify attempts before a code is locked
+OTP_MAX_PER_PHONE_PER_DAY=10          # abuse cap
+OTP_MAX_PER_IP_PER_HOUR=30            # abuse cap
+BOTSPACE_API_BASE=https://public-api.bot.space/v1   # NOT api.botspace.co
+BOTSPACE_API_KEY=...                  # Botspace API key
+BOTSPACE_CHANNEL_ID=...               # WhatsApp channel id
+BOTSPACE_OTP_TEMPLATE=riderpro_otp    # approved WhatsApp template id
+
+# Google SSO (staff/admin login)
+GOOGLE_OAUTH_CLIENT_ID=...            # public by design; mirror in VITE_GOOGLE_CLIENT_ID
+GOOGLE_ADMIN_EMAILS=a@x.com,b@x.com   # comma-separated; empty by default (nobody bootstraps as admin)
 ```
 
 ## ⏰ Cron Jobs & Database Maintenance
@@ -643,6 +665,16 @@ npm run db:init           # Manual initialization
 ```bash
 curl http://localhost:5000/health
 ```
+
+### "Couldn't send the verification code right now" on Send OTP
+
+The user-facing message is intentionally generic; the real cause is logged server-side. On the prod server:
+
+```bash
+docker compose -f docker-compose.prod.yml logs django --since 30m 2>&1 | grep -i "botspace\|OTP"
+```
+
+Common causes: (1) `Botspace OTP send failed ... "Invalid phone number"` → the number reached Botspace without a `+`/country code (fixed by the sender's E.164 normalization; check `OTP_DEFAULT_COUNTRY_CODE`); (2) `... is not configured` → a missing `BOTSPACE_*` env var; (3) a 4xx from Botspace → rotated API key, wrong `BOTSPACE_CHANNEL_ID`, or the `riderpro_otp` template not approved.
 
 ### `/admin-dashboard` (or other `/admin-*` SPA routes) 404 on hard-refresh
 
