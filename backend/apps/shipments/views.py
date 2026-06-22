@@ -2765,10 +2765,14 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
 
         return Response({'success': True, 'ignored': ignored})
 
-    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsManagerUser])
-    def dispatch(self, request):
+    @action(detail=False, methods=['post'], url_path='dispatch', permission_classes=[IsAuthenticated, IsManagerUser])
+    def dispatch_route(self, request):
         """
-        Lock a rider's route for a date + wave (Stage 2 dispatch). Computes the
+        Lock a rider's route for a date + wave (Stage 2 dispatch).
+
+        NOTE: method is named `dispatch_route`, NOT `dispatch` — `dispatch` would
+        override APIView.dispatch() and break the entire ViewSet. url_path keeps
+        the public route as /routes/dispatch. Computes the
         road-ordered sequence with the SAME helper as the day-plan preview and
         writes dispatch_sequence + dispatched_at onto that rider's mapped,
         in-window shipments. Manager-gated. Idempotent (re-dispatch overwrites).
