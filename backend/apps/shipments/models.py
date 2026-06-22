@@ -72,6 +72,10 @@ class Shipment(models.Model):
     stop_latitude = models.FloatField(null=True, blank=True)
     stop_longitude = models.FloatField(null=True, blank=True)
     km_travelled = models.FloatField(default=0)
+
+    # Dispatch (Stage 2 ops-locked route order) — both null until ops dispatches the rider
+    dispatch_sequence = models.IntegerField(null=True, blank=True, help_text="Locked stop order set by ops dispatch; null = not dispatched")
+    dispatched_at = models.DateTimeField(null=True, blank=True, help_text="When ops dispatched/locked this shipment's route")
     
     # Sync tracking with POPS
     synced_to_external = models.BooleanField(default=False)

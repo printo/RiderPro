@@ -60,6 +60,31 @@ def _extract_pincode(address):
     return None
 
 
+def _road_order_indices(mappable):
+    """Nearest-neighbour ordering of mappable shipments by real road travel time.
+
+    Returns (order, matrix): `order` is a list of indices into `mappable` (the
+    visiting sequence); `matrix` is the NxN distance/duration matrix (or None for
+    <=1 stop). Shared by the day-plan preview and dispatch, so a dispatched/locked
+    order always equals the previewed order.
+    """
+    from .routing import get_routing_backend
+    n = len(mappable)
+    if n <= 1:
+        return list(range(n)), None
+    points = [(s.latitude, s.longitude) for s in mappable]
+    matrix = get_routing_backend().get_distance_matrix(points)
+    remaining = list(range(1, n))
+    order = [0]
+    cur = 0
+    while remaining:
+        nxt = min(remaining, key=lambda j: matrix[cur][j].duration_seconds)
+        order.append(nxt)
+        remaining.remove(nxt)
+        cur = nxt
+    return order, matrix
+
+
 def _is_manager_user(user):
     return (
         user.is_superuser
@@ -2574,7 +2599,6 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 unassigned.append(s)
 
         name_map = self._resolve_employee_name_map(list(by_rider.keys()))
-        backend = get_routing_backend()
 
         riders_payload = []
         pincode_counts = defaultdict(lambda: defaultdict(int))  # pincode -> {employee_id: stops_here}
@@ -2588,21 +2612,9 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 if pc:
                     pincode_counts[pc][emp_id] += 1
 
-            # order the mapped stops by real road travel time (nearest-neighbour)
-            matrix = None
-            if len(mappable) <= 1:
-                order = list(range(len(mappable)))
-            else:
-                points = [(s.latitude, s.longitude) for s in mappable]
-                matrix = backend.get_distance_matrix(points)
-                remaining = list(range(1, len(points)))
-                order = [0]
-                cur = 0
-                while remaining:
-                    nxt = min(remaining, key=lambda j: matrix[cur][j].duration_seconds)
-                    order.append(nxt)
-                    remaining.remove(nxt)
-                    cur = nxt
+            # order the mapped stops by real road travel time (shared helper, so a
+            # dispatched/locked order equals this previewed order)
+            order, matrix = _road_order_indices(mappable)
 
             ordered_stops = []
             cum_km = 0.0
@@ -2655,6 +2667,7 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                     'finish_eta_clock': (plan_start + timedelta(seconds=cum_seconds)).isoformat() if mappable else None,
                 },
                 'flags': {'overloaded': bool(reasons), 'reasons': reasons},
+                'dispatched': any(s.dispatched_at is not None for s in mappable),
             })
 
         # overloaded riders first, then alphabetical
@@ -2751,6 +2764,77 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             OverlapIgnore.objects.filter(date=day, wave=wave, pincode=pincode).delete()
 
         return Response({'success': True, 'ignored': ignored})
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated, IsManagerUser])
+    def dispatch(self, request):
+        """
+        Lock a rider's route for a date + wave (Stage 2 dispatch). Computes the
+        road-ordered sequence with the SAME helper as the day-plan preview and
+        writes dispatch_sequence + dispatched_at onto that rider's mapped,
+        in-window shipments. Manager-gated. Idempotent (re-dispatch overwrites).
+
+        Body: {date: 'YYYY-MM-DD', wave, employee_id}.
+        """
+        from datetime import datetime, timedelta, time as dtime
+
+        date_str = request.data.get('date')
+        wave = (request.data.get('wave') or 'all').lower()
+        employee_id = (request.data.get('employee_id') or '').strip()
+
+        if not date_str or not employee_id:
+            return Response(
+                {'success': False, 'error': 'date and employee_id are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            day = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response(
+                {'success': False, 'error': 'Invalid date — use YYYY-MM-DD.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tz = timezone.get_current_timezone()
+        WAVE_WINDOWS = {'morning': (0, 12), 'noon': (12, 16), 'evening': (16, 24), 'all': (0, 24)}
+        if wave not in WAVE_WINDOWS:
+            wave = 'all'
+        start_h, end_h = WAVE_WINDOWS[wave]
+        start_dt = timezone.make_aware(datetime.combine(day, dtime(start_h, 0)), tz)
+        if end_h >= 24:
+            end_dt = timezone.make_aware(datetime.combine(day, dtime(0, 0)), tz) + timedelta(days=1)
+        else:
+            end_dt = timezone.make_aware(datetime.combine(day, dtime(end_h, 0)), tz)
+
+        ships = list(
+            Shipment.objects
+            .filter(employee_id=employee_id, delivery_time__gte=start_dt, delivery_time__lt=end_dt)
+            .exclude(status='Cancelled')
+        )
+        mappable = [s for s in ships if s.latitude is not None and s.longitude is not None]
+        if not mappable:
+            return Response(
+                {'success': False, 'error': 'No mappable shipments to dispatch for this rider/date/wave.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        order, _ = _road_order_indices(mappable)
+        now = timezone.now()
+        locked = []
+        for seq, idx in enumerate(order):
+            s = mappable[idx]
+            s.dispatch_sequence = seq + 1
+            s.dispatched_at = now
+            s.save(update_fields=['dispatch_sequence', 'dispatched_at', 'updated_at'])
+            locked.append({'shipment_id': s.id, 'sequence': seq + 1})
+
+        return Response({
+            'success': True,
+            'employee_id': employee_id,
+            'date': day.isoformat(),
+            'wave': wave,
+            'dispatched_count': len(locked),
+            'stops': locked,
+        })
 
     @action(detail=False, methods=['post'])
     def road_path(self, request):
