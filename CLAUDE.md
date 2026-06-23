@@ -201,6 +201,27 @@ The required sequence for every change:
 This applies to all changes — features, fixes, refactors, and documentation.
 Do not combine steps 3 and 5. The summary comes first; the commit only happens after the user confirms.
 
+## Deferred cleanup — dead code after the POPS + OTP cutover
+
+Now that riders are POPS-sourced + phone/OTP and staff use Google SSO, the following are vestigial but intentionally left in place. Fold these into the `purge_legacy_users` management command / spawned task, or a dedicated cleanup pass. **Verify each is truly unused before removing.**
+
+**Backend endpoints with no live caller** (admin UI no longer calls them; safe to prune):
+- `reset_password` (`POST /auth/reset-password/<id>`) — reset-password UI removed; nobody has a local password anymore.
+- `approve_user` / `reject_user` / `pending_approvals` (`/auth/approve|reject/<id>`, `/auth/pending-approvals`) — approval UI removed; riders are pre-approved by the POPS rider sync.
+- `get_user` GET (`GET /auth/users/<id>`) — Edit removed, no frontend caller (kept only for possible external/Node-compat callers; the PATCH/PUT update handler was already removed).
+- `register`, `login`, `local_login` — already `410` stubs (self-signup + password login retired).
+
+**Vestigial fields / logic:**
+- `RiderAccount.password_hash` (`models.py`) + the bcrypt password branch in `backends.py` + `reset_password` — unused now that auth is OTP / Google SSO. Removing needs a migration plus cleaning `backends.py` and the serializer `create`.
+- `is_approved` field + the OTP-login guard in `request_otp`/`verify_otp` — kept as a no-op safety net (synced riders are always approved; overlaps with `is_active` + `archived_at`). Drop only together with approve/reject/pending.
+
+**Dead frontend methods:** `AuthService.loginWithExternalAPI` / `loginWithLocalDB` + their `useAuth` bindings — old password login; `LoginForm` now uses OTP + Google SSO only.
+
+**Data cleanup (`purge_legacy_users` task):**
+- Legacy/duplicate non-POPS `User` rows — e.g. the stale PIA-login `12180` that duplicates the Google-SSO admin and carries 1 `RouteSession`/6 `RouteTracking`. Reassign string-linked history (`employee_id`) to the canonical record, re-verify nothing is linked, then delete.
+- The Seshagiri duplicate originates **in POPS** (two entries, pops ids 70 & 92, both `rider_id Seshagiri_300099`) — fix in POPS, not locally; the misspelled local `Sheshagiri_300099` has route history, so reassign before any delete.
+- ~11 riders have no phone **in POPS** → they can't receive an OTP until phones are added in POPS and re-synced.
+
 ## Useful file locations
 
 | Concern | File |
