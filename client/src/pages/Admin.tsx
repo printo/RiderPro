@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { log } from "@/utils/logger";
-import { Fuel, Car, Users, UserCheck, UserX, Key, Edit, Search, RefreshCw, Plus, X, Target, Eye, EyeOff } from "lucide-react";
+import { Fuel, Car, Users, UserCheck, UserX, Edit, Search, RefreshCw, Plus, X, Target } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,14 +19,6 @@ import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
 import AuthService from '@/services/AuthService';
 import SmartCompletionSettings from '@/components/SmartCompletionSettings';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
-
-interface EditingUser {
-  id: string;
-  name: string;
-  email: string;
-  riderId: string;
-  isActive: boolean;
-}
 
 interface VehicleTypeFormProps {
   vehicle?: Partial<VehicleType> | null;
@@ -159,17 +151,6 @@ function AdminPage() {
   const [allUsers, setAllUsers] = useState<AllUser[]>([]);
   const [loadingAllUsers, setLoadingAllUsers] = useState(false);
   const [userFilter, setUserFilter] = useState('');
-  const [editingUser, setEditingUser] = useState<EditingUser | null>(null);
-  const [resetPasswordModal, setResetPasswordModal] = useState<{ isOpen: boolean; userId: string; userName: string }>({
-    isOpen: false,
-    userId: '',
-    userName: ''
-  });
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isResettingPassword, setIsResettingPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([]);
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Partial<VehicleType> | null>(null);
@@ -478,122 +459,6 @@ function AdminPage() {
         description: "Failed to reject user",
         variant: "destructive",
       });
-    }
-  };
-
-  const updateUser = async (userId: string, updates: Partial<AllUser>) => {
-    try {
-      const response = await apiRequest("PATCH", `/api/v1/auth/users/${userId}`, updates);
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "User updated successfully",
-        });
-        loadAllUsers();
-        setEditingUser(null);
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (error) {
-      log.error('Failed to update user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update user",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const resetPassword = (userId: string, userName: string) => {
-    setResetPasswordModal({
-      isOpen: true,
-      userId,
-      userName
-    });
-  };
-
-  const handleResetPassword = async () => {
-    if (!newPassword.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a new password",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      toast({
-        title: "Error",
-        description: "Password must be at least 8 characters long",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Password strength validation
-    const hasUpperCase = /[A-Z]/.test(newPassword);
-    const hasLowerCase = /[a-z]/.test(newPassword);
-    const hasNumbers = /\d/.test(newPassword);
-    const _hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
-
-    if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
-      toast({
-        title: "Error",
-        description: "Password must contain at least one uppercase letter, one lowercase letter, and one number",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsResettingPassword(true);
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`/api/v1/auth/reset-password/${resetPasswordModal.userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          password: newPassword
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Password reset successfully",
-        });
-        setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
-        setNewPassword('');
-        setConfirmPassword('');
-        setShowNewPassword(false);
-        setShowConfirmPassword(false);
-      } else {
-        throw new Error(data.message || 'Failed to reset password');
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to reset password. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsResettingPassword(false);
     }
   };
 
@@ -1032,31 +897,6 @@ function AdminPage() {
                           {!user.archived_at ? (
                             <>
                               <Button
-                                onClick={() => setEditingUser({
-                                  id: user.id,
-                                  name: user.full_name,
-                                  email: user.email || '',
-                                  riderId: user.rider_id,
-                                  isActive: Boolean(user.is_active)
-                                })}
-                                size="sm"
-                                variant="outline"
-                                className="flex-1"
-                              >
-                                <Edit className="h-4 w-4 mr-1" />
-                                Edit
-                              </Button>
-                              <Button
-                                onClick={() => resetPassword(user.id, user.full_name)}
-                                size="sm"
-                                variant="outline"
-                                disabled={isResettingPassword && resetPasswordModal.userId === user.id}
-                                className="flex-1"
-                              >
-                                <Key className="h-4 w-4 mr-1" />
-                                {isResettingPassword && resetPasswordModal.userId === user.id ? 'Resetting...' : 'Reset Password'}
-                              </Button>
-                              <Button
                                 onClick={() => {
                                   if (window.confirm(`Are you sure you want to archive user ${user.full_name}?`)) {
                                     archiveUser(user.id);
@@ -1093,180 +933,6 @@ function AdminPage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Edit User Modal */}
-      {editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Edit User</h3>
-            <div className="space-y-4">
-              <div>
-                <Label className="block text-sm font-medium mb-1">Full Name</Label>
-                <Input
-                  value={editingUser.name}
-                  onChange={(e) => setEditingUser(prev => prev ? { ...prev, name: e.target.value } : null)}
-                />
-              </div>
-              <div>
-                <Label className="block text-sm font-medium mb-1">Email</Label>
-                <Input
-                  value={editingUser.email}
-                  onChange={(e) => setEditingUser(prev => prev ? { ...prev, email: e.target.value } : null)}
-                />
-              </div>
-              <div>
-                <Label className="block text-sm font-medium mb-1">Rider ID</Label>
-                <Input
-                  value={editingUser.riderId}
-                  onChange={(e) => setEditingUser(prev => prev ? { ...prev, riderId: e.target.value } : null)}
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={editingUser.isActive}
-                  onChange={(e) => setEditingUser(prev => prev ? { ...prev, isActive: e.target.checked } : null)}
-                  className="rounded"
-                />
-                <Label htmlFor="isActive">Active User</Label>
-              </div>
-            </div>
-            <div className="flex gap-3 mt-6">
-              <Button
-                onClick={() => setEditingUser(null)}
-                variant="outline"
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => editingUser && updateUser(editingUser.id, {
-                  full_name: editingUser.name,
-                  email: editingUser.email,
-                  rider_id: editingUser.riderId,
-                  is_active: editingUser.isActive ? 1 : 0
-                })}
-                className="flex-1"
-              >
-                Save Changes
-              </Button>
-            </div>
-          </div>
-        </div>
-      )
-      }
-
-      {/* Reset Password Modal */}
-      {
-        resetPasswordModal.isOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                if (!isResettingPassword) {
-                  setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
-                  setNewPassword('');
-                  setConfirmPassword('');
-                  setShowNewPassword(false);
-                  setShowConfirmPassword(false);
-                }
-              }
-            }}>
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">Reset Password</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Reset password for {resetPasswordModal.userName}
-              </p>
-              <div className="text-xs text-muted-foreground mb-4 p-3 bg-muted rounded-md">
-                <p className="font-medium mb-1">Password Requirements:</p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>At least 8 characters long</li>
-                  <li>Contains uppercase letter (A-Z)</li>
-                  <li>Contains lowercase letter (a-z)</li>
-                  <li>Contains number (0-9)</li>
-                  <li>Special characters are optional</li>
-                </ul>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-sm font-medium">New Password</Label>
-                  <div className="relative">
-                    <Input
-                      type={showNewPassword ? "text" : "password"}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new password"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          document.getElementById('confirm-password-input')?.focus();
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                      tabIndex={-1}
-                    >
-                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-sm font-medium">Confirm Password</Label>
-                  <div className="relative">
-                    <Input
-                      id="confirm-password-input"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new password"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleResetPassword();
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      tabIndex={-1}
-                    >
-                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <Button
-                  onClick={() => {
-                    setResetPasswordModal({ isOpen: false, userId: '', userName: '' });
-                    setNewPassword('');
-                    setConfirmPassword('');
-                    setShowNewPassword(false);
-                    setShowConfirmPassword(false);
-                  }}
-                  variant="outline"
-                  className="flex-1"
-                  disabled={isResettingPassword}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleResetPassword}
-                  className="flex-1"
-                  disabled={!newPassword.trim() || !confirmPassword.trim() || isResettingPassword}
-                >
-                  {isResettingPassword ? 'Resetting...' : 'Reset Password'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )
-      }
 
       {/* Vehicle Type Modal */}
       {
