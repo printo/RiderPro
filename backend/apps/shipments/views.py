@@ -3221,7 +3221,7 @@ class SyncViewSet(viewsets.ViewSet):
         for shipment in pending_shipments:
             if shipment.pops_order_id and request.user.access_token:
                 try:
-                    pops_client.update_order_status(
+                    pops_client.update_order_fields(
                         shipment.pops_order_id,
                         {'status': shipment.status},
                         request.user.access_token
@@ -3291,7 +3291,7 @@ class SyncViewSet(viewsets.ViewSet):
         
         if shipment.pops_order_id and request.user.access_token:
             try:
-                pops_client.update_order_status(
+                pops_client.update_order_fields(
                     shipment.pops_order_id,
                     {'status': shipment.status},
                     request.user.access_token
@@ -3332,7 +3332,7 @@ class SyncViewSet(viewsets.ViewSet):
             try:
                 shipment = Shipment.objects.get(id=shipment_id)
                 if shipment.pops_order_id and request.user.access_token:
-                    pops_client.update_order_status(
+                    pops_client.update_order_fields(
                         shipment.pops_order_id,
                         {'status': shipment.status},
                         request.user.access_token

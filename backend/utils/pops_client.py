@@ -108,31 +108,6 @@ class PopsAPIClient:
             logger.error(f"POPS create order error: {e}")
             return None
     
-    def update_order_status(self, order_id: int, status_data: Dict[str, Any], access_token: str) -> Optional[Dict[str, Any]]:
-        """
-        Update order status in POPS
-        
-        Returns:
-            Updated order data, or None if failed
-        """
-        url = f"{self.base_url}/deliveryq/status-update/"
-        headers = {
-            'Authorization': f'Bearer {access_token}'
-        }
-        try:
-            response = self.session.post(url, json={
-                'id': order_id,
-                **status_data
-            }, headers=headers, timeout=30)
-            if response.status_code in [200, 201]:
-                return response.json()
-            else:
-                logger.error(f"POPS update order status failed: {response.status_code} - {response.text}")
-                return None
-        except Exception as e:
-            logger.error(f"POPS update order status error: {e}")
-            return None
-
     def update_order_fields(self, order_id: int, fields_data: Dict[str, Any], access_token: str) -> Optional[Dict[str, Any]]:
         """
         Update mutable Order fields in POPS.
@@ -152,30 +127,10 @@ class PopsAPIClient:
                     # the update — treat as success, not a "returned empty response".
                     return {}
 
-            logger.warning(
+            logger.error(
                 "POPS update order fields failed on PATCH endpoint: %s - %s",
                 response.status_code,
                 response.text,
-            )
-
-            # Fallback to status-update endpoint for compatibility with older deployments.
-            fallback_payload = {'id': order_id, **fields_data}
-            fallback = self.session.post(
-                f"{self.base_url}/deliveryq/status-update/",
-                json=fallback_payload,
-                headers=headers,
-                timeout=30,
-            )
-            if fallback.status_code in [200, 201]:
-                try:
-                    return fallback.json()
-                except ValueError:
-                    return {}
-
-            logger.error(
-                "POPS update order fields fallback failed: %s - %s",
-                fallback.status_code,
-                fallback.text,
             )
             return None
         except Exception as e:
