@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { log } from "@/utils/logger";
-import { Fuel, Car, Users, UserCheck, UserX, Edit, Search, RefreshCw, Plus, X, Target } from "lucide-react";
+import { Fuel, Car, Users, Edit, Search, RefreshCw, Plus, X, Target } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,7 @@ import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import FuelSettingsModal from "@/components/ui/forms/FuelSettingsModal";
 import CurrentFuelSettings from "@/components/ui/forms/CurrentFuelSettings";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { VehicleType, PendingUser, AllUser } from '@shared/types';
+import { VehicleType, AllUser } from '@shared/types';
 import { DispatchBadge } from '@/components/ui/DispatchBadge';
 import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
 import AuthService from '@/services/AuthService';
@@ -146,8 +146,6 @@ function VehicleTypeForm({ vehicle, onSave, onCancel }: VehicleTypeFormProps) {
 
 function AdminPage() {
   const { user } = useAuth();
-  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
   const [allUsers, setAllUsers] = useState<AllUser[]>([]);
   const [loadingAllUsers, setLoadingAllUsers] = useState(false);
   const [userFilter, setUserFilter] = useState('');
@@ -179,31 +177,10 @@ function AdminPage() {
   // Load pending users and access tokens
   useEffect(() => {
     if (canAccessAdmin) {
-      loadPendingUsers();
       loadAllUsers();
       loadVehicleTypes();
     }
   }, [canAccessAdmin]);
-
-  const loadPendingUsers = async () => {
-    setLoadingUsers(true);
-    try {
-      const response = await apiRequest("GET", '/api/v1/auth/pending-approvals');
-      const data = await response.json();
-      if (data.success) {
-        setPendingUsers(data.users);
-      }
-    } catch (error) {
-      console.error('Failed to load pending users:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load pending users",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingUsers(false);
-    }
-  };
 
   const loadAllUsers = async () => {
     setLoadingAllUsers(true);
@@ -235,7 +212,6 @@ function AdminPage() {
           description: result.message,
         });
         loadAllUsers();
-        loadPendingUsers();
       } else {
         toast({
           title: "Error",
@@ -264,7 +240,6 @@ function AdminPage() {
           description: result.message,
         });
         loadAllUsers();
-        loadPendingUsers();
       } else {
         toast({
           title: "Error",
@@ -291,7 +266,6 @@ function AdminPage() {
           title: "Success",
           description: result.message || "User archived successfully",
         });
-        loadPendingUsers();
         loadAllUsers();
       } else {
         throw new Error(result.message);
@@ -314,7 +288,6 @@ function AdminPage() {
           title: "Success",
           description: result.message || "User restored successfully",
         });
-        loadPendingUsers();
         loadAllUsers();
       } else {
         throw new Error(result.message);
@@ -407,56 +380,6 @@ function AdminPage() {
       toast({
         title: "Error",
         description: "Failed to delete vehicle type",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const approveUser = async (userId: string) => {
-    try {
-      const response = await apiRequest("POST", `/api/v1/auth/approve/${userId}`);
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "User approved successfully",
-        });
-        loadPendingUsers();
-        loadAllUsers();
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (error) {
-      log.error('Failed to approve user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to approve user",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const rejectUser = async (userId: string) => {
-    try {
-      const response = await apiRequest("POST", `/api/v1/auth/reject/${userId}`);
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "Success",
-          description: "User rejected successfully",
-        });
-        loadPendingUsers();
-        loadAllUsers();
-      } else {
-        throw new Error(data.message);
-      }
-    } catch (error) {
-      log.error('Failed to reject user:', error);
-      toast({
-        title: "Error",
-        description: "Failed to reject user",
         variant: "destructive",
       });
     }
@@ -666,78 +589,6 @@ function AdminPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {/* Pending User Approvals Section - Only show if there are pending users */}
-            {pendingUsers.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium text-orange-600 dark:text-orange-400">
-                  Pending User Approvals ({pendingUsers.length})
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  New user registrations awaiting approval
-                </p>
-                <div className="space-y-3">
-                  {pendingUsers.map((user) => (
-                    <div key={user.id} className="border rounded-lg p-4 bg-orange-50 dark:bg-orange-900/20">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-orange-100 dark:bg-orange-800 rounded-full flex items-center justify-center flex-shrink-0">
-                              <Users className="h-5 w-5 text-orange-600" />
-                            </div>
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="font-medium truncate">{user.full_name}</h3>
-                                {user.dispatch_option && <DispatchBadge dispatchOption={user.dispatch_option} />}
-                                {user.primary_homebase_details && <HomebaseBadge homebase={user.primary_homebase_details} className="text-xs" />}
-                              </div>
-                              <div className="space-y-0.5 text-sm text-muted-foreground">
-                                <p className="truncate">
-                                  ID: {user.rider_id}
-                                </p>
-                                <p className="truncate">
-                                  {user.email}
-                                </p>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                Registered: {new Date(user.created_at).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 sm:flex-shrink-0">
-                          <Button
-                            onClick={() => {
-                              if (window.confirm(`Are you sure you want to approve ${user.full_name}?`)) {
-                                approveUser(user.id);
-                              }
-                            }}
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
-                          >
-                            <UserCheck className="h-4 w-4 mr-1" />
-                            Approve
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              if (window.confirm(`Are you sure you want to reject ${user.full_name}? This action cannot be undone.`)) {
-                                rejectUser(user.id);
-                              }
-                            }}
-                            size="sm"
-                            variant="destructive"
-                            className="w-full sm:w-auto"
-                          >
-                            <UserX className="h-4 w-4 mr-1" />
-                            Reject
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* All Users Management Section */}
             <div className="space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -745,14 +596,13 @@ function AdminPage() {
                 <div className="flex flex-wrap gap-2 sm:justify-end">
                   <Button
                     onClick={() => {
-                      loadPendingUsers();
                       loadAllUsers();
                     }}
-                    disabled={loadingUsers || loadingAllUsers}
+                    disabled={loadingAllUsers}
                     variant="outline"
                     size="sm"
                   >
-                    {(loadingUsers || loadingAllUsers) ? (
+                    {(loadingAllUsers) ? (
                       <>
                         <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
                         Loading...
@@ -856,9 +706,6 @@ function AdminPage() {
                                 {user.dispatch_option && <DispatchBadge dispatchOption={user.dispatch_option} className="text-xs" />}
                                 <Badge variant={user.is_active ? "default" : "secondary"}>
                                   {user.is_active ? "Active" : "Inactive"}
-                                </Badge>
-                                <Badge variant={user.is_approved ? "default" : "destructive"}>
-                                  {user.is_approved ? "Approved" : "Pending"}
                                 </Badge>
                                 <Badge variant="outline">
                                   {user.role}
