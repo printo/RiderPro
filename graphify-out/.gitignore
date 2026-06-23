@@ -1,0 +1,7 @@
+# graphify scratch — machine-specific paths + regenerable cache, not for VCS
+.graphify_python
+.graphify_root
+.graphify_labels.json
+.graphify_*.json
+.needs_update
+cache/
