@@ -203,7 +203,7 @@ Do not combine steps 3 and 5. The summary comes first; the commit only happens a
 
 ## Deferred cleanup — dead code after the POPS + OTP cutover
 
-Now that riders are POPS-sourced + phone/OTP and staff use Google SSO, the following are vestigial but intentionally left in place. Fold these into the `purge_legacy_users` management command / spawned task, or a dedicated cleanup pass. **Verify each is truly unused before removing.**
+Now that riders are POPS-sourced + phone/OTP and staff use Google SSO, the items below are vestigial. The **data** cleanup is **done** (see *Legacy-user data cleanup* below); the **dead-code** items remain — fold them into a cleanup pass. **Verify each is truly unused before removing.**
 
 **Backend endpoints with no live caller** (admin UI no longer calls them; safe to prune):
 - `reset_password` (`POST /auth/reset-password/<id>`) — reset-password UI removed; nobody has a local password anymore.
@@ -217,10 +217,17 @@ Now that riders are POPS-sourced + phone/OTP and staff use Google SSO, the follo
 
 **Dead frontend methods:** `AuthService.loginWithExternalAPI` / `loginWithLocalDB` + their `useAuth` bindings — old password login; `LoginForm` now uses OTP + Google SSO only.
 
-**Data cleanup (`purge_legacy_users` task):**
-- Legacy/duplicate non-POPS `User` rows — e.g. the stale PIA-login `12180` that duplicates the Google-SSO admin and carries 1 `RouteSession`/6 `RouteTracking`. Reassign string-linked history (`employee_id`) to the canonical record, re-verify nothing is linked, then delete.
-- The Seshagiri duplicate originates **in POPS** (two entries, pops ids 70 & 92, both `rider_id Seshagiri_300099`) — fix in POPS, not locally; the misspelled local `Sheshagiri_300099` has route history, so reassign before any delete.
-- ~11 riders have no phone **in POPS** → they can't receive an OTP until phones are added in POPS and re-synced.
+**Legacy-user data cleanup — DONE (2026-06-24), via `purge_legacy_users`.** The auth DB is now fully POPS-aligned: every `RiderAccount` is backed by a current POPS rider, and every `User` is a Google-SSO/email staff account or a live-POPS rider shadow (zero strays). Removed PIA-login shadows `10047`, `12180` (its rider-test history reassigned to the **rider** account `Kannan_rider_test`, NOT the manager), `12523`, `12592`; consolidated the Seshagiri duplicate (`Sheshagiri_300099` + `30009` → one `Seshagiri_300099` owning all its shipments/acks/route history).
+
+The tool — `backend/apps/authentication/management/commands/purge_legacy_users.py`:
+- **Dry-run by default**; `--apply` wraps changes in a transaction. Reassigns string-keyed history (`employee_id` on RouteSession/RouteTracking/Shipment/…) to the canonical record, re-verifies **zero** remaining links, then deletes. **Refuses all deletes unless the POPS rider pull is healthy** (succeeded + ≥ `--min-pops-riders`) — so "not in POPS" is never acted on off a truncated pull.
+- Flags: `--map STALE=CANONICAL` (reassign history + dedup), `--rename OLD=NEW` (align a `rider_id` to POPS — **POPS-authoritative**: NEW must equal what POPS calls OLD's `pops_rider_id`), `--delete-orphan-shadow` (dead no-canonical staff shadow), `--archive-rider` (soft-archive a rider whose POPS id is gone), `--delete-history-for`, `--delete-riders`, `--pops-json`.
+- **Rule learned:** rider history must NEVER merge into a manager/staff account (Kanna has dual manager+rider identities); size a merge by ALL string refs incl `Shipment.employee_id`, not just route GPS.
+
+**Still open — POPS-side only (RiderPro can't dedupe upstream; fix in POPS, then re-sync):**
+- Duplicate `rider_id`s in POPS: `11718` (×3, pops 87/88/89, "Ramjan Khan") and `Others` (×5, pops 72/75/76/77/94, placeholder).
+- POPS riders with **no phone** (can't receive OTP): `Raghu_86572`, `Ramesh_48691`, `Seshagiri_300099`, `printo_prathap`, `printo_raja`.
+- **`sync` does NOT auto-clean** — `sync_riders_from_pops` is upsert-only (no prune); a deleted-in-POPS rider lingers locally, and a stale name collision makes the survivor's sync silently `failed`. Use the command. Future feature spec: `docs/reconcile-on-sync-prd.html`.
 
 ## Useful file locations
 
@@ -246,6 +253,8 @@ Now that riders are POPS-sourced + phone/OTP and staff use Google SSO, the follo
 | Post-save signal triggers | `backend/apps/shipments/signals.py` |
 | Shared types contract | `shared/types.ts`, `shared/schema.ts` |
 | Route planning PRD (recommendations) | `docs/route-planning-prd.html` |
+| Legacy-user cleanup command | `backend/apps/authentication/management/commands/purge_legacy_users.py` |
+| Reconcile-on-sync PRD (proposed) | `docs/reconcile-on-sync-prd.html` |
 | Prod deploy script / compose | `deploy.sh`, `docker-compose.prod.yml` |
 | Production nginx config (mirrors live) | `nginx/conf.d/riderpro.conf` |
 | Login page (rider OTP + Google SSO) | `client/src/components/LoginForm.tsx` |

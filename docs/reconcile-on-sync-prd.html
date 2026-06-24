@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RiderPro — Reconcile POPS↔Local Conflicts (PRD)</title>
+<style>
+  :root{
+    --bg:#f4f7fb; --card:#fff; --ink:#1e293b; --muted:#64748b; --line:#e2e8f0;
+    --brand:#2563eb; --brand-d:#1e40af; --teal:#0891b2; --green:#16a34a; --amber:#d97706; --red:#dc2626; --violet:#7c3aed;
+    --shadow:0 1px 3px rgba(15,23,42,.08),0 8px 24px rgba(15,23,42,.06); --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.6;font-size:15.5px}
+  a{color:var(--brand);text-decoration:none}
+  code{background:#eef2f7;padding:.1em .4em;border-radius:5px;font-size:.85em;font-family:ui-monospace,Menlo,monospace}
+  header.hero{background:linear-gradient(135deg,#1e293b 0%,#1e40af 60%,#0891b2 130%);color:#fff;padding:46px 24px 40px}
+  .hero-inner{max-width:1080px;margin:0 auto}
+  .badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .pill{display:inline-flex;gap:6px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
+    padding:4px 11px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .hero h1{margin:.1em 0 .25em;font-size:30px;line-height:1.2;letter-spacing:-.5px}
+  .hero p{margin:0;color:#dbeafe;max-width:780px;font-size:16px}
+  nav.toc{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.93);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);box-shadow:0 1px 8px rgba(15,23,42,.04)}
+  .toc-inner{max-width:1080px;margin:0 auto;display:flex;gap:4px;overflow-x:auto;padding:8px 16px}
+  .toc a{white-space:nowrap;padding:7px 12px;border-radius:8px;color:var(--muted);font-weight:600;font-size:13px}
+  .toc a:hover{background:#eef2f7;color:var(--ink)}
+  main{max-width:1080px;margin:0 auto;padding:8px 16px 80px}
+  section{scroll-margin-top:64px;padding:30px 0 6px}
+  h2{font-size:22px;letter-spacing:-.3px;margin:.2em 0 .15em;display:flex;align-items:center;gap:10px}
+  h2 .num{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 8px;border-radius:9px;background:var(--brand);color:#fff;font-size:14px;flex:0 0 auto}
+  h3{font-size:16.5px;margin:1.2em 0 .4em}
+  .lead{color:var(--muted);margin-top:.1em}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);margin:14px 0}
+  .grid{display:grid;gap:16px}
+  @media(min-width:760px){.grid.c2{grid-template-columns:1fr 1fr}}
+  .exec{background:linear-gradient(180deg,#ffffff,#f3f8ff);border:2px solid #bfdbfe;border-radius:16px;padding:22px 24px;box-shadow:var(--shadow);margin:18px 0}
+  .exec .eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--brand)}
+  .rec{display:flex;gap:12px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--line)}
+  .rec .badge{flex:0 0 auto;width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff}
+  .rec .badge.one{background:var(--green)}.rec .badge.two{background:var(--brand)}
+  .keybox{border-left:4px solid var(--brand);background:#eff4ff;border-radius:0 10px 10px 0;padding:14px 18px;margin:16px 0}
+  .keybox.amber{border-color:var(--amber);background:#fff7ed}
+  .keybox.green{border-color:var(--green);background:#f0fdf4}
+  .keybox.red{border-color:var(--red);background:#fef2f2}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;vertical-align:middle}
+  .tag.now{background:#dcfce7;color:#166534}.tag.later{background:#fef3c7;color:#92400e}
+  ul{margin:.4em 0 .6em;padding-left:1.2em}li{margin:.25em 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:13px;line-height:1.5}
+  pre code{background:none;color:inherit;padding:0}
+  .muted{color:var(--muted)}
+  footer{max-width:1080px;margin:0 auto;padding:20px 16px 60px;color:var(--muted);font-size:13px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="hero-inner">
+    <div class="badge-row">
+      <span class="pill">📄 PRD — DRAFT for review</span>
+      <span class="pill">📅 2026-06-24</span>
+      <span class="pill">🧱 Builds on <code>purge_legacy_users</code> + rider sync</span>
+    </div>
+    <h1>Reconcile POPS↔Local Conflicts</h1>
+    <p>Let ops resolve duplicate / mis-named / orphaned rider records self-service and safely — <strong>without</strong> turning the rider <code>sync</code> button into a destructive operation.</p>
+  </div>
+</header>
+
+<nav class="toc"><div class="toc-inner">
+  <a href="#summary">★ Summary</a>
+  <a href="#problem">1 · Problem</a>
+  <a href="#phase1">2 · Phase 1 — Detect</a>
+  <a href="#phase2">3 · Phase 2 — Reconcile</a>
+  <a href="#safety">4 · Safety invariants</a>
+  <a href="#effort">5 · Effort &amp; rollout</a>
+  <a href="#rec">6 · Recommendation</a>
+</div></nav>
+
+<main>
+  <section id="summary">
+    <div class="exec">
+      <div class="eyebrow">If you read nothing else</div>
+      <h2 style="margin-top:.1em"><span class="num">★</span>Summary</h2>
+      <p class="lead">Conflicts between POPS and the local DB (a rider deleted in POPS, a duplicate <code>rider_id</code>, a record whose name drifted from POPS) should be resolvable by ops without an engineer. But the resolution is destructive — it reassigns route/reimbursement history and deletes records — so it must stay <em>out</em> of the routine <code>sync</code> button and behind an explicit, previewed confirmation.</p>
+      <div class="rec"><div class="badge one">1</div><div><strong>Phase 1 — <code>sync</code> surfaces conflicts</strong> &nbsp;<span class="tag now">DO FIRST</span><br/><span class="muted">Keep sync a safe, idempotent upsert, but return a structured <code>conflicts[]</code> instead of swallowing them as a silent <code>failed</code> count. Reuses detection already written in <code>purge_legacy_users</code>. ~0.5 day, non-destructive.</span></div></div>
+      <div class="rec"><div class="badge two">2</div><div><strong>Phase 2 — guided reconcile</strong> &nbsp;<span class="tag later">IF RECURRING</span><br/><span class="muted">An admin review queue that, per conflict, shows a <em>dry-run preview</em> of a recommended resolution ("would reassign 244 shipments, delete 2 shells, rename X→Y") and applies it transactionally via the command's vetted logic. ~3–5 days.</span></div></div>
+      <div class="keybox amber" style="margin-top:14px"><strong>Why not auto-clean on sync?</strong> Sync is a frequently-clicked, currently-safe operation. Making it delete/merge records erodes the guardrails (dry-run-first, transaction, reassign→verify→delete, "refuse on incomplete pull"). And POPS-origin duplicates must be fixed <em>in POPS</em>, not papered over locally — auto-resolving hides upstream problems that recur every sync.</div>
+    </div>
+  </section>
+
+  <section id="problem">
+    <h2><span class="num">1</span>The problem (from the real cleanup)</h2>
+    <p class="lead">Today <code>sync_riders_from_pops</code> (<code>apps/authentication/views.py</code>) is an <strong>upsert</strong>: it walks the riders POPS returns and updates-or-creates each. It has <code>created/updated/failed</code> counters and <strong>no prune step</strong>. Observed consequences:</p>
+    <div class="card">
+      <table>
+        <tr><th>Conflict</th><th>What happens today</th><th>Real example</th></tr>
+        <tr><td><strong>Orphaned local</strong></td><td>Rider deleted in POPS → local row lingers; sync ignores it forever.</td><td>Deleting pops 70 left <code>Sheshagiri_300099</code> with 214 shipments dangling.</td></tr>
+        <tr><td><strong>Rename collision</strong></td><td>POPS <code>rider_id</code> ≠ local for the same <code>pops_rider_id</code>, and the target name is taken by a stale row → <code>IntegrityError</code> → silent <code>failed++</code>. Sync can never fix it.</td><td><code>30009</code> (pops 92) couldn't become <code>Seshagiri_300099</code> while a dead record held that name.</td></tr>
+        <tr><td><strong>POPS-origin duplicate</strong></td><td>Same <code>rider_id</code> under several pops ids. Not a local bug — can't be deduped locally.</td><td><code>11718</code> ×3 (pops 87/88/89), <code>Others</code> ×5.</td></tr>
+      </table>
+    </div>
+    <div class="keybox red"><strong>Why this is dangerous to automate naively.</strong> History is string-keyed by <code>employee_id</code> (= username / rider_id), not a foreign key — deleting a record <em>orphans</em> its route/shipment/ack history. A "just pick which to keep and merge" wizard would: (a) happily merge <strong>rider</strong> history into a <strong>manager</strong> account (a near-miss this session — <code>12180</code> rider-test data nearly landed on the Google-SSO admin); and (b) under-state blast radius if it only counts route GPS — one record looked like "0 history" but actually carried <strong>244 shipments + 170 acknowledgments</strong>.</div>
+  </section>
+
+  <section id="phase1">
+    <h2><span class="num">2</span>Phase 1 — <code>sync</code> surfaces conflicts <span class="tag now">DO FIRST</span></h2>
+    <p class="lead">Small, additive, non-destructive. Ends the "silent <code>failed</code>" blind spot.</p>
+    <div class="card">
+      <p>Change <code>sync_riders_from_pops</code> to return, alongside <code>created/updated/failed</code>, a structured <code>conflicts[]</code>:</p>
+      <ul>
+        <li><code>orphan_local</code> — local <code>pops_rider_id</code> not in the pull (deleted in POPS).</li>
+        <li><code>rename_collision</code> — POPS <code>rider_id</code> ≠ local for a shared <code>pops_rider_id</code>, and the target name is already taken (the case that currently silently fails).</li>
+        <li><code>rider_id_mismatch</code> — POPS <code>rider_id</code> ≠ local, target free (sync <em>could</em> rename — flag for visibility).</li>
+        <li><code>pops_dup</code> — same <code>rider_id</code> under multiple pops ids → label <strong>"fix in POPS"</strong>.</li>
+      </ul>
+      <p class="muted">Detection already exists in <code>purge_legacy_users</code> (<code>_report_rider_mismatches</code> + the POPS-dup scan). Extract a shared <code>reconcile_detect(pops, local)</code> helper both call — no new logic, just surfacing.</p>
+    </div>
+    <div class="keybox green"><strong>Outcome:</strong> the sync result (and the admin UI) shows conflicts explicitly instead of a meaningless "1 failed". Nothing is deleted. Ops can then act (today: hand to an engineer + the command; after Phase 2: self-serve).</div>
+  </section>
+
+  <section id="phase2">
+    <h2><span class="num">3</span>Phase 2 — guided reconcile <span class="tag later">IF RECURRING</span></h2>
+    <p class="lead">Human-in-the-loop, explicit, previewed — the destructive part isolated from sync.</p>
+    <div class="grid c2">
+      <div class="card">
+        <h3>Admin "Reconcile" queue</h3>
+        <p>Mirror the existing <em>pending-approvals</em> / <code>VehicleChangeRequests</code> panels. Lists Phase-1 conflicts, grouped by person where inferable. Each row shows a <strong>recommended resolution</strong> (pre-selected) and lets the user override (pick the survivor).</p>
+      </div>
+      <div class="card">
+        <h3>Per-conflict dry-run preview</h3>
+        <p><code>POST /auth/reconcile/preview</code> runs the cleanup logic in <em>dry-run</em> for the proposed resolution and returns the consequences as JSON — <em>"would reassign 244 shipments + 170 acks, rename 30009→Seshagiri_300099, delete 2 shells"</em>. No silent auto-remap; the operator sees the true blast radius before confirming.</p>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Apply</h3>
+      <p><code>POST /auth/reconcile/apply</code> — transactional, reusing the command's vetted reassign→verify-zero-links→delete/rename path.</p>
+      <div class="keybox"><strong>Prerequisite:</strong> factor <code>purge_legacy_users</code> into a shared service module so the management command <em>and</em> the endpoint share one tested code path. No logic duplication — the command becomes a thin CLI over the service; the endpoint a thin HTTP wrapper.</div>
+    </div>
+  </section>
+
+  <section id="safety">
+    <h2><span class="num">4</span>Safety invariants <span class="muted" style="font-size:13px;font-weight:500">— non-negotiable; every one learned the hard way</span></h2>
+    <div class="card">
+      <ul>
+        <li><strong>No cross-role merge.</strong> Rider history must never merge into a manager/staff account; resolutions are rider↔rider / staff↔staff only. <span class="muted">(The <code>12180</code> near-miss.)</span></li>
+        <li><strong>Never act on an incomplete POPS pull.</strong> Gate on pull-ok + a minimum rider count; "not in POPS" off a truncated pull would wrongly delete real riders.</li>
+        <li><strong>Reassign → verify zero links → only then delete.</strong> Never orphan history; prefer soft-archive for riders when unsure.</li>
+        <li><strong>Size a merge by ALL string refs</strong> — <code>Shipment.employee_id</code>, acknowledgments, events — not just route GPS. <span class="muted">(A "0 history" record was really 244 shipments.)</span></li>
+        <li><strong>POPS-origin duplicates are flagged, not auto-merged.</strong> Fixed at the source; surface "fix in POPS." <span class="muted">(<code>Others</code>, <code>11718</code>.)</span></li>
+        <li><strong>A human confirms a previewed resolution.</strong> No silent auto-remap on a routine action.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="effort">
+    <h2><span class="num">5</span>Effort &amp; rollout</h2>
+    <div class="card">
+      <table>
+        <tr><th>Item</th><th>Effort</th><th>Risk</th></tr>
+        <tr><td>Phase 1 — sync returns <code>conflicts[]</code> (+ shared <code>reconcile_detect</code>)</td><td>~0.5 day</td><td>Low — additive, non-destructive</td></tr>
+        <tr><td>Service refactor — extract <code>purge_legacy_users</code> logic into a reusable module</td><td>~1 day</td><td>Medium — keep command behavior identical; cover with the existing harness scenarios</td></tr>
+        <tr><td>Phase 2 — preview + apply endpoints + admin review queue UI</td><td>~2–3 days</td><td>Medium — destructive path, but reuses vetted logic + dry-run preview</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section id="rec">
+    <h2><span class="num">6</span>Recommendation</h2>
+    <div class="keybox green"><strong>Ship Phase 1 now</strong> — cheap, safe, and it ends the silent-failure problem (conflicts become visible instead of vanishing as <code>failed</code>).</div>
+    <div class="keybox amber"><strong>Build Phase 2 only if conflicts recur.</strong> Today's volume is low — the legacy cruft cleared in the 2026-06-24 pass plus one Seshagiri consolidation. When it does recur, the service-refactor step is what keeps command + endpoint on one tested path.</div>
+    <p class="muted">Until Phase 2 exists, conflicts are resolved with the <code>purge_legacy_users</code> management command (dry-run default; <code>--map</code>, <code>--rename</code>, <code>--delete-orphan-shadow</code>, <code>--archive-rider</code>, <code>--delete-history-for</code>) — see CLAUDE.md.</p>
+  </section>
+</main>
+
+<footer>
+  RiderPro — internal PRD. Context: the 2026-06-24 legacy-user cleanup (removed 10047 / 12180 / 12523 / 12592; consolidated Seshagiri). The DB is now fully POPS-aligned; this proposal is about keeping it that way without making <code>sync</code> destructive.
+</footer>
+</body>
+</html>

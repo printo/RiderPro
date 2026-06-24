@@ -197,6 +197,15 @@ class Command(BaseCommand):
                  "clean. Repeatable.",
         )
         parser.add_argument(
+            "--rename", action="append", default=[], metavar="OLD=NEW",
+            dest="rename_pairs",
+            help="Rename a local RiderAccount's rider_id OLD -> NEW to match POPS. "
+                 "NEW must equal the rider_id POPS reports for OLD's pops_rider_id "
+                 "(authoritative); rewrites the record's route history (employee_id), "
+                 "its User-shadow username, and rider_id. Refuses on collision. "
+                 "Runs last. Repeatable.",
+        )
+        parser.add_argument(
             "--min-pops-riders", type=int, default=20,
             help="Minimum rider count for the POPS pull to be trusted complete "
                  "(default 20; a healthy pull has been ~38).",
@@ -217,6 +226,7 @@ class Command(BaseCommand):
         self.delete_history_for = set(opts["delete_history_for"])
         self.orphan_shadows = list(opts["orphan_shadows"])
         self.archive_riders = list(opts["archive_riders"])
+        self.rename_map = self._parse_maps(opts["rename_pairs"])
         self.min_pops = opts["min_pops_riders"]
         self.explicit_map = self._parse_maps(opts["maps"])
 
@@ -259,13 +269,15 @@ class Command(BaseCommand):
                 self._dedup_riders(pops, destructive_allowed),
                 self._delete_orphan_shadows(pops, destructive_allowed),
                 self._archive_non_pops_riders(pops, destructive_allowed),
+                self._rename_riders(pops, destructive_allowed),   # runs LAST
             )
 
         if self.apply and destructive_allowed:
             with transaction.atomic():
-                user_results, rider_results, orphan_results, archive_results = _run_passes()
+                results = _run_passes()
         else:
-            user_results, rider_results, orphan_results, archive_results = _run_passes()
+            results = _run_passes()
+        user_results, rider_results, orphan_results, archive_results, rename_results = results
 
         # 5. After snapshot + summary -----------------------------------
         if self.apply and destructive_allowed:
@@ -274,7 +286,7 @@ class Command(BaseCommand):
             self._report_delta(before, after)
 
         self._report_summary(user_results, rider_results, orphan_results,
-                             archive_results, destructive_allowed)
+                             archive_results, rename_results, destructive_allowed)
 
     # ------------------------------------------------------------------ #
     # POPS roster
@@ -954,10 +966,77 @@ class Command(BaseCommand):
         return results
 
     # ------------------------------------------------------------------ #
+    # RIDER RENAME — align a local rider_id to the POPS-authoritative value.
+    # Rewrites the record's string-keyed history, its User-shadow username, and
+    # rider_id. Only renames to exactly what POPS calls OLD's pops_rider_id.
+    # ------------------------------------------------------------------ #
+    def _rename_riders(self, pops, destructive_allowed):
+        results = {"acted": [], "review": []}
+        if not self.rename_map:
+            return results
+        RiderAccount = _model("authentication.RiderAccount")
+        self._h1("RIDER RENAME (align local rider_id to the POPS-pulled rider_id)")
+        for old, new in self.rename_map.items():
+            ra = RiderAccount.objects.filter(rider_id=old).first()
+            self.stdout.write("")
+            self.stdout.write(self.style.MIGRATE_HEADING(f"  RENAME {old!r} -> {new!r}"))
+            if not ra:
+                self.stdout.write(self.style.ERROR("    RiderAccount not found -> skip."))
+                results["review"].append(old)
+                continue
+            # NEW must be exactly what POPS reports for THIS record's pops_rider_id.
+            pops_name = pops.pk_to_rider_id.get(ra.pops_rider_id)
+            if ra.pops_rider_id not in pops.pks or pops_name != new:
+                self.stdout.write(self.style.ERROR(
+                    f"    refusing: NEW must equal the POPS rider_id for this record's "
+                    f"pops_rider_id (pops_rider_id={ra.pops_rider_id} -> POPS says "
+                    f"{pops_name!r}, you asked {new!r})."))
+                results["review"].append(old)
+                continue
+            # NEW must be free locally (no other RiderAccount / User holds it).
+            clash_ra = RiderAccount.objects.filter(rider_id=new).exclude(pk=ra.pk).first()
+            if clash_ra:
+                self.stdout.write(self.style.ERROR(
+                    f"    refusing: rider_id {new!r} already held by RiderAccount pk={clash_ra.pk} "
+                    f"(pops={clash_ra.pops_rider_id}) -> remove/resolve that first."))
+                results["review"].append(old)
+                continue
+            clash_u = User.objects.filter(username=new).exclude(username=old).first()
+            if clash_u:
+                self.stdout.write(self.style.ERROR(
+                    f"    refusing: username {new!r} already held by User pk={clash_u.pk} -> resolve first."))
+                results["review"].append(old)
+                continue
+            moved = self._string_ref_counts(old)
+            sh = User.objects.filter(username=old).first()
+            self.stdout.write(
+                f"    history to rewrite: {moved or 'none'}; "
+                f"shadow user: {'pk=%s' % sh.pk if sh else 'none'}")
+            if not destructive_allowed:
+                self.stdout.write(self.style.WARNING("    -> POPS pull not trusted -> REPORT-ONLY (kept)."))
+                continue
+            if self.apply:
+                for label, field in self.string_refs:
+                    _model(label).objects.filter(**{field: old}).update(**{field: new})
+                if sh:
+                    sh.username = new
+                    sh.save(update_fields=["username"])
+                ra.rider_id = new
+                ra.synced_to_pops = True
+                ra.save(update_fields=["rider_id", "synced_to_pops"])
+                self.stdout.write(self.style.SUCCESS(
+                    f"    -> RENAMED {old!r} -> {new!r} (history + shadow + rider_id)"))
+            else:
+                self.stdout.write(self.style.SUCCESS(
+                    f"    -> WOULD RENAME {old!r} -> {new!r} (history + shadow + rider_id)"))
+            results["acted"].append(f"{old}->{new}")
+        return results
+
+    # ------------------------------------------------------------------ #
     # summary + formatting
     # ------------------------------------------------------------------ #
     def _report_summary(self, user_results, rider_results, orphan_results,
-                         archive_results, destructive_allowed):
+                         archive_results, rename_results, destructive_allowed):
         self._h1("SUMMARY")
         verb = "DELETED/ARCHIVED" if self.apply else "WOULD remove"
         self.stdout.write(
@@ -997,6 +1076,16 @@ class Command(BaseCommand):
             if archive_results["review"]:
                 self.stdout.write(
                     f"  non-POPS riders for MANUAL REVIEW: {archive_results['review']}"
+                )
+        if self.rename_map:
+            verb_r = "RENAMED" if self.apply else "WOULD rename"
+            self.stdout.write(
+                f"  riders {verb_r}: {len(rename_results['acted'])} "
+                f"{rename_results['acted'] or ''}"
+            )
+            if rename_results["review"]:
+                self.stdout.write(
+                    f"  riders rename SKIPPED (review): {rename_results['review']}"
                 )
 
         if not self.apply:
