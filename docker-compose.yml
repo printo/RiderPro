@@ -40,6 +40,14 @@ services:
       - BOTSPACE_CHANNEL_ID=${BOTSPACE_CHANNEL_ID:-}
       - BOTSPACE_OTP_TEMPLATE=${BOTSPACE_OTP_TEMPLATE:-}
       - BOTSPACE_SENDER=${BOTSPACE_SENDER:-}
+      # ── Object storage (S3) ── opt-in; off by default so dev uses local /media ──
+      - USE_S3=${USE_S3:-false}
+      - S3_BUCKET=${S3_BUCKET:-}
+      - S3_REGION=${S3_REGION:-ap-southeast-1}
+      - S3_LOCATION=${S3_LOCATION:-riderpro/media}
+      - S3_CDN_DOMAIN=${S3_CDN_DOMAIN:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
 
   frontend:
     build:

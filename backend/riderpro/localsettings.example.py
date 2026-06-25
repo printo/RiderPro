@@ -76,3 +76,19 @@ add a new overridable setting so the next person knows it exists.
 # CORS is usually unnecessary in dev. Add origins here if you call the API
 # cross-origin (e.g. a separately hosted frontend).
 # CORS_ALLOWED_ORIGINS = ["http://localhost:5004"]
+
+# --- Object storage (S3) --------------------------------------------------
+# Opt-in. When USE_S3 is true, acknowledgement media (photos, signatures,
+# signed PDFs) is stored in S3 and served via a CloudFront custom domain; the
+# short, permanent URL is what gets synced to POPS (its field is a
+# CharField(max_length=400) — never a presigned URL). Off → local MEDIA_ROOT.
+# Set these via the environment (docker-compose reads them from .env) or here.
+# Keep the AWS secret OUT of version control — set it on the server only.
+# import os
+# os.environ.setdefault("USE_S3", "true")
+# os.environ.setdefault("S3_BUCKET", "pia-oms-uploads")
+# os.environ.setdefault("S3_REGION", "ap-southeast-1")
+# os.environ.setdefault("S3_LOCATION", "riderpro/media")
+# os.environ.setdefault("S3_CDN_DOMAIN", "cdn.riderpro.printo.in")
+# os.environ.setdefault("AWS_ACCESS_KEY_ID", "AKIA...")
+# os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "<secret — server only>")
