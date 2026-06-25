@@ -20,6 +20,8 @@ from django.db import transaction
 from django.db.models import Q, Count, Avg, Sum, F
 from django.utils import timezone
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Shipment, Acknowledgment, RouteSession, RouteTracking, AcknowledgmentSettings, OverlapIgnore
 from .permissions import IsManagerUser
@@ -229,38 +231,41 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         """
         return getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or getattr(request.user, 'access_token', None)
 
+    def _store_bytes(self, raw: bytes, folder_name: str, ext: str) -> str:
+        """
+        Persist bytes via the configured default storage and return a URL.
+
+        Routes through Django's default storage, so it transparently writes to S3
+        (when USE_S3 is set) or local MEDIA_ROOT otherwise — no call-site changes.
+        S3 returns an absolute CloudFront URL; local returns a root-relative
+        '/media/...' path (later absolutized by _build_absolute_media_url before
+        being synced to POPS).
+        """
+        if ext and not ext.startswith('.'):
+            ext = f'.{ext}'
+        name = f"{folder_name}/{uuid.uuid4()}{ext or '.png'}"
+        saved = default_storage.save(name, ContentFile(raw))
+        url = default_storage.url(saved)
+        # Normalize local FileSystemStorage URLs (e.g. 'media/...') to root-relative.
+        if not url.startswith(("http://", "https://", "/")):
+            url = "/" + url
+        return url
+
     def _save_base64_image(self, base64_data, folder_name):
         """
-        Save base64 image data to file and return the URL.
-        
+        Save base64 image data and return its URL.
+
         Args:
             base64_data: Base64 data URI (e.g., 'data:image/png;base64,iVBORw0KGgo...')
-            folder_name: Name of the folder to save the file in (e.g., 'signatures', 'photos')
-        
+            folder_name: Folder to store the file in (e.g., 'signatures', 'photos')
+
         Returns:
-            str: URL path to the saved file
+            str: URL to the saved file (CloudFront when USE_S3, else '/media/...')
         """
         try:
-            # Extract the base64 part from the data URI
-            format, imgstr = base64_data.split(';base64,')
-            ext = format.split('/')[-1]
-            
-            # Generate a unique filename
-            filename = f"{uuid.uuid4()}.{ext}"
-            
-            # Create the media directory if it doesn't exist
-            media_root = getattr(settings, 'MEDIA_ROOT', '/tmp/media')
-            folder_path = os.path.join(media_root, folder_name)
-            os.makedirs(folder_path, exist_ok=True)
-            
-            # Save the file
-            file_path = os.path.join(folder_path, filename)
-            with open(file_path, 'wb') as f:
-                f.write(base64.b64decode(imgstr))
-            
-            # Return the URL path
-            return f"/media/{folder_name}/{filename}"
-            
+            fmt, imgstr = base64_data.split(';base64,')
+            ext = fmt.split('/')[-1]
+            return self._store_bytes(base64.b64decode(imgstr), folder_name, ext)
         except Exception as e:
             logger.error(f"Failed to save base64 image: {e}")
             # Return the original data if saving fails
@@ -268,38 +273,19 @@ class ShipmentViewSet(viewsets.ModelViewSet):
 
     def _save_uploaded_file(self, uploaded_file, folder_name):
         """
-        Save uploaded file to disk and return the URL.
-        
+        Save an uploaded file and return its URL.
+
         Args:
             uploaded_file: Django UploadedFile object
-            folder_name: Name of the folder to save the file in (e.g., 'signatures', 'photos')
-        
+            folder_name: Folder to store the file in (e.g., 'signatures', 'photos')
+
         Returns:
-            str: URL path to the saved file
+            str: URL to the saved file (CloudFront when USE_S3, else '/media/...')
         """
         try:
-            # Generate a unique filename while preserving the original extension
-            original_filename = uploaded_file.name
-            file_extension = os.path.splitext(original_filename)[1]
-            if not file_extension:
-                file_extension = '.png'  # Default extension
-            
-            unique_filename = f"{uuid.uuid4()}{file_extension}"
-            
-            # Create the media directory if it doesn't exist
-            media_root = getattr(settings, 'MEDIA_ROOT', '/tmp/media')
-            folder_path = os.path.join(media_root, folder_name)
-            os.makedirs(folder_path, exist_ok=True)
-            
-            # Save the file
-            file_path = os.path.join(folder_path, unique_filename)
-            with open(file_path, 'wb') as f:
-                for chunk in uploaded_file.chunks():
-                    f.write(chunk)
-            
-            # Return the URL path
-            return f"/media/{folder_name}/{unique_filename}"
-            
+            ext = os.path.splitext(uploaded_file.name)[1] or '.png'
+            uploaded_file.seek(0)  # defensive: ensure full read even if inspected earlier
+            return self._store_bytes(uploaded_file.read(), folder_name, ext)
         except Exception as e:
             logger.error(f"Failed to save uploaded file: {e}")
             # Return a fallback path if saving fails

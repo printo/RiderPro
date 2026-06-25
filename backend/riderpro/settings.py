@@ -99,6 +99,32 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Object storage (S3) — opt-in. When USE_S3 is set, acknowledgement media (photos,
+# signatures, signed PDFs) is written to S3 and served via a CloudFront custom
+# domain; otherwise files fall back to local MEDIA_ROOT (Django's built-in default
+# storage). querystring_auth=False so URLs are short + permanent (POPS stores them
+# in a CharField(max_length=400) and must NOT receive expiring presigned URLs).
+# Credentials come from AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in the env.
+USE_S3 = os.environ.get('USE_S3', 'False').strip().lower() in ('1', 'true', 'yes', 'on')
+if USE_S3:
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": {
+                "bucket_name": os.environ.get('S3_BUCKET', ''),
+                "region_name": os.environ.get('S3_REGION', 'ap-southeast-1'),
+                "location": os.environ.get('S3_LOCATION', 'riderpro/media'),
+                "custom_domain": os.environ.get('S3_CDN_DOMAIN', ''),
+                "querystring_auth": False,
+                "file_overwrite": False,
+                "default_acl": None,
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
 # Default primary key
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
