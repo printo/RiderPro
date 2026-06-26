@@ -696,19 +696,25 @@ function AdminPage() {
                     <div key={user.id} className={`h-full flex flex-col border rounded-lg p-4 ${user.archived_at ? 'bg-red-50/50 opacity-75 border-red-200' : 'bg-muted'}`}>
                       <div className="flex flex-col gap-4 flex-1">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-start gap-3">
+                            {user.dispatch_option && (
+                              <DispatchBadge
+                                dispatchOption={user.dispatch_option}
+                                iconOnly
+                                className="w-9 h-9 flex-shrink-0 mt-0.5"
+                              />
+                            )}
                             <div className="min-w-0 flex-1 space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h3 className="font-medium truncate">{user.full_name}</h3>
-                                {user.dispatch_option && <DispatchBadge dispatchOption={user.dispatch_option} className="text-xs" />}
-                                <Badge variant={user.is_active ? "default" : "secondary"}>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <h3 className="font-medium truncate">{user.full_name || user.rider_id}</h3>
+                                <Badge variant={user.is_active ? "default" : "secondary"} className="text-xs">
                                   {user.is_active ? "Active" : "Inactive"}
                                 </Badge>
-                                <Badge variant="outline">
+                                <Badge variant="outline" className="text-xs">
                                   {user.role}
                                 </Badge>
                                 {user.archived_at && (
-                                  <Badge variant="destructive">
+                                  <Badge variant="destructive" className="text-xs">
                                     Archived
                                   </Badge>
                                 )}
@@ -737,32 +743,30 @@ function AdminPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex gap-2 mt-auto">
+                        <div className="flex justify-end mt-auto pt-1">
                           {!user.archived_at ? (
-                            <>
-                              <Button
-                                onClick={() => {
-                                  if (window.confirm(`Are you sure you want to archive user ${user.full_name}?`)) {
-                                    archiveUser(user.id);
-                                  }
-                                }}
-                                size="sm"
-                                variant="destructive"
-                                className="flex-1"
-                              >
-                                Archive
-                              </Button>
-                            </>
+                            <Button
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to archive user ${user.full_name || user.rider_id}?`)) {
+                                  archiveUser(user.id);
+                                }
+                              }}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-3 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                            >
+                              Archive
+                            </Button>
                           ) : (
                             <Button
                               onClick={() => {
-                                if (window.confirm(`Are you sure you want to restore user ${user.full_name}?`)) {
+                                if (window.confirm(`Are you sure you want to restore user ${user.full_name || user.rider_id}?`)) {
                                   restoreUser(user.id);
                                 }
                               }}
                               size="sm"
                               variant="outline"
-                              className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                              className="h-8 px-3 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                             >
                               Restore
                             </Button>
