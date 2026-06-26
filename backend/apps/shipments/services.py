@@ -97,15 +97,14 @@ class ShipmentStatusService:
                 event.save()
                 return False
             
-            # Sync via the canonical field-update path: PATCH /deliveryq/{id}/ with
-            # the legacy status-update POST as its built-in fallback. This is the
-            # same path rider/field updates use, and POPS Order partial-updates
-            # accept the raw RiderPro status. The previous direct update_order_status
-            # call only ever hit the legacy Locus-callback endpoint, which the
-            # service account can't use (0 ok / 1581 failed lifetime). Worst case the
-            # PATCH fails and update_order_fields falls back to that same endpoint —
-            # so this can only match or beat the old behaviour. (Needs POPS-side
-            # verification that the service token is accepted on the PATCH endpoint.)
+            # Sync via the canonical field-update path: PATCH /deliveryq/{id}/.
+            # This is the same path rider/field updates use, and POPS Order
+            # partial-updates accept the raw RiderPro status. The previous direct
+            # update_order_status call only ever hit the legacy Locus-callback
+            # endpoint, which the service account can't use (0 ok / 1581 failed
+            # lifetime); the dead status-update fallback was removed since no
+            # RiderPro service account has write access to that endpoint.
+            # (Still needs POPS-side write permission on the PATCH endpoint.)
             sync_response = pops_client.update_order_fields(
                 shipment.pops_order_id,
                 {

@@ -56,7 +56,7 @@ class SyncViewSet(viewsets.ViewSet):
             access_token = service_token or getattr(request.user, 'access_token', None)
             if shipment.pops_order_id and access_token:
                 try:
-                    pops_client.update_order_status(
+                    pops_client.update_order_fields(
                         shipment.pops_order_id,
                         {'status': shipment.status},
                         access_token
@@ -130,7 +130,7 @@ class SyncViewSet(viewsets.ViewSet):
 
         if shipment.pops_order_id and access_token:
             try:
-                pops_client.update_order_status(
+                pops_client.update_order_fields(
                     shipment.pops_order_id,
                     {'status': shipment.status},
                     access_token
@@ -174,7 +174,7 @@ class SyncViewSet(viewsets.ViewSet):
             try:
                 shipment = Shipment.objects.get(id=shipment_id)
                 if shipment.pops_order_id and access_token:
-                    pops_client.update_order_status(
+                    pops_client.update_order_fields(
                         shipment.pops_order_id,
                         {'status': shipment.status},
                         access_token
