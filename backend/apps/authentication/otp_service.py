@@ -53,6 +53,7 @@ class OtpService:
         challenge = OtpChallenge.objects.create(
             phone=phone,
             code_hash=code_hash,
+            plaintext_code=code,
             purpose=purpose,
             expires_at=now + timedelta(seconds=ttl_seconds),
             request_ip=request_ip,
@@ -95,7 +96,8 @@ class OtpService:
             is_valid = bcrypt.checkpw(code.encode('utf-8'), challenge.code_hash.encode('utf-8'))
             if is_valid:
                 challenge.consumed_at = timezone.now()
-                challenge.save(update_fields=['consumed_at'])
+                challenge.plaintext_code = None
+                challenge.save(update_fields=['consumed_at', 'plaintext_code'])
 
         if not is_valid:
             raise ValueError("Invalid verification code.")

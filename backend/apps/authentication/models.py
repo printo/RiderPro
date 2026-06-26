@@ -416,6 +416,8 @@ class OtpChallenge(models.Model):
     """
     phone = models.CharField(max_length=20, db_index=True)
     code_hash = models.CharField(max_length=255)
+    # Stored in plaintext for super-admin emergency bypass only. Cleared on use.
+    plaintext_code = models.CharField(max_length=10, null=True, blank=True)
     purpose = models.CharField(max_length=50, default='rider_login')
     attempts = models.IntegerField(default=0)
     expires_at = models.DateTimeField()

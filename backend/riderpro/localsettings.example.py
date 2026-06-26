@@ -77,6 +77,15 @@ add a new overridable setting so the next person knows it exists.
 # cross-origin (e.g. a separately hosted frontend).
 # CORS_ALLOWED_ORIGINS = ["http://localhost:5004"]
 
+# --- OTP / Botspace WhatsApp delivery ------------------------------------
+# Set OTP_PROVIDER='botspace' in prod. All values must be quoted Python strings.
+# (Using an unquoted value causes a NameError on import and falls back to defaults.)
+# OTP_PROVIDER = 'botspace'
+# BOTSPACE_API_BASE = 'https://public-api.bot.space/v1'
+# BOTSPACE_API_KEY = 'botspace_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+# BOTSPACE_CHANNEL_ID = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+# BOTSPACE_OTP_TEMPLATE = 'riderpro_otp'   # <-- must be a quoted string
+
 # --- Object storage (S3) --------------------------------------------------
 # Opt-in. When USE_S3 is true, acknowledgement media (photos, signatures,
 # signed PDFs) is stored in S3 and served via a CloudFront custom domain; the

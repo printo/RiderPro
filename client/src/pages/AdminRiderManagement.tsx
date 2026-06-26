@@ -5,6 +5,7 @@ import { API_ENDPOINTS } from '@/config/api';
 import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
 import { HomebaseSelector } from '@/components/ui/HomebaseSelector';
 import VehicleChangeRequests from '@/components/admin/VehicleChangeRequests';
+import { useAuth } from '@/hooks/useAuth';
 
 interface CreateRiderForm {
   name: string;
@@ -16,8 +17,10 @@ interface CreateRiderForm {
 }
 
 const AdminRiderManagement = () => {
+  const { user } = useAuth();
   const [riders, setRiders] = useState<Rider[]>([]);
   const [showArchived, setShowArchived] = useState(false);
+  const [activeOtp, setActiveOtp] = useState<{ rider_id: string; otp: string; expires_in: number } | null>(null);
   const [isSyncingRiders, setIsSyncingRiders] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -60,6 +63,20 @@ const AdminRiderManagement = () => {
       } catch (err: any) {
         setError(err.message || 'Failed to reset password');
       }
+    }
+  };
+
+  const handleFetchOtp = async (rider: Rider) => {
+    try {
+      const response = await apiClient.get(API_ENDPOINTS.auth.riderActiveOtp(rider.rider_id));
+      const data = await response.json();
+      if (data.success) {
+        setActiveOtp({ rider_id: rider.rider_id, otp: data.otp, expires_in: data.expires_in_seconds });
+      } else {
+        alert(data.message || 'No active OTP for this rider.');
+      }
+    } catch {
+      alert('No active OTP for this rider.');
     }
   };
 
@@ -433,6 +450,15 @@ const AdminRiderManagement = () => {
                                 >
                                   Archive
                                 </button>
+                                {user?.is_super_user && (
+                                  <button
+                                    onClick={() => handleFetchOtp(rider)}
+                                    className="text-purple-600 hover:text-purple-900 ml-4"
+                                    title="Show active OTP (emergency bypass)"
+                                  >
+                                    OTP
+                                  </button>
+                                )}
                               </>
                             ) : (
                               <button
@@ -462,6 +488,26 @@ const AdminRiderManagement = () => {
           </div>
         </div>
       </div >
+
+      {/* Emergency OTP bypass modal — super admin only */}
+      {activeOtp && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-80 text-center">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Active OTP</h3>
+            <p className="text-sm text-gray-500 mb-4">{activeOtp.rider_id}</p>
+            <div className="text-4xl font-mono font-bold tracking-widest text-purple-700 mb-3">
+              {activeOtp.otp}
+            </div>
+            <p className="text-xs text-gray-400 mb-5">Expires in ~{activeOtp.expires_in}s</p>
+            <button
+              onClick={() => setActiveOtp(null)}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Create Rider Modal */}
       {
