@@ -145,7 +145,7 @@ function VehicleTypeForm({ vehicle, onSave, onCancel }: VehicleTypeFormProps) {
 }
 
 function AdminPage() {
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
   const [allUsers, setAllUsers] = useState<AllUser[]>([]);
   const [loadingAllUsers, setLoadingAllUsers] = useState(false);
   const [userFilter, setUserFilter] = useState('');
@@ -157,6 +157,7 @@ function AdminPage() {
   const [isSyncingHomebases, setIsSyncingHomebases] = useState(false);
   const [isSyncingRiders, setIsSyncingRiders] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [activeOtp, setActiveOtp] = useState<{ rider_id: string; otp: string; expires_in: number } | null>(null);
   const { toast } = useToast();
   const smartCompletion = useSmartRouteCompletion({
     sessionId: null,
@@ -168,7 +169,7 @@ function AdminPage() {
   });
 
   // Allow both super users and managers (ops_team/staff) to access admin
-  const canAccessAdmin = !!(user?.is_super_user || user?.is_ops_team || user?.is_staff);
+  const canAccessAdmin = !!(currentUser?.is_super_user || currentUser?.is_ops_team || currentUser?.is_staff);
   // Show the Django-admin (raw DB) link only to users who actually have Django
   // access (Django's is_staff), granted per-user via the Django admin Users page —
   // not to every app admin. Set at login (see AuthService); defaults false.
@@ -302,6 +303,20 @@ function AdminPage() {
     }
   };
 
+
+  const handleFetchOtp = async (riderId: string) => {
+    try {
+      const response = await apiRequest('GET', `/api/v1/auth/riders/${riderId}/active-otp`);
+      const data = await response.json();
+      if (data.success) {
+        setActiveOtp({ rider_id: riderId, otp: data.otp, expires_in: data.expires_in_seconds });
+      } else {
+        toast({ title: 'No active OTP', description: data.message || 'Rider has no pending OTP.', variant: 'destructive' });
+      }
+    } catch {
+      toast({ title: 'No active OTP', description: 'Rider has no pending OTP.', variant: 'destructive' });
+    }
+  };
 
   const loadVehicleTypes = async () => {
     setLoadingVehicleTypes(true);
@@ -743,7 +758,18 @@ function AdminPage() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex justify-end mt-auto pt-1">
+                        <div className="flex justify-end gap-2 mt-auto pt-1">
+                          {currentUser?.is_super_user && user.phone && user.role === 'driver' && (
+                            <Button
+                              onClick={() => handleFetchOtp(user.rider_id)}
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-3 border-purple-200 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
+                              title="Show active OTP (emergency bypass)"
+                            >
+                              OTP
+                            </Button>
+                          )}
                           {!user.archived_at ? (
                             <Button
                               onClick={() => {
@@ -820,6 +846,20 @@ function AdminPage() {
         isOpen={showFuelSettingsModal}
         onClose={() => setShowFuelSettingsModal(false)}
       />
+
+      {activeOtp && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-72 text-center">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Active OTP</h3>
+            <p className="text-sm text-muted-foreground mb-4">{activeOtp.rider_id}</p>
+            <div className="text-4xl font-mono font-bold tracking-widest text-purple-700 mb-3">
+              {activeOtp.otp}
+            </div>
+            <p className="text-xs text-muted-foreground mb-5">Expires in ~{activeOtp.expires_in}s</p>
+            <Button variant="outline" size="sm" onClick={() => setActiveOtp(null)}>Close</Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
