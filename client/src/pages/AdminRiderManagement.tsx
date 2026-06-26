@@ -186,9 +186,14 @@ const AdminRiderManagement = () => {
       const data = await response.json();
 
       if (data.success && data.users) {
-        // Filter to show only riders (users with rider_id or role 'is_rider'/'is_driver')
-        const riderUsers = data.users.filter((u: any) =>
-          u.rider_id || u.role === 'is_rider' || u.role === 'is_driver' || u.role === 'driver'
+        // Show ONLY POPS-sourced riders, i.e. RiderAccount rows. The combined
+        // /all-users list also returns auth User-shadows (auth_source='rider')
+        // and staff/API Users (e.g. pia-api), and the backend sets rider_id =
+        // username for every entry — so the old `u.rider_id || role==='driver'`
+        // filter let everything through, showing each rider twice (shadow +
+        // account) plus non-riders. RiderAccount rows are tagged id="rider:<pk>".
+        const riderUsers = data.users.filter(
+          (u: any) => typeof u.id === 'string' && u.id.startsWith('rider:')
         );
 
         // Map to Rider type format
