@@ -943,9 +943,19 @@ def all_users(request):
     
     # Combine and format for frontend
     all_users_data = []
-    
-    # Add regular users
+
+    # rider_ids that are backed by a RiderAccount. A rider's auth User-shadow has
+    # username == rider_id, so it would otherwise appear twice in the combined list
+    # (once as the shadow, once as the RiderAccount). Suppress the shadow so each
+    # rider shows once — as its RiderAccount (the POPS-sourced record). Staff/admin/
+    # API users have email-style usernames that never collide with a rider_id, so
+    # they're unaffected. Benefits every consumer of /all-users (Admin + rider mgmt).
+    rider_ids = {r.get('rider_id') for r in rider_serializer.data if r.get('rider_id')}
+
+    # Add regular users (skip rider auth-shadows represented by a RiderAccount)
     for user_data in user_serializer.data:
+        if user_data.get('username') in rider_ids:
+            continue
         all_users_data.append({
             'id': f"user:{user_data.get('id', '')}",
             'rider_id': user_data.get('username', ''),  # username is the identifier

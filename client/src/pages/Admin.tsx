@@ -697,9 +697,6 @@ function AdminPage() {
                       <div className="flex flex-col gap-4 flex-1">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                              <Users className="h-5 w-5 text-primary" />
-                            </div>
                             <div className="min-w-0 flex-1 space-y-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <h3 className="font-medium truncate">{user.full_name}</h3>
