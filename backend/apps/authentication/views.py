@@ -1610,6 +1610,45 @@ def sync_homebases_from_pops(request):
 
 
 # ---------------------------------------------------------------------------
+# Super-admin emergency OTP bypass
+# ---------------------------------------------------------------------------
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def rider_active_otp(request, rider_id):
+    """
+    Return the active (unexpired, unconsumed) plaintext OTP for a rider.
+    Super-admin only — used as an emergency bypass when the rider can't receive WhatsApp.
+    """
+    if not request.user.is_superuser:
+        return Response({'success': False, 'message': 'Super admin access required.'}, status=status.HTTP_403_FORBIDDEN)
+
+    rider = RiderAccount.objects.filter(rider_id=rider_id).first()
+    if not rider or not rider.phone:
+        return Response({'success': False, 'message': 'Rider not found or has no phone.'}, status=status.HTTP_404_NOT_FOUND)
+
+    from apps.authentication.models import OtpChallenge
+    now = timezone.now()
+    challenge = OtpChallenge.objects.filter(
+        phone=rider.phone,
+        purpose='rider_login',
+        consumed_at__isnull=True,
+        expires_at__gt=now,
+        plaintext_code__isnull=False,
+    ).order_by('-created_at').first()
+
+    if not challenge:
+        return Response({'success': False, 'message': 'No active OTP for this rider.'}, status=status.HTTP_404_NOT_FOUND)
+
+    expires_in = int((challenge.expires_at - now).total_seconds())
+    return Response({
+        'success': True,
+        'otp': challenge.plaintext_code,
+        'expires_in_seconds': expires_in,
+    })
+
+
+# ---------------------------------------------------------------------------
 # Vehicle (mileage) control & approval
 # The vehicle sets the rider's mileage, which sets the fuel-cost / reimbursement
 # money — so it's admin-governed: a rider raises a request, a manager approves.

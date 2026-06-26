@@ -32,6 +32,7 @@ urlpatterns = [
     path('pops/homebases', views.pops_homebases, name='pops_homebases'),
     path('pops/riders', views.pops_create_rider, name='pops_create_rider'),
     path('riders/sync', views.sync_riders_from_pops, name='sync_riders_from_pops'),
+    path('riders/<str:rider_id>/active-otp', views.rider_active_otp, name='rider_active_otp'),
     path('users/<str:user_id>/archive', views.archive_user, name='archive_user'),
     path('users/<str:user_id>/restore', views.restore_user, name='restore_user'),
 
