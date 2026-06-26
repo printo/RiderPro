@@ -101,6 +101,7 @@ class Command(BaseCommand):
                 qs = qs[:limit]
 
             model_updated = 0
+            processed = 0
             for obj in qs.iterator():
                 updates = {}
                 for field in fields:
@@ -124,11 +125,12 @@ class Command(BaseCommand):
                             missing.append(f"{model.__name__}#{obj.pk}.{field}: {value}")
                         continue
 
-                    # Ensure the object is on S3 (preserve the exact key).
-                    if not default_storage.exists(rel):
-                        if apply:
-                            with open(local_path, "rb") as fh:
-                                default_storage.save(rel, ContentFile(fh.read()))
+                    # Ensure the object is on S3 — only touch S3 when applying, so the
+                    # dry-run stays fast and offline (no HeadObject per file over the
+                    # network; that silent 8k-call loop was hanging the SSH session).
+                    if apply and not default_storage.exists(rel):
+                        with open(local_path, "rb") as fh:
+                            default_storage.save(rel, ContentFile(fh.read()))
                         stats["uploaded"] += 1
 
                     new_url = default_storage.url(rel)
@@ -143,6 +145,12 @@ class Command(BaseCommand):
                         model.objects.filter(pk=obj.pk).update(**updates)
                 if updates:
                     model_updated += 1
+
+                processed += 1
+                if processed % 500 == 0:
+                    # Periodic output keeps a long run from sitting silent over SSH.
+                    self.stdout.write(f"  …{model.__name__}: {processed} scanned, {stats['rewritten']} rewritten")
+                    self.stdout.flush()
 
             self.stdout.write(f"  {model.__name__}: {model_updated} record(s) {'updated' if apply else 'to update'}")
 
