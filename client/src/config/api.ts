@@ -41,6 +41,7 @@ export const API_ENDPOINTS = {
     pendingApprovals: apiUrl('/auth/pending-approvals'),
     allUsers: apiUrl('/auth/all-users'),
     syncRiders: apiUrl('/auth/riders/sync'),
+    syncHomebases: apiUrl('/auth/homebases/sync'),
     riderActiveOtp: (rider_id: string) => apiUrl(`/auth/riders/${rider_id}/active-otp`),
     archive: (user_id: string) => apiUrl(`/auth/users/${user_id}/archive`),
     restore: (user_id: string) => apiUrl(`/auth/users/${user_id}/restore`),

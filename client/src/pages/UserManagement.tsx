@@ -9,6 +9,7 @@ import { DispatchBadge } from '@/components/ui/DispatchBadge';
 import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
 import AuthService from '@/services/AuthService';
 import { apiRequest } from '@/lib/queryClient';
+import { API_ENDPOINTS } from '@/config/api';
 import { AllUser } from '@shared/types';
 import { Search, RefreshCw, LayoutGrid, List, Users } from 'lucide-react';
 
@@ -71,9 +72,10 @@ function UserManagementPage() {
   const syncRiders = async () => {
     setIsSyncingRiders(true);
     try {
-      const result = await AuthService.getInstance().syncRiders();
-      toast({ title: result.success ? 'Synced' : 'Warning', description: result.message });
-      if (result.success) loadUsers();
+      const res = await apiRequest('POST', API_ENDPOINTS.auth.syncRiders);
+      const data = await res.json();
+      toast({ title: data.success ? 'Synced' : 'Warning', description: data.message });
+      if (data.success) loadUsers();
     } catch (e: any) {
       toast({ title: 'Error', description: e.message || 'Sync failed', variant: 'destructive' });
     } finally {
@@ -84,9 +86,10 @@ function UserManagementPage() {
   const syncHomebases = async () => {
     setIsSyncingHomebases(true);
     try {
-      const result = await AuthService.getInstance().syncHomebases();
-      toast({ title: result.success ? 'Synced' : 'Warning', description: result.message });
-      if (result.success) loadUsers();
+      const res = await apiRequest('POST', API_ENDPOINTS.auth.syncHomebases);
+      const data = await res.json();
+      toast({ title: data.success ? 'Synced' : 'Warning', description: data.message });
+      if (data.success) loadUsers();
     } catch (e: any) {
       toast({ title: 'Error', description: e.message || 'Sync failed', variant: 'destructive' });
     } finally {
