@@ -16,7 +16,6 @@ import NotFound from "@/pages/not-found";
 import AdminPage from "@/pages/Admin";
 import RouteAnalytics from "@/pages/RouteAnalytics";
 import Settings from "@/pages/Settings";
-import AdminRiderManagement from "@/pages/AdminRiderManagement";
 import LiveTrackingDashboard from "@/pages/LiveTrackingDashboard";
 import OpsDayView from "@/pages/OpsDayView";
 import { PageLoader } from "@/components/ui/Loader";
@@ -67,7 +66,7 @@ function Router() {
           <Route path="/live-tracking" component={hasManagerAccess ? LiveTrackingDashboard : Dashboard} />
           <Route path="/ops-day-view" component={hasManagerAccess ? OpsDayView : Dashboard} />
           <Route path="/settings" component={Settings} />
-          <Route path="/admin-riders" component={AdminRiderManagement} />
+          <Route path="/admin-riders" component={() => <Redirect to="/admin-dashboard" />} />
           <Route component={NotFound} />
         </Switch>
       </RouteSessionProvider>
