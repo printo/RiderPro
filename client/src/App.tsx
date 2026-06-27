@@ -14,6 +14,7 @@ import Dashboard from "@/pages/Dashboard";
 import ShipmentsWithTracking from "@/pages/ShipmentsWithTracking";
 import NotFound from "@/pages/not-found";
 import AdminPage from "@/pages/Admin";
+import UserManagementPage from "@/pages/UserManagement";
 import RouteAnalytics from "@/pages/RouteAnalytics";
 import Settings from "@/pages/Settings";
 import LiveTrackingDashboard from "@/pages/LiveTrackingDashboard";
@@ -67,6 +68,7 @@ function Router() {
           <Route path="/ops-day-view" component={hasManagerAccess ? OpsDayView : Dashboard} />
           <Route path="/settings" component={Settings} />
           <Route path="/admin-riders" component={AdminPage} />
+          <Route path="/user-management" component={hasManagerAccess ? UserManagementPage : Dashboard} />
           <Route component={NotFound} />
         </Switch>
       </RouteSessionProvider>

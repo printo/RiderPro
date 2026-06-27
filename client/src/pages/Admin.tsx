@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/queryClient";
 import { log } from "@/utils/logger";
-import { Fuel, Car, Users, Edit, Search, RefreshCw, Plus, X, Target } from "lucide-react";
+import { Fuel, Car, Users, Edit, RefreshCw, Plus, X, Target } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,10 +13,7 @@ import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import FuelSettingsModal from "@/components/ui/forms/FuelSettingsModal";
 import CurrentFuelSettings from "@/components/ui/forms/CurrentFuelSettings";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { VehicleType, AllUser } from '@shared/types';
-import { DispatchBadge } from '@/components/ui/DispatchBadge';
-import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
-import AuthService from '@/services/AuthService';
+import { VehicleType } from '@shared/types';
 import SmartCompletionSettings from '@/components/SmartCompletionSettings';
 import { useSmartRouteCompletion } from '@/hooks/useSmartRouteCompletion';
 
@@ -146,18 +143,11 @@ function VehicleTypeForm({ vehicle, onSave, onCancel }: VehicleTypeFormProps) {
 
 function AdminPage() {
   const { user: currentUser } = useAuth();
-  const [allUsers, setAllUsers] = useState<AllUser[]>([]);
-  const [loadingAllUsers, setLoadingAllUsers] = useState(false);
-  const [userFilter, setUserFilter] = useState('');
   const [vehicleTypes, setVehicleTypes] = useState<VehicleType[]>([]);
   const [showVehicleModal, setShowVehicleModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Partial<VehicleType> | null>(null);
   const [loadingVehicleTypes, setLoadingVehicleTypes] = useState(false);
   const [showFuelSettingsModal, setShowFuelSettingsModal] = useState(false);
-  const [isSyncingHomebases, setIsSyncingHomebases] = useState(false);
-  const [isSyncingRiders, setIsSyncingRiders] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
-  const [activeOtp, setActiveOtp] = useState<{ rider_id: string; otp: string; expires_in: number } | null>(null);
   const { toast } = useToast();
   const smartCompletion = useSmartRouteCompletion({
     sessionId: null,
@@ -178,145 +168,9 @@ function AdminPage() {
   // Load pending users and access tokens
   useEffect(() => {
     if (canAccessAdmin) {
-      loadAllUsers();
       loadVehicleTypes();
     }
   }, [canAccessAdmin]);
-
-  const loadAllUsers = async () => {
-    setLoadingAllUsers(true);
-    try {
-      const response = await apiRequest("GET", '/api/v1/auth/all-users');
-      const data = await response.json();
-      if (data.success) {
-        setAllUsers(data.users);
-      }
-    } catch (error) {
-      console.error('Failed to load all users:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load users",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingAllUsers(false);
-    }
-  };
-
-  const syncHomebases = async () => {
-    setIsSyncingHomebases(true);
-    try {
-      const result = await AuthService.getInstance().syncHomebases();
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: result.message,
-        });
-        loadAllUsers();
-      } else {
-        toast({
-          title: "Error",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to sync homebases",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSyncingHomebases(false);
-    }
-  };
-
-  const syncRiders = async () => {
-    setIsSyncingRiders(true);
-    try {
-      const result = await AuthService.getInstance().syncRiders();
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: result.message,
-        });
-        loadAllUsers();
-      } else {
-        toast({
-          title: "Error",
-          description: result.message,
-          variant: "destructive",
-        });
-      }
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to sync riders",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSyncingRiders(false);
-    }
-  };
-
-  const archiveUser = async (userId: string) => {
-    try {
-      const result = await AuthService.getInstance().archiveUser(userId);
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: result.message || "User archived successfully",
-        });
-        loadAllUsers();
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error: any) {
-      log.error('Failed to archive user:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to archive user",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const restoreUser = async (userId: string) => {
-    try {
-      const result = await AuthService.getInstance().restoreUser(userId);
-      if (result.success) {
-        toast({
-          title: "Success",
-          description: result.message || "User restored successfully",
-        });
-        loadAllUsers();
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error: any) {
-      log.error('Failed to restore user:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to restore user",
-        variant: "destructive",
-      });
-    }
-  };
-
-
-  const handleFetchOtp = async (riderId: string) => {
-    try {
-      const response = await apiRequest('GET', `/api/v1/auth/riders/${riderId}/active-otp`);
-      const data = await response.json();
-      if (data.success) {
-        setActiveOtp({ rider_id: riderId, otp: data.otp, expires_in: data.expires_in_seconds });
-      } else {
-        toast({ title: 'No active OTP', description: data.message || 'Rider has no pending OTP.', variant: 'destructive' });
-      }
-    } catch {
-      toast({ title: 'No active OTP', description: 'Rider has no pending OTP.', variant: 'destructive' });
-    }
-  };
 
   const loadVehicleTypes = async () => {
     setLoadingVehicleTypes(true);
@@ -400,14 +254,6 @@ function AdminPage() {
     }
   };
 
-  const filteredUsers = allUsers.filter(user => {
-    if (!showArchived && user.archived_at) return false;
-    return (
-      user.full_name.toLowerCase().includes(userFilter.toLowerCase()) ||
-      user.rider_id.toLowerCase().includes(userFilter.toLowerCase()) ||
-      (user.email && user.email.toLowerCase().includes(userFilter.toLowerCase()))
-    );
-  });
 
   if (!canAccessAdmin) {
     return (
@@ -594,217 +440,19 @@ function AdminPage() {
         </CardContent>
       </Card>
 
-      {/* User Management */}
+      {/* User Management — now a dedicated page */}
       <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            User Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {/* All Users Management Section */}
-            <div className="space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-lg font-medium">All Users Management</h3>
-                <div className="flex flex-wrap gap-2 sm:justify-end">
-                  <Button
-                    onClick={() => {
-                      loadAllUsers();
-                    }}
-                    disabled={loadingAllUsers}
-                    variant="outline"
-                    size="sm"
-                  >
-                    {(loadingAllUsers) ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        Refresh
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    onClick={syncHomebases}
-                    disabled={isSyncingHomebases}
-                    variant="outline"
-                    size="sm"
-                    className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                    title="Sync homebases from POPS"
-                  >
-                    {isSyncingHomebases ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                        Syncing...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        Sync POPS Homebases
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    onClick={syncRiders}
-                    disabled={isSyncingRiders}
-                    variant="outline"
-                    size="sm"
-                    className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                    title="Sync riders from POPS"
-                  >
-                    {isSyncingRiders ? (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                        Syncing...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        Sync POPS Riders
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Search & Archived Toggle */}
-              <div className="flex gap-4 items-center">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    placeholder="Search users..."
-                    value={userFilter}
-                    onChange={(e) => setUserFilter(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="showArchived"
-                    checked={showArchived}
-                    onChange={(e) => setShowArchived(e.target.checked)}
-                    className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
-                  />
-                  <Label htmlFor="showArchived" className="text-sm font-medium">Show Archived</Label>
-                </div>
-              </div>
-
-              {loadingAllUsers ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p>Loading users...</p>
-                </div>
-              ) : filteredUsers.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No users found - Try refreshing the list or check if you have permission to view users.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {filteredUsers.map((user) => (
-                    <div key={user.id} className={`h-full flex flex-col border rounded-lg p-4 ${user.archived_at ? 'bg-red-50/50 opacity-75 border-red-200' : 'bg-muted'}`}>
-                      <div className="flex flex-col gap-4 flex-1">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-3">
-                            {user.dispatch_option && (
-                              <DispatchBadge
-                                dispatchOption={user.dispatch_option}
-                                iconOnly
-                                className="w-9 h-9 flex-shrink-0 mt-0.5"
-                              />
-                            )}
-                            <div className="min-w-0 flex-1 space-y-1">
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <h3 className="font-medium truncate">{user.full_name || user.rider_id}</h3>
-                                <Badge variant={user.is_active ? "default" : "secondary"} className="text-xs">
-                                  {user.is_active ? "Active" : "Inactive"}
-                                </Badge>
-                                <Badge variant="outline" className="text-xs">
-                                  {user.role}
-                                </Badge>
-                                {user.archived_at && (
-                                  <Badge variant="destructive" className="text-xs">
-                                    Archived
-                                  </Badge>
-                                )}
-                                {user.primary_homebase_details && (
-                                  <HomebaseBadge homebase={user.primary_homebase_details} className="text-xs" />
-                                )}
-                              </div>
-                              <div className="space-y-0.5 text-sm text-muted-foreground">
-                                <p className="truncate">
-                                  ID: {user.rider_id}
-                                </p>
-                                {user.email && (
-                                  <p className="truncate">
-                                    {user.email}
-                                  </p>
-                                )}
-                                {user.phone && (
-                                  <p className="truncate">
-                                    Phone: {user.phone}
-                                  </p>
-                                )}
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                Last Login: {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex justify-end gap-2 mt-auto pt-1">
-                          {currentUser?.is_super_user && user.phone && user.role === 'is_driver' && (
-                            <Button
-                              onClick={() => handleFetchOtp(user.rider_id)}
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-3 border-purple-200 text-purple-600 hover:bg-purple-50 hover:text-purple-700"
-                              title="Show active OTP (emergency bypass)"
-                            >
-                              OTP
-                            </Button>
-                          )}
-                          {!user.archived_at ? (
-                            <Button
-                              onClick={() => {
-                                if (window.confirm(`Are you sure you want to archive user ${user.full_name || user.rider_id}?`)) {
-                                  archiveUser(user.id);
-                                }
-                              }}
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-3 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                            >
-                              Archive
-                            </Button>
-                          ) : (
-                            <Button
-                              onClick={() => {
-                                if (window.confirm(`Are you sure you want to restore user ${user.full_name || user.rider_id}?`)) {
-                                  restoreUser(user.id);
-                                }
-                              }}
-                              size="sm"
-                              variant="outline"
-                              className="h-8 px-3 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                            >
-                              Restore
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+        <CardContent className="flex items-center justify-between py-5">
+          <div className="flex items-center gap-3">
+            <Users className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="font-medium">User Management</p>
+              <p className="text-sm text-muted-foreground">View, search, archive and manage all users</p>
             </div>
           </div>
+          <a href="/user-management">
+            <Button variant="outline" size="sm">Open →</Button>
+          </a>
         </CardContent>
       </Card>
 
@@ -847,19 +495,6 @@ function AdminPage() {
         onClose={() => setShowFuelSettingsModal(false)}
       />
 
-      {activeOtp && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-72 text-center">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Active OTP</h3>
-            <p className="text-sm text-muted-foreground mb-4">{activeOtp.rider_id}</p>
-            <div className="text-4xl font-mono font-bold tracking-widest text-purple-700 mb-3">
-              {activeOtp.otp}
-            </div>
-            <p className="text-xs text-muted-foreground mb-5">Expires in ~{activeOtp.expires_in}s</p>
-            <Button variant="outline" size="sm" onClick={() => setActiveOtp(null)}>Close</Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
