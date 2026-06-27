@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { useAuth } from "../hooks/useAuth";
 import { withComponentErrorBoundary } from "@/components/ErrorBoundary";
-import { isManagerUser } from "@/lib/roles";
+//import { isManagerUser } from "@/lib/roles";
 
 function roleDisplayLabel(user: ReturnType<typeof useAuth>['user']): string {
   if (!user) return '';
@@ -12,7 +12,7 @@ function roleDisplayLabel(user: ReturnType<typeof useAuth>['user']): string {
 
 function Navigation() {
   const { user } = useAuth();
-  const isManager = isManagerUser(user);
+  //const isManager = isManagerUser(user);
 
   return (
     <>
@@ -25,11 +25,11 @@ function Navigation() {
               <h1 className="text-xl font-bold text-foreground hover:text-primary transition-colors tracking-tight">RiderPro</h1>
             </Link>
             <div className="flex items-center gap-3">
-              {user && isManager && (
+              {/* {user && isManager && (
                 <Link href="/user-management" className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:inline">
                   Users
                 </Link>
-              )}
+              )} */}
               {user && (
                 <>
                   <span className="text-sm text-foreground hidden sm:inline">

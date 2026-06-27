@@ -146,7 +146,7 @@ Bidirectional integration:
 
 - **TypeScript strict mode is required.** Don't disable it. Avoid `any`.
 - **Functional components only**, named exports preferred (pages may default-export).
-- New API calls go through `ApiClient` — never call `fetch`/`axios` directly elsewhere.
+- New API calls go through `ApiClient` — never call `fetch`/`axios` directly elsewhere. The `AuthService.syncRiders/syncHomebases` methods were a historical exception that caused a 401 bug (they read from `localStorage` instead of in-memory state, bypassed token refresh, and were swapped to `apiRequest` in June 2026). Use `apiRequest` or `apiClient.post/get` for all calls.
 - New data: validate with Zod on the client and DRF serializers on the server; update `shared/types.ts` / `shared/schema.ts` when the contract changes.
 - Tailwind utilities only — no inline styles, CSS modules, or competing UI libraries.
 - Python: 4-space indent, DRF serializers for all I/O, Django ORM (no raw SQL without a reason). Migrations are mandatory for model changes — **generate them with `makemigrations`, don't hand-write** (hand-written ones drift on index names / `id` field). If you can't run `makemigrations` locally, run it (or `makemigrations --check`) in the Django container/on the server, and commit the generated file.
@@ -216,6 +216,8 @@ Now that riders are POPS-sourced + phone/OTP and staff use Google SSO, the items
 - `is_approved` field + the OTP-login guard in `request_otp`/`verify_otp` — kept as a no-op safety net (synced riders are always approved; overlaps with `is_active` + `archived_at`). Drop only together with approve/reject/pending.
 
 **Dead frontend methods:** `AuthService.loginWithExternalAPI` / `loginWithLocalDB` + their `useAuth` bindings — old password login; `LoginForm` now uses OTP + Google SSO only.
+
+`AuthService.syncRiders()` / `syncHomebases()` — these exist but are **no longer called** (as of 2026-06-27). They used raw `fetch` + `localStorage.getItem('access_token')`, bypassing `ApiClient` token refresh and in-memory state. The `/user-management` page (which took over sync buttons from `AdminRiderManagement`) now calls `apiRequest('POST', API_ENDPOINTS.auth.syncRiders|syncHomebases)` directly, which routes through `ApiClient`. The stale `AuthService` methods can be pruned in a cleanup pass. **Rule reinforced: never call `fetch` directly — always use `ApiClient` (via `apiRequest` or `apiClient.post/get`).**
 
 **Legacy-user data cleanup — DONE (2026-06-24), via `purge_legacy_users`.** The auth DB is now fully POPS-aligned: every `RiderAccount` is backed by a current POPS rider, and every `User` is a Google-SSO/email staff account or a live-POPS rider shadow (zero strays). Removed PIA-login shadows `10047`, `12180` (its rider-test history reassigned to the **rider** account `Kannan_rider_test`, NOT the manager), `12523`, `12592`; consolidated the Seshagiri duplicate (`Sheshagiri_300099` + `30009` → one `Seshagiri_300099` owning all its shipments/acks/route history).
 
