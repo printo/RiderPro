@@ -66,7 +66,7 @@ function Router() {
           <Route path="/live-tracking" component={hasManagerAccess ? LiveTrackingDashboard : Dashboard} />
           <Route path="/ops-day-view" component={hasManagerAccess ? OpsDayView : Dashboard} />
           <Route path="/settings" component={Settings} />
-          <Route path="/admin-riders" component={() => <Redirect to="/admin-dashboard" />} />
+          <Route path="/admin-riders" component={AdminPage} />
           <Route component={NotFound} />
         </Switch>
       </RouteSessionProvider>
