@@ -759,7 +759,7 @@ function AdminPage() {
                           </div>
                         </div>
                         <div className="flex justify-end gap-2 mt-auto pt-1">
-                          {currentUser?.is_super_user && user.phone && user.role === 'driver' && (
+                          {currentUser?.is_super_user && user.phone && (user.role === 'driver' || user.role === 'is_driver') && (
                             <Button
                               onClick={() => handleFetchOtp(user.rider_id)}
                               size="sm"
