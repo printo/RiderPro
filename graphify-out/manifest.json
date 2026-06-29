@@ -1,1562 +1,1587 @@
 {
-  "/Users/kannan/Downloads/Code/RiderPro/.claude/launch.json": {
-    "mtime": 1781116205.4593961,
+  ".claude/launch.json": {
+    "mtime": 1782467643.0463479,
     "ast_hash": "706a3c01a69933beebbdfc4ff1803f51",
     "semantic_hash": "706a3c01a69933beebbdfc4ff1803f51"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/.claude/settings.local.json": {
+  ".claude/settings.local.json": {
     "mtime": 1782182210.745423,
     "ast_hash": "23edc62171c3e65e733f0860ad3a3ec8",
     "semantic_hash": "23edc62171c3e65e733f0860ad3a3ec8"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/__init__.py": {
+  "backend/apps/__init__.py": {
     "mtime": 1780143563.8899755,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/__init__.py": {
+  "backend/apps/authentication/__init__.py": {
     "mtime": 1780143563.8900907,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/admin.py": {
+  "backend/apps/authentication/admin.py": {
     "mtime": 1780143563.8902557,
     "ast_hash": "726f92b874a953bac21eb0d6c347d7de",
     "semantic_hash": "726f92b874a953bac21eb0d6c347d7de"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/apps.py": {
+  "backend/apps/authentication/apps.py": {
     "mtime": 1780143563.8903747,
     "ast_hash": "cd33f3ebbd7b1e1dc656e02354ca5e76",
     "semantic_hash": "cd33f3ebbd7b1e1dc656e02354ca5e76"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/backends.py": {
+  "backend/apps/authentication/backends.py": {
     "mtime": 1781268791.8281517,
     "ast_hash": "c6e1aefaf44499f6c3c9cbaa27ddaf90",
     "semantic_hash": "c6e1aefaf44499f6c3c9cbaa27ddaf90"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/forms.py": {
+  "backend/apps/authentication/forms.py": {
     "mtime": 1780143563.890641,
     "ast_hash": "bd9c51a72cf4b99aa19bbf0d88efe48a",
     "semantic_hash": "bd9c51a72cf4b99aa19bbf0d88efe48a"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/jwt_auth.py": {
+  "backend/apps/authentication/jwt_auth.py": {
     "mtime": 1780143563.8907454,
     "ast_hash": "db0873aa8667fac4a58430492fc777c6",
     "semantic_hash": "db0873aa8667fac4a58430492fc777c6"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/management/__init__.py": {
+  "backend/apps/authentication/management/__init__.py": {
     "mtime": 1780143563.890894,
     "ast_hash": "5206b9e9f1c7b0f60407c0f25a4649e6",
     "semantic_hash": "5206b9e9f1c7b0f60407c0f25a4649e6"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/management/commands/__init__.py": {
+  "backend/apps/authentication/management/commands/__init__.py": {
     "mtime": 1780143563.8910532,
     "ast_hash": "33cb3b1e3d01284b47147973305909c6",
     "semantic_hash": "33cb3b1e3d01284b47147973305909c6"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/management/commands/cleanup_otp_challenges.py": {
+  "backend/apps/authentication/management/commands/cleanup_otp_challenges.py": {
     "mtime": 1781953776.6411555,
     "ast_hash": "21de3fa7b81b28d0a6e2bc497c5007ab",
     "semantic_hash": "21de3fa7b81b28d0a6e2bc497c5007ab"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/management/commands/purge_legacy_users.py": {
-    "mtime": 1782181917.823332,
-    "ast_hash": "4629e467fd9d881bb6322949c5138457",
-    "semantic_hash": "4629e467fd9d881bb6322949c5138457"
+  "backend/apps/authentication/management/commands/purge_legacy_users.py": {
+    "mtime": 1782302200.8232696,
+    "ast_hash": "c0af32c212bc2049f18011d6d756aded",
+    "semantic_hash": "c0af32c212bc2049f18011d6d756aded"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/migrations/0001_initial.py": {
+  "backend/apps/authentication/migrations/0001_initial.py": {
     "mtime": 1780143563.891355,
     "ast_hash": "21be9f1c369052b74ed2ab511bbdb49b",
     "semantic_hash": "21be9f1c369052b74ed2ab511bbdb49b"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/migrations/0002_rideraccount_dispatch_option.py": {
+  "backend/apps/authentication/migrations/0002_rideraccount_dispatch_option.py": {
     "mtime": 1780143563.8914678,
     "ast_hash": "937ce8c5dcc74f5cf0ea1bfcd3f5f9ea",
     "semantic_hash": "937ce8c5dcc74f5cf0ea1bfcd3f5f9ea"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/migrations/0003_homebase_riderhomebaseassignment_and_more.py": {
+  "backend/apps/authentication/migrations/0003_homebase_riderhomebaseassignment_and_more.py": {
     "mtime": 1780143563.8915985,
     "ast_hash": "bd3a67170ad143e39b5be5d7be8d74ee",
     "semantic_hash": "bd3a67170ad143e39b5be5d7be8d74ee"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/migrations/0004_add_vehicle_type_to_rider.py": {
+  "backend/apps/authentication/migrations/0004_add_vehicle_type_to_rider.py": {
     "mtime": 1780143563.8917065,
     "ast_hash": "612318e318558e1ff6d7b76eefbc6c1e",
     "semantic_hash": "612318e318558e1ff6d7b76eefbc6c1e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/migrations/0005_vehiclechangerequest.py": {
+  "backend/apps/authentication/migrations/0005_vehiclechangerequest.py": {
     "mtime": 1780652025.352992,
     "ast_hash": "201054767bcdff77b6e6cea9fea77578",
     "semantic_hash": "201054767bcdff77b6e6cea9fea77578"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/migrations/0006_vehiclechangerequest_tidy.py": {
+  "backend/apps/authentication/migrations/0006_vehiclechangerequest_tidy.py": {
     "mtime": 1780658297.806932,
     "ast_hash": "56a807e9632560350ec90febc202660d",
     "semantic_hash": "56a807e9632560350ec90febc202660d"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/migrations/0007_rideraccount_archived_at_rideraccount_phone.py": {
+  "backend/apps/authentication/migrations/0007_rideraccount_archived_at_rideraccount_phone.py": {
     "mtime": 1781945479.0203972,
     "ast_hash": "8aa309957d3faccd37c564fa4083a9f4",
     "semantic_hash": "8aa309957d3faccd37c564fa4083a9f4"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/migrations/0008_otpchallenge.py": {
+  "backend/apps/authentication/migrations/0008_otpchallenge.py": {
     "mtime": 1781945736.790617,
     "ast_hash": "808ec73e7d32255ef1f57a6e7eaf724f",
     "semantic_hash": "808ec73e7d32255ef1f57a6e7eaf724f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/migrations/__init__.py": {
+  "backend/apps/authentication/migrations/__init__.py": {
     "mtime": 1780143563.8917513,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/models.py": {
-    "mtime": 1781945729.6240568,
-    "ast_hash": "414fa514c700894a84abf905fe82545c",
-    "semantic_hash": "414fa514c700894a84abf905fe82545c"
+  "backend/apps/authentication/models.py": {
+    "mtime": 1782469491.9772003,
+    "ast_hash": "5f339a8b163db57eed57ebdc683f17a9",
+    "semantic_hash": "5f339a8b163db57eed57ebdc683f17a9"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/otp_providers.py": {
+  "backend/apps/authentication/otp_providers.py": {
     "mtime": 1782018683.3026676,
     "ast_hash": "81071568895e7286bac1bd581ea96446",
     "semantic_hash": "81071568895e7286bac1bd581ea96446"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/otp_service.py": {
-    "mtime": 1781953606.3102393,
-    "ast_hash": "824c47a10be8cc72d514c402578f9899",
-    "semantic_hash": "824c47a10be8cc72d514c402578f9899"
+  "backend/apps/authentication/otp_service.py": {
+    "mtime": 1782469491.9776149,
+    "ast_hash": "a40364badee9d4b9034ecaf59a714497",
+    "semantic_hash": "a40364badee9d4b9034ecaf59a714497"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/resources.py": {
+  "backend/apps/authentication/resources.py": {
     "mtime": 1780143563.8919992,
     "ast_hash": "1bd1dfa331ff02fc953f781598293256",
     "semantic_hash": "1bd1dfa331ff02fc953f781598293256"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/serializers.py": {
+  "backend/apps/authentication/serializers.py": {
     "mtime": 1781945473.7617745,
     "ast_hash": "ecf482ace28fe6a964d0570084ea7c75",
     "semantic_hash": "ecf482ace28fe6a964d0570084ea7c75"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/tests.py": {
+  "backend/apps/authentication/tests.py": {
     "mtime": 1781951030.793919,
     "ast_hash": "d9a4dbde6449d9bd05607f904145fdc7",
     "semantic_hash": "d9a4dbde6449d9bd05607f904145fdc7"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/urls.py": {
-    "mtime": 1781946449.1036541,
-    "ast_hash": "e73819e320f94e7f9df50bce3c6e1d39",
-    "semantic_hash": "e73819e320f94e7f9df50bce3c6e1d39"
+  "backend/apps/authentication/urls.py": {
+    "mtime": 1782469491.9779627,
+    "ast_hash": "0ff78944872af0c9f2d63b07860b76fe",
+    "semantic_hash": "0ff78944872af0c9f2d63b07860b76fe"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/views.py": {
-    "mtime": 1782124635.5324206,
-    "ast_hash": "b1814856502b26ca98f6120cc59c7b05",
-    "semantic_hash": "b1814856502b26ca98f6120cc59c7b05"
+  "backend/apps/authentication/views.py": {
+    "mtime": 1782469491.9785492,
+    "ast_hash": "9422d72dd7ff40880429101d06dfef12",
+    "semantic_hash": "9422d72dd7ff40880429101d06dfef12"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/core/middleware.py": {
+  "backend/apps/core/middleware.py": {
     "mtime": 1780143563.893169,
     "ast_hash": "026a10eaaa04198c9044d471f271c8e6",
     "semantic_hash": "026a10eaaa04198c9044d471f271c8e6"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/__init__.py": {
+  "backend/apps/shipments/__init__.py": {
     "mtime": 1780143563.8945923,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/admin.py": {
+  "backend/apps/shipments/admin.py": {
     "mtime": 1780143563.8947785,
     "ast_hash": "c7160dba7dd75d465a8e1e99f1cdc604",
     "semantic_hash": "c7160dba7dd75d465a8e1e99f1cdc604"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/admin_views.py": {
+  "backend/apps/shipments/admin_views.py": {
     "mtime": 1781497970.5896018,
     "ast_hash": "6d7ce13dbbfc64d33aea2d6c03472e68",
     "semantic_hash": "6d7ce13dbbfc64d33aea2d6c03472e68"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/analytics_views.py": {
+  "backend/apps/shipments/analytics_views.py": {
     "mtime": 1781497854.4939487,
     "ast_hash": "e5b5e7bb8f5dfdbe629bc54cafdad60f",
     "semantic_hash": "e5b5e7bb8f5dfdbe629bc54cafdad60f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/api_key_auth.py": {
+  "backend/apps/shipments/api_key_auth.py": {
     "mtime": 1781497870.9822035,
     "ast_hash": "627c7363c9c28666bea84ad04809a7e4",
     "semantic_hash": "627c7363c9c28666bea84ad04809a7e4"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/api_source_analytics.py": {
+  "backend/apps/shipments/api_source_analytics.py": {
     "mtime": 1780143563.8951705,
     "ast_hash": "6cfbcece7bf08831bb4a7cce7d49bbb3",
     "semantic_hash": "6cfbcece7bf08831bb4a7cce7d49bbb3"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/apps.py": {
+  "backend/apps/shipments/apps.py": {
     "mtime": 1780143563.8952606,
     "ast_hash": "7138ae4198b938a65f8fd112013df140",
     "semantic_hash": "7138ae4198b938a65f8fd112013df140"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/callback_views.py": {
+  "backend/apps/shipments/callback_views.py": {
     "mtime": 1781497892.2396736,
     "ast_hash": "2ff1160766ad691b071df9c361357bce",
     "semantic_hash": "2ff1160766ad691b071df9c361357bce"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/external_callback_service.py": {
+  "backend/apps/shipments/external_callback_service.py": {
     "mtime": 1781497881.4813094,
     "ast_hash": "7c6027a3f5147e5b859cc87d6d8f19ca",
     "semantic_hash": "7c6027a3f5147e5b859cc87d6d8f19ca"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/filters.py": {
+  "backend/apps/shipments/filters.py": {
     "mtime": 1780143563.8956423,
     "ast_hash": "f608b02e3c3af4fd1df703733727faf8",
     "semantic_hash": "f608b02e3c3af4fd1df703733727faf8"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/geocoding.py": {
+  "backend/apps/shipments/geocoding.py": {
     "mtime": 1780143563.895756,
     "ast_hash": "c0308acc031459c9f3f96b231bd59842",
     "semantic_hash": "c0308acc031459c9f3f96b231bd59842"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/management/commands/cleanup_old_shipments.py": {
+  "backend/apps/shipments/management/commands/cleanup_old_shipments.py": {
     "mtime": 1780143563.895982,
     "ast_hash": "10f9bf3a4bb2976c9cd87eab06b18b95",
     "semantic_hash": "10f9bf3a4bb2976c9cd87eab06b18b95"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/migrations/0001_initial.py": {
+  "backend/apps/shipments/migrations/0001_initial.py": {
     "mtime": 1780143563.8961303,
     "ast_hash": "660a5724bb158b9525d9974a947739cc",
     "semantic_hash": "660a5724bb158b9525d9974a947739cc"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/migrations/0002_routesession_mileage_snapshot.py": {
+  "backend/apps/shipments/migrations/0002_routesession_mileage_snapshot.py": {
     "mtime": 1780651284.2442994,
     "ast_hash": "1854a8f261a264de9c08e7fa37440cb0",
     "semantic_hash": "1854a8f261a264de9c08e7fa37440cb0"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/migrations/0003_shipment_hub_job_entries.py": {
+  "backend/apps/shipments/migrations/0003_shipment_hub_job_entries.py": {
     "mtime": 1781504536.7510307,
     "ast_hash": "98d386bdf9788abc1dd832d801f036bf",
     "semantic_hash": "98d386bdf9788abc1dd832d801f036bf"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/migrations/0004_overlapignore.py": {
+  "backend/apps/shipments/migrations/0004_overlapignore.py": {
     "mtime": 1781978727.8904853,
     "ast_hash": "29a725cbed6dfa6e7c6168efa2e1d26a",
     "semantic_hash": "29a725cbed6dfa6e7c6168efa2e1d26a"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/migrations/0005_shipment_dispatch_sequence_shipment_dispatched_at.py": {
+  "backend/apps/shipments/migrations/0005_shipment_dispatch_sequence_shipment_dispatched_at.py": {
     "mtime": 1782103458.17966,
     "ast_hash": "7e79698948eb2a0e93e3e8f16ad8774b",
     "semantic_hash": "7e79698948eb2a0e93e3e8f16ad8774b"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/migrations/__init__.py": {
+  "backend/apps/shipments/migrations/__init__.py": {
     "mtime": 1780143563.8961902,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/models.py": {
+  "backend/apps/shipments/models.py": {
     "mtime": 1782103372.2699208,
     "ast_hash": "acf558e4a2559f547262f981521fe89c",
     "semantic_hash": "acf558e4a2559f547262f981521fe89c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/permissions.py": {
+  "backend/apps/shipments/permissions.py": {
     "mtime": 1781268791.8295372,
     "ast_hash": "76235acd09b5f0defe0826782403341c",
     "semantic_hash": "76235acd09b5f0defe0826782403341c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/pops_order_receiver.py": {
+  "backend/apps/shipments/pops_order_receiver.py": {
     "mtime": 1781525786.0894089,
     "ast_hash": "ac06608bb3cb5b9244db89ab1705e104",
     "semantic_hash": "ac06608bb3cb5b9244db89ab1705e104"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/resources.py": {
+  "backend/apps/shipments/resources.py": {
     "mtime": 1780143563.8965383,
     "ast_hash": "0a257269bdf223a85bf00eadfe2f0bfd",
     "semantic_hash": "0a257269bdf223a85bf00eadfe2f0bfd"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/routing.py": {
+  "backend/apps/shipments/routing.py": {
     "mtime": 1780583321.333306,
     "ast_hash": "5f594f65046397b425568363707f0a54",
     "semantic_hash": "5f594f65046397b425568363707f0a54"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/serializers.py": {
+  "backend/apps/shipments/serializers.py": {
     "mtime": 1781504497.0986676,
     "ast_hash": "27a88ba53cfa899fc892390be83b0895",
     "semantic_hash": "27a88ba53cfa899fc892390be83b0895"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/services.py": {
-    "mtime": 1781697744.631753,
-    "ast_hash": "c5fa0f1d55369d94f4df1194f5960cd7",
-    "semantic_hash": "c5fa0f1d55369d94f4df1194f5960cd7"
+  "backend/apps/shipments/services.py": {
+    "mtime": 1782449017.8644996,
+    "ast_hash": "7ca96a305e80092d07930e4fd6ab1b3e",
+    "semantic_hash": "7ca96a305e80092d07930e4fd6ab1b3e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/signals.py": {
+  "backend/apps/shipments/signals.py": {
     "mtime": 1781411200.795213,
     "ast_hash": "210c8a5e42f5e18d2b36a69354b5be50",
     "semantic_hash": "210c8a5e42f5e18d2b36a69354b5be50"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/tests.py": {
+  "backend/apps/shipments/tests.py": {
     "mtime": 1780143563.8969486,
     "ast_hash": "465b7e9f69bfd158c850cdfbc7306818",
     "semantic_hash": "465b7e9f69bfd158c850cdfbc7306818"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/urls.py": {
+  "backend/apps/shipments/urls.py": {
     "mtime": 1782103896.9189072,
     "ast_hash": "2d51113a4771d1f06a6f885a9e22ed6e",
     "semantic_hash": "2d51113a4771d1f06a6f885a9e22ed6e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/views.py": {
-    "mtime": 1782103895.6161356,
-    "ast_hash": "87e17341ae4a4a61fa7c556eb0522e12",
-    "semantic_hash": "87e17341ae4a4a61fa7c556eb0522e12"
+  "backend/apps/shipments/views.py": {
+    "mtime": 1782449017.865192,
+    "ast_hash": "41549cf29cb837d50e86e198a232b8e5",
+    "semantic_hash": "41549cf29cb837d50e86e198a232b8e5"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/shipments/webhooks.py": {
+  "backend/apps/shipments/webhooks.py": {
     "mtime": 1781268791.8306878,
     "ast_hash": "3e88c52d0b410e2365a2fa8b0a20249a",
     "semantic_hash": "3e88c52d0b410e2365a2fa8b0a20249a"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/sync/__init__.py": {
+  "backend/apps/sync/__init__.py": {
     "mtime": 1780143563.897546,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/sync/admin.py": {
+  "backend/apps/sync/admin.py": {
     "mtime": 1780143563.8976448,
     "ast_hash": "e3dc717de887db03a015667a5fec59d8",
     "semantic_hash": "e3dc717de887db03a015667a5fec59d8"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/sync/apps.py": {
+  "backend/apps/sync/apps.py": {
     "mtime": 1780143563.8977206,
     "ast_hash": "d345a86cfddfe3926944a5635735f05f",
     "semantic_hash": "d345a86cfddfe3926944a5635735f05f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/sync/migrations/__init__.py": {
+  "backend/apps/sync/migrations/__init__.py": {
     "mtime": 1780143563.8978071,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/sync/models.py": {
+  "backend/apps/sync/models.py": {
     "mtime": 1780143563.8979034,
     "ast_hash": "8c4eb991c6dca757bdd77f539092e29b",
     "semantic_hash": "8c4eb991c6dca757bdd77f539092e29b"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/sync/tests.py": {
+  "backend/apps/sync/tests.py": {
     "mtime": 1780143563.8979793,
     "ast_hash": "465b7e9f69bfd158c850cdfbc7306818",
     "semantic_hash": "465b7e9f69bfd158c850cdfbc7306818"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/sync/urls.py": {
+  "backend/apps/sync/urls.py": {
     "mtime": 1780143563.8980632,
     "ast_hash": "fa3f4db6810c5a743669514f9f7cdc57",
     "semantic_hash": "fa3f4db6810c5a743669514f9f7cdc57"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/sync/views.py": {
-    "mtime": 1780143563.8981721,
-    "ast_hash": "7b0f60a0594336b5e3e4d188441daa07",
-    "semantic_hash": "7b0f60a0594336b5e3e4d188441daa07"
+  "backend/apps/sync/views.py": {
+    "mtime": 1782449017.8656917,
+    "ast_hash": "e27f511419b52e1587dd6e7c17ca1f0f",
+    "semantic_hash": "e27f511419b52e1587dd6e7c17ca1f0f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/vehicles/__init__.py": {
+  "backend/apps/vehicles/__init__.py": {
     "mtime": 1780143563.898266,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/vehicles/admin.py": {
+  "backend/apps/vehicles/admin.py": {
     "mtime": 1780143563.8983748,
     "ast_hash": "c18c60098f6cfc79b37d6e9bdd7747d3",
     "semantic_hash": "c18c60098f6cfc79b37d6e9bdd7747d3"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/vehicles/apps.py": {
+  "backend/apps/vehicles/apps.py": {
     "mtime": 1780143563.89845,
     "ast_hash": "c5b15d82c048aced7d883a2a2250177c",
     "semantic_hash": "c5b15d82c048aced7d883a2a2250177c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/vehicles/migrations/0001_initial.py": {
+  "backend/apps/vehicles/migrations/0001_initial.py": {
     "mtime": 1780143563.8986065,
     "ast_hash": "44bd97d8830e3432c37e7a16a282eafa",
     "semantic_hash": "44bd97d8830e3432c37e7a16a282eafa"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/vehicles/migrations/__init__.py": {
+  "backend/apps/vehicles/migrations/__init__.py": {
     "mtime": 1780143563.8986437,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/vehicles/models.py": {
+  "backend/apps/vehicles/models.py": {
     "mtime": 1780143563.8987653,
     "ast_hash": "01274869435bce03dae95d0a121ef7e9",
     "semantic_hash": "01274869435bce03dae95d0a121ef7e9"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/vehicles/resources.py": {
+  "backend/apps/vehicles/resources.py": {
     "mtime": 1780143563.8988416,
     "ast_hash": "2877c71cad3e5a1152f18207830063b1",
     "semantic_hash": "2877c71cad3e5a1152f18207830063b1"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/vehicles/serializers.py": {
+  "backend/apps/vehicles/serializers.py": {
     "mtime": 1780143563.898925,
     "ast_hash": "ada9a6c150bcdb945a9a3147902496c4",
     "semantic_hash": "ada9a6c150bcdb945a9a3147902496c4"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/vehicles/tests.py": {
+  "backend/apps/vehicles/tests.py": {
     "mtime": 1780143563.8990028,
     "ast_hash": "465b7e9f69bfd158c850cdfbc7306818",
     "semantic_hash": "465b7e9f69bfd158c850cdfbc7306818"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/vehicles/urls.py": {
+  "backend/apps/vehicles/urls.py": {
     "mtime": 1780143563.8990932,
     "ast_hash": "e5d38cdf9665295178c5d9a06826d03d",
     "semantic_hash": "e5d38cdf9665295178c5d9a06826d03d"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/vehicles/views.py": {
+  "backend/apps/vehicles/views.py": {
     "mtime": 1780143563.89917,
     "ast_hash": "aa5c31eb7a1a453d959f25501677cbad",
     "semantic_hash": "aa5c31eb7a1a453d959f25501677cbad"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/init-db.sh": {
+  "backend/init-db.sh": {
     "mtime": 1780143563.8992574,
     "ast_hash": "b76454d62f7a06683eb3bd8ccea20ff9",
     "semantic_hash": "b76454d62f7a06683eb3bd8ccea20ff9"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/manage.py": {
+  "backend/manage.py": {
     "mtime": 1780143563.899341,
     "ast_hash": "d141f90a74c7444da01f9854d93b705c",
     "semantic_hash": "d141f90a74c7444da01f9854d93b705c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/riderpro/__init__.py": {
+  "backend/riderpro/__init__.py": {
     "mtime": 1780143563.899506,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/riderpro/asgi.py": {
+  "backend/riderpro/asgi.py": {
     "mtime": 1780143563.8996048,
     "ast_hash": "42f308865312f10038a769c056cef534",
     "semantic_hash": "42f308865312f10038a769c056cef534"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/riderpro/docs_views.py": {
+  "backend/riderpro/docs_views.py": {
     "mtime": 1780143563.899685,
     "ast_hash": "3af165c9b36d385becd8ff7c9a7bbfe5",
     "semantic_hash": "3af165c9b36d385becd8ff7c9a7bbfe5"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/riderpro/localsettings.example.py": {
-    "mtime": 1781498004.1522422,
-    "ast_hash": "4b34c3a85fa5594ac76c398c3e8683ad",
-    "semantic_hash": "4b34c3a85fa5594ac76c398c3e8683ad"
+  "backend/riderpro/localsettings.example.py": {
+    "mtime": 1782469491.9789984,
+    "ast_hash": "30d261fa2bc313da703c7e9ba3324dc7",
+    "semantic_hash": "30d261fa2bc313da703c7e9ba3324dc7"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/riderpro/settings.py": {
-    "mtime": 1781979381.76955,
-    "ast_hash": "57b0120a66182e4231a509b4c3f3fcda",
-    "semantic_hash": "57b0120a66182e4231a509b4c3f3fcda"
+  "backend/riderpro/settings.py": {
+    "mtime": 1782367406.0990083,
+    "ast_hash": "51354806acc823ae7d08a1069fcca86a",
+    "semantic_hash": "51354806acc823ae7d08a1069fcca86a"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/riderpro/urls.py": {
+  "backend/riderpro/urls.py": {
     "mtime": 1781497977.4194677,
     "ast_hash": "f5f20efa965a6c565f317c98add9c0f4",
     "semantic_hash": "f5f20efa965a6c565f317c98add9c0f4"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/riderpro/wsgi.py": {
+  "backend/riderpro/wsgi.py": {
     "mtime": 1780143563.9011393,
     "ast_hash": "12acd15a311f587d981ab93a78958739",
     "semantic_hash": "12acd15a311f587d981ab93a78958739"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/utils/__init__.py": {
+  "backend/utils/__init__.py": {
     "mtime": 1780143563.901253,
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/utils/pops_client.py": {
-    "mtime": 1781945493.9615045,
-    "ast_hash": "be9edbb2aac3439044225fb484d905a8",
-    "semantic_hash": "be9edbb2aac3439044225fb484d905a8"
+  "backend/utils/pops_client.py": {
+    "mtime": 1782449017.8661792,
+    "ast_hash": "d03b704476e4103de3808aaf927ae266",
+    "semantic_hash": "d03b704476e4103de3808aaf927ae266"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/utils/pops_rider_sync.py": {
+  "backend/utils/pops_rider_sync.py": {
     "mtime": 1781945519.7903783,
     "ast_hash": "aab1217bf1f3b90050b18213ba35f528",
     "semantic_hash": "aab1217bf1f3b90050b18213ba35f528"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/App.tsx": {
-    "mtime": 1781953836.8907661,
-    "ast_hash": "442477f8d8345f770fedec8776d346f4",
-    "semantic_hash": "442477f8d8345f770fedec8776d346f4"
+  "client/src/App.tsx": {
+    "mtime": 1782536050.0409083,
+    "ast_hash": "e124030cd2af9fa50bd13147611c1c1f",
+    "semantic_hash": ""
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/apiClient/analytics.ts": {
+  "client/src/apiClient/analytics.ts": {
     "mtime": 1780143563.9046764,
     "ast_hash": "b10d44da88a0b4351370c7456a2a88eb",
     "semantic_hash": "b10d44da88a0b4351370c7456a2a88eb"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/apiClient/routes.ts": {
+  "client/src/apiClient/routes.ts": {
     "mtime": 1781978877.4650595,
     "ast_hash": "94ed9ea7d8cdf1e7dd1cfce1bbbb779b",
     "semantic_hash": "94ed9ea7d8cdf1e7dd1cfce1bbbb779b"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/apiClient/shipments.ts": {
+  "client/src/apiClient/shipments.ts": {
     "mtime": 1781867926.6352563,
     "ast_hash": "f966456412bd34b6f856d767a82cb2ad",
     "semantic_hash": "f966456412bd34b6f856d767a82cb2ad"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/apiClient/vehicleControl.ts": {
+  "client/src/apiClient/vehicleControl.ts": {
     "mtime": 1780655084.8428965,
     "ast_hash": "21ccd7fc46a4ec853175a3a3334456aa",
     "semantic_hash": "21ccd7fc46a4ec853175a3a3334456aa"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/apiClient/vehicleTypes.ts": {
+  "client/src/apiClient/vehicleTypes.ts": {
     "mtime": 1780143563.905028,
     "ast_hash": "fab21fa5ab58d1e30b09bc3d896e4916",
     "semantic_hash": "fab21fa5ab58d1e30b09bc3d896e4916"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/AcknowledgmentCapture.tsx": {
+  "client/src/components/AcknowledgmentCapture.tsx": {
     "mtime": 1780143563.9051833,
     "ast_hash": "211b15b03cd28ef57e50f91e49d6904f",
     "semantic_hash": "211b15b03cd28ef57e50f91e49d6904f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ErrorBoundary.tsx": {
+  "client/src/components/ErrorBoundary.tsx": {
     "mtime": 1780143563.9053345,
     "ast_hash": "a0f46c1517dac446a10897a04f25ed1f",
     "semantic_hash": "a0f46c1517dac446a10897a04f25ed1f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ErrorMonitoringPanel.tsx": {
+  "client/src/components/ErrorMonitoringPanel.tsx": {
     "mtime": 1780143563.9054685,
     "ast_hash": "8341518eeffd46cfffc533cc8d9fd75c",
     "semantic_hash": "8341518eeffd46cfffc533cc8d9fd75c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/Filters.tsx": {
+  "client/src/components/Filters.tsx": {
     "mtime": 1781525786.089381,
     "ast_hash": "a793f228b57ee6f21bd34cc349dfa310",
     "semantic_hash": "a793f228b57ee6f21bd34cc349dfa310"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/FloatingActionMenu.tsx": {
+  "client/src/components/FloatingActionMenu.tsx": {
     "mtime": 1781623343.7030232,
     "ast_hash": "cf33cb7cf899068b71a39cd80a422d7e",
     "semantic_hash": "cf33cb7cf899068b71a39cd80a422d7e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/LoginForm.tsx": {
+  "client/src/components/LoginForm.tsx": {
     "mtime": 1781954046.143703,
     "ast_hash": "55976d284ad2ab6532420c292b91b737",
     "semantic_hash": "55976d284ad2ab6532420c292b91b737"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/MobileNavigation.tsx": {
+  "client/src/components/MobileNavigation.tsx": {
     "mtime": 1781623343.8560894,
     "ast_hash": "287d4f735cdd64fedcabaada9a779361",
     "semantic_hash": "287d4f735cdd64fedcabaada9a779361"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/Navigation.tsx": {
-    "mtime": 1780143563.9061337,
-    "ast_hash": "9329db21ee852adb6693b14ad2e83398",
-    "semantic_hash": "9329db21ee852adb6693b14ad2e83398"
+  "client/src/components/Navigation.tsx": {
+    "mtime": 1782577397.7477744,
+    "ast_hash": "41938b892b0c4cb804f44bb4a44d9325",
+    "semantic_hash": ""
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/SignatureCanvas.tsx": {
+  "client/src/components/SignatureCanvas.tsx": {
     "mtime": 1781505115.4522939,
     "ast_hash": "2f39e0473dcef45a2828a2fb0bf198c9",
     "semantic_hash": "2f39e0473dcef45a2828a2fb0bf198c9"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/SmartCompletionSettings.tsx": {
+  "client/src/components/SmartCompletionSettings.tsx": {
     "mtime": 1781508690.9059904,
     "ast_hash": "2eafc34298fc5980b476964d7e7e5bc4",
     "semantic_hash": "2eafc34298fc5980b476964d7e7e5bc4"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/admin/VehicleChangeRequests.tsx": {
+  "client/src/components/admin/VehicleChangeRequests.tsx": {
     "mtime": 1780656421.0962837,
     "ast_hash": "8862b4930bbd3976f4142030cb8e6b76",
     "semantic_hash": "8862b4930bbd3976f4142030cb8e6b76"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/analytics/EmployeePerformanceTable.tsx": {
+  "client/src/components/analytics/EmployeePerformanceTable.tsx": {
     "mtime": 1780143563.9066112,
     "ast_hash": "788597870e6e4af46cebff2286c7567f",
     "semantic_hash": "788597870e6e4af46cebff2286c7567f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/analytics/FuelAnalyticsChart.tsx": {
+  "client/src/components/analytics/FuelAnalyticsChart.tsx": {
     "mtime": 1780143563.906782,
     "ast_hash": "fd6e8d5fc3fcd15088a45ffac8285d89",
     "semantic_hash": "fd6e8d5fc3fcd15088a45ffac8285d89"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/analytics/MobileRouteAnalytics.tsx": {
+  "client/src/components/analytics/MobileRouteAnalytics.tsx": {
     "mtime": 1780143563.9069242,
     "ast_hash": "bc0654c22a7f956db5907a5d47c0301e",
     "semantic_hash": "bc0654c22a7f956db5907a5d47c0301e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/analytics/PerformanceMetricsChart.tsx": {
+  "client/src/components/analytics/PerformanceMetricsChart.tsx": {
     "mtime": 1780143563.9070675,
     "ast_hash": "79ad5664a7d6f3748d2ae77e34ae5f79",
     "semantic_hash": "79ad5664a7d6f3748d2ae77e34ae5f79"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/analytics/RouteComparisonChart.tsx": {
+  "client/src/components/analytics/RouteComparisonChart.tsx": {
     "mtime": 1780143563.9071906,
     "ast_hash": "fd375f75ff6e7003b4d23471efa4f7a8",
     "semantic_hash": "fd375f75ff6e7003b4d23471efa4f7a8"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/analytics/RoutePerformanceChart.tsx": {
+  "client/src/components/analytics/RoutePerformanceChart.tsx": {
     "mtime": 1780143563.907463,
     "ast_hash": "b2ffc7e6d85a3264bd991910c317a603",
     "semantic_hash": "b2ffc7e6d85a3264bd991910c317a603"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/analytics/StatusDistributionChart.tsx": {
+  "client/src/components/analytics/StatusDistributionChart.tsx": {
     "mtime": 1780143563.9075654,
     "ast_hash": "06a8236a8114ad212c50e3dda58296f5",
     "semantic_hash": "06a8236a8114ad212c50e3dda58296f5"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/analytics/StatusDistributionPieChart.tsx": {
+  "client/src/components/analytics/StatusDistributionPieChart.tsx": {
     "mtime": 1780143563.907673,
     "ast_hash": "6f7e11c3b4b2dfb82568d43e1200a3fb",
     "semantic_hash": "6f7e11c3b4b2dfb82568d43e1200a3fb"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/fuel/FleetReports.tsx": {
+  "client/src/components/fuel/FleetReports.tsx": {
     "mtime": 1780143563.9078789,
     "ast_hash": "c7f7a3b4476cb565b760ad6b009b8717",
     "semantic_hash": "c7f7a3b4476cb565b760ad6b009b8717"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/fuel/FuelAnalytics.tsx": {
+  "client/src/components/fuel/FuelAnalytics.tsx": {
     "mtime": 1780143563.9080422,
     "ast_hash": "fbb01bf5ede0541ba951143232e183e4",
     "semantic_hash": "fbb01bf5ede0541ba951143232e183e4"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/fuel/FuelManagementDashboard.tsx": {
+  "client/src/components/fuel/FuelManagementDashboard.tsx": {
     "mtime": 1780143563.9081624,
     "ast_hash": "95a4bc6a53b96bec9e9b2d62efe3cf00",
     "semantic_hash": "95a4bc6a53b96bec9e9b2d62efe3cf00"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/fuel/FuelPriceManagement.tsx": {
+  "client/src/components/fuel/FuelPriceManagement.tsx": {
     "mtime": 1780143563.90828,
     "ast_hash": "409dc9152b95bff344a80cebfbf99764",
     "semantic_hash": "409dc9152b95bff344a80cebfbf99764"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/fuel/OptimizationSuggestions.tsx": {
+  "client/src/components/fuel/OptimizationSuggestions.tsx": {
     "mtime": 1780143563.9084177,
     "ast_hash": "845fb2f6103d442514d2ac44b34c67c9",
     "semantic_hash": "845fb2f6103d442514d2ac44b34c67c9"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ops/ReassignDialog.tsx": {
+  "client/src/components/ops/ReassignDialog.tsx": {
     "mtime": 1781867954.3792822,
     "ast_hash": "fb7d1be11261d66f4804e929053e7b3b",
     "semantic_hash": "fb7d1be11261d66f4804e929053e7b3b"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/routes/ActiveRouteTracking.tsx": {
+  "client/src/components/routes/ActiveRouteTracking.tsx": {
     "mtime": 1780635991.8904538,
     "ast_hash": "1dd492319dbb89bb908eb36027e2cdbb",
     "semantic_hash": "1dd492319dbb89bb908eb36027e2cdbb"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/routes/RouteCompletionDialog.tsx": {
+  "client/src/components/routes/RouteCompletionDialog.tsx": {
     "mtime": 1780143563.9088898,
     "ast_hash": "d2bfc26d02c1ed92a1d921050c4acfe4",
     "semantic_hash": "d2bfc26d02c1ed92a1d921050c4acfe4"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/routes/RouteSessionControls.tsx": {
+  "client/src/components/routes/RouteSessionControls.tsx": {
     "mtime": 1780655205.7372353,
     "ast_hash": "8600f7e87b394bd310d026c560a3bd33",
     "semantic_hash": "8600f7e87b394bd310d026c560a3bd33"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/routes/RouteSummary.tsx": {
+  "client/src/components/routes/RouteSummary.tsx": {
     "mtime": 1780143563.9092677,
     "ast_hash": "5ed44ecbca72ff5f367cca3979f75b0f",
     "semantic_hash": "5ed44ecbca72ff5f367cca3979f75b0f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/routes/VehicleConfirmModal.tsx": {
+  "client/src/components/routes/VehicleConfirmModal.tsx": {
     "mtime": 1780655156.1207428,
     "ast_hash": "983bd6108054147f2c4958aa061a4334",
     "semantic_hash": "983bd6108054147f2c4958aa061a4334"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/CardSection.tsx": {
+  "client/src/components/shipments/CardSection.tsx": {
     "mtime": 1780143563.909579,
     "ast_hash": "3cf87e96dfae252009670bf2ffc2aefc",
     "semantic_hash": "3cf87e96dfae252009670bf2ffc2aefc"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/ChangeRiderSection.tsx": {
+  "client/src/components/shipments/ChangeRiderSection.tsx": {
     "mtime": 1780143563.9096863,
     "ast_hash": "88acfeb9597791720a7afc0cd8d3b858",
     "semantic_hash": "88acfeb9597791720a7afc0cd8d3b858"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/CollectedStatusToggle.tsx": {
+  "client/src/components/shipments/CollectedStatusToggle.tsx": {
     "mtime": 1781268791.833118,
     "ast_hash": "e7d8b54ab8a7df5e2d30a84bac47083d",
     "semantic_hash": "e7d8b54ab8a7df5e2d30a84bac47083d"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/DashboardShipmentActions.tsx": {
+  "client/src/components/shipments/DashboardShipmentActions.tsx": {
     "mtime": 1781505115.452294,
     "ast_hash": "b3717b14d83b1fbd98302263b8bc1819",
     "semantic_hash": "b3717b14d83b1fbd98302263b8bc1819"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/EditableField.tsx": {
+  "client/src/components/shipments/EditableField.tsx": {
     "mtime": 1780143563.9100304,
     "ast_hash": "6f8fbe96814748779e77bb03770e75df",
     "semantic_hash": "6f8fbe96814748779e77bb03770e75df"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/GPSLocationDisplay.tsx": {
+  "client/src/components/shipments/GPSLocationDisplay.tsx": {
     "mtime": 1780143563.910141,
     "ast_hash": "ce4fcad45fdc8ab375f66fd2eece0dbc",
     "semantic_hash": "ce4fcad45fdc8ab375f66fd2eece0dbc"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/PDFSigner.tsx": {
+  "client/src/components/shipments/PDFSigner.tsx": {
     "mtime": 1780143563.9102733,
     "ast_hash": "9217230c6b90975f2c8e4d45de691d7b",
     "semantic_hash": "9217230c6b90975f2c8e4d45de691d7b"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/PackageBoxesTable.tsx": {
+  "client/src/components/shipments/PackageBoxesTable.tsx": {
     "mtime": 1780143563.9104092,
     "ast_hash": "77f87bd77da70e36256cf8d3b576f969",
     "semantic_hash": "77f87bd77da70e36256cf8d3b576f969"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/PhotoCapture.tsx": {
+  "client/src/components/shipments/PhotoCapture.tsx": {
     "mtime": 1780143563.91051,
     "ast_hash": "297a887bffc49ac4ddaf601beff4b9da",
     "semantic_hash": "297a887bffc49ac4ddaf601beff4b9da"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/ShipmentCard.tsx": {
+  "client/src/components/shipments/ShipmentCard.tsx": {
     "mtime": 1781505115.4523256,
     "ast_hash": "19a7728ab076785ae406f2a14053d388",
     "semantic_hash": "19a7728ab076785ae406f2a14053d388"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/ShipmentDetailTabs.tsx": {
+  "client/src/components/shipments/ShipmentDetailTabs.tsx": {
     "mtime": 1781525786.0894177,
     "ast_hash": "1a2836246c8cf91ca127f8505e36134d",
     "semantic_hash": "1a2836246c8cf91ca127f8505e36134d"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/ShipmentStatusBadge.tsx": {
+  "client/src/components/shipments/ShipmentStatusBadge.tsx": {
     "mtime": 1780143563.910913,
     "ast_hash": "c4942d771f3e6f2e4f81314b3b390a84",
     "semantic_hash": "c4942d771f3e6f2e4f81314b3b390a84"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/shipments/ShipmentsList.tsx": {
+  "client/src/components/shipments/ShipmentsList.tsx": {
     "mtime": 1780143563.9110348,
     "ast_hash": "0a63912c316176563df7ebdfd61ba8fd",
     "semantic_hash": "0a63912c316176563df7ebdfd61ba8fd"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/sync/SyncStatusIndicator.tsx": {
+  "client/src/components/sync/SyncStatusIndicator.tsx": {
     "mtime": 1780143563.9112349,
     "ast_hash": "abaeb3f1afc2bff028e7cbd07ff9a42b",
     "semantic_hash": "abaeb3f1afc2bff028e7cbd07ff9a42b"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/sync/SyncStatusPanel.tsx": {
+  "client/src/components/sync/SyncStatusPanel.tsx": {
     "mtime": 1780143563.9113784,
     "ast_hash": "faed38f2d6c18b3be809983aa163a3b3",
     "semantic_hash": "faed38f2d6c18b3be809983aa163a3b3"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/tracking/DropPointMap.tsx": {
+  "client/src/components/tracking/DropPointMap.tsx": {
     "mtime": 1780583696.6107152,
     "ast_hash": "13371e2378d66fdd77a65236582a984e",
     "semantic_hash": "13371e2378d66fdd77a65236582a984e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/tracking/GPSTrackingIndicator.tsx": {
+  "client/src/components/tracking/GPSTrackingIndicator.tsx": {
     "mtime": 1780143563.9117038,
     "ast_hash": "9051ac86a65348b4ca2dd57571a637a0",
     "semantic_hash": "9051ac86a65348b4ca2dd57571a637a0"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/tracking/LiveTrackingMap.tsx": {
+  "client/src/components/tracking/LiveTrackingMap.tsx": {
     "mtime": 1780143563.9118376,
     "ast_hash": "bd8bea74af3808c1ebfddfead397dce2",
     "semantic_hash": "bd8bea74af3808c1ebfddfead397dce2"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/tracking/MobileGPSTracker.tsx": {
+  "client/src/components/tracking/MobileGPSTracker.tsx": {
     "mtime": 1781268791.8336563,
     "ast_hash": "f3266118fa591e4b1c228c6e96047468",
     "semantic_hash": "f3266118fa591e4b1c228c6e96047468"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/tracking/MobileLiveTracking.tsx": {
+  "client/src/components/tracking/MobileLiveTracking.tsx": {
     "mtime": 1780143563.9122832,
     "ast_hash": "63fbfe6ca70f512a600504c58faed145",
     "semantic_hash": "63fbfe6ca70f512a600504c58faed145"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/Captcha.tsx": {
+  "client/src/components/ui/Captcha.tsx": {
     "mtime": 1780143563.9124897,
     "ast_hash": "d989456f50a3b00ff36329a1a8c08f4e",
     "semantic_hash": "d989456f50a3b00ff36329a1a8c08f4e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/CompactMetricCard.tsx": {
+  "client/src/components/ui/CompactMetricCard.tsx": {
     "mtime": 1780143563.9125962,
     "ast_hash": "b444d592ae8f63961ad905e6bd3cf112",
     "semantic_hash": "b444d592ae8f63961ad905e6bd3cf112"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/ConnectionStatus.tsx": {
+  "client/src/components/ui/ConnectionStatus.tsx": {
     "mtime": 1780143563.9127593,
     "ast_hash": "9e60ab3b169a6121b395bb5654d8f082",
     "semantic_hash": "9e60ab3b169a6121b395bb5654d8f082"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/DispatchBadge.tsx": {
-    "mtime": 1780143563.912859,
-    "ast_hash": "8d04281b705a509f10fd634274d48d0a",
-    "semantic_hash": "8d04281b705a509f10fd634274d48d0a"
+  "client/src/components/ui/DispatchBadge.tsx": {
+    "mtime": 1782469490.9426477,
+    "ast_hash": "6e38e3cbbf9782ae34a3ac96f3bc2cd8",
+    "semantic_hash": "6e38e3cbbf9782ae34a3ac96f3bc2cd8"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/HomebaseBadge.tsx": {
+  "client/src/components/ui/HomebaseBadge.tsx": {
     "mtime": 1780143563.912954,
     "ast_hash": "6348146c60a3a317abc79c4fb0d184a4",
     "semantic_hash": "6348146c60a3a317abc79c4fb0d184a4"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/HomebaseSelector.tsx": {
+  "client/src/components/ui/HomebaseSelector.tsx": {
     "mtime": 1780143563.9130712,
     "ast_hash": "e7b3f4404e449b03d79c1ef31464cd84",
     "semantic_hash": "e7b3f4404e449b03d79c1ef31464cd84"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/Loader.tsx": {
+  "client/src/components/ui/Loader.tsx": {
     "mtime": 1780143563.9131665,
     "ast_hash": "45b7e3ceebd335873b064b7548b535f0",
     "semantic_hash": "45b7e3ceebd335873b064b7548b535f0"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/MetricCard.tsx": {
+  "client/src/components/ui/MetricCard.tsx": {
     "mtime": 1780143563.9132657,
     "ast_hash": "0f1daaf11e710de633f76eb61618ba14",
     "semantic_hash": "0f1daaf11e710de633f76eb61618ba14"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/SimpleStatCard.tsx": {
+  "client/src/components/ui/SimpleStatCard.tsx": {
     "mtime": 1780143563.9133718,
     "ast_hash": "7f27c29ae3d45dea1934b7e1ff91f66a",
     "semantic_hash": "7f27c29ae3d45dea1934b7e1ff91f66a"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/StatCard.tsx": {
+  "client/src/components/ui/StatCard.tsx": {
     "mtime": 1780143563.9134743,
     "ast_hash": "ef0714efc595fea804fa0a7dfaacf50c",
     "semantic_hash": "ef0714efc595fea804fa0a7dfaacf50c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/UnifiedCard.tsx": {
+  "client/src/components/ui/UnifiedCard.tsx": {
     "mtime": 1780143563.91361,
     "ast_hash": "c9c772353e85ee9aefff2016bce7159e",
     "semantic_hash": "c9c772353e85ee9aefff2016bce7159e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/accordion.tsx": {
+  "client/src/components/ui/accordion.tsx": {
     "mtime": 1780143563.9137168,
     "ast_hash": "1543fc386d0aba4654f3199bf017eaab",
     "semantic_hash": "1543fc386d0aba4654f3199bf017eaab"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/alert-dialog.tsx": {
+  "client/src/components/ui/alert-dialog.tsx": {
     "mtime": 1780143563.9138446,
     "ast_hash": "aca8996e4020285a789d58348abce552",
     "semantic_hash": "aca8996e4020285a789d58348abce552"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/alert.tsx": {
+  "client/src/components/ui/alert.tsx": {
     "mtime": 1780143563.9139526,
     "ast_hash": "4a855126934e39d0d1da6d142df9c93e",
     "semantic_hash": "4a855126934e39d0d1da6d142df9c93e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/aspect-ratio.tsx": {
+  "client/src/components/ui/aspect-ratio.tsx": {
     "mtime": 1780143563.9140637,
     "ast_hash": "ea9c6ff6c2931b5089972bfba3fa5c1f",
     "semantic_hash": "ea9c6ff6c2931b5089972bfba3fa5c1f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/avatar.tsx": {
+  "client/src/components/ui/avatar.tsx": {
     "mtime": 1780143563.9141605,
     "ast_hash": "0008445bf0b90f231d702bcd9141726c",
     "semantic_hash": "0008445bf0b90f231d702bcd9141726c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/badge.tsx": {
+  "client/src/components/ui/badge.tsx": {
     "mtime": 1780143563.9142737,
     "ast_hash": "f7e1522a043b162d0321615d40092058",
     "semantic_hash": "f7e1522a043b162d0321615d40092058"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/breadcrumb.tsx": {
+  "client/src/components/ui/breadcrumb.tsx": {
     "mtime": 1780143563.9143844,
     "ast_hash": "f340771f8751281ca613aa4b17454050",
     "semantic_hash": "f340771f8751281ca613aa4b17454050"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/button.tsx": {
+  "client/src/components/ui/button.tsx": {
     "mtime": 1780143563.9144888,
     "ast_hash": "0f17c78abff212a4372d9bdfd6e6a6e9",
     "semantic_hash": "0f17c78abff212a4372d9bdfd6e6a6e9"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/calendar.tsx": {
+  "client/src/components/ui/calendar.tsx": {
     "mtime": 1780143563.9145947,
     "ast_hash": "f8487f3350df5899a1299e6c2119e54b",
     "semantic_hash": "f8487f3350df5899a1299e6c2119e54b"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/card.tsx": {
+  "client/src/components/ui/card.tsx": {
     "mtime": 1780143563.9147182,
     "ast_hash": "4be937e00a434ffa44e7f0e82ae79d17",
     "semantic_hash": "4be937e00a434ffa44e7f0e82ae79d17"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/carousel.tsx": {
+  "client/src/components/ui/carousel.tsx": {
     "mtime": 1780143563.9148643,
     "ast_hash": "005a47594c5c8f09e27f0ed1f02197cd",
     "semantic_hash": "005a47594c5c8f09e27f0ed1f02197cd"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/chart.tsx": {
+  "client/src/components/ui/chart.tsx": {
     "mtime": 1780143563.9150317,
     "ast_hash": "ce394cb95f74debc23ac7da089a9e9e8",
     "semantic_hash": "ce394cb95f74debc23ac7da089a9e9e8"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/checkbox.tsx": {
+  "client/src/components/ui/checkbox.tsx": {
     "mtime": 1780143563.9151542,
     "ast_hash": "c13a539e9b8ad3d223042aef92b5c2cf",
     "semantic_hash": "c13a539e9b8ad3d223042aef92b5c2cf"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/collapsible.tsx": {
+  "client/src/components/ui/collapsible.tsx": {
     "mtime": 1780143563.9152575,
     "ast_hash": "87cce2923d03d5560ae6838e54e87f60",
     "semantic_hash": "87cce2923d03d5560ae6838e54e87f60"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/command.tsx": {
+  "client/src/components/ui/command.tsx": {
     "mtime": 1780143563.9153864,
     "ast_hash": "e37df79bac92321cdcbfa748c327ee3e",
     "semantic_hash": "e37df79bac92321cdcbfa748c327ee3e"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/context-menu.tsx": {
+  "client/src/components/ui/context-menu.tsx": {
     "mtime": 1780143563.9155133,
     "ast_hash": "e13f4d0aa11a5aeccaa8969e9bc28b0b",
     "semantic_hash": "e13f4d0aa11a5aeccaa8969e9bc28b0b"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/date-range-picker.tsx": {
+  "client/src/components/ui/date-range-picker.tsx": {
     "mtime": 1780143563.9156268,
     "ast_hash": "f470022179097dafb9f7d24e35c5f7fe",
     "semantic_hash": "f470022179097dafb9f7d24e35c5f7fe"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/dialog.tsx": {
+  "client/src/components/ui/dialog.tsx": {
     "mtime": 1780143563.9157178,
     "ast_hash": "38dfdc1fcaafac18acd6a602b4d9abf7",
     "semantic_hash": "38dfdc1fcaafac18acd6a602b4d9abf7"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/drawer.tsx": {
+  "client/src/components/ui/drawer.tsx": {
     "mtime": 1780143563.9158316,
     "ast_hash": "5d1fc2e6dcd8496d69a68a23a9e251e7",
     "semantic_hash": "5d1fc2e6dcd8496d69a68a23a9e251e7"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/dropdown-menu.tsx": {
+  "client/src/components/ui/dropdown-menu.tsx": {
     "mtime": 1780143563.9159796,
     "ast_hash": "05c108175d0e23b617d211f31eefc6da",
     "semantic_hash": "05c108175d0e23b617d211f31eefc6da"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/form.tsx": {
+  "client/src/components/ui/form.tsx": {
     "mtime": 1780143563.9161005,
     "ast_hash": "1df53cf0afd884a27f799b2ce9917799",
     "semantic_hash": "1df53cf0afd884a27f799b2ce9917799"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/forms/BatchRiderAllocationModal.tsx": {
+  "client/src/components/ui/forms/BatchRiderAllocationModal.tsx": {
     "mtime": 1780143563.916297,
     "ast_hash": "be7089dfabfbaa7c415f833c440b9597",
     "semantic_hash": "be7089dfabfbaa7c415f833c440b9597"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/forms/BatchUpdateModal.tsx": {
+  "client/src/components/ui/forms/BatchUpdateModal.tsx": {
     "mtime": 1780143563.9164586,
     "ast_hash": "af767387a3191d34802eb758a9af0445",
     "semantic_hash": "af767387a3191d34802eb758a9af0445"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/forms/CurrentFuelSettings.tsx": {
+  "client/src/components/ui/forms/CurrentFuelSettings.tsx": {
     "mtime": 1781070549.4314582,
     "ast_hash": "773806ce2d15ea8b70b5a543068a798a",
     "semantic_hash": "773806ce2d15ea8b70b5a543068a798a"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/forms/ExportDialog.tsx": {
+  "client/src/components/ui/forms/ExportDialog.tsx": {
     "mtime": 1780143563.9167392,
     "ast_hash": "331e4ed909cef282ae7d576978bed1ad",
     "semantic_hash": "331e4ed909cef282ae7d576978bed1ad"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/forms/FuelSettingsModal.tsx": {
+  "client/src/components/ui/forms/FuelSettingsModal.tsx": {
     "mtime": 1781070573.5368729,
     "ast_hash": "fab3d46a6024013f305e468cade7b140",
     "semantic_hash": "fab3d46a6024013f305e468cade7b140"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/forms/RemarksModal.tsx": {
+  "client/src/components/ui/forms/RemarksModal.tsx": {
     "mtime": 1780143563.9170265,
     "ast_hash": "97647e8def95af8f9119665abda1139c",
     "semantic_hash": "97647e8def95af8f9119665abda1139c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/forms/ShipmentDetailModalWithTracking.tsx": {
+  "client/src/components/ui/forms/ShipmentDetailModalWithTracking.tsx": {
     "mtime": 1780143563.917179,
     "ast_hash": "ce38a7d3a4edae0d416047b69f2e8c63",
     "semantic_hash": "ce38a7d3a4edae0d416047b69f2e8c63"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/hover-card.tsx": {
+  "client/src/components/ui/hover-card.tsx": {
     "mtime": 1780143563.9176342,
     "ast_hash": "9c543f39ce8b5e87b91b56ede3c15716",
     "semantic_hash": "9c543f39ce8b5e87b91b56ede3c15716"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/input-otp.tsx": {
+  "client/src/components/ui/input-otp.tsx": {
     "mtime": 1780143563.917757,
     "ast_hash": "084089343296a7ebcb40fff14c62cb30",
     "semantic_hash": "084089343296a7ebcb40fff14c62cb30"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/input.tsx": {
+  "client/src/components/ui/input.tsx": {
     "mtime": 1780143563.917864,
     "ast_hash": "c7cbc8cd45d01649277bd7107581cb36",
     "semantic_hash": "c7cbc8cd45d01649277bd7107581cb36"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/label.tsx": {
+  "client/src/components/ui/label.tsx": {
     "mtime": 1780143563.917963,
     "ast_hash": "3ba36afcb122248da05bddd5e1097f32",
     "semantic_hash": "3ba36afcb122248da05bddd5e1097f32"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/menubar.tsx": {
+  "client/src/components/ui/menubar.tsx": {
     "mtime": 1780143563.9180937,
     "ast_hash": "d3a68e5d4ce8cc6bd9d58f1a187fc3e5",
     "semantic_hash": "d3a68e5d4ce8cc6bd9d58f1a187fc3e5"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/navigation-menu.tsx": {
+  "client/src/components/ui/navigation-menu.tsx": {
     "mtime": 1780143563.9182158,
     "ast_hash": "35df5feb9adcc02afdcaa2a1e62f673d",
     "semantic_hash": "35df5feb9adcc02afdcaa2a1e62f673d"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/pagination.tsx": {
+  "client/src/components/ui/pagination.tsx": {
     "mtime": 1780143563.9183252,
     "ast_hash": "de159ac89490951ee82b4991f604e394",
     "semantic_hash": "de159ac89490951ee82b4991f604e394"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/popover.tsx": {
+  "client/src/components/ui/popover.tsx": {
     "mtime": 1780143563.918421,
     "ast_hash": "d39b8296320af4063d2563034521a672",
     "semantic_hash": "d39b8296320af4063d2563034521a672"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/progress.tsx": {
+  "client/src/components/ui/progress.tsx": {
     "mtime": 1780143563.918525,
     "ast_hash": "d3a18dcf02273e5ff1104dd88f4a2ff5",
     "semantic_hash": "d3a18dcf02273e5ff1104dd88f4a2ff5"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/radio-group.tsx": {
+  "client/src/components/ui/radio-group.tsx": {
     "mtime": 1780143563.9186184,
     "ast_hash": "3ace644678cd101153deee82d72048d9",
     "semantic_hash": "3ace644678cd101153deee82d72048d9"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/resizable.tsx": {
+  "client/src/components/ui/resizable.tsx": {
     "mtime": 1780143563.9187176,
     "ast_hash": "53861a766e45ed3c530825a22be2a1af",
     "semantic_hash": "53861a766e45ed3c530825a22be2a1af"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/scroll-area.tsx": {
+  "client/src/components/ui/scroll-area.tsx": {
     "mtime": 1780143563.9188201,
     "ast_hash": "b0f26039d90f97d59b300fe9c082a161",
     "semantic_hash": "b0f26039d90f97d59b300fe9c082a161"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/select.tsx": {
+  "client/src/components/ui/select.tsx": {
     "mtime": 1780143563.918947,
     "ast_hash": "6c050d9eaa0c26023914ca5a4e941c71",
     "semantic_hash": "6c050d9eaa0c26023914ca5a4e941c71"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/separator.tsx": {
+  "client/src/components/ui/separator.tsx": {
     "mtime": 1780143563.9190574,
     "ast_hash": "e970901b62fe8b73d2b9254fad77f583",
     "semantic_hash": "e970901b62fe8b73d2b9254fad77f583"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/sheet.tsx": {
+  "client/src/components/ui/sheet.tsx": {
     "mtime": 1780143563.9191968,
     "ast_hash": "19f090bf245c1866f19afa0600936936",
     "semantic_hash": "19f090bf245c1866f19afa0600936936"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/sidebar.tsx": {
+  "client/src/components/ui/sidebar.tsx": {
     "mtime": 1780143563.9193382,
     "ast_hash": "715841c108538a370b4cbacf5842e9d7",
     "semantic_hash": "715841c108538a370b4cbacf5842e9d7"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/skeleton.tsx": {
+  "client/src/components/ui/skeleton.tsx": {
     "mtime": 1780143563.9194696,
     "ast_hash": "07bd844764f88b69c2df11361e96ee3f",
     "semantic_hash": "07bd844764f88b69c2df11361e96ee3f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/slider.tsx": {
+  "client/src/components/ui/slider.tsx": {
     "mtime": 1780143563.9195836,
     "ast_hash": "e2c71c06ef0d6e141b3f88f79e2e67b9",
     "semantic_hash": "e2c71c06ef0d6e141b3f88f79e2e67b9"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/status/RiderStatusPanel.tsx": {
+  "client/src/components/ui/status/RiderStatusPanel.tsx": {
     "mtime": 1780143563.9198008,
     "ast_hash": "dc9ac4229a9b7d373d842b6d707c755f",
     "semantic_hash": "dc9ac4229a9b7d373d842b6d707c755f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/switch.tsx": {
+  "client/src/components/ui/switch.tsx": {
     "mtime": 1780143563.919908,
     "ast_hash": "1210b13831d433e8a9488bab91432dd4",
     "semantic_hash": "1210b13831d433e8a9488bab91432dd4"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/table.tsx": {
+  "client/src/components/ui/table.tsx": {
     "mtime": 1780143563.920008,
     "ast_hash": "efdbaeb9710b2f60de7c0e18bd4e3528",
     "semantic_hash": "efdbaeb9710b2f60de7c0e18bd4e3528"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/tabs.tsx": {
+  "client/src/components/ui/tabs.tsx": {
     "mtime": 1780143563.9201028,
     "ast_hash": "f81c666a047e033f56565d7bd2212268",
     "semantic_hash": "f81c666a047e033f56565d7bd2212268"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/textarea.tsx": {
+  "client/src/components/ui/textarea.tsx": {
     "mtime": 1780143563.9201977,
     "ast_hash": "6eb8633e9e461056b9bf88dfaf25fc6d",
     "semantic_hash": "6eb8633e9e461056b9bf88dfaf25fc6d"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/toast.tsx": {
+  "client/src/components/ui/toast.tsx": {
     "mtime": 1780143563.9203274,
     "ast_hash": "6b9ed7f669208f6631d1c44bbd556877",
     "semantic_hash": "6b9ed7f669208f6631d1c44bbd556877"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/toaster.tsx": {
+  "client/src/components/ui/toaster.tsx": {
     "mtime": 1780143563.9204378,
     "ast_hash": "d0e062810c47a46b9bb4e8ea19875a02",
     "semantic_hash": "d0e062810c47a46b9bb4e8ea19875a02"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/toggle-group.tsx": {
+  "client/src/components/ui/toggle-group.tsx": {
     "mtime": 1780143563.9205377,
     "ast_hash": "b99319e56880c541f7bef8fa76f3ed5f",
     "semantic_hash": "b99319e56880c541f7bef8fa76f3ed5f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/toggle.tsx": {
+  "client/src/components/ui/toggle.tsx": {
     "mtime": 1780143563.9207194,
     "ast_hash": "17efd9d1af4deef76b194dcbf33aea85",
     "semantic_hash": "17efd9d1af4deef76b194dcbf33aea85"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/components/ui/tooltip.tsx": {
+  "client/src/components/ui/tooltip.tsx": {
     "mtime": 1780143563.9208102,
     "ast_hash": "85d30b3088cec0a31929176709b73383",
     "semantic_hash": "85d30b3088cec0a31929176709b73383"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/config.ts": {
+  "client/src/config.ts": {
     "mtime": 1780143563.9209085,
     "ast_hash": "fb2611a7a9b05443f6fed96845216a9b",
     "semantic_hash": "fb2611a7a9b05443f6fed96845216a9b"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/config/api.ts": {
-    "mtime": 1781978874.6244693,
-    "ast_hash": "647269996d1cfffb9ecdf3982b47a41e",
-    "semantic_hash": "647269996d1cfffb9ecdf3982b47a41e"
+  "client/src/config/api.ts": {
+    "mtime": 1782555724.332611,
+    "ast_hash": "8d845bf3756f999106ac20cd13fd7c87",
+    "semantic_hash": ""
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/contexts/RouteSessionContext.tsx": {
+  "client/src/contexts/RouteSessionContext.tsx": {
     "mtime": 1780143563.9212499,
     "ast_hash": "981d877a0414b309cd5ed0ce9468cce2",
     "semantic_hash": "981d877a0414b309cd5ed0ce9468cce2"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/contexts/ThemeContext.tsx": {
+  "client/src/contexts/ThemeContext.tsx": {
     "mtime": 1780143563.921346,
     "ast_hash": "0a8b172d2d7ae13fe5112252525a43b1",
     "semantic_hash": "0a8b172d2d7ae13fe5112252525a43b1"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/use-mobile.tsx": {
+  "client/src/hooks/use-mobile.tsx": {
     "mtime": 1780143563.921499,
     "ast_hash": "209b5193af16624cdd89d3591480dd48",
     "semantic_hash": "209b5193af16624cdd89d3591480dd48"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/use-toast.ts": {
+  "client/src/hooks/use-toast.ts": {
     "mtime": 1781508690.901928,
     "ast_hash": "a2bbe7f4771b803fdf5b6e06013f0ba7",
     "semantic_hash": "a2bbe7f4771b803fdf5b6e06013f0ba7"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useAuth.ts": {
+  "client/src/hooks/useAuth.ts": {
     "mtime": 1781953838.2730083,
     "ast_hash": "7113062a2934a89665cfde43781d492b",
     "semantic_hash": "7113062a2934a89665cfde43781d492b"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useDashboard.ts": {
+  "client/src/hooks/useDashboard.ts": {
     "mtime": 1780143563.9217973,
     "ast_hash": "abb4aa7abbdd46bfccbcf2176bd359e1",
     "semantic_hash": "abb4aa7abbdd46bfccbcf2176bd359e1"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useDayPlan.ts": {
+  "client/src/hooks/useDayPlan.ts": {
     "mtime": 1781587893.6945584,
     "ast_hash": "185a77a858b810ad4831115d50a63600",
     "semantic_hash": "185a77a858b810ad4831115d50a63600"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useDebounce.ts": {
+  "client/src/hooks/useDebounce.ts": {
     "mtime": 1780143563.9218938,
     "ast_hash": "932851d7bcc709212e8af288f518dc97",
     "semantic_hash": "932851d7bcc709212e8af288f518dc97"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useGPSTracking.ts": {
+  "client/src/hooks/useGPSTracking.ts": {
     "mtime": 1780143563.922034,
     "ast_hash": "aa125ff9eb2018393588121c408edd97",
     "semantic_hash": "aa125ff9eb2018393588121c408edd97"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useLiveTracking.ts": {
+  "client/src/hooks/useLiveTracking.ts": {
     "mtime": 1780143563.9221668,
     "ast_hash": "3fc892621612727c63856e64e5d911ce",
     "semantic_hash": "3fc892621612727c63856e64e5d911ce"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useMobileOptimization.ts": {
+  "client/src/hooks/useMobileOptimization.ts": {
     "mtime": 1780143563.9222994,
     "ast_hash": "93b01b221c1c8b14a1d17830928dc6d1",
     "semantic_hash": "93b01b221c1c8b14a1d17830928dc6d1"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useMyVehicle.ts": {
+  "client/src/hooks/useMyVehicle.ts": {
     "mtime": 1780655090.304431,
     "ast_hash": "e760e16d3d1a9d8aedc27ccc3fc4ad90",
     "semantic_hash": "e760e16d3d1a9d8aedc27ccc3fc4ad90"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useOfflineSync.ts": {
+  "client/src/hooks/useOfflineSync.ts": {
     "mtime": 1780143563.9224343,
     "ast_hash": "96b27795872fb4b2757c505028630738",
     "semantic_hash": "96b27795872fb4b2757c505028630738"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useOverlapIgnore.ts": {
+  "client/src/hooks/useOverlapIgnore.ts": {
     "mtime": 1781978889.740713,
     "ast_hash": "a85d876ae9c750fa72315e550939cb28",
     "semantic_hash": "a85d876ae9c750fa72315e550939cb28"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useReassignShipments.ts": {
+  "client/src/hooks/useReassignShipments.ts": {
     "mtime": 1781867904.8860793,
     "ast_hash": "80fb96bf399804321fffc65591f4613c",
     "semantic_hash": "80fb96bf399804321fffc65591f4613c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useRouteAPI.ts": {
+  "client/src/hooks/useRouteAPI.ts": {
     "mtime": 1780143563.9225934,
     "ast_hash": "3624a0bc4b1de30a674f5efe06006dc9",
     "semantic_hash": "3624a0bc4b1de30a674f5efe06006dc9"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useRouteAnalytics.ts": {
+  "client/src/hooks/useRouteAnalytics.ts": {
     "mtime": 1780143563.9227583,
     "ast_hash": "d1ae094016e895c9edff372de62f5cf1",
     "semantic_hash": "d1ae094016e895c9edff372de62f5cf1"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useRouteOptimization.ts": {
+  "client/src/hooks/useRouteOptimization.ts": {
     "mtime": 1780635542.0885048,
     "ast_hash": "ffb81594e79d017ab8759d38b0d4676d",
     "semantic_hash": "ffb81594e79d017ab8759d38b0d4676d"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useRouteSession.ts": {
+  "client/src/hooks/useRouteSession.ts": {
     "mtime": 1780143563.9230318,
     "ast_hash": "e0d78ce8b7a2f304dad9f9b866265f80",
     "semantic_hash": "e0d78ce8b7a2f304dad9f9b866265f80"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useShipmentTracking.ts": {
+  "client/src/hooks/useShipmentTracking.ts": {
     "mtime": 1780143563.9231703,
     "ast_hash": "576629e6efe756f6228dd6c4694c11ce",
     "semantic_hash": "576629e6efe756f6228dd6c4694c11ce"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useShipments.ts": {
+  "client/src/hooks/useShipments.ts": {
     "mtime": 1780143563.9232585,
     "ast_hash": "e0641dd6670ee2746953131e2d843795",
     "semantic_hash": "e0641dd6670ee2746953131e2d843795"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useSmartRouteCompletion.ts": {
+  "client/src/hooks/useSmartRouteCompletion.ts": {
     "mtime": 1780143563.9233963,
     "ast_hash": "5268e5055585b224cb5ce6f3a462c01c",
     "semantic_hash": "5268e5055585b224cb5ce6f3a462c01c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/hooks/useVehicleTypes.ts": {
+  "client/src/hooks/useVehicleTypes.ts": {
     "mtime": 1780143563.9234884,
     "ast_hash": "d9bd9d546a570358bae8cb7dae34a4ac",
     "semantic_hash": "d9bd9d546a570358bae8cb7dae34a4ac"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/lib/queryClient.ts": {
+  "client/src/lib/queryClient.ts": {
     "mtime": 1780143563.9237733,
     "ast_hash": "e14fae0531904d2d3ab2d0300ded7013",
     "semantic_hash": "e14fae0531904d2d3ab2d0300ded7013"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/lib/roles.ts": {
+  "client/src/lib/roles.ts": {
     "mtime": 1780143563.923864,
     "ast_hash": "91a8669b3f083ea747aa7ed4cb1622fc",
     "semantic_hash": "91a8669b3f083ea747aa7ed4cb1622fc"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/lib/utils.ts": {
+  "client/src/lib/utils.ts": {
     "mtime": 1780143563.9239602,
     "ast_hash": "01a9b41d7cdb6e3faced84ac6336d1b1",
     "semantic_hash": "01a9b41d7cdb6e3faced84ac6336d1b1"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/main.tsx": {
+  "client/src/main.tsx": {
     "mtime": 1781185300.1565642,
     "ast_hash": "38bb23135974822725bc90811096c2b2",
     "semantic_hash": "38bb23135974822725bc90811096c2b2"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/pages/AccountApproval.tsx": {
+  "client/src/pages/AccountApproval.tsx": {
     "mtime": 1780143563.9241984,
     "ast_hash": "84fd1ea2c8602f949a449edc6faa0d75",
     "semantic_hash": "84fd1ea2c8602f949a449edc6faa0d75"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/pages/Admin.tsx": {
-    "mtime": 1782182294.9032779,
-    "ast_hash": "0206cdcf76bc1bab3c8d5390de6ceae2",
-    "semantic_hash": "0206cdcf76bc1bab3c8d5390de6ceae2"
+  "client/src/pages/Admin.tsx": {
+    "mtime": 1782536192.5056098,
+    "ast_hash": "76571f4d11454c344d6ed87dad9eab2b",
+    "semantic_hash": ""
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/pages/AdminRiderManagement.tsx": {
-    "mtime": 1781945717.8957818,
-    "ast_hash": "c78de46f18ea4c85b4e4a9320731fd9c",
-    "semantic_hash": "c78de46f18ea4c85b4e4a9320731fd9c"
+  "client/src/pages/AdminRiderManagement.tsx": {
+    "mtime": 1782469491.9798694,
+    "ast_hash": "dfd7258da11356dc98835e65cc2bd53d",
+    "semantic_hash": "dfd7258da11356dc98835e65cc2bd53d"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/pages/ApprovalPending.tsx": {
+  "client/src/pages/ApprovalPending.tsx": {
     "mtime": 1780143563.924655,
     "ast_hash": "7204c3de852f6b7ebb10bdc46cf05b53",
     "semantic_hash": "7204c3de852f6b7ebb10bdc46cf05b53"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/pages/Dashboard.tsx": {
+  "client/src/pages/Dashboard.tsx": {
     "mtime": 1780143563.9247928,
     "ast_hash": "1858a069ca4c5b3a258b183338dc5400",
     "semantic_hash": "1858a069ca4c5b3a258b183338dc5400"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/pages/LiveTrackingDashboard.tsx": {
+  "client/src/pages/LiveTrackingDashboard.tsx": {
     "mtime": 1781623353.7297242,
     "ast_hash": "ca0647fb697845c6cdd1e77ea8e12267",
     "semantic_hash": "ca0647fb697845c6cdd1e77ea8e12267"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/pages/OpsDayView.tsx": {
+  "client/src/pages/OpsDayView.tsx": {
     "mtime": 1781978905.5925822,
     "ast_hash": "162b6bbb0e9e9caae7ba89b714534c7c",
     "semantic_hash": "162b6bbb0e9e9caae7ba89b714534c7c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/pages/RouteAnalytics.tsx": {
+  "client/src/pages/RouteAnalytics.tsx": {
     "mtime": 1781268791.8352537,
     "ast_hash": "37a03e97e17ac81d8a79b135ae4d5b99",
     "semantic_hash": "37a03e97e17ac81d8a79b135ae4d5b99"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/pages/Settings.tsx": {
+  "client/src/pages/Settings.tsx": {
     "mtime": 1780143563.9255164,
     "ast_hash": "47026a0ff7b6e334647b40b33f06a227",
     "semantic_hash": "47026a0ff7b6e334647b40b33f06a227"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/pages/ShipmentsWithTracking.tsx": {
+  "client/src/pages/ShipmentsWithTracking.tsx": {
     "mtime": 1780143563.9256504,
     "ast_hash": "389b835d420cbc29fd66e1dbdf58b2a9",
     "semantic_hash": "389b835d420cbc29fd66e1dbdf58b2a9"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/pages/not-found.tsx": {
+  "client/src/pages/not-found.tsx": {
     "mtime": 1780143563.9257562,
     "ast_hash": "08b64266c9e56b977279e60dd60e71af",
     "semantic_hash": "08b64266c9e56b977279e60dd60e71af"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/ApiClient.ts": {
+  "client/src/services/ApiClient.ts": {
     "mtime": 1781268791.8358696,
     "ast_hash": "0bb8c5bb90f9c8ef8337da0edac3c757",
     "semantic_hash": "0bb8c5bb90f9c8ef8337da0edac3c757"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/AuthService.ts": {
+  "client/src/services/AuthService.ts": {
     "mtime": 1781953841.1864495,
     "ast_hash": "9f28241d2a8adccf3684e1ae2c97fc59",
     "semantic_hash": "9f28241d2a8adccf3684e1ae2c97fc59"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/BatteryOptimizationService.ts": {
+  "client/src/services/BatteryOptimizationService.ts": {
     "mtime": 1780143563.9262521,
     "ast_hash": "0a8f369491b4fcb518eccf6ee0d993d8",
     "semantic_hash": "0a8f369491b4fcb518eccf6ee0d993d8"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/ConflictResolutionService.ts": {
+  "client/src/services/ConflictResolutionService.ts": {
     "mtime": 1780143563.9263902,
     "ast_hash": "b3e34019a7bde39c16d4a4bfbd90e3f2",
     "semantic_hash": "b3e34019a7bde39c16d4a4bfbd90e3f2"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/DataExporter.ts": {
+  "client/src/services/DataExporter.ts": {
     "mtime": 1780143563.9265244,
     "ast_hash": "e2dbc17699a8e96acbf3edbeb715d29a",
     "semantic_hash": "e2dbc17699a8e96acbf3edbeb715d29a"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/DistanceCalculator.ts": {
+  "client/src/services/DistanceCalculator.ts": {
     "mtime": 1780143563.9266653,
     "ast_hash": "56ffb7124f1ef51337f11814eebebdbc",
     "semantic_hash": "56ffb7124f1ef51337f11814eebebdbc"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/ErrorHandlingService.ts": {
+  "client/src/services/ErrorHandlingService.ts": {
     "mtime": 1780143563.9268055,
     "ast_hash": "5276d3b8c6037abee0e3010e9c9aa0e2",
     "semantic_hash": "5276d3b8c6037abee0e3010e9c9aa0e2"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/FuelCalculator.ts": {
+  "client/src/services/FuelCalculator.ts": {
     "mtime": 1780143563.9269254,
     "ast_hash": "c4e07296b9a203b9b1abb69ea062974a",
     "semantic_hash": "c4e07296b9a203b9b1abb69ea062974a"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/GPSErrorRecoveryService.ts": {
+  "client/src/services/GPSErrorRecoveryService.ts": {
     "mtime": 1780143563.9270456,
     "ast_hash": "a4e9f9f46b587bf4379952550d0013bd",
     "semantic_hash": "a4e9f9f46b587bf4379952550d0013bd"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/GPSTracker.ts": {
+  "client/src/services/GPSTracker.ts": {
     "mtime": 1780143563.9271708,
     "ast_hash": "865f36fb32222095113032ddd6ca4189",
     "semantic_hash": "865f36fb32222095113032ddd6ca4189"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/GeofencingService.ts": {
+  "client/src/services/GeofencingService.ts": {
     "mtime": 1780143563.9273002,
     "ast_hash": "83123e1886ca36880476e453f7f51aa3",
     "semantic_hash": "83123e1886ca36880476e453f7f51aa3"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/OfflineStorageService.ts": {
+  "client/src/services/OfflineStorageService.ts": {
     "mtime": 1780143563.9274259,
     "ast_hash": "720d157fadce0da7864d6dda374e627f",
     "semantic_hash": "720d157fadce0da7864d6dda374e627f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/PerformanceMonitoringService.ts": {
+  "client/src/services/PerformanceMonitoringService.ts": {
     "mtime": 1780143563.9275546,
     "ast_hash": "5f1043524be592295eac7ea2e95719cd",
     "semantic_hash": "5f1043524be592295eac7ea2e95719cd"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/RouteAnalyzer.ts": {
+  "client/src/services/RouteAnalyzer.ts": {
     "mtime": 1780143563.9277267,
     "ast_hash": "7dfafb53157b15b0db462c4a1e97a80c",
     "semantic_hash": "7dfafb53157b15b0db462c4a1e97a80c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/RouteDataAggregator.ts": {
+  "client/src/services/RouteDataAggregator.ts": {
     "mtime": 1780143563.9279099,
     "ast_hash": "d6d4e57ae4f3f342bda6b19994cb92ce",
     "semantic_hash": "d6d4e57ae4f3f342bda6b19994cb92ce"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/services/RouteSession.ts": {
+  "client/src/services/RouteSession.ts": {
     "mtime": 1780143563.928128,
     "ast_hash": "4f1b94822e1a839a7e9f05b99e55caba",
     "semantic_hash": "4f1b94822e1a839a7e9f05b99e55caba"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/utils/logger.ts": {
+  "client/src/utils/logger.ts": {
     "mtime": 1780143563.9284647,
     "ast_hash": "7b721bf2125de1129714f99e14dbbcf0",
     "semantic_hash": "7b721bf2125de1129714f99e14dbbcf0"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/src/vite-env.d.ts": {
+  "client/src/vite-env.d.ts": {
     "mtime": 1781096460.0261695,
     "ast_hash": "35001fca0c984c41ae4cb8788db781e6",
     "semantic_hash": "35001fca0c984c41ae4cb8788db781e6"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/vite.config.ts": {
+  "client/vite.config.ts": {
     "mtime": 1780143563.928793,
     "ast_hash": "39552e6710c884da1d9f5cc3961b44c0",
     "semantic_hash": "39552e6710c884da1d9f5cc3961b44c0"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/components.json": {
+  "components.json": {
     "mtime": 1780143563.9288964,
     "ast_hash": "a76a349f7de9f7618cd959569a5bab34",
     "semantic_hash": "a76a349f7de9f7618cd959569a5bab34"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/cspell.json": {
+  "cspell.json": {
     "mtime": 1780143563.9289935,
     "ast_hash": "6e333164dcea83b8739574797948619c",
     "semantic_hash": "6e333164dcea83b8739574797948619c"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/deploy.sh": {
+  "deploy.sh": {
     "mtime": 1781210885.643406,
     "ast_hash": "c6303f953ca6f2af469c3cef567f7708",
     "semantic_hash": "c6303f953ca6f2af469c3cef567f7708"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/eslint.config.js": {
+  "eslint.config.js": {
     "mtime": 1780143563.9294527,
     "ast_hash": "68088b98706b45b0b511a1411c5c64f2",
     "semantic_hash": "68088b98706b45b0b511a1411c5c64f2"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/package.json": {
+  "package.json": {
     "mtime": 1781078442.1432104,
     "ast_hash": "e4e510d71b699eb2a9703c90d01c26c1",
     "semantic_hash": "e4e510d71b699eb2a9703c90d01c26c1"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/postcss.config.js": {
+  "postcss.config.js": {
     "mtime": 1780143563.9309971,
     "ast_hash": "ef3ba2a81ba19f8ea5ddf625521e96f0",
     "semantic_hash": "ef3ba2a81ba19f8ea5ddf625521e96f0"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/scripts/add-new-project.sh": {
+  "scripts/add-new-project.sh": {
     "mtime": 1780143563.9311612,
     "ast_hash": "031543f65e42229ad3c12cdf0faed002",
     "semantic_hash": "031543f65e42229ad3c12cdf0faed002"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/scripts/backup-db.sh": {
+  "scripts/backup-db.sh": {
     "mtime": 1780143563.9312572,
     "ast_hash": "659aef693189c230d9efd15ea6ba14ee",
     "semantic_hash": "659aef693189c230d9efd15ea6ba14ee"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/scripts/db_manager.sh": {
+  "scripts/db_manager.sh": {
     "mtime": 1780143563.9313731,
     "ast_hash": "47d335566c80c8b0d83b14484c1cb478",
     "semantic_hash": "47d335566c80c8b0d83b14484c1cb478"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/scripts/restore-db.sh": {
+  "scripts/restore-db.sh": {
     "mtime": 1780143563.931483,
     "ast_hash": "e7dd121208388fa8e9ce6b7b4740c626",
     "semantic_hash": "e7dd121208388fa8e9ce6b7b4740c626"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/scripts/rollback-frontend.sh": {
+  "scripts/rollback-frontend.sh": {
     "mtime": 1780143563.9315975,
     "ast_hash": "2335a0a10b62172de5e66b4b261323cc",
     "semantic_hash": "2335a0a10b62172de5e66b4b261323cc"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/scripts/setup-db-backup-cron.sh": {
+  "scripts/setup-db-backup-cron.sh": {
     "mtime": 1780143563.931688,
     "ast_hash": "82d1979dcfa1c24ed7b7084ec456c5f1",
     "semantic_hash": "82d1979dcfa1c24ed7b7084ec456c5f1"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/shared/schema.ts": {
+  "shared/schema.ts": {
     "mtime": 1781945669.6061506,
     "ast_hash": "8d53e5a3878edc0826cadb033440fa04",
     "semantic_hash": "8d53e5a3878edc0826cadb033440fa04"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/shared/syncStatus.ts": {
+  "shared/syncStatus.ts": {
     "mtime": 1780143563.931986,
     "ast_hash": "b74cc9512eb86f3d053daa4086ba596a",
     "semantic_hash": "b74cc9512eb86f3d053daa4086ba596a"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/shared/types.ts": {
+  "shared/types.ts": {
     "mtime": 1781978872.654806,
     "ast_hash": "8c4ec2bfab9ae18310aff0df876e61a5",
     "semantic_hash": "8c4ec2bfab9ae18310aff0df876e61a5"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/shared/utils/logger.ts": {
+  "shared/utils/logger.ts": {
     "mtime": 1780143563.9322627,
     "ast_hash": "2d2c9afc8967abdd18a37826b7c1b650",
     "semantic_hash": "2d2c9afc8967abdd18a37826b7c1b650"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/tailwind.config.ts": {
+  "tailwind.config.ts": {
     "mtime": 1780143563.9323483,
     "ast_hash": "2db8bbb020bd17ad306f17f5ab3c5d76",
     "semantic_hash": "2db8bbb020bd17ad306f17f5ab3c5d76"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/tsconfig.json": {
+  "tsconfig.json": {
     "mtime": 1780143563.932429,
     "ast_hash": "18718af9d370b832167378589676da40",
     "semantic_hash": "18718af9d370b832167378589676da40"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/vite.config.ts": {
+  "vite.config.ts": {
     "mtime": 1781185300.1569138,
     "ast_hash": "63badc81e2098c396a0610ac21ace0f0",
     "semantic_hash": "63badc81e2098c396a0610ac21ace0f0"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/.github/workflows/deploy.yml": {
+  ".github/workflows/deploy.yml": {
     "mtime": 1780143563.889053,
     "ast_hash": "a15907b284ef67667fcfdcaf4be8c753",
     "semantic_hash": "a15907b284ef67667fcfdcaf4be8c753"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/CLAUDE.md": {
-    "mtime": 1782182535.7381954,
-    "ast_hash": "f49230a31bcf922d052c14dd8824fb78",
-    "semantic_hash": "f49230a31bcf922d052c14dd8824fb78"
+  "CLAUDE.md": {
+    "mtime": 1782555904.8917294,
+    "ast_hash": "27dc585b35bda9254516f33276041ba2",
+    "semantic_hash": ""
   },
-  "/Users/kannan/Downloads/Code/RiderPro/README.md": {
+  "README.md": {
     "mtime": 1782019409.4224575,
     "ast_hash": "8ebfb9439b0fa6f45b2310124ec42ede",
     "semantic_hash": "8ebfb9439b0fa6f45b2310124ec42ede"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/templates/admin/authentication/rideraccount/change_list.html": {
+  "backend/apps/authentication/templates/admin/authentication/rideraccount/change_list.html": {
     "mtime": 1780143563.8924522,
     "ast_hash": "03e9f10371e4e1f92f03b5447a9e1b41",
     "semantic_hash": "03e9f10371e4e1f92f03b5447a9e1b41"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/apps/authentication/templates/admin/authentication/rideraccount/fetch_riders_confirm.html": {
+  "backend/apps/authentication/templates/admin/authentication/rideraccount/fetch_riders_confirm.html": {
     "mtime": 1780143563.8925402,
     "ast_hash": "c0fd6be0558eac5a76642d3dcf58de80",
     "semantic_hash": "c0fd6be0558eac5a76642d3dcf58de80"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/requirements.txt": {
-    "mtime": 1781411200.796264,
-    "ast_hash": "c5102d99ba68817bc997ce57e8e3fac4",
-    "semantic_hash": "c5102d99ba68817bc997ce57e8e3fac4"
+  "backend/requirements.txt": {
+    "mtime": 1782367406.0982106,
+    "ast_hash": "fc3ce02148257468d45a2f4a890f9224",
+    "semantic_hash": "fc3ce02148257468d45a2f4a890f9224"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/riderpro/templates/admin/base_site.html": {
+  "backend/riderpro/templates/admin/base_site.html": {
     "mtime": 1780143563.9007611,
     "ast_hash": "ca1c6484e90f9758e04a8bacc652ea50",
     "semantic_hash": "ca1c6484e90f9758e04a8bacc652ea50"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/riderpro/templates/scalar/index.html": {
+  "backend/riderpro/templates/scalar/index.html": {
     "mtime": 1780143563.9009302,
     "ast_hash": "3880722a1d340165f7c8d2e5f5d81515",
     "semantic_hash": "3880722a1d340165f7c8d2e5f5d81515"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/index.html": {
+  "client/index.html": {
     "mtime": 1780143563.901696,
     "ast_hash": "da8e734cbf51671228a10fa8890a4447",
     "semantic_hash": "da8e734cbf51671228a10fa8890a4447"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/docker-compose.prod.yml": {
-    "mtime": 1781979386.9157004,
-    "ast_hash": "24961654ecc7aa3bf73ccbd972549d57",
-    "semantic_hash": "24961654ecc7aa3bf73ccbd972549d57"
+  "docker-compose.prod.yml": {
+    "mtime": 1782367406.0993416,
+    "ast_hash": "d8e0780ddd46b579583e5ef30f1cf711",
+    "semantic_hash": "d8e0780ddd46b579583e5ef30f1cf711"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/docker-compose.yml": {
-    "mtime": 1781979385.0756702,
-    "ast_hash": "5df3d0dd6a4ec4368b7e6a8fc31a1256",
-    "semantic_hash": "5df3d0dd6a4ec4368b7e6a8fc31a1256"
+  "docker-compose.yml": {
+    "mtime": 1782367406.0996144,
+    "ast_hash": "6c5cc338185425c1b35ca40ef6e301a3",
+    "semantic_hash": "6c5cc338185425c1b35ca40ef6e301a3"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/docs/phase1-ops-day-view-spec.md": {
+  "docs/phase1-ops-day-view-spec.md": {
     "mtime": 1781586802.5809588,
     "ast_hash": "3b3b6af9ecf6d8291f6885ed0d43523a",
     "semantic_hash": "3b3b6af9ecf6d8291f6885ed0d43523a"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/docs/phase2-reassign-dispatch-spec.md": {
+  "docs/phase2-reassign-dispatch-spec.md": {
     "mtime": 1781700170.65106,
     "ast_hash": "60f9e6437ebfae339b9f145b2e96b903",
     "semantic_hash": "60f9e6437ebfae339b9f145b2e96b903"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/docs/route-planning-prd.html": {
+  "docs/route-planning-prd.html": {
     "mtime": 1781586703.4478335,
     "ast_hash": "3104f95d8b7ff5508138fd9651a04963",
     "semantic_hash": "3104f95d8b7ff5508138fd9651a04963"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/backend/riderpro/static/admin/img/favicon.png": {
+  "backend/riderpro/static/admin/img/favicon.png": {
     "mtime": 1780143563.9004993,
     "ast_hash": "2d3f8e9ea5e87b02f3d3764a7cdf996f",
     "semantic_hash": "2d3f8e9ea5e87b02f3d3764a7cdf996f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/public/apple-touch-icon.png": {
+  "client/public/apple-touch-icon.png": {
     "mtime": 1780143563.902296,
     "ast_hash": "ebb9b971c559c4a682b2a43aaf73fc38",
     "semantic_hash": "ebb9b971c559c4a682b2a43aaf73fc38"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/public/favicon.png": {
+  "client/public/favicon.png": {
     "mtime": 1780143563.9028559,
     "ast_hash": "2d3f8e9ea5e87b02f3d3764a7cdf996f",
     "semantic_hash": "2d3f8e9ea5e87b02f3d3764a7cdf996f"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/public/pwa-192x192.png": {
+  "client/public/pwa-192x192.png": {
     "mtime": 1780143563.9030547,
     "ast_hash": "b599d39817cbab31ecb7b22a277df659",
     "semantic_hash": "b599d39817cbab31ecb7b22a277df659"
   },
-  "/Users/kannan/Downloads/Code/RiderPro/client/public/pwa-512x512.png": {
+  "client/public/pwa-512x512.png": {
     "mtime": 1780143563.9042473,
     "ast_hash": "c9a1a93cf2680d1b0f308b277db5521e",
     "semantic_hash": "c9a1a93cf2680d1b0f308b277db5521e"
+  },
+  "backend/apps/authentication/migrations/0009_otpchallenge_plaintext_code.py": {
+    "mtime": 1782469491.9766793,
+    "ast_hash": "b15b32cdeb5582448ff057a32d34971f",
+    "semantic_hash": "b15b32cdeb5582448ff057a32d34971f"
+  },
+  "backend/apps/shipments/management/commands/backfill_media_urls.py": {
+    "mtime": 1782468740.651088,
+    "ast_hash": "257975279c9e14d5b74ec1a16e1ccbb0",
+    "semantic_hash": "257975279c9e14d5b74ec1a16e1ccbb0"
+  },
+  "docs/reconcile-on-sync-prd.html": {
+    "mtime": 1782302200.8238993,
+    "ast_hash": "7e008dd0dccc33accc34a0a517582b9c",
+    "semantic_hash": "7e008dd0dccc33accc34a0a517582b9c"
+  },
+  "docs/s3-acknowledgement-migration.md": {
+    "mtime": 1782367406.099914,
+    "ast_hash": "a0740b1106053ca3394cb8c14fa14a4d",
+    "semantic_hash": "a0740b1106053ca3394cb8c14fa14a4d"
+  },
+  "client/src/pages/UserManagement.tsx": {
+    "mtime": 1782555702.0216248,
+    "ast_hash": "a1f2150b1066addc478d378039aa299a",
+    "semantic_hash": ""
   }
 }
