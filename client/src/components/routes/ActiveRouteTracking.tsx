@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MapPin, Navigation, CheckCircle2, Package, User, Phone, XCircle, Zap, ExternalLink, Clock } from 'lucide-react';
+import { MapPin, Navigation, CheckCircle2, Package, User, Phone, XCircle, Zap, ExternalLink, Clock, Lock } from 'lucide-react';
 import DropPointMap from '../tracking/DropPointMap';
 import { useRouteOptimization } from '@/hooks/useRouteOptimization';
 import { Shipment, RouteLocation } from '@shared/types';
@@ -79,7 +79,8 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
     isLoadingShipments: is_loading_shipments,
     nearestPoint: nearest_point,
     bulkUpdateStatus,
-    skipShipment
+    skipShipment,
+    locked
   } = useRouteOptimization({ session_id, current_location });
 
   const [selected_point_shipments, set_selected_point_shipments] = useState<Shipment[] | null>(null);
@@ -104,12 +105,14 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
       ? eta_by_location.get(`${s.latitude.toFixed(5)},${s.longitude.toFixed(5)}`)
       : undefined;
 
-  // Render the list in optimized stop order; stops without an optimized entry go last.
-  const ordered_shipments = [...active_shipments].sort(
-    (a, b) =>
-      (stop_for(a)?.stop_number ?? Number.MAX_SAFE_INTEGER) -
-      (stop_for(b)?.stop_number ?? Number.MAX_SAFE_INTEGER)
-  );
+  // Render the list in stop order. When ops has dispatched this route we obey the
+  // locked dispatch_sequence; otherwise we use the client-optimized stop_number.
+  // Either way, stops without an order fall to the end.
+  const order_of = (s: Shipment): number =>
+    locked
+      ? (s.dispatch_sequence ?? Number.MAX_SAFE_INTEGER)
+      : (stop_for(s)?.stop_number ?? Number.MAX_SAFE_INTEGER);
+  const ordered_shipments = [...active_shipments].sort((a, b) => order_of(a) - order_of(b));
 
   const google_maps_route_url = useMemo(
     () => buildGoogleMapsRouteUrl(current_location, optimized_path),
@@ -255,6 +258,12 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
               <Package className="w-5 h-5" />
               Shipments in Route
             </CardTitle>
+            {locked && (
+              <Badge variant="outline" className="mt-1 w-fit gap-1 bg-amber-500/10 text-amber-600 border-amber-500/20 text-[10px]">
+                <Lock className="w-3 h-3" />
+                Dispatched order — locked by ops
+              </Badge>
+            )}
             {route_totals && route_totals.distance_km > 0 && (
               <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5">
                 <Navigation className="w-3 h-3" />
@@ -274,6 +283,8 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
                   ordered_shipments.map((s) => {
                     const stop = stop_for(s);
                     const arrival = stop ? formatClock(stop.eta_clock) : null;
+                    // Locked routes show the ops-assigned sequence; otherwise the optimizer's stop number.
+                    const seq_number = locked ? s.dispatch_sequence : stop?.stop_number;
                     return (
                     <div
                       key={s.id}
@@ -281,9 +292,9 @@ function ActiveRouteTracking({ sessionId: session_id, currentLocation: current_l
                     >
                       <div className="flex justify-between items-start mb-2">
                         <div className="font-semibold text-sm flex items-center gap-1.5 min-w-0">
-                          {stop?.stop_number != null && (
+                          {seq_number != null && (
                             <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex-shrink-0">
-                              {stop.stop_number}
+                              {seq_number}
                             </span>
                           )}
                           <span className="truncate">{s.customer_name}</span>

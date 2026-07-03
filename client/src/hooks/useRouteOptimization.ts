@@ -39,6 +39,12 @@ export function useRouteOptimization({ session_id, current_location, enabled = t
   // Filter out skipped shipments
   const shipments = all_shipments.filter(s => !skipped_shipment_ids.includes(s.id));
 
+  // "Locked" = ops has dispatched this route: every remaining stop carries a
+  // dispatch_sequence. When locked the rider obeys that fixed server order and we
+  // suppress re-optimize-on-drift — we still optimize once (first run / stop-count
+  // change) so ETAs + the map polyline stay populated; the order just isn't re-derived.
+  const locked = shipments.length > 0 && shipments.every(s => s.dispatch_sequence != null);
+
   const skip_shipment = useCallback((shipment_id: string) => {
     set_skipped_shipment_ids(prev => {
       const next = [...prev, shipment_id];
@@ -109,7 +115,8 @@ export function useRouteOptimization({ session_id, current_location, enabled = t
     let should_optimize = false;
     if (optimized_path.length === 0 || stop_count_changed) {
       should_optimize = true;
-    } else if (last) {
+    } else if (last && !locked) {
+      // Locked routes never re-optimize on movement — the stop order is fixed by ops.
       const moved_km = calculateDistance(last.lat, last.lng, current_location.latitude, current_location.longitude);
       if (moved_km >= MIN_REOPTIMIZE_KM && (Date.now() - last.at) >= MIN_REOPTIMIZE_MS) {
         should_optimize = true;
@@ -201,6 +208,7 @@ export function useRouteOptimization({ session_id, current_location, enabled = t
     bulkUpdateStatus: bulk_update_status,
     skipShipment: skip_shipment,
     resetSkips: reset_skips,
-    refetchShipments: refetch_shipments
+    refetchShipments: refetch_shipments,
+    locked
   };
 }

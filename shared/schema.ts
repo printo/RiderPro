@@ -194,6 +194,11 @@ export interface Shipment {
   stop_longitude?: number;
   km_travelled?: number;
 
+  // Dispatch (ops-locked order) — set server-side when ops dispatches a rider's
+  // route; when present the rider app obeys this order instead of re-optimizing.
+  dispatch_sequence?: number | null;
+  dispatched_at?: string | null;
+
   // Acknowledgment fields
   signature_url?: string;
   photo_url?: string;

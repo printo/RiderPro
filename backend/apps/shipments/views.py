@@ -2880,10 +2880,13 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             
         # Filter shipments assigned to this employee that are not yet delivered/cancelled.
         # Include collected/picked-up states so drop points stay visible after rider actions.
+        # When ops has dispatched this rider's route, its stops carry a dispatch_sequence —
+        # obey that locked order (nulls last, so not-yet-dispatched stops fall back to
+        # creation order and undispatched days are unchanged).
         shipments_qs = Shipment.objects.filter(
             employee_id__iexact=employee_id,
             status__in=['Assigned', 'Collected', 'In Transit', 'Picked Up']
-        ).order_by('created_at')
+        ).order_by(F('dispatch_sequence').asc(nulls_last=True), 'created_at')
         
         # Geocode any shipment missing lat/long (e.g. customer delivery address when POPS didn't send coords)
         from .geocoding import geocode_address
