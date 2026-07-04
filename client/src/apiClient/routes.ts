@@ -4,7 +4,7 @@ import {
   GPSCoordinate, RouteAnalytics, RouteFilters, RouteTracking,
   BatchCoordinatesResponse, SessionSummary, Shipment,
   RouteOptimizeRequest, RouteOptimizeResponse, BulkShipmentEvent,
-  DayPlanResponse, DayPlanWave
+  DayPlanResponse, DayPlanWave, DispatchResponse
 } from "@shared/types";
 import { apiClient } from "../services/ApiClient";
 import { API_ENDPOINTS } from "@/config/api";
@@ -34,6 +34,25 @@ export const routeAPI = {
       wave,
       pincode,
       ignored,
+    });
+    return response.json();
+  },
+
+  /**
+   * Lock (dispatch) a rider's route for a date + wave — writes dispatch_sequence
+   * so the rider app obeys this order instead of re-optimizing. Idempotent:
+   * re-dispatch re-locks while preserving any stop the rider already started.
+   * Manager-gated server-side.
+   */
+  dispatch: async (
+    date: string,
+    wave: DayPlanWave,
+    employeeId: string,
+  ): Promise<DispatchResponse> => {
+    const response = await apiRequest("POST", API_ENDPOINTS.routes.dispatch, {
+      date,
+      wave,
+      employee_id: employeeId,
     });
     return response.json();
   },

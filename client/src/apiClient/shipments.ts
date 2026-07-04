@@ -155,7 +155,7 @@ export const shipmentsApi = {
     return response.json();
   },
 
-  change_rider: async (id: string, employee_id: string, reason?: string): Promise<{ success: boolean; message: string; pops_synced?: boolean; unchanged?: boolean; shipment: Shipment }> => {
+  change_rider: async (id: string, employee_id: string, reason?: string): Promise<{ success: boolean; message: string; pops_synced?: boolean; flagged_for_ops?: boolean; unchanged?: boolean; shipment: Shipment }> => {
     const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.get(id)}/change-rider/`, {
       employee_id: employee_id,
       reason: reason || ''
@@ -163,7 +163,7 @@ export const shipmentsApi = {
     return response.json();
   },
 
-  batch_change_rider: async (ids: string[], employee_id: string, reason?: string): Promise<{ success: boolean; message: string; updated_count: number; failed_count: number; pops_sync_failed_count?: number; results: Array<{ shipment_id: number; success: boolean; old_rider?: string; new_rider?: string; error?: string; pops_synced?: boolean; unchanged?: boolean }> }> => {
+  batch_change_rider: async (ids: string[], employee_id: string, reason?: string): Promise<{ success: boolean; message: string; updated_count: number; failed_count: number; pops_sync_failed_count?: number; flagged_count?: number; results: Array<{ shipment_id: number; success: boolean; old_rider?: string; new_rider?: string; error?: string; pops_synced?: boolean; flagged?: boolean; unchanged?: boolean }> }> => {
     const response = await apiRequest("POST", `${API_ENDPOINTS.shipments.base}/batch-change-rider/`, {
       shipment_ids: ids.map(id => parseInt(id)),
       employee_id: employee_id,

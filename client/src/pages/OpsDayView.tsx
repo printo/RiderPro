@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { useDayPlan } from "@/hooks/useDayPlan";
 import { useOverlapIgnore } from "@/hooks/useOverlapIgnore";
+import { useDispatch } from "@/hooks/useDispatch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import ReassignDialog from "@/components/ops/ReassignDialog";
@@ -172,6 +173,8 @@ export default function OpsDayView() {
               <RiderCard
                 key={r.employee_id}
                 rider={r}
+                date={date}
+                wave={wave}
                 onReassign={(ids, emp, name) =>
                   setReassign({ shipmentIds: ids, sourceEmployeeId: emp, sourceRiderName: name })
                 }
@@ -230,13 +233,30 @@ function SummaryTile({ label, value, warn = false }: { label: string; value: num
 
 function RiderCard({
   rider,
+  date,
+  wave,
   onReassign,
 }: {
   rider: DayPlanRider;
+  date: string;
+  wave: DayPlanWave;
   onReassign: (shipmentIds: number[], sourceEmployeeId: string, sourceRiderName: string) => void;
 }) {
   const t = rider.totals;
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const dispatch = useDispatch();
+
+  const handleDispatch = () => {
+    if (
+      rider.dispatched &&
+      !window.confirm(
+        `Re-dispatch ${rider.rider_name}'s route? This re-locks the stop order. Stops already started keep their place.`,
+      )
+    ) {
+      return;
+    }
+    dispatch.mutate({ date, wave, employeeId: rider.employee_id, riderName: rider.rider_name });
+  };
 
   const toggle = (id: number, on: boolean) => {
     setSelected((prev) => {
@@ -250,11 +270,19 @@ function RiderCard({
   return (
     <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-semibold text-foreground">{rider.rider_name}</h3>
           {rider.flags.overloaded && (
             <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
               Overloaded
+            </span>
+          )}
+          {rider.dispatched && (
+            <span
+              className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800"
+              title={rider.dispatched_at ? `Dispatched ${formatClock(rider.dispatched_at)}` : "Dispatched"}
+            >
+              🔒 Dispatched{rider.dispatched_at ? ` ${formatClock(rider.dispatched_at)}` : ""}
             </span>
           )}
           <Link
@@ -264,6 +292,15 @@ function RiderCard({
           >
             View live →
           </Link>
+          <Button
+            size="sm"
+            variant={rider.dispatched ? "outline" : "default"}
+            disabled={dispatch.isPending || rider.stops.length === 0}
+            onClick={handleDispatch}
+            title={rider.stops.length === 0 ? "No mappable stops to dispatch" : undefined}
+          >
+            {dispatch.isPending ? "Dispatching…" : rider.dispatched ? "Re-dispatch" : "Dispatch route"}
+          </Button>
         </div>
         <div className="text-sm text-muted-foreground">
           {t.stop_count} stops · {t.total_km} km · ~{t.est_duration_min} min · finish {formatClock(t.finish_eta_clock)}

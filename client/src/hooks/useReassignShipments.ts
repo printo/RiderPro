@@ -41,6 +41,15 @@ export function useReassignShipments() {
       } else {
         toast({ title: `Reassigned ${res.updated_count} shipment(s)` });
       }
+      // A delivery moved onto an already-dispatched (locked) rider isn't slotted
+      // into the locked order — it sorts last until ops re-dispatches. Surface it.
+      if ((res.flagged_count ?? 0) > 0) {
+        toast({
+          title: `${res.flagged_count} delivery(ies) need re-dispatch`,
+          description:
+            "Moved onto an already-dispatched rider — not in the locked order until you re-dispatch them.",
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/v1/routes/day-plan"] });
     },
     onError: (err) => {

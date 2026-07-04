@@ -87,6 +87,50 @@ def _road_order_indices(mappable):
     return order, matrix
 
 
+def _reseat_dispatch_sequence_on_reassign(shipment, new_employee_id):
+    """Fix a reassigned stop's locked-order sequence.
+
+    A moved stop leaves its source rider's (possibly dispatched/locked) route, so
+    the dispatch_sequence it carried from there is meaningless on the target — drop
+    it. Then, if the TARGET rider is already dispatched, apply the locked
+    post-dispatch decision:
+      - a moved PICKUP appends to the locked route (next dispatch_sequence), and
+      - a moved DELIVERY is left un-sequenced (NULL → sorts last) and FLAGGED for
+        ops to re-dispatch / relocate (no auto-pick).
+    Mutates `shipment` in place (does NOT save — the caller persists it). Returns
+    True when the stop was left un-sequenced + flagged.
+    """
+    from django.db.models import Max
+
+    # Leaving the source route — never keep its sequence on the target.
+    shipment.dispatch_sequence = None
+    shipment.dispatched_at = None
+
+    target_dispatched = (
+        Shipment.objects
+        .filter(employee_id=new_employee_id, dispatched_at__isnull=False)
+        .exclude(id=shipment.id)
+        .exists()
+    )
+    if not target_dispatched:
+        return False
+
+    if (shipment.type or 'delivery').strip().lower() == 'pickup':
+        # Pickup joins the end of the dispatched rider's locked route.
+        max_seq = (
+            Shipment.objects
+            .filter(employee_id=new_employee_id, dispatch_sequence__isnull=False)
+            .exclude(id=shipment.id)
+            .aggregate(m=Max('dispatch_sequence'))['m']
+        ) or 0
+        shipment.dispatch_sequence = max_seq + 1
+        shipment.dispatched_at = timezone.now()
+        return False
+
+    # Delivery onto an already-dispatched rider → un-sequenced + flagged for ops.
+    return True
+
+
 def _is_manager_user(user):
     return (
         user.is_superuser
@@ -957,6 +1001,9 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         shipment.employee_id = new_employee_id
         shipment.synced_to_external = False
         shipment.sync_status = 'needs_sync'
+        # Post-dispatch: reseat the moved stop's locked-order sequence (pickup
+        # appends to a dispatched target; delivery is left un-sequenced + flagged).
+        flagged_for_ops = _reseat_dispatch_sequence_on_reassign(shipment, new_employee_id)
         shipment.save()
         pops_synced = bool(self._sync_shipment_to_pops(shipment, request))
 
@@ -983,6 +1030,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             'success': True,
             'message': f'Rider changed from {old_employee_id} to {new_employee_id}',
             'pops_synced': pops_synced,
+            'flagged_for_ops': flagged_for_ops,
             'shipment': ShipmentSerializer(shipment).data
         })
     
@@ -1132,6 +1180,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         updated_count = 0
         failed_count = 0
         pops_sync_failed_count = 0
+        flagged_count = 0
         results = []
         
         for shipment in shipments:
@@ -1155,6 +1204,10 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                 shipment.employee_id = new_employee_id
                 shipment.synced_to_external = False
                 shipment.sync_status = 'needs_sync'
+                # Post-dispatch: reseat the moved stop's locked-order sequence.
+                flagged_for_ops = _reseat_dispatch_sequence_on_reassign(shipment, new_employee_id)
+                if flagged_for_ops:
+                    flagged_count += 1
                 shipment.save()
                 pops_synced = bool(self._sync_shipment_to_pops(shipment, request))
                 if not pops_synced:
@@ -1182,6 +1235,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
                     'old_rider': old_employee_id,
                     'new_rider': new_employee_id,
                     'pops_synced': pops_synced,
+                    'flagged': flagged_for_ops,
                 })
                 
             except Exception as e:
@@ -1204,6 +1258,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
             'updated_count': updated_count,
             'failed_count': failed_count,
             'pops_sync_failed_count': pops_sync_failed_count,
+            'flagged_count': flagged_count,
             'results': results
         })
     
@@ -2638,6 +2693,8 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             if stop_count > max_stops:
                 reasons.append(f'{stop_count} stops exceeds {max_stops}')
 
+            _dispatched_times = [s.dispatched_at for s in mappable if s.dispatched_at is not None]
+
             riders_payload.append({
                 'employee_id': emp_id,
                 'rider_name': name_map.get(emp_id, emp_id),
@@ -2653,7 +2710,8 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                     'finish_eta_clock': (plan_start + timedelta(seconds=cum_seconds)).isoformat() if mappable else None,
                 },
                 'flags': {'overloaded': bool(reasons), 'reasons': reasons},
-                'dispatched': any(s.dispatched_at is not None for s in mappable),
+                'dispatched': bool(_dispatched_times),
+                'dispatched_at': max(_dispatched_times).isoformat() if _dispatched_times else None,
             })
 
         # overloaded riders first, then alphabetical
@@ -2807,15 +2865,28 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        order, _ = _road_order_indices(mappable)
+        # Never re-sequence a stop the rider has already started/finished. On a
+        # re-dispatch we PRESERVE in-progress stops' existing sequences and only
+        # (re)order the still-pending ones, numbering them after the current max —
+        # so a mid-route re-lock can't send the rider back to a stop they passed.
+        IN_PROGRESS = {'Collected', 'In Transit', 'Picked Up', 'Delivered', 'Returned', 'Skipped'}
+        preserved = [s for s in mappable if s.status in IN_PROGRESS and s.dispatch_sequence is not None]
+        preserved_ids = {s.id for s in preserved}
+        reorderable = [s for s in mappable if s.id not in preserved_ids]
+        base_seq = max((s.dispatch_sequence for s in preserved), default=0)
+
+        order, _ = _road_order_indices(reorderable)
         now = timezone.now()
-        locked = []
-        for seq, idx in enumerate(order):
-            s = mappable[idx]
-            s.dispatch_sequence = seq + 1
+        locked = [
+            {'shipment_id': s.id, 'sequence': s.dispatch_sequence, 'preserved': True}
+            for s in sorted(preserved, key=lambda x: x.dispatch_sequence)
+        ]
+        for i, idx in enumerate(order):
+            s = reorderable[idx]
+            s.dispatch_sequence = base_seq + i + 1
             s.dispatched_at = now
             s.save(update_fields=['dispatch_sequence', 'dispatched_at', 'updated_at'])
-            locked.append({'shipment_id': s.id, 'sequence': seq + 1})
+            locked.append({'shipment_id': s.id, 'sequence': s.dispatch_sequence})
 
         return Response({
             'success': True,
@@ -2823,6 +2894,7 @@ class RouteSessionViewSet(viewsets.ModelViewSet):
             'date': day.isoformat(),
             'wave': wave,
             'dispatched_count': len(locked),
+            'preserved_count': len(preserved),
             'stops': locked,
         })
 

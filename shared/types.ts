@@ -349,6 +349,20 @@ export interface DayPlanRider {
   unmappable: { shipment_id: number; customer_name: string }[];
   totals: DayPlanRiderTotals;
   flags: { overloaded: boolean; reasons: string[] };
+  dispatched?: boolean;         // ops has locked this rider's order for the day/wave
+  dispatched_at?: string | null; // ISO timestamp of the (latest) dispatch, if any
+}
+
+/** Response from POST /routes/dispatch — the locked stop order for a rider. */
+export interface DispatchResponse {
+  success: boolean;
+  employee_id: string;
+  date: string;
+  wave: string;
+  dispatched_count: number;
+  preserved_count?: number; // in-progress stops that kept their sequence on re-dispatch
+  stops: { shipment_id: number; sequence: number; preserved?: boolean }[];
+  error?: string;
 }
 
 export interface DayPlanResponse {
