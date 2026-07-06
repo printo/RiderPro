@@ -66,8 +66,11 @@ export class ApiClient {
     // Construct full URL
     const fullUrl = url.startsWith('http') ? url : `${this.BASE_URL}${url}`;
 
-    // Skip logging for auth-related requests to prevent log spam
-    const isAuthRequest = url.includes('/auth/');
+    // Only treat truly public/unauthenticated auth endpoints as "auth requests"
+    // (login, register, refresh, OTP). Operational endpoints under /auth/ like
+    // riders/sync, homebases/sync, all-users NEED 401 retry / token-refresh.
+    const publicAuthEndpoints = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/local-login', '/auth/request-otp', '/auth/verify-otp', '/auth/google/login'];
+    const isAuthRequest = publicAuthEndpoints.some(ep => url.includes(ep));
 
     if (!isAuthRequest) {
       log.dev(`[ApiClient] ${method} ${fullUrl}`, data ? { data } : '');

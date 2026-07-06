@@ -7,11 +7,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { withPageErrorBoundary } from '@/components/ErrorBoundary';
 import { DispatchBadge } from '@/components/ui/DispatchBadge';
 import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
-import AuthService from '@/services/AuthService';
+
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/config/api';
 import { AllUser } from '@shared/types';
-import { Search, RefreshCw, LayoutGrid, List, Users } from 'lucide-react';
+import { Search, RefreshCw, LayoutGrid, List, Users, CloudDownload } from 'lucide-react';
 
 // Maps raw backend role strings to human-readable labels
 function roleLabel(role: string): string {
@@ -46,8 +46,7 @@ function UserManagementPage() {
   const [search, setSearch] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
-  const [isSyncingRiders, setIsSyncingRiders] = useState(false);
-  const [isSyncingHomebases, setIsSyncingHomebases] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [activeOtp, setActiveOtp] = useState<{ rider_id: string; otp: string; expires_in: number } | null>(null);
 
   const canAccess = !!(currentUser?.is_super_user || currentUser?.is_ops_team || currentUser?.is_staff);
@@ -69,53 +68,66 @@ function UserManagementPage() {
     }
   };
 
-  const syncRiders = async () => {
-    setIsSyncingRiders(true);
+  const syncFromPops = async () => {
+    setIsSyncing(true);
     try {
-      const res = await apiRequest('POST', API_ENDPOINTS.auth.syncRiders);
-      const data = await res.json();
-      toast({ title: data.success ? 'Synced' : 'Warning', description: data.message });
-      if (data.success) loadUsers();
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message || 'Sync failed', variant: 'destructive' });
-    } finally {
-      setIsSyncingRiders(false);
-    }
-  };
+      // Step 1: Sync homebases first (riders depend on homebase FK references)
+      const hbRes = await apiRequest('POST', API_ENDPOINTS.auth.syncHomebases);
+      const hbData = await hbRes.json();
+      if (!hbData.success) {
+        toast({ title: 'Homebase sync failed', description: hbData.message, variant: 'destructive' });
+        return;
+      }
 
-  const syncHomebases = async () => {
-    setIsSyncingHomebases(true);
-    try {
-      const res = await apiRequest('POST', API_ENDPOINTS.auth.syncHomebases);
-      const data = await res.json();
-      toast({ title: data.success ? 'Synced' : 'Warning', description: data.message });
-      if (data.success) loadUsers();
+      // Step 2: Sync riders
+      const rRes = await apiRequest('POST', API_ENDPOINTS.auth.syncRiders);
+      const rData = await rRes.json();
+      if (!rData.success) {
+        toast({ title: 'Rider sync failed', description: rData.message, variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'Sync complete', description: `Homebases: ${hbData.message}. Riders: ${rData.message}` });
+
+      // Step 3: Refresh user list
+      await loadUsers();
     } catch (e: any) {
-      toast({ title: 'Error', description: e.message || 'Sync failed', variant: 'destructive' });
+      // Surface POPS-specific errors clearly instead of generic "session expired"
+      const msg = e.message || 'Sync failed';
+      const isPopsError = msg.includes('POPS') || msg.includes('token');
+      toast({
+        title: isPopsError ? 'POPS sync error' : 'Sync failed',
+        description: isPopsError
+          ? 'The POPS service token may have expired. Please contact an admin to update it.'
+          : msg,
+        variant: 'destructive',
+      });
     } finally {
-      setIsSyncingHomebases(false);
+      setIsSyncing(false);
     }
   };
 
   const archiveUser = async (userId: string, name: string) => {
     if (!window.confirm(`Archive ${name}?`)) return;
     try {
-      const result = await AuthService.getInstance().archiveUser(userId);
-      toast({ title: result.success ? 'Archived' : 'Error', description: result.message, variant: result.success ? 'default' : 'destructive' });
-      if (result.success) loadUsers();
+      const res = await apiRequest('POST', API_ENDPOINTS.auth.archive(userId));
+      const data = await res.json();
+      toast({ title: data.success ? 'Archived' : 'Error', description: data.message, variant: data.success ? 'default' : 'destructive' });
+      if (data.success) loadUsers();
     } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+      toast({ title: 'Error', description: e.message || 'Failed to archive user', variant: 'destructive' });
     }
   };
 
   const restoreUser = async (userId: string, name: string) => {
     if (!window.confirm(`Restore ${name}?`)) return;
     try {
-      const result = await AuthService.getInstance().restoreUser(userId);
-      toast({ title: result.success ? 'Restored' : 'Error', description: result.message, variant: result.success ? 'default' : 'destructive' });
-      if (result.success) loadUsers();
+      const res = await apiRequest('POST', API_ENDPOINTS.auth.restore(userId));
+      const data = await res.json();
+      toast({ title: data.success ? 'Restored' : 'Error', description: data.message, variant: data.success ? 'default' : 'destructive' });
+      if (data.success) loadUsers();
     } catch (e: any) {
-      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+      toast({ title: 'Error', description: e.message || 'Failed to restore user', variant: 'destructive' });
     }
   };
 
@@ -167,13 +179,9 @@ function UserManagementPage() {
           <p className="text-sm text-muted-foreground">{filtered.length} user{filtered.length !== 1 ? 's' : ''}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button onClick={syncHomebases} disabled={isSyncingHomebases} variant="outline" size="sm" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncingHomebases ? 'animate-spin' : ''}`} />
-            {isSyncingHomebases ? 'Syncing...' : 'Sync Homebases'}
-          </Button>
-          <Button onClick={syncRiders} disabled={isSyncingRiders} variant="outline" size="sm" className="border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${isSyncingRiders ? 'animate-spin' : ''}`} />
-            {isSyncingRiders ? 'Syncing...' : 'Sync Riders'}
+          <Button onClick={syncFromPops} disabled={isSyncing} variant="outline" size="sm" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+            <CloudDownload className={`h-4 w-4 mr-1.5 ${isSyncing ? 'animate-pulse' : ''}`} />
+            {isSyncing ? 'Syncing…' : 'Sync from POPS'}
           </Button>
           <Button onClick={loadUsers} disabled={loading} variant="outline" size="sm">
             <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
