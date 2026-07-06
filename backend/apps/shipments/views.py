@@ -35,7 +35,7 @@ from .serializers import (
     ChangeRiderSerializer, BatchChangeRiderSerializer, AcknowledgmentSettingsSerializer
 )
 from .filters import ShipmentFilter
-from utils.pops_client import pops_client
+from utils.pops_client import pops_client, get_user_pops_token
 
 logger = logging.getLogger(__name__)
 
@@ -273,7 +273,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         """
         Prefer service token for server-to-server sync, fall back to user token.
         """
-        return getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or getattr(request.user, 'access_token', None)
+        return getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or get_user_pops_token(getattr(request, 'user', None))
 
     def _store_bytes(self, raw: bytes, folder_name: str, ext: str) -> str:
         """

@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from apps.shipments.models import Shipment
-from utils.pops_client import pops_client
+from utils.pops_client import pops_client, get_user_pops_token
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -51,9 +51,9 @@ class SyncViewSet(viewsets.ViewSet):
         
         # Prefer service token for POPS integration; fall back to user token if necessary
         service_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+        access_token = service_token or get_user_pops_token(getattr(request, 'user', None))
 
         for shipment in pending_shipments:
-            access_token = service_token or getattr(request.user, 'access_token', None)
             if shipment.pops_order_id and access_token:
                 try:
                     pops_client.update_order_fields(
@@ -126,7 +126,7 @@ class SyncViewSet(viewsets.ViewSet):
         
         # Prefer service token for POPS integration; fall back to user token if necessary
         service_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
-        access_token = service_token or getattr(request.user, 'access_token', None)
+        access_token = service_token or get_user_pops_token(getattr(request, 'user', None))
 
         if shipment.pops_order_id and access_token:
             try:
@@ -169,7 +169,7 @@ class SyncViewSet(viewsets.ViewSet):
         processed = 0
         # Prefer service token for POPS integration; fall back to user token if necessary
         service_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
-        access_token = service_token or getattr(request.user, 'access_token', None)
+        access_token = service_token or get_user_pops_token(getattr(request, 'user', None))
         for shipment_id in shipment_ids:
             try:
                 shipment = Shipment.objects.get(id=shipment_id)

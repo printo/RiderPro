@@ -19,7 +19,7 @@ from .serializers import (
 from .models import RiderAccount, Homebase, RiderHomebaseAssignment, VehicleChangeRequest
 from django.utils import timezone
 from django.conf import settings
-from utils.pops_client import pops_client
+from utils.pops_client import pops_client, get_user_pops_token
 import bcrypt
 
 logger = logging.getLogger(__name__)
@@ -1293,8 +1293,8 @@ def pops_homebases(request):
             'message': 'Permission denied'
         }, status=status.HTTP_403_FORBIDDEN)
     
-    # Get access token from authenticated user
-    access_token = request.user.access_token
+    # Get access token from authenticated user, automatically refreshing if needed
+    access_token = get_user_pops_token(request.user)
     if not access_token:
         return Response({
             'success': False,
@@ -1359,13 +1359,13 @@ def pops_create_rider(request):
             'message': 'Permission denied'
         }, status=status.HTTP_403_FORBIDDEN)
     
-    # Get access token from authenticated user
-    access_token = request.user.access_token
+    # Get access token from authenticated user, automatically refreshing if needed
+    access_token = get_user_pops_token(request.user)
     if not access_token:
         return Response({
             'success': False,
             'message': 'User must have a valid POPS access token'
-        }, status=status.HTTP_401_UNAUTHORIZED)
+        }, status=status.HTTP_502_BAD_GATEWAY)
     
     rider_data = request.data
     
@@ -1520,8 +1520,8 @@ def sync_homebases_from_pops(request):
         }, status=status.HTTP_403_FORBIDDEN)
         
     # Prefer the service token (works for Google-SSO admins who have no POPS
-    # session token); fall back to the caller's own POPS token.
-    access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or request.user.access_token
+    # session token); fall back to the caller's own POPS token, automatically refreshing if needed.
+    access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or get_user_pops_token(request.user)
     if not access_token:
         return Response({
             'success': False,
@@ -1813,7 +1813,7 @@ def sync_riders_from_pops(request):
             'message': 'Permission denied'
         }, status=status.HTTP_403_FORBIDDEN)
         
-    access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or request.user.access_token
+    access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or get_user_pops_token(request.user)
     if not access_token:
         return Response({
             'success': False,
