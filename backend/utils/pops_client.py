@@ -41,6 +41,28 @@ class PopsAPIClient:
         except Exception as e:
             logger.error(f"POPS login error: {e}")
             return None
+            
+    def login_with_google(self, id_token: str) -> Optional[Dict[str, Any]]:
+        """
+        Authenticate with POPS API using Google id_token
+        """
+        # Try POPS Google login endpoints
+        endpoints = [
+            f"{self.base_url}/auth/google/login/",
+            f"{self.base_url}/auth/google/",
+            f"{self.base_url}/google/login/"
+        ]
+        for url in endpoints:
+            try:
+                response = self.session.post(url, json={
+                    'id_token': id_token,
+                    'token': id_token
+                }, timeout=10)
+                if response.status_code == 200:
+                    return response.json()
+            except Exception as e:
+                logger.debug(f"POPS Google login failed on {url}: {e}")
+        return None
     
     def refresh_token(self, refresh_token: str) -> Optional[Dict[str, Any]]:
         """
@@ -419,9 +441,6 @@ def get_user_pops_token(user) -> Optional[str]:
     """
     if not user or not user.is_authenticated:
         return None
-        
-    if getattr(user, 'auth_source', None) != 'pops':
-        return getattr(user, 'access_token', None)
         
     access_token = getattr(user, 'access_token', None)
     refresh_token = getattr(user, 'refresh_token', None)

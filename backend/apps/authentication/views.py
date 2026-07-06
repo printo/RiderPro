@@ -228,6 +228,19 @@ def google_login(request):
     from .token_utils import get_token_for_user
     tokens = get_token_for_user(user)
 
+    # Try to authenticate with POPS Google Login to sync POPS session tokens
+    try:
+        pops_tokens = pops_client.login_with_google(token)
+        if pops_tokens and pops_tokens.get('access'):
+            user.access_token = pops_tokens.get('access')
+            if pops_tokens.get('refresh'):
+                user.refresh_token = pops_tokens.get('refresh')
+            user.auth_source = 'pops'  # enable future dynamic auto-refreshes
+            user.save(update_fields=['access_token', 'refresh_token', 'auth_source'])
+            logger.info(f"Successfully obtained POPS session token via Google login for user {user.username}")
+    except Exception as pops_exc:
+        logger.warning(f"Failed to obtain POPS session token via Google login: {pops_exc}")
+
     user.last_login = timezone.now()
     user.save(update_fields=['last_login'])
 
