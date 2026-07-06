@@ -770,7 +770,7 @@ export class ApiClient {
           return 'The server encountered an internal error. Please try again in a few moments.';
         }
         if (status === 502 || status === 503) {
-          return 'The server is temporarily unavailable. Please try again in a few moments.';
+          return originalMessage || 'The server is temporarily unavailable. Please try again in a few moments.';
         }
         if (status === 504) {
           return 'The server request timed out. Please try again.';
