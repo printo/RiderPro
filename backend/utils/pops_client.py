@@ -413,6 +413,47 @@ class PopsAPIClient:
 pops_client = PopsAPIClient()
 
 
+def get_user_pops_token(user) -> Optional[str]:
+    """
+    Get user's POPS access token, automatically refreshing it if expired
+    """
+    if not user or not user.is_authenticated:
+        return None
+        
+    if getattr(user, 'auth_source', None) != 'pops':
+        return getattr(user, 'access_token', None)
+        
+    access_token = getattr(user, 'access_token', None)
+    refresh_token = getattr(user, 'refresh_token', None)
+    
+    # Try to verify the token first if it exists
+    if access_token:
+        # Check if the token is valid by verifying it with POPS
+        verify_res = pops_client.verify_token(access_token)
+        if verify_res is not None:
+            # Token is still valid!
+            return access_token
+            
+    # Token is missing or invalid/expired, try to refresh
+    if refresh_token:
+        logger.info(f"Attempting to refresh POPS token for user {user.username}")
+        refresh_res = pops_client.refresh_token(refresh_token)
+        if refresh_res and refresh_res.get('access'):
+            new_access = refresh_res.get('access')
+            new_refresh = refresh_res.get('refresh')
+            user.access_token = new_access
+            update_fields = ['access_token']
+            if new_refresh:
+                user.refresh_token = new_refresh
+                update_fields.append('refresh_token')
+            user.save(update_fields=update_fields)
+            logger.info(f"Successfully refreshed POPS token for user {user.username}")
+            return new_access
+            
+    return access_token
+
+
+
 
 
 
