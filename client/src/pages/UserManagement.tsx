@@ -11,7 +11,7 @@ import { HomebaseBadge } from '@/components/ui/HomebaseBadge';
 import { apiRequest } from '@/lib/queryClient';
 import { API_ENDPOINTS } from '@/config/api';
 import { AllUser } from '@shared/types';
-import { Search, RefreshCw, LayoutGrid, List, Users, CloudDownload } from 'lucide-react';
+import { Search, LayoutGrid, List, Users, CloudDownload } from 'lucide-react';
 
 // Maps raw backend role strings to human-readable labels
 function roleLabel(role: string): string {
@@ -178,16 +178,10 @@ function UserManagementPage() {
           <h1 className="text-2xl font-bold tracking-tight">User Management</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} user{filtered.length !== 1 ? 's' : ''}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={syncFromPops} disabled={isSyncing} variant="outline" size="sm" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
-            <CloudDownload className={`h-4 w-4 mr-1.5 ${isSyncing ? 'animate-pulse' : ''}`} />
-            {isSyncing ? 'Syncing…' : 'Sync from POPS'}
+        <Button onClick={syncFromPops} disabled={isSyncing || loading} variant="outline" size="sm" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+            <CloudDownload className={`h-4 w-4 mr-1.5 ${isSyncing || loading ? 'animate-pulse' : ''}`} />
+            {isSyncing ? 'Syncing…' : loading ? 'Refreshing…' : 'Sync & Refresh'}
           </Button>
-          <Button onClick={loadUsers} disabled={loading} variant="outline" size="sm">
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
       </div>
 
       {/* Filters + view toggle */}
