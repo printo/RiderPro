@@ -1299,7 +1299,7 @@ def pops_homebases(request):
         return Response({
             'success': False,
             'message': 'User must have a valid POPS access token'
-        }, status=status.HTTP_401_UNAUTHORIZED)
+        }, status=status.HTTP_502_BAD_GATEWAY)
     
     try:
         # Fetch homebases from POPS
@@ -1312,7 +1312,7 @@ def pops_homebases(request):
                 status_code = error.get('status', status_code)
                 msg = f"POPS error: {error.get('message', '')}"
                 if status_code in [401, 403]:
-                    status_code = status.HTTP_401_UNAUTHORIZED
+                    status_code = status.HTTP_502_BAD_GATEWAY
                     msg = 'POPS rejected the token (expired or not a POPS session token). Log out and back in via POPS, or run sync as an admin with a valid POPS session.'
             return Response({
                 'success': False,
@@ -1526,7 +1526,7 @@ def sync_homebases_from_pops(request):
         return Response({
             'success': False,
             'message': 'No configured service token or user POPS token'
-        }, status=status.HTTP_401_UNAUTHORIZED)
+        }, status=status.HTTP_502_BAD_GATEWAY)
         
     try:
         # Fetch homebases from POPS
@@ -1539,7 +1539,7 @@ def sync_homebases_from_pops(request):
                 status_code = error.get('status', status_code)
                 msg = f"POPS error: {error.get('message', '')}"
                 if status_code in [401, 403]:
-                    status_code = status.HTTP_401_UNAUTHORIZED
+                    status_code = status.HTTP_502_BAD_GATEWAY
                     msg = 'POPS rejected the token (expired or not a POPS session token). Log out and back in via POPS, or run sync as an admin with a valid POPS session.'
             return Response({
                 'success': False,
@@ -1818,7 +1818,7 @@ def sync_riders_from_pops(request):
         return Response({
             'success': False,
             'message': 'No configured service token or user POPS token'
-        }, status=status.HTTP_401_UNAUTHORIZED)
+        }, status=status.HTTP_502_BAD_GATEWAY)
         
     try:
         pops_riders, error = pops_client.fetch_riders(access_token)
@@ -1829,7 +1829,7 @@ def sync_riders_from_pops(request):
                 status_code = error.get('status', status_code)
                 msg = f"POPS error: {error.get('message', '')}"
                 if status_code in [401, 403]:
-                    status_code = status.HTTP_401_UNAUTHORIZED
+                    status_code = status.HTTP_502_BAD_GATEWAY
                     msg = 'POPS rejected the token (expired or not valid).'
             return Response({
                 'success': False,
