@@ -89,11 +89,10 @@ class ShipmentStatusService:
         try:
             from utils.pops_client import pops_client
             
-            # Use service token if available
-            pops_access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+            pops_access_token = pops_client.get_service_token()
             if not pops_access_token:
-                logger.warning("RIDER_PRO_SERVICE_TOKEN not configured. Cannot sync to POPS.")
-                event.sync_error = "RIDER_PRO_SERVICE_TOKEN not configured"
+                logger.warning("POPS service account credentials or token not configured. Cannot sync to POPS.")
+                event.sync_error = "POPS service token not configured"
                 event.save()
                 return False
             

@@ -273,7 +273,7 @@ class ShipmentViewSet(viewsets.ModelViewSet):
         """
         Prefer service token for server-to-server sync, fall back to user token.
         """
-        return getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or get_user_pops_token(getattr(request, 'user', None))
+        return pops_client.get_service_token() or get_user_pops_token(getattr(request, 'user', None))
 
     def _store_bytes(self, raw: bytes, folder_name: str, ext: str) -> str:
         """

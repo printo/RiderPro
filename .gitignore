@@ -141,4 +141,4 @@ venv.bak/
 # IDEs - Python
 .pytype/
 .pyre/
-graphify-out/20*/
+graphify-out/

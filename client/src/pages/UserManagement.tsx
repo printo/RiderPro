@@ -97,9 +97,7 @@ function UserManagementPage() {
       const isPopsError = msg.includes('POPS') || msg.includes('token');
       toast({
         title: isPopsError ? 'POPS sync error' : 'Sync failed',
-        description: isPopsError
-          ? 'The POPS service token may have expired. Please contact an admin to update it.'
-          : msg,
+        description: msg,
         variant: 'destructive',
       });
     } finally {

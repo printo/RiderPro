@@ -50,7 +50,7 @@ class SyncViewSet(viewsets.ViewSet):
         failed_count = 0
         
         # Prefer service token for POPS integration; fall back to user token if necessary
-        service_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+        service_token = pops_client.get_service_token()
         access_token = service_token or get_user_pops_token(getattr(request, 'user', None))
 
         for shipment in pending_shipments:
@@ -125,7 +125,7 @@ class SyncViewSet(viewsets.ViewSet):
             )
         
         # Prefer service token for POPS integration; fall back to user token if necessary
-        service_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+        service_token = pops_client.get_service_token()
         access_token = service_token or get_user_pops_token(getattr(request, 'user', None))
 
         if shipment.pops_order_id and access_token:
@@ -168,7 +168,7 @@ class SyncViewSet(viewsets.ViewSet):
         
         processed = 0
         # Prefer service token for POPS integration; fall back to user token if necessary
-        service_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+        service_token = pops_client.get_service_token()
         access_token = service_token or get_user_pops_token(getattr(request, 'user', None))
         for shipment_id in shipment_ids:
             try:

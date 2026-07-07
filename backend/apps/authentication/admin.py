@@ -440,10 +440,11 @@ class RiderAccountAdmin(ImportExportModelAdmin):
         
         # Get POPS API token from settings
         pops_api_url = getattr(settings, 'POPS_API_BASE_URL', 'http://localhost:8002/api/v1')
-        access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+        from utils.pops_client import pops_client
+        access_token = pops_client.get_service_token()
         
         if not access_token:
-            messages.error(request, 'Error: RIDER_PRO_SERVICE_TOKEN not configured in settings')
+            messages.error(request, 'Error: POPS service credentials or token not configured')
             return redirect('admin:authentication_rideraccount_changelist')
         
         # Fetch all riders from POPS API
@@ -542,7 +543,7 @@ class RiderAccountAdmin(ImportExportModelAdmin):
         from django.conf import settings
         from utils.pops_client import pops_client
         
-        access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None)
+        access_token = pops_client.get_service_token()
         success_count = 0
         fetched_count = 0
         

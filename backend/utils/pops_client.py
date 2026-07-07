@@ -107,7 +107,47 @@ class PopsAPIClient:
         except Exception as e:
             logger.error(f"POPS token verify error: {e}")
             return None
-    
+
+    def get_service_token(self) -> Optional[str]:
+        """
+        Retrieve a valid POPS service account token.
+        It checks the cached self._service_token first, verifies it,
+        and if invalid, logs in using settings.POPS_SERVICE_EMAIL and settings.POPS_SERVICE_PASSWORD.
+        """
+        if not hasattr(self, '_service_token'):
+            self._service_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or None
+            
+        # If we have a token, check its validity
+        if self._service_token:
+            if self.verify_token(self._service_token) is not None:
+                return self._service_token
+            else:
+                logger.info("Cached POPS service token is invalid or expired. Attempting dynamic login.")
+                self._service_token = None
+                
+        # Attempt service account login
+        email = getattr(settings, 'POPS_SERVICE_EMAIL', None)
+        password = getattr(settings, 'POPS_SERVICE_PASSWORD', None)
+        
+        if email and password:
+            logger.info(f"Logging in to POPS using service account: {email}")
+            login_res = self.login(email, password)
+            if login_res and login_res.get('access'):
+                token = login_res.get('access')
+                self._service_token = token
+                # Sync back to Django settings so raw accesses are kept in step
+                try:
+                    setattr(settings, 'RIDER_PRO_SERVICE_TOKEN', token)
+                except Exception as e:
+                    logger.debug(f"Failed to update RIDER_PRO_SERVICE_TOKEN in settings: {e}")
+                return token
+            else:
+                logger.error("Failed to authenticate service account with POPS.")
+        else:
+            logger.warning("POPS_SERVICE_EMAIL or POPS_SERVICE_PASSWORD not configured. Cannot perform autologin.")
+
+        return None
+
     def create_order(self, order_data: Dict[str, Any], access_token: str) -> Optional[Dict[str, Any]]:
         """
         Create order in POPS
@@ -470,7 +510,6 @@ def get_user_pops_token(user) -> Optional[str]:
             return new_access
             
     return access_token
-
 
 
 

@@ -205,7 +205,10 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = []
 
 # POPS API
-POPS_API_BASE_URL = 'http://localhost:8002/api/v1'
+POPS_API_BASE_URL = os.environ.get('POPS_API_BASE_URL', 'http://localhost:8002/api/v1')
+RIDER_PRO_SERVICE_TOKEN = os.environ.get('RIDER_PRO_SERVICE_TOKEN', '')
+POPS_SERVICE_EMAIL = os.environ.get('POPS_SERVICE_EMAIL', '')
+POPS_SERVICE_PASSWORD = os.environ.get('POPS_SERVICE_PASSWORD', '')
 
 # OTP Settings
 OTP_PROVIDER = os.environ.get('OTP_PROVIDER', 'console')

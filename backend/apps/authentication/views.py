@@ -25,6 +25,33 @@ import bcrypt
 logger = logging.getLogger(__name__)
 
 
+def _fetch_from_pops_with_fallback(request_user, fetch_fn):
+    """
+    Try the POPS service token first, then fall back to the logged-in user's POPS
+    token if POPS rejects the service token or if no service token is available.
+    """
+    service_token = pops_client.get_service_token()
+    if service_token:
+        data, error = fetch_fn(service_token)
+        if data is not None:
+            return data, error
+        if not error or error.get('status') not in [401, 403]:
+            return data, error
+
+    user_token = get_user_pops_token(request_user)
+    if user_token:
+        return fetch_fn(user_token)
+
+    if service_token:
+        return None, {
+            'status': 502,
+            'message': 'POPS rejected the service token and no valid user POPS session was available.',
+        }
+
+    return None, {
+        'status': 502,
+        'message': 'No configured service token or user POPS token',
+    }
 
 @extend_schema(
     tags=['Authentication'],
@@ -1532,18 +1559,10 @@ def sync_homebases_from_pops(request):
             'message': 'Permission denied'
         }, status=status.HTTP_403_FORBIDDEN)
         
-    # Prefer the service token (works for Google-SSO admins who have no POPS
-    # session token); fall back to the caller's own POPS token, automatically refreshing if needed.
-    access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or get_user_pops_token(request.user)
-    if not access_token:
-        return Response({
-            'success': False,
-            'message': 'No configured service token or user POPS token'
-        }, status=status.HTTP_502_BAD_GATEWAY)
-        
     try:
-        # Fetch homebases from POPS
-        pops_homebases, error = pops_client.fetch_homebases(access_token)
+        # Fetch homebases from POPS, falling back to the caller's POPS session
+        # if the service token is unavailable or rejected.
+        pops_homebases, error = _fetch_from_pops_with_fallback(request.user, pops_client.fetch_homebases)
         
         if pops_homebases is None:
             status_code = status.HTTP_502_BAD_GATEWAY
@@ -1826,15 +1845,8 @@ def sync_riders_from_pops(request):
             'message': 'Permission denied'
         }, status=status.HTTP_403_FORBIDDEN)
         
-    access_token = getattr(settings, 'RIDER_PRO_SERVICE_TOKEN', None) or get_user_pops_token(request.user)
-    if not access_token:
-        return Response({
-            'success': False,
-            'message': 'No configured service token or user POPS token'
-        }, status=status.HTTP_502_BAD_GATEWAY)
-        
     try:
-        pops_riders, error = pops_client.fetch_riders(access_token)
+        pops_riders, error = _fetch_from_pops_with_fallback(request.user, pops_client.fetch_riders)
         if pops_riders is None:
             status_code = status.HTTP_502_BAD_GATEWAY
             msg = 'Failed to fetch riders from POPS'
