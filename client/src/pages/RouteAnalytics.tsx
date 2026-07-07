@@ -73,7 +73,12 @@ function RouteAnalyticsPage() {
       const response = await apiRequest('GET', url);
 
       const result = await response.json();
-      return result.analytics || [];
+      return (result.analytics || []).map((item: any) => ({
+        ...item,
+        route_id: item.route_id || item.id || `${item.employee_id || 'unknown'}-${item.date || 'unknown'}`,
+        fuel_consumption: item.fuel_consumption ?? item.fuel_consumed ?? 0,
+        stops: item.stops ?? item.shipments_completed ?? 0,
+      }));
     },
     enabled: !!filters.date_range?.from && !!filters.date_range?.to
   });
