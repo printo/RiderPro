@@ -42,27 +42,51 @@ class PopsAPIClient:
             logger.error(f"POPS login error: {e}")
             return None
             
-    def login_with_google(self, id_token: str) -> Optional[Dict[str, Any]]:
+    def login_with_google(self, id_token: str) -> Dict[str, Any]:
         """
-        Authenticate with POPS API using Google id_token
+        Authenticate a Google id_token against POPS (GoogleLoginView in the
+        pops repo, mounted at /api/v1/auth/google/login/). POPS is the access
+        authority: it returns tokens + role flags only for a linked, ACTIVE user.
+
+        Returns a dict with a 'status' key:
+          'ok'                 -> {'status', 'data'}  data = access/refresh +
+                                  full_name, is_superuser, is_staff, is_ops_team,
+                                  is_deliveryq, pia_access, registration_status
+          'requires_selection' -> Google email linked to multiple ACTIVE POPS
+                                  accounts; no tokens issued
+          'denied'             -> {'status', 'code', 'error'}  POPS rejected
+                                  (404 not linked, 403 pending approval)
+          'unreachable'        -> network error or POPS 5xx; not a rejection
         """
-        # Try POPS Google login endpoints
-        endpoints = [
-            f"{self.base_url}/auth/google/login/",
-            f"{self.base_url}/auth/google/",
-            f"{self.base_url}/google/login/"
-        ]
-        for url in endpoints:
-            try:
-                response = self.session.post(url, json={
-                    'id_token': id_token,
-                    'token': id_token
-                }, timeout=10)
-                if response.status_code == 200:
-                    return response.json()
-            except Exception as e:
-                logger.debug(f"POPS Google login failed on {url}: {e}")
-        return None
+        url = f"{self.base_url}/auth/google/login/"
+        try:
+            response = self.session.post(url, json={'id_token': id_token}, timeout=10)
+        except Exception as e:
+            logger.warning(f"POPS Google login unreachable: {e}")
+            return {'status': 'unreachable', 'error': str(e)}
+
+        try:
+            data = response.json()
+        except ValueError:
+            data = {}
+
+        if response.status_code == 200:
+            if data.get('access'):
+                return {'status': 'ok', 'data': data}
+            if data.get('requires_selection'):
+                return {'status': 'requires_selection', 'data': data}
+            logger.error(f"POPS Google login returned 200 without tokens: {data}")
+            return {'status': 'denied', 'code': 200, 'error': 'Unexpected POPS response'}
+
+        if response.status_code >= 500:
+            logger.warning(f"POPS Google login server error: {response.status_code}")
+            return {'status': 'unreachable', 'error': f'POPS returned {response.status_code}'}
+
+        return {
+            'status': 'denied',
+            'code': response.status_code,
+            'error': data.get('error') or data.get('detail') or '',
+        }
     
     def refresh_token(self, refresh_token: str) -> Optional[Dict[str, Any]]:
         """

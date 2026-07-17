@@ -131,9 +131,10 @@ def login(request):
 @extend_schema(
     tags=['Authentication'],
     summary='Login with Google (PIA Access)',
-    description='Verify a Google Sign-In id_token and return JWT tokens. The '
-                'verified email must be in GOOGLE_ADMIN_EMAILS (bootstrap admins) '
-                'or already exist as a user.',
+    description='Verify a Google Sign-In id_token, authorize it against POPS '
+                '(PIA) Google login, and return JWT tokens. Role and flags are '
+                're-synced from the POPS response on every login. Emails in '
+                'GOOGLE_ADMIN_EMAILS bypass POPS (bootstrap admins).',
     request=OpenApiTypes.OBJECT,
     examples=[OpenApiExample('Request', value={'id_token': '<google-id-token-jwt>'})],
 )
@@ -147,9 +148,13 @@ def google_login(request):
     and expiry), then map the verified email to a User and issue our own SimpleJWT
     tokens — mirroring the response shape of the regular `login` view.
 
-    Access policy: emails in settings.GOOGLE_ADMIN_EMAILS are bootstrapped as admins
-    with superuser and staff flags on first login; an already-existing user logs in
-    with their current role; any other email is rejected.
+    Access policy: POPS (PIA) is the access authority. The verified Google token
+    is forwarded to POPS's own Google login; if POPS accepts (account linked +
+    ACTIVE), the local User is created/updated from the POPS response — role and
+    flags are re-derived and OVERWRITTEN on every login so a role change in PIA
+    takes effect on the next sign-in. If POPS rejects, login is denied; no local
+    user is created. Emails in settings.GOOGLE_ADMIN_EMAILS bypass POPS and are
+    bootstrapped as admins (escape hatch so RiderPro admins never get locked out).
     """
     from django.conf import settings
 
@@ -196,9 +201,12 @@ def google_login(request):
     admin_emails = getattr(settings, 'GOOGLE_ADMIN_EMAILS', []) or []
 
     user = User.objects.filter(username__iexact=email).first()
-    if user is None:
-        if email in admin_emails:
-            # Bootstrap an APP admin from the allowlist on first Google login.
+
+    if email in admin_emails:
+        # Allowlist escape hatch: bootstrap/promote a RiderPro admin WITHOUT
+        # consulting POPS, so admins can't be locked out by a PIA outage or a
+        # missing PIA account. POPS tokens are still synced best-effort below.
+        if user is None:
             user = User.objects.create(
                 username=email,
                 full_name=full_name,
@@ -210,19 +218,7 @@ def google_login(request):
                 is_superuser=True,
             )
         else:
-            return Response(
-                {
-                    'success': False,
-                    'message': 'This Google account is not authorized. '
-                               'Ask an admin to grant access.',
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-    else:
-        # Existing user: promote to APP admin if newly allowlisted, ensure PIA
-        # access is on. Django-admin (is_staff/is_superuser) is automatically set here.
-        updated_fields = []
-        if email in admin_emails:
+            updated_fields = []
             if user.role != 'admin':
                 user.role = 'admin'
                 updated_fields.append('role')
@@ -232,14 +228,77 @@ def google_login(request):
             if not user.is_superuser:
                 user.is_superuser = True
                 updated_fields.append('is_superuser')
-        if not user.pia_access:
-            user.pia_access = True
-            updated_fields.append('pia_access')
-        if full_name and user.full_name != full_name:
-            user.full_name = full_name
-            updated_fields.append('full_name')
-        if updated_fields:
-            user.save(update_fields=updated_fields)
+            if not user.pia_access:
+                user.pia_access = True
+                updated_fields.append('pia_access')
+            if full_name and user.full_name != full_name:
+                user.full_name = full_name
+                updated_fields.append('full_name')
+            if updated_fields:
+                user.save(update_fields=updated_fields)
+
+        pops_result = pops_client.login_with_google(token)
+        if pops_result['status'] == 'ok':
+            pops_data = pops_result['data']
+            user.access_token = pops_data.get('access')
+            if pops_data.get('refresh'):
+                user.refresh_token = pops_data.get('refresh')
+            user.auth_source = 'pops'  # enable future dynamic auto-refreshes
+            user.save(update_fields=['access_token', 'refresh_token', 'auth_source'])
+        else:
+            logger.warning(
+                f"No POPS session token for allowlisted admin {email}: "
+                f"{pops_result['status']} {pops_result.get('error', '')}"
+            )
+    else:
+        # POPS-delegated access: forward the verified Google token to POPS's own
+        # Google login. POPS accepting (linked + ACTIVE account) IS the grant —
+        # the local User is then created/updated from the POPS response, with
+        # role + flags overwritten on EVERY login so PIA role changes propagate.
+        pops_result = pops_client.login_with_google(token)
+
+        if pops_result['status'] == 'ok':
+            from .backends import RiderProAuthBackend
+            user = RiderProAuthBackend()._get_or_create_user_from_pops(
+                pops_result['data'],
+                user.username if user else email,
+            )
+        elif pops_result['status'] == 'requires_selection':
+            return Response(
+                {
+                    'success': False,
+                    'message': 'This Google account is linked to multiple PIA '
+                               'accounts. Ask an admin to resolve the duplicate '
+                               'links in PIA.',
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        elif pops_result['status'] == 'unreachable':
+            if user is None:
+                return Response(
+                    {
+                        'success': False,
+                        'message': 'PIA could not be reached to verify your '
+                                   'access. Please try again shortly.',
+                    },
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+            # Known user + PIA outage: allow login with the last-synced role
+            # rather than locking out the whole team; the role re-syncs on the
+            # next successful login.
+            logger.warning(
+                f"POPS unreachable during Google login for {email}; "
+                f"proceeding with last-synced role '{user.role}'"
+            )
+        else:  # denied by POPS (not linked / pending approval)
+            pia_message = pops_result.get('error') or (
+                'This Google account is not authorized in PIA. '
+                'Ask an admin to grant PIA access.'
+            )
+            return Response(
+                {'success': False, 'message': pia_message},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
     if not user.is_active:
         return Response(
@@ -254,19 +313,6 @@ def google_login(request):
     # Issue our own JWTs (same helper as the other login paths).
     from .token_utils import get_token_for_user
     tokens = get_token_for_user(user)
-
-    # Try to authenticate with POPS Google Login to sync POPS session tokens
-    try:
-        pops_tokens = pops_client.login_with_google(token)
-        if pops_tokens and pops_tokens.get('access'):
-            user.access_token = pops_tokens.get('access')
-            if pops_tokens.get('refresh'):
-                user.refresh_token = pops_tokens.get('refresh')
-            user.auth_source = 'pops'  # enable future dynamic auto-refreshes
-            user.save(update_fields=['access_token', 'refresh_token', 'auth_source'])
-            logger.info(f"Successfully obtained POPS session token via Google login for user {user.username}")
-    except Exception as pops_exc:
-        logger.warning(f"Failed to obtain POPS session token via Google login: {pops_exc}")
 
     user.last_login = timezone.now()
     user.save(update_fields=['last_login'])
