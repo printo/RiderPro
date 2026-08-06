@@ -43,6 +43,12 @@ services:
       - S3_CDN_DOMAIN=${S3_CDN_DOMAIN:-}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      # ── POPS/PIA integration — read by backend/riderpro/settings.py as
+      # POPS_API_BASE_URL. Prod currently sets this in the gitignored
+      # localsettings.py (imported last, so it wins over this); kept here
+      # as a correct fallback matching prod's confirmed value in case that
+      # override is ever removed.
+      - POPS_API_BASE_URL=${POPS_API_BASE_URL:-https://pia.printo.in/api/v1}
 
   frontend:
     build:

@@ -3,13 +3,33 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { ButtonLoader } from "@/components/ui/Loader";
 import { useAuth } from "@/hooks/useAuth";
 import { withPageErrorBoundary } from "@/components/ErrorBoundary";
 import { log } from "@/utils/logger";
+import { cn } from "@/lib/utils";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { Phone, ArrowLeft, HelpCircle } from "lucide-react";
+import { Phone, ArrowLeft, HelpCircle, Check, ChevronsUpDown, Eye, EyeOff } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import type { GoogleAccountOption } from "@/services/AuthService";
 
 type AuthMethod = 'pia' | 'rider';
 
@@ -48,8 +68,17 @@ function Login() {
   const [authMethod, setAuthMethod] = useState<AuthMethod>('pia');
   const [, setLocation] = useLocation();
 
-  const { loginWithGoogle, requestOtp, verifyOtp } = useAuth();
+  const { loginWithGoogle, loginWithGoogleSelect, requestOtp, verifyOtp } = useAuth();
   const googleBtnRef = useRef<HTMLDivElement>(null);
+
+  // Shown when one Google account is linked to more than one PIA account —
+  // the user picks which employee_id to sign in as and confirms with that
+  // account's password (PIN), mirroring PIA's own account-picker.
+  const [googlePicker, setGooglePicker] = useState<{ idToken: string; accounts: GoogleAccountOption[] } | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [selectedPassword, setSelectedPassword] = useState("");
+  const [showSelectedPassword, setShowSelectedPassword] = useState(false);
+  const [accountPickerOpen, setAccountPickerOpen] = useState(false);
 
   // Load Google Identity Services and render the "Continue with Google" button.
   // Only active for the PIA Access method.
@@ -65,6 +94,10 @@ function Login() {
         const result = await loginWithGoogle(response.credential);
         if (result.success) {
           setLocation('/dashboard');
+        } else if (result.requiresSelection && result.accounts && result.accounts.length > 0) {
+          setGooglePicker({ idToken: response.credential, accounts: result.accounts });
+          setSelectedEmployeeId(String(result.accounts[0].employee_id || ''));
+          setSelectedPassword("");
         } else {
           setError(result.message || 'Google sign-in failed');
         }
@@ -140,6 +173,28 @@ function Login() {
       }
     } catch {
       setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfirmGoogleAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!googlePicker || !selectedEmployeeId || !selectedPassword) return;
+
+    setError("");
+    setIsLoading(true);
+    try {
+      const result = await loginWithGoogleSelect(googlePicker.idToken, selectedEmployeeId, selectedPassword);
+      if (result.success) {
+        setGooglePicker(null);
+        setSelectedPassword("");
+        setLocation('/dashboard');
+      } else {
+        setError(result.message || 'Sign-in failed');
+      }
+    } catch {
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -419,6 +474,128 @@ function Login() {
           </CardContent>
         </div>
       </Card>
+
+      <Dialog
+        open={googlePicker !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setGooglePicker(null);
+            setSelectedPassword("");
+            setShowSelectedPassword(false);
+            setAccountPickerOpen(false);
+            setError("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[380px]">
+          <DialogHeader>
+            <DialogTitle>Choose an account</DialogTitle>
+            <DialogDescription>
+              This Google account is linked to more than one PIA account. Select which one to sign in as and enter its password.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleConfirmGoogleAccount} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Account</Label>
+              <Popover open={accountPickerOpen} onOpenChange={setAccountPickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={accountPickerOpen}
+                    disabled={isLoading}
+                    className="w-full h-11 justify-between font-normal"
+                  >
+                    {(() => {
+                      const selected = googlePicker?.accounts.find((acc) => acc.employee_id === selectedEmployeeId);
+                      return selected ? (
+                        <span className="flex items-baseline gap-2 truncate">
+                          <span className="truncate">{selected.full_name}</span>
+                          <span className="text-xs text-muted-foreground shrink-0">{selected.employee_id}</span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Select account...</span>
+                      );
+                    })()}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search by name or employee ID..." />
+                    <CommandList>
+                      <CommandEmpty>No account found.</CommandEmpty>
+                      <CommandGroup>
+                        {(googlePicker?.accounts || []).map((acc) => (
+                          <CommandItem
+                            key={acc.employee_id}
+                            value={`${acc.full_name} ${acc.employee_id}`}
+                            onSelect={() => {
+                              setSelectedEmployeeId(acc.employee_id);
+                              setAccountPickerOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4 shrink-0",
+                                selectedEmployeeId === acc.employee_id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <div className="flex flex-col min-w-0">
+                              <span className="truncate">{acc.full_name}</span>
+                              <span className="text-xs text-muted-foreground">{acc.employee_id}</span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="google-select-password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="google-select-password"
+                  type={showSelectedPassword ? "text" : "password"}
+                  value={selectedPassword}
+                  onChange={(e) => setSelectedPassword(e.target.value)}
+                  placeholder="PIA password"
+                  autoComplete="current-password"
+                  disabled={isLoading}
+                  required
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSelectedPassword((prev) => !prev)}
+                  disabled={isLoading}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors"
+                  aria-label={showSelectedPassword ? "Hide password" : "Show password"}
+                >
+                  {showSelectedPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-md">
+                {error}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button type="submit" className="w-full h-11 font-semibold" disabled={isLoading || !selectedEmployeeId || !selectedPassword}>
+                {isLoading ? <ButtonLoader text="Signing in..." /> : "Confirm & Sign In"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

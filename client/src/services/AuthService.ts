@@ -14,6 +14,19 @@ interface ExternalAuthResponse {
   django_admin?: boolean;
 }
 
+export interface GoogleAccountOption {
+  id: number;
+  employee_id: string;
+  full_name: string;
+}
+
+export interface GoogleLoginResult {
+  success: boolean;
+  message: string;
+  requiresSelection?: boolean;
+  accounts?: GoogleAccountOption[];
+}
+
 interface LocalAuthResponse {
   success: boolean;
   message?: string;
@@ -261,12 +274,62 @@ class AuthService {
     }
   }
 
+  // Shared by both Google login steps (direct and post-account-selection):
+  // stores tokens, mirrors the PIA username/password role mapping, and
+  // updates auth state from a successful backend response.
+  private applyGoogleLoginResponse(data: ExternalAuthResponse): GoogleLoginResult {
+    log.dev('[AuthService] Google login response:', data);
+
+    const internalRoles = this.mapPIARolesToInternal(data.is_staff, data.is_super_user, data.is_ops_team);
+    const userUsername = data.username || '';
+
+    localStorage.setItem('access_token', data.access);
+    localStorage.setItem('refresh_token', data.refresh);
+    localStorage.setItem('full_name', data.full_name);
+    localStorage.setItem('username', userUsername);
+    localStorage.setItem('is_rider', internalRoles.is_rider.toString());
+    localStorage.setItem('is_super_user', internalRoles.is_super_user.toString());
+    localStorage.setItem('isadmin', internalRoles.is_super_user.toString());
+    localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
+    localStorage.setItem('is_staff', (data.is_staff || false).toString());
+    localStorage.setItem('django_admin', (data.django_admin || false).toString());
+
+    this.setCookies(data.access, data.refresh, data.full_name, data.is_ops_team || false);
+
+    const role = this.determineRole(data.is_staff, data.is_super_user, data.is_ops_team);
+
+    this.setState({
+      user: {
+        id: userUsername,
+        username: userUsername,
+        email: '',
+        role,
+        employee_id: userUsername,
+        full_name: data.full_name,
+        is_active: true,
+        is_approved: true,
+        is_rider: internalRoles.is_rider,
+        is_super_user: internalRoles.is_super_user,
+        is_ops_team: data.is_ops_team || false,
+        is_staff: data.is_staff || false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      access_token: data.access,
+      refresh_token: data.refresh,
+      is_authenticated: true,
+      is_loading: false,
+    });
+
+    return { success: true, message: 'Login successful' };
+  }
+
   // Method C: Google Sign-In (PIA Access) — backend verifies the id_token
-  public async loginWithGoogle(idToken: string): Promise<{ success: boolean; message: string }> {
+  public async loginWithGoogle(idToken: string): Promise<GoogleLoginResult> {
     try {
       this.setState({ is_loading: true });
 
-      const response = await fetch('/api/v1/auth/google/login', {
+      const response = await fetch(API_ENDPOINTS.auth.googleLogin, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -274,62 +337,60 @@ class AuthService {
         body: JSON.stringify({ id_token: idToken }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      const data = await response.json().catch(() => ({}));
+
+      // Not a failure — POPS has multiple ACTIVE accounts linked to this
+      // Google email. Let the caller show a picker + password (PIN) prompt
+      // and complete via loginWithGoogleSelect.
+      if (data.requires_selection) {
         this.setState({ is_loading: false });
-        return { success: false, message: errorData.message || 'Google sign-in failed' };
+        return {
+          success: false,
+          requiresSelection: true,
+          accounts: data.accounts || [],
+          message: data.message || 'Choose which account to sign in as.',
+        };
       }
 
-      const data: ExternalAuthResponse = await response.json();
-      log.dev('[AuthService] Google login response:', data);
+      if (!response.ok || !data.access) {
+        this.setState({ is_loading: false });
+        return { success: false, message: data.message || 'Google sign-in failed' };
+      }
 
-      // Reuse the exact same role mapping + storage as the PIA username/password path
-      const internalRoles = this.mapPIARolesToInternal(data.is_staff, data.is_super_user, data.is_ops_team);
-      const userUsername = data.username || '';
-
-      localStorage.setItem('access_token', data.access);
-      localStorage.setItem('refresh_token', data.refresh);
-      localStorage.setItem('full_name', data.full_name);
-      localStorage.setItem('username', userUsername);
-      localStorage.setItem('is_rider', internalRoles.is_rider.toString());
-      localStorage.setItem('is_super_user', internalRoles.is_super_user.toString());
-      localStorage.setItem('isadmin', internalRoles.is_super_user.toString());
-      localStorage.setItem('is_ops_team', (data.is_ops_team || false).toString());
-      localStorage.setItem('is_staff', (data.is_staff || false).toString());
-      localStorage.setItem('django_admin', (data.django_admin || false).toString());
-
-      this.setCookies(data.access, data.refresh, data.full_name, data.is_ops_team || false);
-
-      const role = this.determineRole(data.is_staff, data.is_super_user, data.is_ops_team);
-
-      this.setState({
-        user: {
-          id: userUsername,
-          username: userUsername,
-          email: '',
-          role,
-          employee_id: userUsername,
-          full_name: data.full_name,
-          is_active: true,
-          is_approved: true,
-          is_rider: internalRoles.is_rider,
-          is_super_user: internalRoles.is_super_user,
-          is_ops_team: data.is_ops_team || false,
-          is_staff: data.is_staff || false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        access_token: data.access,
-        refresh_token: data.refresh,
-        is_authenticated: true,
-        is_loading: false,
-      });
-
-      return { success: true, message: 'Login successful' };
+      return this.applyGoogleLoginResponse(data as ExternalAuthResponse);
     } catch (error) {
       console.error('Google login error:', error);
       this.setState({ is_loading: false });
       return { success: false, message: 'Google sign-in failed. Please try again.' };
+    }
+  }
+
+  // Method C, step 2: complete Google Sign-In after the user picked one of
+  // several linked PIA accounts and entered that account's password (PIN).
+  public async loginWithGoogleSelect(idToken: string, employeeId: string, password: string): Promise<GoogleLoginResult> {
+    try {
+      this.setState({ is_loading: true });
+
+      const response = await fetch(API_ENDPOINTS.auth.googleLoginSelect, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id_token: idToken, employee_id: employeeId, password }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.access) {
+        this.setState({ is_loading: false });
+        return { success: false, message: data.message || 'Sign-in failed' };
+      }
+
+      return this.applyGoogleLoginResponse(data as ExternalAuthResponse);
+    } catch (error) {
+      console.error('Google login select error:', error);
+      this.setState({ is_loading: false });
+      return { success: false, message: 'Sign-in failed. Please try again.' };
     }
   }
 

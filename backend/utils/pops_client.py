@@ -87,7 +87,48 @@ class PopsAPIClient:
             'code': response.status_code,
             'error': data.get('error') or data.get('detail') or '',
         }
-    
+
+    def login_with_google_select(self, id_token: str, employee_id: str, password: str) -> Dict[str, Any]:
+        """
+        Second step after login_with_google() returned 'requires_selection'
+        (GoogleLoginSelectView in the pops repo, mounted at
+        /api/v1/auth/google/login/select/). The caller picks one of the
+        `accounts` returned by the first step and supplies that account's PIA
+        password to confirm it's really them.
+
+        Returns the same status shape as login_with_google(): 'ok' | 'denied'
+        (wrong password, employee_id not one of the linked accounts, or
+        pending approval) | 'unreachable'.
+        """
+        url = f"{self.base_url}/auth/google/login/select/"
+        try:
+            response = self.session.post(url, json={
+                'id_token': id_token,
+                'employee_id': employee_id,
+                'password': password,
+            }, timeout=10)
+        except Exception as e:
+            logger.warning(f"POPS Google login select unreachable: {e}")
+            return {'status': 'unreachable', 'error': str(e)}
+
+        try:
+            data = response.json()
+        except ValueError:
+            data = {}
+
+        if response.status_code == 200 and data.get('access'):
+            return {'status': 'ok', 'data': data}
+
+        if response.status_code >= 500:
+            logger.warning(f"POPS Google login select server error: {response.status_code}")
+            return {'status': 'unreachable', 'error': f'POPS returned {response.status_code}'}
+
+        return {
+            'status': 'denied',
+            'code': response.status_code,
+            'error': data.get('error') or data.get('detail') or '',
+        }
+
     def refresh_token(self, refresh_token: str) -> Optional[Dict[str, Any]]:
         """
         Refresh access token using refresh token

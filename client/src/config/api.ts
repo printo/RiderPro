@@ -30,6 +30,7 @@ export const API_ENDPOINTS = {
     register: apiUrl('/auth/register'),
     localLogin: apiUrl('/auth/local-login'),
     googleLogin: apiUrl('/auth/google/login'),
+    googleLoginSelect: apiUrl('/auth/google/login/select'),
     requestOtp: apiUrl('/auth/request-otp'),
     verifyOtp: apiUrl('/auth/verify-otp'),
     refresh: apiUrl('/auth/refresh'),

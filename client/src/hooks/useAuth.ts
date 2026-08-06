@@ -19,6 +19,7 @@ export const useAuth = () => {
     loginWithExternalAPI: authService.loginWithExternalAPI.bind(authService),
     loginWithLocalDB: authService.loginWithLocalDB.bind(authService),
     loginWithGoogle: authService.loginWithGoogle.bind(authService),
+    loginWithGoogleSelect: authService.loginWithGoogleSelect.bind(authService),
     requestOtp: authService.requestOtp.bind(authService),
     verifyOtp: authService.verifyOtp.bind(authService),
     logout: async () => {

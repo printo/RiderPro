@@ -12,6 +12,7 @@ urlpatterns = [
     path('register', views.register, name='register'),
     path('local-login', views.local_login, name='local_login'),
     path('google/login', views.google_login, name='google_login'),
+    path('google/login/select', views.google_login_select, name='google_login_select'),
     path('request-otp', views.request_otp, name='request_otp'),
     path('verify-otp', views.verify_otp, name='verify_otp'),
     path('refresh', views.refresh_token, name='refresh_token'),

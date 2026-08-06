@@ -264,14 +264,19 @@ def google_login(request):
                 user.username if user else email,
             )
         elif pops_result['status'] == 'requires_selection':
+            # Not a denial — POPS has multiple ACTIVE accounts linked to this
+            # Google email. Hand the list back so the frontend can prompt for
+            # which employee_id + that account's password (see google_login_select).
+            accounts = pops_result.get('data', {}).get('accounts', [])
             return Response(
                 {
                     'success': False,
-                    'message': 'This Google account is linked to multiple PIA '
-                               'accounts. Ask an admin to resolve the duplicate '
-                               'links in PIA.',
+                    'requires_selection': True,
+                    'accounts': accounts,
+                    'message': 'This Google account is linked to more than one '
+                               'PIA account. Choose which one to sign in as.',
                 },
-                status=status.HTTP_403_FORBIDDEN,
+                status=status.HTTP_200_OK,
             )
         elif pops_result['status'] == 'unreachable':
             if user is None:
@@ -300,6 +305,15 @@ def google_login(request):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+    return _finalize_google_login(request, user)
+
+
+def _finalize_google_login(request, user):
+    """
+    Shared tail for both Google login steps (direct and post-selection):
+    activity check, Django session (for /admin/), our own JWTs, and the
+    response shape mirroring the regular `login` view.
+    """
     if not user.is_active:
         return Response(
             {'success': False, 'message': 'Account is inactive'},
@@ -338,6 +352,87 @@ def google_login(request):
         status=status.HTTP_200_OK,
     )
 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_login_select(request):
+    """
+    Second step of Google Sign-In when a single Google account is linked to
+    more than one ACTIVE PIA account. `google_login` returns
+    {requires_selection: True, accounts: [...]} in that case instead of
+    signing anyone in; the frontend shows that list, the user picks one and
+    enters that account's PIA password, and this view forwards the choice to
+    POPS's GoogleLoginSelectView, which re-verifies the id_token, checks the
+    employee_id is really one of the linked accounts, and checks the
+    password. POPS accepting IS the grant, exactly like the direct path.
+    """
+    token = request.data.get('id_token')
+    employee_id = request.data.get('employee_id')
+    password = request.data.get('password')
+
+    if not token or not employee_id or not password:
+        return Response(
+            {'success': False, 'message': 'id_token, employee_id and password are required'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '')
+    if not client_id:
+        logger.error('GOOGLE_OAUTH_CLIENT_ID is not configured')
+        return Response(
+            {'success': False, 'message': 'Google login is not configured on the server'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+        idinfo = google_id_token.verify_oauth2_token(
+            token, google_requests.Request(), client_id
+        )
+    except ValueError as exc:
+        logger.warning(f'Google id_token verification failed (select step): {exc}')
+        return Response(
+            {'success': False, 'message': 'Invalid or expired Google sign-in'},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    email = (idinfo.get('email') or '').strip().lower()
+    if not email or not idinfo.get('email_verified', False):
+        return Response(
+            {'success': False, 'message': 'Google account has no verified email'},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    existing_user = User.objects.filter(username__iexact=email).first()
+
+    pops_result = pops_client.login_with_google_select(token, employee_id, password)
+
+    if pops_result['status'] == 'ok':
+        from .backends import RiderProAuthBackend
+        user = RiderProAuthBackend()._get_or_create_user_from_pops(
+            pops_result['data'],
+            existing_user.username if existing_user else email,
+        )
+    elif pops_result['status'] == 'unreachable':
+        return Response(
+            {
+                'success': False,
+                'message': 'PIA could not be reached to verify your access. '
+                           'Please try again shortly.',
+            },
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    else:  # denied — wrong password, employee_id not one of the linked accounts, or pending approval
+        pia_message = pops_result.get('error') or 'Invalid employee ID or password.'
+        return Response(
+            {'success': False, 'message': pia_message},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    return _finalize_google_login(request, user)
 
 
 @extend_schema(

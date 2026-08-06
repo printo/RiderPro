@@ -48,6 +48,11 @@ services:
       - S3_CDN_DOMAIN=${S3_CDN_DOMAIN:-}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      # ── POPS/PIA integration — read by backend/riderpro/settings.py as
+      # POPS_API_BASE_URL. Without this, the container falls back to
+      # http://localhost:8002/api/v1, which inside the container means
+      # itself (unreachable) — so Google SSO always fails locally.
+      - POPS_API_BASE_URL=${POPS_API_BASE_URL:-https://pia.printo.in/api/v1}
 
   frontend:
     build:
