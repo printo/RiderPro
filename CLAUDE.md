@@ -234,6 +234,10 @@ The tool — `backend/apps/authentication/management/commands/purge_legacy_users
 - POPS riders with **no phone** (can't receive OTP): `Raghu_86572`, `Ramesh_48691`, `Seshagiri_300099`, `printo_prathap`, `printo_raja`.
 - **`sync` does NOT auto-clean** — `sync_riders_from_pops` is upsert-only (no prune); a deleted-in-POPS rider lingers locally, and a stale name collision makes the survivor's sync silently `failed`. Use the command. Future feature spec: `docs/reconcile-on-sync-prd.html`.
 
+## Knowledge graph (graphify)
+
+`graphify-out/` holds a committed knowledge graph of the repo (`graph.json`, interactive `graph.html`, `GRAPH_REPORT.md` with god nodes / communities / suggested questions). Last refreshed 2026-09-30: ~2.75k nodes, ~5.3k edges, 195 communities. For architecture questions ("what calls X?", "how does Y flow?"), query it first: `graphify query "<question>"`, `graphify path "A" "B"`, `graphify explain "X"`. Refresh incrementally with `/graphify . --update` after significant changes (code-only changes need no LLM). `graphify-out/cache/` is gitignored; the top-level outputs are force-tracked.
+
 ## Useful file locations
 
 | Concern | File |
